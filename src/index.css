@@ -51,9 +51,9 @@ All colors MUST be HSL.
   }
 }
 
-@keyframes scan-vertical {
+@keyframes speed-line {
   0% {
-    transform: translateY(-100vh);
+    transform: translateX(-100%);
     opacity: 0;
   }
   10% {
@@ -63,90 +63,25 @@ All colors MUST be HSL.
     opacity: 1;
   }
   100% {
-    transform: translateY(200vh);
+    transform: translateX(200%);
     opacity: 0;
   }
 }
 
-@keyframes scan-horizontal {
-  0% {
-    transform: translateX(-100vw);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(200vw);
-    opacity: 0;
-  }
+.animate-speed-line {
+  animation: speed-line 4s ease-in-out infinite;
 }
 
-@keyframes particle {
-  0% {
-    transform: translate(0, 0) scale(0);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate(calc(100vw * (var(--tx, 1))), calc(100vh * (var(--ty, -1)))) scale(1.5);
-    opacity: 0;
-  }
+.animate-speed-line-delayed {
+  animation: speed-line 5s ease-in-out infinite 1.5s;
 }
 
-@keyframes float-fast {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(30px, -30px) scale(1.1);
-  }
-  66% {
-    transform: translate(-30px, 30px) scale(0.9);
-  }
+.animate-speed-line-delayed-2 {
+  animation: speed-line 6s ease-in-out infinite 3s;
 }
 
-@keyframes pulse-fast {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.15;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 0.25;
-  }
-}
-
-.animate-scan-vertical {
-  animation: scan-vertical 3s linear infinite;
-}
-
-.animate-scan-vertical-delayed {
-  animation: scan-vertical 4s linear infinite 2s;
-}
-
-.animate-scan-horizontal {
-  animation: scan-horizontal 5s linear infinite 1s;
-}
-
-.animate-particle {
-  animation: particle linear infinite;
-}
-
-.animate-float-fast {
-  animation: float-fast 4s ease-in-out infinite;
-}
-
-.animate-pulse-fast {
-  animation: pulse-fast 2s ease-in-out infinite;
+.bg-gradient-radial {
+  background: radial-gradient(circle, var(--tw-gradient-stops));
 }
 
 @layer base {
