@@ -152,7 +152,7 @@ const Index = () => {
           <img src={bodhiLogo} alt="Bodhi Ventures" className="h-5 opacity-60 hover:opacity-100 transition-opacity" />
           <img src={figmentLogo} alt="Figment" className="h-6 opacity-60 hover:opacity-100 transition-opacity" />
           <img src={hashkeyLogo} alt="HashKey" className="h-6 opacity-60 hover:opacity-100 transition-opacity" />
-          <img src={longhashLogo} alt="LongHash Ventures" className="h-8 opacity-60 hover:opacity-100 transition-opacity" />
+          <img src={longhashLogo} alt="LongHash Ventures" className="h-24 opacity-60 hover:opacity-100 transition-opacity" />
         </div>
       </div>
     </div>
