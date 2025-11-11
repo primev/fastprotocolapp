@@ -65,15 +65,42 @@ const Index = () => {
         <img 
           src={heroCover} 
           alt="Fast Protocol Network" 
-          className="w-full h-full object-cover opacity-50 animate-pulse"
-          style={{ animationDuration: '4s' }}
+          className="w-full h-full object-cover opacity-50"
         />
         <div className="absolute inset-0 bg-gradient-secondary" />
       </div>
 
-      {/* Animated gradient orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse delay-1000" />
+      {/* Animated scanning lines */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        <div className="absolute w-full h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent animate-scan-vertical" 
+             style={{ animationDuration: '3s', top: '0%' }} />
+        <div className="absolute w-full h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent animate-scan-vertical-delayed" 
+             style={{ animationDuration: '4s', top: '30%' }} />
+        <div className="absolute h-full w-px bg-gradient-to-b from-transparent via-primary/40 to-transparent animate-scan-horizontal" 
+             style={{ animationDuration: '5s', left: '20%' }} />
+      </div>
+
+      {/* Fast-moving particles */}
+      <div className="absolute inset-0 z-0">
+        {[...Array(20)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 h-1 bg-primary/60 rounded-full animate-particle"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 3}s`,
+              animationDuration: `${2 + Math.random() * 3}s`
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Animated gradient orbs with faster movement */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-float-fast" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-float-fast" 
+           style={{ animationDelay: '1.5s' }} />
+      <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-primary/15 rounded-full blur-2xl animate-pulse-fast" />
 
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 py-12">
