@@ -34,54 +34,40 @@ export const AnimatedBackground = () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    // Grid animation
-    let gridOffset = 0;
     const gridSize = 50;
+    let gridOffset = 0;
 
     const animate = () => {
       ctx.fillStyle = "rgba(8, 12, 16, 0.15)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Calculate which grid cell the mouse is over
-      const mouseGridX = Math.floor((mousePos.x - gridOffset) / gridSize);
-      const mouseGridY = Math.floor((mousePos.y - gridOffset) / gridSize);
-
       gridOffset = (gridOffset + 0.5) % gridSize;
 
-      // Draw precision grid with hover highlights
-      for (let x = -gridSize; x < canvas.width + gridSize; x += gridSize) {
-        for (let y = -gridSize; y < canvas.height + gridSize; y += gridSize) {
-          const gridX = Math.floor((x + gridOffset - gridOffset) / gridSize);
-          const gridY = Math.floor((y + gridOffset - gridOffset) / gridSize);
-          
-          // Check if this cell is near the mouse (within 2 cell radius)
-          const cellX = Math.floor((x + gridOffset) / gridSize);
-          const cellY = Math.floor((y + gridOffset) / gridSize);
-          const distance = Math.sqrt(
-            Math.pow(cellX - mouseGridX, 2) + Math.pow(cellY - mouseGridY, 2)
-          );
-          
-          // Highlight cells near mouse with fade based on distance
-          if (distance < 3) {
-            const alpha = Math.max(0, 0.15 - distance * 0.05);
-            ctx.fillStyle = `rgba(52, 211, 235, ${alpha})`;
-            ctx.fillRect(x + gridOffset, y + gridOffset, gridSize, gridSize);
-          }
-        }
-      }
+      // Calculate the single grid cell under the mouse
+      const mouseGridX = Math.floor(mousePos.x / gridSize) * gridSize;
+      const mouseGridY = Math.floor(mousePos.y / gridSize) * gridSize;
+
+      // Draw the highlighted square first (under the grid)
+      ctx.fillStyle = "rgba(52, 211, 235, 0.2)";
+      ctx.fillRect(mouseGridX, mouseGridY, gridSize, gridSize);
+      
+      // Add glow to highlighted square
+      ctx.strokeStyle = "rgba(52, 211, 235, 0.6)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(mouseGridX, mouseGridY, gridSize, gridSize);
 
       // Draw grid lines
       ctx.strokeStyle = "rgba(52, 211, 235, 0.08)";
       ctx.lineWidth = 0.5;
 
-      for (let x = -gridSize; x < canvas.width + gridSize; x += gridSize) {
+      for (let x = 0; x < canvas.width; x += gridSize) {
         ctx.beginPath();
         ctx.moveTo(x + gridOffset, 0);
         ctx.lineTo(x + gridOffset, canvas.height);
         ctx.stroke();
       }
 
-      for (let y = -gridSize; y < canvas.height + gridSize; y += gridSize) {
+      for (let y = 0; y < canvas.height; y += gridSize) {
         ctx.beginPath();
         ctx.moveTo(0, y + gridOffset);
         ctx.lineTo(canvas.width, y + gridOffset);
