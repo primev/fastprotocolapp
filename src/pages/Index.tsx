@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { MessageCircle, Send, Twitter, Mail } from "lucide-react";
-import heroCover from "@/assets/hero-cover.jpg";
+import heroCover from "@/assets/hero-cover-upgraded.jpg";
 import primevLogo from "@/assets/primev-logo.png";
 import a16zLogo from "@/assets/a16z-logo.webp";
 import bodhiLogo from "@/assets/bodhi-logo.webp";
@@ -65,7 +65,8 @@ const Index = () => {
         <img 
           src={heroCover} 
           alt="Fast Protocol Network" 
-          className="w-full h-full object-cover opacity-40"
+          className="w-full h-full object-cover opacity-50 animate-pulse"
+          style={{ animationDuration: '4s' }}
         />
         <div className="absolute inset-0 bg-gradient-secondary" />
       </div>
@@ -148,8 +149,8 @@ const Index = () => {
           <img src={primevLogo} alt="Primev" className="h-6 opacity-80" />
           <span className="mx-2">•</span>
           <span>Backed by</span>
-          <img src={a16zLogo} alt="a16z" className="h-5 opacity-60 hover:opacity-100 transition-opacity" />
-          <img src={bodhiLogo} alt="Bodhi Ventures" className="h-5 opacity-60 hover:opacity-100 transition-opacity" />
+          <img src={a16zLogo} alt="a16z" className="h-6 opacity-60 hover:opacity-100 transition-opacity" />
+          <img src={bodhiLogo} alt="Bodhi Ventures" className="h-4 opacity-60 hover:opacity-100 transition-opacity" />
           <img src={figmentLogo} alt="Figment" className="h-9 opacity-60 hover:opacity-100 transition-opacity" />
           <img src={hashkeyLogo} alt="HashKey" className="h-6 opacity-60 hover:opacity-100 transition-opacity" />
           <img src={longhashLogo} alt="LongHash Ventures" className="h-24 opacity-60 hover:opacity-100 transition-opacity" />
