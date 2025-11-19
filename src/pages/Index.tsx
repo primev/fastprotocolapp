@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { MessageCircle, Send, Twitter } from "lucide-react";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
-import fastProtocolLogo from "@/assets/fast-protocol-logo.png";
+import fastProtocolLogo from "@/assets/fast-protocol-logo-icon.png";
 import primevLogo from "@/assets/primev-logo.png";
 import a16zLogo from "@/assets/a16z-logo.webp";
 import bodhiLogo from "@/assets/bodhi-logo.webp";
@@ -78,7 +78,7 @@ const Index = () => {
           
           {/* Tagline */}
           <p className="text-xl md:text-2xl text-muted-foreground">
-            Lightning-fast transactions. Seamless cross-chain operations.
+            Lightning-fast transactions on L1. Tokenized mev rewards.
           </p>
 
           {/* Email Signup */}
