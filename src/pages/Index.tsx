@@ -66,9 +66,9 @@ const Index = () => {
 
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4">
-        <div className="max-w-3xl mx-auto space-y-4 text-center">
+        <div className="max-w-3xl mx-auto space-y-2 text-center">
           {/* Logo */}
-          <div className="flex justify-center mb-2">
+          <div className="flex justify-center">
             <img 
               src={fastProtocolLogo} 
               alt="Fast Protocol" 
