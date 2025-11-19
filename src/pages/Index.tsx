@@ -65,7 +65,7 @@ const Index = () => {
       <AnimatedBackground />
 
       {/* Content */}
-      <div className="relative z-10 container mx-auto px-4">
+      <div className="relative z-10 container mx-auto px-4 -mt-[25vh]">
         <div className="max-w-3xl mx-auto space-y-1 text-center">
           {/* Logo */}
           <div className="flex justify-center -mb-12">
@@ -73,7 +73,7 @@ const Index = () => {
               src={fastProtocolLogo} 
               alt="Fast Protocol" 
               className="h-56 md:h-72 w-auto"
-              style={{ clipPath: 'inset(0 0 35% 0)' }}
+              style={{ clipPath: 'inset(0 0 30% 0)' }}
             />
           </div>
           
