@@ -72,7 +72,7 @@ const Index = () => {
             <img 
               src={fastProtocolLogo} 
               alt="Fast Protocol" 
-              className="h-32 md:h-40 w-auto"
+              className="h-64 md:h-80 w-auto"
             />
           </div>
           
