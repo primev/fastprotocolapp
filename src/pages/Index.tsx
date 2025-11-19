@@ -78,12 +78,12 @@ const Index = () => {
           </div>
           
           {/* Tagline */}
-          <p className="text-lg md:text-xl text-muted-foreground -mt-6 mb-8">
+          <p className="text-xl md:text-2xl text-muted-foreground -mt-6 mb-8">
             Lightning-fast transactions on L1. Tokenized mev rewards.
           </p>
 
           {/* Email Signup */}
-          <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-2xl p-3 md:p-4 shadow-xl max-w-xl mx-auto mt-[10vh]">
+          <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-2xl p-3 md:p-4 shadow-xl max-w-xl mx-auto">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-3">
                 <Input
