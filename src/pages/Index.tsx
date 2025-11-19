@@ -83,7 +83,7 @@ const Index = () => {
           </p>
 
           {/* Email Signup */}
-          <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-2xl p-3 md:p-4 shadow-xl max-w-xl mx-auto">
+          <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-2xl p-3 md:p-4 shadow-xl max-w-xl mx-auto mt-[10vh]">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-3">
                 <Input
