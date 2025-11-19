@@ -78,7 +78,7 @@ const Index = () => {
           </div>
           
           {/* Tagline */}
-          <p className="text-xl md:text-2xl text-muted-foreground -mt-6 mb-8">
+          <p className="text-lg md:text-xl text-muted-foreground -mt-6 mb-8">
             Lightning-fast transactions on L1. Tokenized mev rewards.
           </p>
 
