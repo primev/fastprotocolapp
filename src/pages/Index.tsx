@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { MessageCircle, Send, Twitter } from "lucide-react";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
+import fastProtocolLogo from "@/assets/fast-protocol-logo.png";
 import primevLogo from "@/assets/primev-logo.png";
 import a16zLogo from "@/assets/a16z-logo.webp";
 import bodhiLogo from "@/assets/bodhi-logo.webp";
@@ -66,12 +67,14 @@ const Index = () => {
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 py-12">
         <div className="max-w-3xl mx-auto space-y-8 text-center">
-          {/* Logo/Title */}
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight">
-            <span className="bg-gradient-primary bg-clip-text text-transparent">
-              Fast Protocol
-            </span>
-          </h1>
+          {/* Logo */}
+          <div className="flex justify-center mb-8">
+            <img 
+              src={fastProtocolLogo} 
+              alt="Fast Protocol" 
+              className="h-32 md:h-40 w-auto"
+            />
+          </div>
           
           {/* Tagline */}
           <p className="text-xl md:text-2xl text-muted-foreground">

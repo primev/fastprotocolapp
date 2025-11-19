@@ -48,16 +48,16 @@ export const AnimatedBackground = () => {
       const mouseGridY = Math.floor(mousePos.y / gridSize) * gridSize;
 
       // Draw the highlighted square first (under the grid)
-      ctx.fillStyle = "rgba(52, 211, 235, 0.2)";
+      ctx.fillStyle = "rgba(58, 147, 238, 0.2)";
       ctx.fillRect(mouseGridX, mouseGridY, gridSize, gridSize);
       
       // Add glow to highlighted square
-      ctx.strokeStyle = "rgba(52, 211, 235, 0.6)";
+      ctx.strokeStyle = "rgba(58, 147, 238, 0.6)";
       ctx.lineWidth = 2;
       ctx.strokeRect(mouseGridX, mouseGridY, gridSize, gridSize);
 
       // Draw grid lines
-      ctx.strokeStyle = "rgba(52, 211, 235, 0.08)";
+      ctx.strokeStyle = "rgba(58, 147, 238, 0.08)";
       ctx.lineWidth = 0.5;
 
       for (let x = 0; x < canvas.width; x += gridSize) {
@@ -75,7 +75,7 @@ export const AnimatedBackground = () => {
       }
 
       // Draw energy flow lines (horizontal)
-      ctx.strokeStyle = "rgba(52, 211, 235, 0.4)";
+      ctx.strokeStyle = "rgba(58, 147, 238, 0.4)";
       ctx.lineWidth = 1.5;
       const flowY = [canvas.height * 0.3, canvas.height * 0.5, canvas.height * 0.7];
       
@@ -88,7 +88,7 @@ export const AnimatedBackground = () => {
         
         // Glow effect
         ctx.shadowBlur = 15;
-        ctx.shadowColor = "rgba(52, 211, 235, 0.8)";
+        ctx.shadowColor = "rgba(58, 147, 238, 0.8)";
         ctx.stroke();
         ctx.shadowBlur = 0;
       });

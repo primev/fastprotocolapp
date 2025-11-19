@@ -8,46 +8,46 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 222 47% 5%;
-    --foreground: 210 40% 98%;
+    --background: 201 77% 5%;
+    --foreground: 0 0% 100%;
 
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 98%;
+    --card: 201 77% 8%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 201 77% 8%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 189 94% 55%;
-    --primary-foreground: 222 47% 5%;
+    --primary: 209 84% 58%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 30 10% 84%;
+    --secondary-foreground: 201 77% 5%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 201 60% 12%;
+    --muted-foreground: 30 10% 84%;
 
-    --accent: 189 94% 55%;
-    --accent-foreground: 222 47% 5%;
+    --accent: 209 84% 58%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 189 94% 55%;
+    --border: 201 60% 15%;
+    --input: 201 60% 15%;
+    --ring: 209 84% 58%;
 
     --radius: 0.75rem;
 
     /* Custom gradient tokens */
-    --gradient-primary: linear-gradient(135deg, hsl(189 94% 55%), hsl(217 91% 60%));
-    --gradient-secondary: linear-gradient(180deg, hsl(222 47% 8% / 0.8), hsl(222 47% 5%));
+    --gradient-primary: linear-gradient(135deg, hsl(209 84% 58%), hsl(209 84% 48%));
+    --gradient-secondary: linear-gradient(180deg, hsl(201 77% 8% / 0.8), hsl(201 77% 5%));
     
     /* Animation tokens */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     
     /* Glass effect */
-    --glass-bg: hsl(222 47% 8% / 0.6);
-    --glass-border: hsl(189 94% 55% / 0.2);
+    --glass-bg: hsl(201 77% 8% / 0.6);
+    --glass-border: hsl(209 84% 58% / 0.2);
   }
 }
 
