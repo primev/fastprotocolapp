@@ -73,6 +73,7 @@ const Index = () => {
               src={fastProtocolLogo} 
               alt="Fast Protocol" 
               className="h-64 md:h-80 w-auto"
+              style={{ clipPath: 'inset(0 0 25% 0)' }}
             />
           </div>
           
