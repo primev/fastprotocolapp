@@ -68,7 +68,7 @@ const Index = () => {
       <div className="relative z-10 container mx-auto px-4 -mt-[40vh]">
         <div className="max-w-3xl mx-auto space-y-1 text-center">
           {/* Logo */}
-          <div className="flex justify-center -mb-16">
+          <div className="flex justify-center -mb-20">
             <img 
               src={fastProtocolLogo} 
               alt="Fast Protocol" 
@@ -78,7 +78,7 @@ const Index = () => {
           </div>
           
           {/* Tagline */}
-          <p className="text-xl md:text-2xl text-muted-foreground -mt-6 mb-8">
+          <p className="text-xl md:text-2xl text-muted-foreground -mt-8 mb-16">
             Lightning-fast transactions on L1. Tokenized mev rewards.
           </p>
 
