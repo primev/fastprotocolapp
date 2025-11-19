@@ -66,19 +66,19 @@ const Index = () => {
 
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4">
-        <div className="max-w-3xl mx-auto space-y-2 text-center">
+        <div className="max-w-3xl mx-auto space-y-1 text-center">
           {/* Logo */}
-          <div className="flex justify-center">
+          <div className="flex justify-center -mb-12">
             <img 
               src={fastProtocolLogo} 
               alt="Fast Protocol" 
-              className="h-64 md:h-80 w-auto"
-              style={{ clipPath: 'inset(0 0 25% 0)' }}
+              className="h-56 md:h-72 w-auto"
+              style={{ clipPath: 'inset(0 0 35% 0)' }}
             />
           </div>
           
           {/* Tagline */}
-          <p className="text-xl md:text-2xl text-muted-foreground">
+          <p className="text-xl md:text-2xl text-muted-foreground -mt-4">
             Lightning-fast transactions on L1. Tokenized mev rewards.
           </p>
 
