@@ -65,7 +65,7 @@ const Index = () => {
       <AnimatedBackground />
 
       {/* Content */}
-      <div className="relative z-10 container mx-auto px-4 -mt-[25vh]">
+      <div className="relative z-10 container mx-auto px-4 -mt-[40vh]">
         <div className="max-w-3xl mx-auto space-y-1 text-center">
           {/* Logo */}
           <div className="flex justify-center -mb-12">
@@ -73,17 +73,17 @@ const Index = () => {
               src={fastProtocolLogo} 
               alt="Fast Protocol" 
               className="h-56 md:h-72 w-auto"
-              style={{ clipPath: 'inset(0 0 30% 0)' }}
+              style={{ clipPath: 'inset(10% 0 30% 0)' }}
             />
           </div>
           
           {/* Tagline */}
-          <p className="text-xl md:text-2xl text-muted-foreground -mt-4">
+          <p className="text-xl md:text-2xl text-muted-foreground -mt-4 mb-4">
             Lightning-fast transactions on L1. Tokenized mev rewards.
           </p>
 
           {/* Email Signup */}
-          <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-2xl p-6 md:p-8 shadow-xl max-w-xl mx-auto">
+          <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-2xl p-3 md:p-4 shadow-xl max-w-xl mx-auto">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-3">
                 <Input
