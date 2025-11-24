@@ -23,10 +23,12 @@ const NavLink = forwardRef<HTMLAnchorElement, NavLinkCompatProps>(
   ) => {
     const pathname = usePathname();
     const isActive = pathname === to;
+    // Keep compatibility props without passing unknown DOM attributes
+    void _pending;
+    void ref;
     return (
       <Link
         href={to}
-        ref={ref as any}
         className={cn(className, isActive && activeClassName)}
         {...props}
       />
