@@ -27,20 +27,12 @@ export const metadata: Metadata = {
     description: 'Lightning-fast transactions on L1. Tokenized mev rewards.',
     url: '/',
     type: 'website',
-    images: [
-      {
-        url: 'https://lovable.dev/opengraph-image-p98pqg.png',
-        width: 1200,
-        height: 630,
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
     site: '@Fast_Protocol',
     title: 'Fast Protocol - Lightning-fast transactions on L1',
     description: 'Lightning-fast transactions on L1. Tokenized mev rewards.',
-    images: ['https://lovable.dev/opengraph-image-p98pqg.png'],
   },
 };
 
