@@ -7,12 +7,17 @@ export type CaptureEmailInput = {
   status?: 'subscribed' | 'pending' | 'unsubscribed';
 };
 
+export type CaptureEmailResult = {
+  alreadySubscribed: boolean;
+  message?: string;
+};
+
 export async function captureEmail({
   email,
   fields = {},
   tags = [],
   status = 'subscribed',
-}: CaptureEmailInput) {
+}: CaptureEmailInput): Promise<CaptureEmailResult> {
   const response = await fetch(
     `https://api.emailoctopus.com/lists/${env.EMAILOCTOPUS_LIST_ID}/contacts`,
     {
@@ -34,8 +39,11 @@ export async function captureEmail({
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     if (response.status === 409) {
-      // Return a recognizable error that the client can map to a friendly message
-      throw new Error('EMAIL_ALREADY_SUBSCRIBED [409]');
+      // Not an exceptional case: return a recognizable, non-error response
+      return {
+        alreadySubscribed: true,
+        message: "You're already subscribed!",
+      };
     }
     const message = (() => {
       if (isRecord(data)) {
@@ -46,7 +54,7 @@ export async function captureEmail({
     })();
     throw new Error(message);
   }
-  return (data ?? {}) as Record<string, unknown>;
+  return { alreadySubscribed: false };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { captureEmailAction } from '@/actions/capture-email';
 import { MessageCircle, Send, Twitter, Check } from 'lucide-react';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
+import type { CaptureEmailResult } from '@/lib/email';
 
 const socialLinks = [
   {
@@ -48,36 +49,31 @@ const IndexPage = () => {
     setIsLoading(true);
 
     try {
-      await captureEmailAction({ email });
-      toast({
-        title: 'Success!',
-        description: "You've been added to the waitlist",
-      });
-      setIsSuccess(true);
-      setTimeout(() => {
-        setEmail('');
-        setIsSuccess(false);
-      }, 2000);
-    } catch (err) {
-      // Log detailed error for debugging, do not expose details in UI
-      // eslint-disable-next-line no-console
-      console.error('Failed to capture email', err);
-      if (
-        err instanceof Error &&
-        (err.message.includes('409') ||
-          err.message.includes('EMAIL_ALREADY_SUBSCRIBED'))
-      ) {
+      const result: CaptureEmailResult = await captureEmailAction({ email });
+      if (result.alreadySubscribed) {
         toast({
           title: "You're already subscribed!",
         });
       } else {
         toast({
-          title: 'Something went wrong',
-          description:
-            'We could not add your email right now. Please try again.',
-          variant: 'destructive',
+          title: 'Success!',
+          description: "You've been added to the waitlist",
         });
+        setIsSuccess(true);
+        setTimeout(() => {
+          setEmail('');
+          setIsSuccess(false);
+        }, 2000);
       }
+    } catch (err) {
+      // Log detailed error for debugging, do not expose details in UI
+      // eslint-disable-next-line no-console
+      console.error('Failed to capture email', err);
+      toast({
+        title: 'Something went wrong',
+        description: 'We could not add your email right now. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
