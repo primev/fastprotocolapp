@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { MessageCircle, Send, Twitter } from "lucide-react";
+import { MessageCircle, Send, Twitter, Check } from "lucide-react";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import fastProtocolLogo from "@/assets/fast-protocol-logo-icon.png";
 import primevLogo from "@/assets/primev-logo.png";
@@ -21,18 +21,19 @@ const socialLinks = [
   {
     name: "Telegram",
     icon: Send,
-    url: "https://t.me/fastprotocol",
+    url: "https://t.me/Fast_Protocol",
   },
   {
     name: "Twitter",
     icon: Twitter,
-    url: "https://twitter.com/fastprotocol",
+    url: "https://x.com/Fast_Protocol",
   },
 ];
 
 const Index = () => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,8 +55,12 @@ const Index = () => {
         title: "Success!",
         description: "You've been added to the waitlist",
       });
-      setEmail("");
-      setIsLoading(false);
+      setIsSuccess(true);
+      setTimeout(() => {
+        setEmail("");
+        setIsLoading(false);
+        setIsSuccess(false);
+      }, 2000);
     }, 1000);
   };
 
@@ -101,7 +106,13 @@ const Index = () => {
                   disabled={isLoading}
                   className="h-12 px-8 whitespace-nowrap"
                 >
-                  {isLoading ? "Claiming..." : "Claim Fast Pass"}
+                  {isSuccess ? (
+                    <Check className="w-6 h-6 text-green-500 animate-scale-in" />
+                  ) : isLoading ? (
+                    "Claiming..."
+                  ) : (
+                    "Claim Fast Pass"
+                  )}
                 </Button>
               </div>
             </form>
