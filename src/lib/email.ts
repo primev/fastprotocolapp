@@ -33,6 +33,10 @@ export async function captureEmail({
 
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
+    if (response.status === 409) {
+      // Return a recognizable error that the client can map to a friendly message
+      throw new Error('EMAIL_ALREADY_SUBSCRIBED [409]');
+    }
     const message = (() => {
       if (isRecord(data)) {
         if (typeof data.error === 'string') return data.error;
