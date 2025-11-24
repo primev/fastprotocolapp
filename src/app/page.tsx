@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -69,9 +70,12 @@ const IndexPage = () => {
         <div className="max-w-3xl mx-auto space-y-1 text-center">
           {/* Logo */}
           <div className="flex justify-center -mb-16">
-            <img
-              src={'/assets/fast-protocol-logo-icon.png'}
+            <Image
+              src="/assets/fast-protocol-logo-icon.png"
               alt="Fast Protocol"
+              width={512}
+              height={512}
+              priority
               className="h-56 md:h-72 w-auto"
               style={{ clipPath: 'inset(10% 0 30% 0)' }}
             />
@@ -139,36 +143,48 @@ const IndexPage = () => {
       <div className="absolute bottom-0 left-0 right-0 z-10 pb-6">
         <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
           <span>Built by</span>
-          <img
-            src={'/assets/primev-logo.png'}
+          <Image
+            src="/assets/primev-logo.png"
             alt="Primev"
+            width={100}
+            height={24}
             className="h-6 opacity-80"
           />
           <span className="mx-2">•</span>
           <span>Backed by</span>
-          <img
-            src={'/assets/a16z-logo.webp'}
+          <Image
+            src="/assets/a16z-logo.webp"
             alt="a16z"
+            width={160}
+            height={32}
             className="h-6 opacity-60 hover:opacity-100 transition-opacity"
           />
-          <img
-            src={'/assets/bodhi-logo.webp'}
+          <Image
+            src="/assets/bodhi-logo.webp"
             alt="Bodhi Ventures"
+            width={120}
+            height={24}
             className="h-4 opacity-60 hover:opacity-100 transition-opacity"
           />
-          <img
-            src={'/assets/figment-logo.webp'}
+          <Image
+            src="/assets/figment-logo.webp"
             alt="Figment"
+            width={200}
+            height={60}
             className="h-9 opacity-60 hover:opacity-100 transition-opacity"
           />
-          <img
-            src={'/assets/hashkey-logo.svg'}
+          <Image
+            src="/assets/hashkey-logo.svg"
             alt="HashKey"
+            width={160}
+            height={32}
             className="h-6 opacity-60 hover:opacity-100 transition-opacity"
           />
-          <img
-            src={'/assets/longhash-logo.webp'}
+          <Image
+            src="/assets/longhash-logo.webp"
             alt="LongHash Ventures"
+            width={320}
+            height={96}
             className="h-24 opacity-60 hover:opacity-100 transition-opacity"
           />
         </div>
