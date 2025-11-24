@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { captureEmailAction } from '@/actions/capture-email';
 import { MessageCircle, Send, Twitter, Check } from 'lucide-react';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 
@@ -46,7 +47,8 @@ const IndexPage = () => {
 
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      await captureEmailAction({ email });
       toast({
         title: 'Success!',
         description: "You've been added to the waitlist",
@@ -54,10 +56,31 @@ const IndexPage = () => {
       setIsSuccess(true);
       setTimeout(() => {
         setEmail('');
-        setIsLoading(false);
         setIsSuccess(false);
       }, 2000);
-    }, 1000);
+    } catch (err) {
+      // Log detailed error for debugging, do not expose details in UI
+      // eslint-disable-next-line no-console
+      console.error('Failed to capture email', err);
+      if (
+        err instanceof Error &&
+        (err.message.includes('409') ||
+          err.message.includes('EMAIL_ALREADY_SUBSCRIBED'))
+      ) {
+        toast({
+          title: "You're already subscribed!",
+        });
+      } else {
+        toast({
+          title: 'Something went wrong',
+          description:
+            'We could not add your email right now. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -155,35 +178,35 @@ const IndexPage = () => {
           <Image
             src="/assets/a16z-logo.webp"
             alt="a16z"
-            width={160}
-            height={32}
+            width={177}
+            height={24}
             className="h-6 opacity-60 hover:opacity-100 transition-opacity"
           />
           <Image
             src="/assets/bodhi-logo.webp"
             alt="Bodhi Ventures"
-            width={120}
-            height={24}
+            width={170}
+            height={16}
             className="h-4 opacity-60 hover:opacity-100 transition-opacity"
           />
           <Image
             src="/assets/figment-logo.webp"
             alt="Figment"
-            width={200}
-            height={60}
+            width={96}
+            height={36}
             className="h-9 opacity-60 hover:opacity-100 transition-opacity"
           />
           <Image
             src="/assets/hashkey-logo.svg"
             alt="HashKey"
-            width={160}
-            height={32}
+            width={73}
+            height={24}
             className="h-6 opacity-60 hover:opacity-100 transition-opacity"
           />
           <Image
             src="/assets/longhash-logo.webp"
             alt="LongHash Ventures"
-            width={320}
+            width={96}
             height={96}
             className="h-24 opacity-60 hover:opacity-100 transition-opacity"
           />
