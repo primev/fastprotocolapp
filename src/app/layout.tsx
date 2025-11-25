@@ -3,10 +3,25 @@ import '@/app/globals.css';
 import type { Metadata } from 'next';
 import { Providers } from '@/components/providers';
 
+function addProtocolIfMissing(url: string): string {
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  return `https://${url}`;
+}
+
+const vercelEnv = process.env.VERCEL_ENV;
+const preferredDomainWithoutProtocol =
+  vercelEnv === 'production'
+    ? process.env.VERCEL_PROJECT_PRODUCTION_URL
+    : process.env.VERCEL_URL;
+const deploymentUrlString =
+  (preferredDomainWithoutProtocol &&
+    addProtocolIfMissing(preferredDomainWithoutProtocol)) ||
+  'http://localhost:3000';
+
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fastprotocol.app'
-  ),
+  metadataBase: new URL(deploymentUrlString),
   title: 'Fast Protocol - Lightning-fast transactions on L1',
   description:
     'Lightning-fast transactions on L1. Tokenized mev rewards. Join the waitlist for exclusive early access to Fast Protocol.',
