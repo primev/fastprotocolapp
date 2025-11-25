@@ -1,17 +1,33 @@
 import { useEffect, useRef } from 'react';
+import { useIsMobile } from '../hooks/use-mobile';
 
 export const AnimatedBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mousePosRef = useRef({ x: 0, y: 0 });
+  const isMobile = useIsMobile();
+
+  // Energy flow line configuration (keep visual parity across devices)
+  const BEAM_LINE_WIDTH = isMobile ? 0.5 : 1.5;
+  const BEAM_GLOW_BLUR = isMobile ? 5 : 15;
+  const BEAM_STROKE_COLOR = 'rgba(58, 147, 238, 0.4)';
+  const BEAM_GLOW_COLOR = 'rgba(58, 147, 238, 0.8)';
+  const BEAM_SEGMENT_START = isMobile ? -50 : -100; // relative to animated offset
+  const BEAM_SEGMENT_END = isMobile ? 0 : 200; // relative to animated offset
+  const BEAM_BASE_SPEED = isMobile ? 0.1 : 0.2;
+  const BEAM_SPEED_INCREMENT = isMobile ? 0.05 : 0.1;
+  const BEAM_Y_POSITIONS = isMobile ? [0.01, 0.2, 0.1] : [0.3, 0.5, 0.7]; // relative height multipliers
 
   useEffect(() => {
+    if (isMobile) {
+      return;
+    }
     const handleMouseMove = (e: MouseEvent) => {
       mousePosRef.current = { x: e.clientX, y: e.clientY };
     };
 
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
+  }, [isMobile]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -36,7 +52,7 @@ export const AnimatedBackground = () => {
     };
     resize();
 
-    const gridSize = 50;
+    const gridSize = isMobile ? 15 : 50;
     let gridOffset = 0;
 
     let animationFrameId: number;
@@ -58,14 +74,16 @@ export const AnimatedBackground = () => {
       const mouseGridX = Math.floor(mouseX / gridSize) * gridSize;
       const mouseGridY = Math.floor(mouseY / gridSize) * gridSize;
 
-      // Draw the highlighted square first (under the grid)
-      ctx.fillStyle = 'rgba(58, 147, 238, 0.2)';
-      ctx.fillRect(mouseGridX, mouseGridY, gridSize, gridSize);
+      // Draw the highlighted square first (under the grid) when not on mobile
+      if (!isMobile) {
+        ctx.fillStyle = 'rgba(58, 147, 238, 0.2)';
+        ctx.fillRect(mouseGridX, mouseGridY, gridSize, gridSize);
 
-      // Add glow to highlighted square
-      ctx.strokeStyle = 'rgba(58, 147, 238, 0.6)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(mouseGridX, mouseGridY, gridSize, gridSize);
+        // Add glow to highlighted square
+        ctx.strokeStyle = 'rgba(58, 147, 238, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(mouseGridX, mouseGridY, gridSize, gridSize);
+      }
 
       // Draw grid lines
       ctx.strokeStyle = 'rgba(58, 147, 238, 0.08)';
@@ -87,17 +105,18 @@ export const AnimatedBackground = () => {
 
       // Draw energy flow lines (horizontal)
       if (!reduceMotion) {
-        const flowY = [height * 0.3, height * 0.5, height * 0.7];
+        const flowY = BEAM_Y_POSITIONS.map((p) => height * p);
         flowY.forEach((y, idx) => {
-          const offset = (time * (0.2 + idx * 0.1)) % width;
+          const offset =
+            (time * (BEAM_BASE_SPEED + idx * BEAM_SPEED_INCREMENT)) % width;
           ctx.save();
-          ctx.strokeStyle = 'rgba(58, 147, 238, 0.4)';
-          ctx.lineWidth = 1.5;
-          ctx.shadowBlur = 15;
-          ctx.shadowColor = 'rgba(58, 147, 238, 0.8)';
+          ctx.strokeStyle = BEAM_STROKE_COLOR;
+          ctx.lineWidth = BEAM_LINE_WIDTH;
+          ctx.shadowBlur = BEAM_GLOW_BLUR;
+          ctx.shadowColor = BEAM_GLOW_COLOR;
           ctx.beginPath();
-          ctx.moveTo(-100 + offset, y);
-          ctx.lineTo(200 + offset, y);
+          ctx.moveTo(BEAM_SEGMENT_START + offset, y);
+          ctx.lineTo(BEAM_SEGMENT_END + offset, y);
           ctx.stroke();
           ctx.restore();
         });
@@ -113,7 +132,7 @@ export const AnimatedBackground = () => {
       window.removeEventListener('resize', resize);
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
-  }, []);
+  }, [isMobile]);
 
   return (
     <>
