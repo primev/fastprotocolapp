@@ -5,7 +5,9 @@ import { Providers } from '@/components/providers';
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fastprotocol.app'
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ??
+      process.env.VERCEL_URL ??
+      'http://localhost:3000'
   ),
   title: 'Fast Protocol - Lightning-fast transactions on L1',
   description:
