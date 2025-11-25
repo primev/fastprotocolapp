@@ -127,9 +127,9 @@ const IndexPage = () => {
                   {isSuccess ? (
                     <Check className="w-6 h-6 text-green-500 animate-scale-in" />
                   ) : isLoading ? (
-                    'Claiming...'
+                    'Joining...'
                   ) : (
-                    'Claim Fast Pass'
+                    'Join Waitlist'
                   )}
                 </Button>
               </div>
