@@ -86,7 +86,7 @@ const IndexPage = () => {
 
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 -mt-[40vh]">
-        <div className="max-w-3xl mx-auto space-y-1 text-center">
+        <div className="max-w-3xl mx-auto space-y-6 text-center">
           {/* Logo */}
           <div className="flex justify-center -mb-16">
             <Image
@@ -101,7 +101,7 @@ const IndexPage = () => {
           </div>
 
           {/* Tagline */}
-          <p className="text-xl md:text-2xl text-muted-foreground -mt-6 mb-8">
+          <p className="text-xl md:text-2xl text-muted-foreground mb-8">
             Lightning-fast transactions on L1. Tokenized mev rewards.
           </p>
 
@@ -137,7 +137,7 @@ const IndexPage = () => {
           </div>
 
           {/* Social Links */}
-          <div className="flex flex-wrap gap-3 justify-center pt-4">
+          <div className="flex flex-wrap gap-3 justify-center">
             {socialLinks.map((social) => {
               const Icon = social.icon;
               return (
@@ -161,15 +161,18 @@ const IndexPage = () => {
       {/* Footer */}
       <div className="absolute bottom-0 left-0 right-0 z-10 pb-6">
         <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
-          <span>Built by</span>
-          <Image
-            src="/assets/primev-logo.png"
-            alt="Primev"
-            width={100}
-            height={24}
-            className="h-6 opacity-80"
-          />
+          <div className="flex items-center gap-2">
+            <span>Built by</span>
+            <Image
+              src="/assets/primev-logo.png"
+              alt="Primev"
+              width={100}
+              height={24}
+              className="h-6 opacity-80"
+            />
+          </div>
           <span className="mx-2">•</span>
+
           <span>Backed by</span>
           <Image
             src="/assets/a16z-logo.webp"
@@ -200,11 +203,11 @@ const IndexPage = () => {
             className="h-6 opacity-60 hover:opacity-100 transition-opacity"
           />
           <Image
-            src="/assets/longhash-logo.webp"
+            src="/assets/longhash-logo.png"
             alt="LongHash Ventures"
             width={96}
-            height={96}
-            className="h-24 opacity-60 hover:opacity-100 transition-opacity"
+            height={32}
+            className="opacity-60 hover:opacity-100 transition-opacity"
           />
         </div>
       </div>
