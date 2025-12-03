@@ -9,6 +9,7 @@ import { captureEmailAction } from '@/actions/capture-email';
 import { MessageCircle, Send, Twitter, Check } from 'lucide-react';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import type { CaptureEmailResult } from '@/lib/email';
+import Link from 'next/link';
 
 const socialLinks = [
   {
@@ -154,6 +155,13 @@ const IndexPage = () => {
                 </Button>
               );
             })}
+          </div>
+
+          {/* Add RPC Button */}
+          <div className="flex justify-center">
+            <Button variant="hero" size="lg" asChild className="h-12 px-8">
+              <Link href="/network-checker">Install Fast RPC</Link>
+            </Button>
           </div>
         </div>
       </div>
