@@ -1,7 +1,8 @@
 import '@/app/globals.css';
 
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Providers } from '@/components/providers';
+import { Analytics } from '@vercel/analytics/next';
 
 function addProtocolIfMissing(url: string): string {
   if (/^https?:\/\//i.test(url)) {
@@ -20,13 +21,17 @@ const deploymentUrlString =
     addProtocolIfMissing(preferredDomainWithoutProtocol)) ||
   'http://localhost:3000';
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(deploymentUrlString),
   title: 'Fast Protocol - Lightning-fast transactions on L1',
   description:
     'Lightning-fast transactions on L1. Tokenized mev rewards. Join the waitlist for exclusive early access to Fast Protocol.',
   icons: { icon: '/icon.png' },
-  viewport: { width: 'device-width', initialScale: 1 },
   keywords: [
     'blockchain',
     'protocol',
@@ -60,6 +65,7 @@ export default function RootLayout({
     <html lang="en" className="scroll-smooth overflow-x-hidden">
       <body className="overflow-x-hidden">
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   );
