@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -36,7 +36,7 @@ import { OneTimeTasksSection } from '@/components/dashboard/OneTimeTasksSection'
 import { LeaderboardTable } from '@/components/dashboard/LeaderboardTable';
 import { SBTGatingModal } from '@/components/modals/SBTGatingModal';
 
-const DashboardPage = () => {
+const DashboardContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [referralCode] = useState('FAST-GEN-ABC123');
@@ -641,6 +641,20 @@ const DashboardPage = () => {
         </DialogContent>
       </Dialog>
     </div>
+  );
+};
+
+const DashboardPage = () => {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="animate-pulse text-muted-foreground">Loading...</div>
+        </div>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   );
 };
 
