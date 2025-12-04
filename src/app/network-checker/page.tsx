@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
-import { Lock, AlertCircle } from 'lucide-react';
+import { Lock, AlertCircle, CheckCircle, XCircle, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRPCTest } from '@/hooks/use-rpc-test';
 import {
@@ -38,8 +38,18 @@ const NetworkCheckerPage = () => {
     };
 
     const handleConfirmTest = () => {
-        setIsTestModalOpen(false);
         rpcTest.test();
+    };
+
+    const handleCloseModal = () => {
+        setIsTestModalOpen(false);
+        // Clear test result when modal closes
+        rpcTest.reset();
+    };
+
+    const copyHash = (hash: string) => {
+        navigator.clipboard.writeText(hash);
+        // You could add a toast here if needed
     };
 
     // Determine wallet type for drawer content
@@ -189,47 +199,120 @@ const NetworkCheckerPage = () => {
             </Sheet>
 
             {/* RPC Test Modal */}
-            <Dialog open={isTestModalOpen} onOpenChange={setIsTestModalOpen}>
+            <Dialog 
+                open={isTestModalOpen} 
+                onOpenChange={(open) => {
+                    if (!open) {
+                        // Modal is closing - clear state
+                        setIsTestModalOpen(false);
+                        rpcTest.reset();
+                    } else if (!rpcTest.isTesting) {
+                        setIsTestModalOpen(open);
+                    }
+                }}
+            >
                 <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                                <AlertCircle className="h-5 w-5 text-primary" />
-                            </div>
-                            <DialogTitle>RPC Connection Test</DialogTitle>
-                        </div>
-                        <DialogDescription className="text-left pt-2">
-                            <p className="mb-4">
-                                To verify that your RPC is properly configured, a test transaction will be performed.
-                            </p>
-                            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                                <p className="text-sm font-medium text-foreground">Transaction Details:</p>
-                                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                                    <li>Zero value transaction (0 ETH)</li>
-                                    <li>No funds will be transferred</li>
-                                    <li>Only verifies RPC connectivity</li>
-                                </ul>
-                            </div>
-                            <p className="mt-4 text-sm">
-                                You will need to approve this transaction in your wallet to complete the test.
-                            </p>
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="gap-2 sm:gap-0">
-                        <Button
-                            variant="outline"
-                            onClick={() => setIsTestModalOpen(false)}
-                            disabled={rpcTest.isTesting}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleConfirmTest}
-                            disabled={rpcTest.isTesting}
-                        >
-                            {rpcTest.isTesting ? 'Testing...' : 'Continue Test'}
-                        </Button>
-                    </DialogFooter>
+                    {rpcTest.testResult ? (
+                        <>
+                            <DialogHeader>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                                        rpcTest.testResult.success 
+                                            ? 'bg-green-500/10' 
+                                            : 'bg-destructive/10'
+                                    }`}>
+                                        {rpcTest.testResult.success ? (
+                                            <CheckCircle className="h-5 w-5 text-green-500" />
+                                        ) : (
+                                            <XCircle className="h-5 w-5 text-destructive" />
+                                        )}
+                                    </div>
+                                    <DialogTitle>
+                                        {rpcTest.testResult.success ? 'Test Successful' : 'Test Failed'}
+                                    </DialogTitle>
+                                </div>
+                                <DialogDescription className="text-left pt-2">
+                                    {rpcTest.testResult.success ? (
+                                        <p className="mb-4">
+                                            Fast Protocol RPC connection was successfully verified. The transaction has been confirmed.
+                                        </p>
+                                    ) : (
+                                        <p className="mb-4">
+                                            The RPC connection test failed. Please check your configuration and try again.
+                                        </p>
+                                    )}
+                                    {rpcTest.testResult.hash && (
+                                        <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-sm font-medium text-foreground">Transaction Hash:</p>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0"
+                                                    onClick={() => copyHash(rpcTest.testResult!.hash!)}
+                                                >
+                                                    <Copy className="h-3 w-3" />
+                                                </Button>
+                                            </div>
+                                            <p className="text-xs font-mono text-muted-foreground break-all">
+                                                {rpcTest.testResult.hash}
+                                            </p>
+                                        </div>
+                                    )}
+                                </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                                <Button 
+                                    onClick={handleCloseModal} 
+                                    className="w-full"
+                                >
+                                    Close
+                                </Button>
+                            </DialogFooter>
+                        </>
+                    ) : (
+                        <>
+                            <DialogHeader>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                                        <AlertCircle className="h-5 w-5 text-primary" />
+                                    </div>
+                                    <DialogTitle>RPC Connection Test</DialogTitle>
+                                </div>
+                                <DialogDescription className="text-left pt-2">
+                                    <p className="mb-4">
+                                        To verify that your RPC is properly configured, a test transaction will be performed.
+                                    </p>
+                                    <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                                        <p className="text-sm font-medium text-foreground">Transaction Details:</p>
+                                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                                            <li>Zero value transaction (0 ETH)</li>
+                                            <li>No funds will be transferred</li>
+                                            <li>Only verifies RPC connectivity</li>
+                                        </ul>
+                                    </div>
+                                    <p className="mt-4 text-sm">
+                                        You will need to approve this transaction in your wallet to complete the test.
+                                    </p>
+                                </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter className="gap-2 sm:gap-0">
+                                <Button
+                                    variant="outline"
+                                    onClick={handleCloseModal}
+                                    disabled={rpcTest.isTesting}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleConfirmTest}
+                                    disabled={rpcTest.isTesting}
+                                >
+                                    {rpcTest.isTesting ? 'Testing...' : 'Continue Test'}
+                                </Button>
+                            </DialogFooter>
+                        </>
+                    )}
                 </DialogContent>
             </Dialog>
         </div>
