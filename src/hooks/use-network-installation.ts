@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { getMetaMaskProvider } from '@/lib/wallet-provider';
+import { useAccount } from 'wagmi';
 import { NETWORK_CONFIG } from '@/lib/network-config';
 
 export interface UseNetworkInstallationReturn {
@@ -10,43 +10,24 @@ export interface UseNetworkInstallationReturn {
     reset: () => void;
 }
 
-/**
- * Hook for installing network to MetaMask
- */
+
 export function useNetworkInstallation(): UseNetworkInstallationReturn {
     const { toast } = useToast();
+    const { connector } = useAccount();
     const [isInstalling, setIsInstalling] = useState(false);
     const [isInstalled, setIsInstalled] = useState(false);
 
     const install = async (): Promise<boolean> => {
+        if (!connector) return false;
+
         setIsInstalling(true);
         try {
-            const provider = getMetaMaskProvider();
+            const provider = (await connector.getProvider()) as any;
 
-            if (!provider) {
-                toast({
-                    title: "MetaMask not found",
-                    description: "Please install MetaMask extension.",
-                    variant: "destructive",
-                });
-                return false;
-            }
-
-            if (!provider.isMetaMask) {
-                toast({
-                    title: "MetaMask not found",
-                    description: "Please install and unlock MetaMask.",
-                    variant: "destructive",
-                });
-                return false;
-            }
-
-            // Add network
             await provider.request({
                 method: "wallet_addEthereumChain",
                 params: [NETWORK_CONFIG],
             });
-
             setIsInstalled(true);
             toast({
                 title: "Network installed successfully",
@@ -54,30 +35,10 @@ export function useNetworkInstallation(): UseNetworkInstallationReturn {
             });
             return true;
         } catch (error: any) {
-            const errorCode = error?.code;
-            const errorMessage = error?.message?.toLowerCase() || "";
-
-            if (errorCode === 4001) {
-                toast({
-                    title: "Installation cancelled",
-                    description: "You cancelled the network installation.",
-                });
-            } else if (
-                errorCode === 4902 ||
-                errorMessage.includes("already") ||
-                errorMessage.includes("exists") ||
-                errorMessage.includes("duplicate")
-            ) {
-                setIsInstalled(true);
-                toast({
-                    title: "Network already installed",
-                    description: "Fast Protocol network is already configured in MetaMask.",
-                });
-                return true;
-            } else {
+            if (error?.code !== 4001) {
                 toast({
                     title: "Installation failed",
-                    description: errorMessage || "Failed to install network. Please try again.",
+                    description: error?.message || "Failed to install network.",
                     variant: "destructive",
                 });
             }

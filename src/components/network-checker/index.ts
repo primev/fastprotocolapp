@@ -1,5 +1,3 @@
-export { WalletSelector } from './wallet-selector';
-export { SwitchNetworkMessage } from './switch-network-message';
-export { ManualSetupSteps } from './manual-setup-steps';
+export { RabbySteps } from './rabby-steps';
+export { BrowserWalletSteps } from './browser-wallet-steps';
 export { ProgrammaticSetupSteps } from './programmatic-setup-steps';
-

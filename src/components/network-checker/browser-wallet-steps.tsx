@@ -1,19 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FAST_PROTOCOL_NETWORK } from '@/lib/network-config';
-import { SwitchNetworkMessage } from './switch-network-message';
 
-interface ManualSetupStepsProps {
+interface BrowserWalletStepsProps {
     walletName?: string;
 }
 
-/**
- * Reusable component for manual wallet setup steps
- */
-export function ManualSetupSteps({ walletName }: ManualSetupStepsProps) {
+export function BrowserWalletSteps({ walletName }: BrowserWalletStepsProps) {
     const [copiedField, setCopiedField] = useState<string | null>(null);
 
     const networkDetails = [
@@ -36,7 +32,6 @@ export function ManualSetupSteps({ walletName }: ManualSetupStepsProps) {
 
     return (
         <div className="space-y-6">
-            {/* Step-by-step instructions */}
             <div className="space-y-3">
                 <div className="flex gap-3">
                     <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-xs">
@@ -75,7 +70,6 @@ export function ManualSetupSteps({ walletName }: ManualSetupStepsProps) {
                 </div>
             </div>
 
-            {/* Network details with copy buttons */}
             <div className="space-y-2 pt-3 border-t border-border">
                 <h3 className="font-semibold text-sm mb-2">Network Details</h3>
                 {networkDetails.map((detail) => (
@@ -103,11 +97,19 @@ export function ManualSetupSteps({ walletName }: ManualSetupStepsProps) {
                 ))}
             </div>
 
-            {/* Important message */}
             <div className="pt-3 border-t border-border">
-                <SwitchNetworkMessage walletName={walletName} />
+                <div className="relative flex gap-3 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                    <AlertCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                        <p className="text-sm font-semibold text-foreground mb-1">
+                            Important: Switch to the network after adding
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                            After adding the network, you may need to switch to it in your wallet before testing.
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     );
 }
-

@@ -1,5 +1,3 @@
-import { type Chain } from 'viem';
-
 /**
  * Fast Protocol Network Configuration
  * 
@@ -14,7 +12,7 @@ export const FAST_PROTOCOL_NETWORK = {
     decimals: 18,
   },
   rpcUrls: ['https://fastrpc.mev-commit.xyz'],
-  blockExplorerUrls: ['https://www.mev-commit.xyz/'],
+  blockExplorerUrls: ['https://www.etherscan.io/'],
 } as const;
 
 /**
@@ -32,4 +30,3 @@ export const NETWORK_CONFIG = {
  * RPC endpoint for testing
  */
 export const RPC_ENDPOINT = 'https://fastrpc.mev-commit.xyz';
-

@@ -1,19 +1,31 @@
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { connectorsForWallets } from '@rainbow-me/rainbowkit';
+import { metaMaskWallet, rabbyWallet, injectedWallet } from '@rainbow-me/rainbowkit/wallets';
+import { createConfig, http, unstable_connector, fallback } from 'wagmi';
+import { injected } from 'wagmi/connectors';
 import { mainnet } from 'wagmi/chains';
 
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID';
 
-/**
- * Wagmi configuration that uses the injected provider (window.ethereum)
- * 
- * This configuration ensures that:
- * - All connectors (injected, metaMask, etc.) use window.ethereum directly
- * - When a wallet is connected, Wagmi uses the wallet's provider (injected provider)
- * - The wallet's configured RPC endpoint is always used, not Wagmi's default RPCs
- */
-export const config = getDefaultConfig({
-  appName: 'Fast Protocol',
-  projectId,
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: 'Recommended',
+      wallets: [metaMaskWallet, rabbyWallet, injectedWallet],
+    },
+  ],
+  {
+    appName: 'Fast Protocol',
+    projectId: '00000000000000000000000000000000',
+  }
+);
+
+export const config = createConfig({
   chains: [mainnet],
+  connectors,
+  transports: {
+    [mainnet.id]: fallback([
+      unstable_connector(injected), // This will use the custom RPC endpoint for the wallet
+      http(), // This will use the default RPC endpoint
+    ]),
+  },
   ssr: true,
 });
