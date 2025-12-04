@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
-import { Lock } from 'lucide-react';
+import { Lock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRPCTest } from '@/hooks/use-rpc-test';
 import {
@@ -13,6 +13,14 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { RabbySteps } from '@/components/network-checker/rabby-steps';
 import { BrowserWalletSteps } from '@/components/network-checker/browser-wallet-steps';
 import { ProgrammaticSetupSteps } from '@/components/network-checker/programmatic-setup-steps';
@@ -21,8 +29,18 @@ import { useWalletInfo } from '@/hooks/use-wallet-info';
 const NetworkCheckerPage = () => {
     const { isConnected, chain, connector } = useAccount();
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [isTestModalOpen, setIsTestModalOpen] = useState(false);
     const { walletName, walletIcon } = useWalletInfo(connector, isConnected);
     const rpcTest = useRPCTest();
+
+    const handleTestClick = () => {
+        setIsTestModalOpen(true);
+    };
+
+    const handleConfirmTest = () => {
+        setIsTestModalOpen(false);
+        rpcTest.test();
+    };
 
     // Determine wallet type for drawer content
     const isMetaMask = connector?.id?.toLowerCase().includes('metamask');
@@ -116,7 +134,7 @@ const NetworkCheckerPage = () => {
                                             Setup
                                         </Button>
                                         <Button
-                                            onClick={() => rpcTest.test()}
+                                            onClick={handleTestClick}
                                             size="lg"
                                             disabled={rpcTest.isTesting}
                                             className="flex-1 rounded-none px-8 font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-all disabled:opacity-50"
@@ -169,6 +187,51 @@ const NetworkCheckerPage = () => {
                     </div>
                 </SheetContent>
             </Sheet>
+
+            {/* RPC Test Modal */}
+            <Dialog open={isTestModalOpen} onOpenChange={setIsTestModalOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                                <AlertCircle className="h-5 w-5 text-primary" />
+                            </div>
+                            <DialogTitle>RPC Connection Test</DialogTitle>
+                        </div>
+                        <DialogDescription className="text-left pt-2">
+                            <p className="mb-4">
+                                To verify that your RPC is properly configured, a test transaction will be performed.
+                            </p>
+                            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                                <p className="text-sm font-medium text-foreground">Transaction Details:</p>
+                                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                                    <li>Zero value transaction (0 ETH)</li>
+                                    <li>No funds will be transferred</li>
+                                    <li>Only verifies RPC connectivity</li>
+                                </ul>
+                            </div>
+                            <p className="mt-4 text-sm">
+                                You will need to approve this transaction in your wallet to complete the test.
+                            </p>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsTestModalOpen(false)}
+                            disabled={rpcTest.isTesting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleConfirmTest}
+                            disabled={rpcTest.isTesting}
+                        >
+                            {rpcTest.isTesting ? 'Testing...' : 'Continue Test'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
