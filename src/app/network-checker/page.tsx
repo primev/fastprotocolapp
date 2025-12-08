@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
-import { Lock, AlertCircle, CheckCircle, XCircle, Copy } from 'lucide-react';
+import { Lock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRPCTest } from '@/hooks/use-rpc-test';
 import {
@@ -25,6 +25,7 @@ import { RabbySteps } from '@/components/network-checker/rabby-steps';
 import { BrowserWalletSteps } from '@/components/network-checker/browser-wallet-steps';
 import { ProgrammaticSetupSteps } from '@/components/network-checker/programmatic-setup-steps';
 import { useWalletInfo } from '@/hooks/use-wallet-info';
+import { FAST_PROTOCOL_NETWORK } from '@/lib/network-config';
 
 const NetworkCheckerPage = () => {
     const { isConnected, chain, connector } = useAccount();
@@ -47,10 +48,6 @@ const NetworkCheckerPage = () => {
         rpcTest.reset();
     };
 
-    const copyHash = (hash: string) => {
-        navigator.clipboard.writeText(hash);
-        // You could add a toast here if needed
-    };
 
     // Determine wallet type for drawer content
     const isMetaMask = connector?.id?.toLowerCase().includes('metamask');
@@ -234,7 +231,7 @@ const NetworkCheckerPage = () => {
                                 <DialogDescription className="text-left pt-2">
                                     {rpcTest.testResult.success ? (
                                         <p className="mb-4">
-                                            Fast Protocol RPC connection was successfully verified. The transaction has been confirmed.
+                                            Fast Protocol RPC connection was successfully verified.
                                         </p>
                                     ) : (
                                         <p className="mb-4">
@@ -242,21 +239,18 @@ const NetworkCheckerPage = () => {
                                         </p>
                                     )}
                                     {rpcTest.testResult.hash && (
-                                        <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                                            <div className="flex items-center justify-between">
-                                                <p className="text-sm font-medium text-foreground">Transaction Hash:</p>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-6 w-6 p-0"
-                                                    onClick={() => copyHash(rpcTest.testResult!.hash!)}
-                                                >
-                                                    <Copy className="h-3 w-3" />
-                                                </Button>
-                                            </div>
-                                            <p className="text-xs font-mono text-muted-foreground break-all">
-                                                {rpcTest.testResult.hash}
-                                            </p>
+                                        <div className="pt-2">
+                                            <a
+                                                href={`${FAST_PROTOCOL_NETWORK.blockExplorerUrls[0]}tx/${rpcTest.testResult.hash}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                                            >
+                                                View transaction on Etherscan
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
+                                            </a>
                                         </div>
                                     )}
                                 </DialogDescription>

@@ -5,6 +5,7 @@ export const env = createEnv({
   server: {
     EMAILOCTOPUS_API_KEY: z.string().min(1),
     EMAILOCTOPUS_LIST_ID: z.string().uuid(),
+    FAST_RPC_API_TOKEN: z.string().min(1).optional(),
   },
   // For Next.js >= 13.4.4, we can reference process.env directly
   experimental__runtimeEnv: process.env,

@@ -15,30 +15,42 @@ export interface UseRPCTestReturn {
     reset: () => void;
 }
 
-// Placeholder function for database query
+// Query transaction status from Fast RPC API
 async function queryTransactionHash(hash: string): Promise<{ success: boolean; hash: string }> {
-    // TODO: Implement actual database query
-    console.log('Querying database for transaction hash:', hash);
-    
-    // Placeholder: simulate database query
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            console.log('Database query result for hash:', hash);
-            resolve({ success: true, hash });
-        }, 500);
-    });
+    try {
+        const response = await fetch(`/api/transaction-status/${hash}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Failed to query transaction status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return {
+            success: result.success,
+            hash: result.hash || hash,
+        };
+    } catch (error) {
+        console.error('Error querying transaction hash:', error);
+        throw error;
+    }
 }
 
 // Helper function to check if error is a user rejection
 function isUserRejection(error: any): boolean {
     if (!error) return false;
     const errorMessage = error.message?.toLowerCase() || error.toString().toLowerCase() || '';
-    return errorMessage.includes('reject') || 
-           errorMessage.includes('user rejected') ||
-           errorMessage.includes('user denied') ||
-           errorMessage.includes('user cancelled') ||
-           errorMessage.includes('4001') || // MetaMask rejection code
-           errorMessage.includes('action_cancelled');
+    return errorMessage.includes('reject') ||
+        errorMessage.includes('user rejected') ||
+        errorMessage.includes('user denied') ||
+        errorMessage.includes('user cancelled') ||
+        errorMessage.includes('4001') || // MetaMask rejection code
+        errorMessage.includes('action_cancelled');
 }
 
 // Get clean error message for user rejection
@@ -114,15 +126,15 @@ export function useRPCTest(): UseRPCTestReturn {
     useEffect(() => {
         if (isSendError && sendError) {
             const isRejection = isUserRejection(sendError);
-            const errorMessage = isRejection 
+            const errorMessage = isRejection
                 ? getRejectionMessage()
                 : sendError.message || "Failed to send transaction";
-            
+
             setTestResult({
                 success: false,
                 hash: null,
             });
-            
+
             toast({
                 title: isRejection ? "Transaction Rejected" : "Test Failed",
                 description: errorMessage,
@@ -149,7 +161,6 @@ export function useRPCTest(): UseRPCTestReturn {
     }, [isConfirmError, confirmError, hash, toast, resetSend]);
 
     const test = () => {
-        // Reset previous test result
         setTestResult(null);
 
         if (!isConnected) {
@@ -170,7 +181,6 @@ export function useRPCTest(): UseRPCTestReturn {
             return;
         }
 
-        // Craft clean transaction payload for RPC test
         // This is a zero-value self-transfer to verify RPC connectivity
         try {
             const transactionPayload = {
@@ -178,27 +188,18 @@ export function useRPCTest(): UseRPCTestReturn {
                 value: parseEther('0'), // Zero ETH - no funds transferred
                 data: '0x' as `0x${string}`, // No data - simple transfer
             };
-
-            // Log transaction details for transparency
-            console.log('RPC Test Transaction:', {
-                to: transactionPayload.to,
-                value: '0 ETH',
-                purpose: 'RPC connectivity verification',
-                note: 'This is a zero-value transaction to verify Fast Protocol RPC is working correctly',
-            });
-
             sendTransaction(transactionPayload);
         } catch (error: any) {
             const isRejection = isUserRejection(error);
-            const errorMessage = isRejection 
+            const errorMessage = isRejection
                 ? getRejectionMessage()
                 : error?.message || "Failed to initiate transaction";
-            
+
             setTestResult({
                 success: false,
                 hash: null,
             });
-            
+
             toast({
                 title: isRejection ? "Transaction Rejected" : "Test Failed",
                 description: errorMessage,
