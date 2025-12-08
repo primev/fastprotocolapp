@@ -195,6 +195,7 @@ export function useRPCTest(): UseRPCTestReturn {
                 to: address as `0x${string}`, // Send to self (zero-value transfer)
                 value: parseEther('0'), // Zero ETH - no funds transferred
                 data: '0x' as `0x${string}`, // No data - simple transfer
+                maxPriorityFeePerGas: BigInt(0), // Set priority fee to zero
             };
             sendTransaction(transactionPayload);
         } catch (error: any) {
