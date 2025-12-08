@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Copy, Check, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FAST_PROTOCOL_NETWORK } from '@/lib/network-config';
-import { RABBY_VIDEO_URL } from '@/lib/constants';
 
 
 export function RabbySteps() {
@@ -75,14 +74,17 @@ export function RabbySteps() {
             <div className="space-y-2 pt-3 border-t border-border">
                 <h3 className="font-semibold text-sm mb-2">Video Instructions</h3>
                 <div className="w-full rounded-lg overflow-hidden">
-                    <video
-                        src={RABBY_VIDEO_URL}
-                        controls
-                        className="w-full aspect-video"
-                        preload="metadata"
-                    >
-                        Your browser does not support the video tag.
-                    </video>
+                    <div style={{ position: 'relative', width: '100%', height: 0, paddingBottom: '149.722%' }}>
+                        <iframe
+                            allow="fullscreen"
+                            allowFullScreen
+                            height="100%"
+                            src="https://streamable.com/e/cvw2ce?muted=1"
+                            width="100%"
+                            style={{ border: 'none', width: '100%', height: '100%', position: 'absolute', left: 0, top: 0, overflow: 'hidden' }}
+                            title="Rabby Setup Instructions"
+                        />
+                    </div>
                 </div>
             </div>
         </div>
