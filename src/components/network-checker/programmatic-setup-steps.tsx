@@ -2,6 +2,7 @@
 
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { METAMASK_VIDEO_URL } from '@/lib/constants';
 import { useNetworkInstallation } from '@/hooks/use-network-installation';
 
 export function ProgrammaticSetupSteps() {
@@ -48,14 +49,22 @@ export function ProgrammaticSetupSteps() {
             </div>
 
             {/* Video Media Window */}
-            <div className="space-y-2 pt-3 border-t border-border">
-                <h3 className="font-semibold text-sm mb-2">Video Instructions</h3>
-                <div className="w-full rounded-lg overflow-hidden">
-                    <img
-                        src="/assets/Toggle-Metamask.gif"
-                        alt="Metamask Setup Instructions"
-                        className="w-full h-auto"
-                    />
+            <div className="flex gap-4 items-start">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm bg-primary/20 text-primary">
+                    2
+                </div>
+                <div className="space-y-2 pt-3 border-t border-border">
+                    <h3 className="font-semibold text-sm mb-2">Video Instructions</h3>
+                    <div className="w-full rounded-lg overflow-hidden">
+                        <video
+                            src={METAMASK_VIDEO_URL}
+                            controls
+                            className="w-full aspect-video"
+                            preload="metadata"
+                        >
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
                 </div>
             </div>
         </div>

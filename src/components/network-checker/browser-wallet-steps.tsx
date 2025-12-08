@@ -34,7 +34,7 @@ export function BrowserWalletSteps({ walletName }: BrowserWalletStepsProps) {
         <div className="space-y-6">
             <div className="space-y-3">
                 <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-xs">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm">
                         1
                     </div>
                     <p className="text-sm text-muted-foreground flex-1">
@@ -43,7 +43,7 @@ export function BrowserWalletSteps({ walletName }: BrowserWalletStepsProps) {
                 </div>
 
                 <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-xs">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm">
                         2
                     </div>
                     <p className="text-sm text-muted-foreground flex-1">
@@ -52,7 +52,7 @@ export function BrowserWalletSteps({ walletName }: BrowserWalletStepsProps) {
                 </div>
 
                 <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-xs">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm">
                         3
                     </div>
                     <p className="text-sm text-muted-foreground flex-1">
@@ -61,7 +61,7 @@ export function BrowserWalletSteps({ walletName }: BrowserWalletStepsProps) {
                 </div>
 
                 <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-xs">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm">
                         4
                     </div>
                     <p className="text-sm text-muted-foreground flex-1">

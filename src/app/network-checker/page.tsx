@@ -98,7 +98,7 @@ const NetworkCheckerPage = () => {
                 </div>
 
                 <main className="container mx-auto px-4 py-12 md:py-16 min-h-[calc(100vh-200px)] flex flex-col items-center justify-center">
-                    <div className="w-full max-w-4xl ">
+                    <div className="w-full max-w-lg">
                         {/* Logo */}
                         <div className="flex justify-center">
                             <Image
@@ -137,11 +137,6 @@ const NetworkCheckerPage = () => {
                                     <div className="space-y-4">
                                         <h2 className="text-2xl font-semibold text-center">Wallet Connection</h2>
                                         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                                            <Button
-                                                variant="outline"
-                                                className="h-[44px] px-4 flex items-center gap-2"
-                                                disabled
-                                            >
                                                 {walletIcon && (
                                                     <img
                                                         src={walletIcon}
@@ -157,7 +152,6 @@ const NetworkCheckerPage = () => {
                                                     />
                                                 )}
                                                 {walletName}
-                                            </Button>
                                             <ConnectButton.Custom>
                                                 {({ account, openAccountModal, openChainModal }) => (
                                                     <>
@@ -202,26 +196,30 @@ const NetworkCheckerPage = () => {
                                                     Set up and test your Fast Protocol RPC connection.
                                                 </p>
                                             </div>
-                                            <div className="grid sm:grid-cols-2 gap-4">
+                                            <div className="grid sm:grid-cols-1 gap-4">
                                                 <Button
                                                     onClick={() => setIsDrawerOpen(true)}
                                                     size="lg"
-                                                    className="w-full h-auto py-6 flex flex-col items-center gap-2 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30"
+                                                    className="w-full h-auto py-3 flex flex-col items-center gap-1 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 relative"
                                                     variant="outline"
                                                 >
-                                                    <Settings className="w-6 h-6" />
-                                                    <span className="font-semibold">Setup RPC</span>
+                                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm bg-primary/20 text-primary">
+                                                        1
+                                                    </div>
+                                                    <span className="font-semibold text-sm">Setup RPC</span>
                                                     <span className="text-xs text-muted-foreground">Configure your wallet</span>
                                                 </Button>
                                                 <Button
                                                     onClick={handleTestClick}
                                                     size="lg"
                                                     disabled={rpcTest.isTesting}
-                                                    className="w-full h-auto py-6 flex flex-col items-center gap-2 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 disabled:opacity-50"
+                                                    className="w-full h-auto py-3 flex flex-col items-center gap-1 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 disabled:opacity-50 relative"
                                                     variant="outline"
                                                 >
-                                                    <TestTube className="w-6 h-6" />
-                                                    <span className="font-semibold">
+                                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm bg-primary/20 text-primary">
+                                                        2
+                                                    </div>
+                                                    <span className="font-semibold text-sm">
                                                         {rpcTest.isTesting ? 'Testing...' : 'Test Connection'}
                                                     </span>
                                                     <span className="text-xs text-muted-foreground">Verify RPC setup</span>
