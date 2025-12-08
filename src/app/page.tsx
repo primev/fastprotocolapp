@@ -9,6 +9,7 @@ import { captureEmailAction } from '@/actions/capture-email';
 import { MessageCircle, Send, Twitter, Check } from 'lucide-react';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import type { CaptureEmailResult } from '@/lib/email';
+import { useAddFastToMetamask } from '@/hooks/use-add-fast-to-metamask';
 
 const socialLinks = [
   {
@@ -32,7 +33,9 @@ const IndexPage = () => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [rpcAdded, setRpcAdded] = useState(false);
   const { toast } = useToast();
+  const { isProcessing, addFastToMetamask } = useAddFastToMetamask();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,7 +98,7 @@ const IndexPage = () => {
               width={512}
               height={512}
               priority
-              className="h-56 md:h-72 w-auto"
+              className="h-56 md:h-72 lg:h-80 w-auto"
               style={{ clipPath: 'inset(10% 0 30% 0)' }}
             />
           </div>
@@ -106,7 +109,7 @@ const IndexPage = () => {
           </p>
 
           {/* Email Signup */}
-          <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-2xl p-3 md:p-4 shadow-xl max-w-xl mx-auto mt-[10vh]">
+          <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-2xl p-3 md:p-4 shadow-xl max-w-xl lg:max-w-3xl mx-auto mt-[10vh]">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-3">
                 <Input
@@ -114,7 +117,7 @@ const IndexPage = () => {
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="flex-1 h-12 bg-background/50 border-primary/30 focus:border-primary"
+                  className="flex-1 h-12 bg-background/50 border-primary/30 focus:border-primary lg:text-base"
                   disabled={isLoading}
                 />
                 <Button
@@ -122,7 +125,7 @@ const IndexPage = () => {
                   variant="hero"
                   size="lg"
                   disabled={isLoading}
-                  className="h-12 px-8 whitespace-nowrap"
+                  className="h-12 px-8 whitespace-nowrap lg:text-base"
                 >
                   {isSuccess ? (
                     <Check className="w-6 h-6 text-green-500 animate-scale-in" />
@@ -141,7 +144,13 @@ const IndexPage = () => {
             {socialLinks.map((social) => {
               const Icon = social.icon;
               return (
-                <Button key={social.name} variant="glass" size="lg" asChild>
+                <Button
+                  key={social.name}
+                  variant="glass"
+                  size="lg"
+                  asChild
+                  className="lg:text-base"
+                >
                   <a
                     href={social.url}
                     target="_blank"
@@ -154,6 +163,29 @@ const IndexPage = () => {
                 </Button>
               );
             })}
+          </div>
+
+          {/* Add RPC Button */}
+          <div className="flex justify-center pt-10">
+            <Button 
+              variant="glass"
+              size="lg"
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const success = await addFastToMetamask();
+                if (success) {
+                  setRpcAdded(true);
+                  setTimeout(() => {
+                    setRpcAdded(false);
+                  }, 3000);
+                }
+              }}
+              disabled={isProcessing || rpcAdded}
+              className="h-12 px-8 lg:text-base border-2 border-primary/20"
+            >
+              {rpcAdded ? '✓ Added Successfully!' : isProcessing ? 'Processing...' : 'Add Fast RPC to MetaMask'}
+            </Button>
           </div>
         </div>
       </div>

@@ -38,6 +38,12 @@ All colors MUST be HSL.
 
     --radius: 0.75rem;
 
+    /* Success and warning colors */
+    --success: 158 85% 55%;
+    --success-foreground: 201 77% 5%;
+    --warning: 38 92% 64%;
+    --warning-foreground: 201 77% 5%;
+
     /* Custom gradient tokens */
     --gradient-primary: linear-gradient(135deg, hsl(209 84% 58%), hsl(209 84% 48%));
     --gradient-secondary: linear-gradient(180deg, hsl(201 77% 8% / 0.8), hsl(201 77% 5%));
@@ -90,7 +96,24 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .glow-text {
+    text-shadow: 0 0 20px hsl(var(--primary) / 0.5);
+  }
+  
+  .glow-border {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
+  
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }
 
