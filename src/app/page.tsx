@@ -96,7 +96,7 @@ const IndexPage = () => {
               width={512}
               height={512}
               priority
-              className="h-56 md:h-72 w-auto"
+              className="h-56 md:h-72 lg:h-80 w-auto"
               style={{ clipPath: 'inset(10% 0 30% 0)' }}
             />
           </div>
@@ -107,7 +107,7 @@ const IndexPage = () => {
           </p>
 
           {/* Email Signup */}
-          <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-2xl p-3 md:p-4 shadow-xl max-w-xl mx-auto mt-[10vh]">
+          <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-2xl p-3 md:p-4 shadow-xl max-w-xl lg:max-w-3xl mx-auto mt-[10vh]">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-3">
                 <Input
@@ -115,7 +115,7 @@ const IndexPage = () => {
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="flex-1 h-12 bg-background/50 border-primary/30 focus:border-primary"
+                  className="flex-1 h-12 bg-background/50 border-primary/30 focus:border-primary lg:text-base"
                   disabled={isLoading}
                 />
                 <Button
@@ -123,7 +123,7 @@ const IndexPage = () => {
                   variant="hero"
                   size="lg"
                   disabled={isLoading}
-                  className="h-12 px-8 whitespace-nowrap"
+                  className="h-12 px-8 whitespace-nowrap lg:text-base"
                 >
                   {isSuccess ? (
                     <Check className="w-6 h-6 text-green-500 animate-scale-in" />
@@ -142,7 +142,13 @@ const IndexPage = () => {
             {socialLinks.map((social) => {
               const Icon = social.icon;
               return (
-                <Button key={social.name} variant="glass" size="lg" asChild>
+                <Button
+                  key={social.name}
+                  variant="glass"
+                  size="lg"
+                  asChild
+                  className="lg:text-base"
+                >
                   <a
                     href={social.url}
                     target="_blank"
