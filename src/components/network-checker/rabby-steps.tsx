@@ -14,7 +14,7 @@ export function RabbySteps() {
         { label: 'RPC URL', value: FAST_PROTOCOL_NETWORK.rpcUrls[0], field: 'rpc' },
         { label: 'Chain ID', value: FAST_PROTOCOL_NETWORK.chainId.toString(), field: 'chainId' },
         { label: 'Currency Symbol', value: FAST_PROTOCOL_NETWORK.nativeCurrency.symbol, field: 'symbol' },
-        { label: 'Block Explorer', value: `https://${FAST_PROTOCOL_NETWORK.blockExplorerUrls[0]}`, field: 'explorer' },
+        { label: 'Block Explorer', value: FAST_PROTOCOL_NETWORK.blockExplorerUrls[0], field: 'explorer' },
     ];
 
     const copyToClipboard = async (text: string, field: string) => {
