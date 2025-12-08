@@ -74,17 +74,11 @@ export function RabbySteps() {
             <div className="space-y-2 pt-3 border-t border-border">
                 <h3 className="font-semibold text-sm mb-2">Video Instructions</h3>
                 <div className="w-full rounded-lg overflow-hidden">
-                    <div style={{ position: 'relative', width: '100%', height: 0, paddingBottom: '149.722%' }}>
-                        <iframe
-                            allow="fullscreen"
-                            allowFullScreen
-                            height="100%"
-                            src="https://streamable.com/e/cvw2ce?muted=1"
-                            width="100%"
-                            style={{ border: 'none', width: '100%', height: '100%', position: 'absolute', left: 0, top: 0, overflow: 'hidden' }}
-                            title="Rabby Setup Instructions"
-                        />
-                    </div>
+                    <img
+                        src="/assets/Rabby-Setup.gif"
+                        alt="Rabby Setup Instructions"
+                        className="w-full h-auto"
+                    />
                 </div>
             </div>
         </div>

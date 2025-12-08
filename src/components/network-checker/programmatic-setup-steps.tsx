@@ -51,17 +51,11 @@ export function ProgrammaticSetupSteps() {
             <div className="space-y-2 pt-3 border-t border-border">
                 <h3 className="font-semibold text-sm mb-2">Video Instructions</h3>
                 <div className="w-full rounded-lg overflow-hidden">
-                    <div style={{ position: 'relative', width: '100%', height: 0, paddingBottom: '149.722%' }}>
-                        <iframe
-                            allow="fullscreen"
-                            allowFullScreen
-                            height="100%"
-                            src="https://streamable.com/e/2despc?muted=1"
-                            width="100%"
-                            style={{ border: 'none', width: '100%', height: '100%', position: 'absolute', left: 0, top: 0, overflow: 'hidden' }}
-                            title="Metamask Setup Instructions"
-                        />
-                    </div>
+                    <img
+                        src="/assets/Toggle-Metamask.gif"
+                        alt="Metamask Setup Instructions"
+                        className="w-full h-auto"
+                    />
                 </div>
             </div>
         </div>
