@@ -1,10 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
-import { Lock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Lock, AlertCircle, CheckCircle, XCircle, Zap, Settings, TestTube } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useRPCTest } from '@/hooks/use-rpc-test';
 import {
     Sheet,
@@ -26,8 +29,10 @@ import { BrowserWalletSteps } from '@/components/network-checker/browser-wallet-
 import { ProgrammaticSetupSteps } from '@/components/network-checker/programmatic-setup-steps';
 import { useWalletInfo } from '@/hooks/use-wallet-info';
 import { FAST_PROTOCOL_NETWORK } from '@/lib/network-config';
+import { useRouter } from 'next/navigation';
 
 const NetworkCheckerPage = () => {
+    const router = useRouter();
     const { isConnected, chain, connector } = useAccount();
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isTestModalOpen, setIsTestModalOpen] = useState(false);
@@ -55,112 +60,177 @@ const NetworkCheckerPage = () => {
                     connector?.id?.toLowerCase().includes('rabby');
 
     return (
-        <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-muted">
-            <div className="relative z-10 container mx-auto px-4 py-12">
-                <div className="flex flex-col items-center justify-center space-y-8">
-                    <div className="text-center space-y-4">
-                        <h1 className="text-4xl md:text-5xl font-bold">Network Checker</h1>
-                        <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-                            Configure your wallet to use Fast Protocol RPC.
+        <div className="min-h-screen bg-background relative overflow-hidden">
+            {/* Background effects */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10" />
+
+            <div className="relative z-10">
+                {/* Header */}
+                <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 bg-background/80 z-50">
+                    <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+                        <button
+                            onClick={() => router.push('/')}
+                            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                        >
+                            <Zap className="w-6 h-6 text-primary" />
+                            <span className="text-xl font-bold gradient-text">
+                                FAST Protocol
+                            </span>
+                        </button>
+                        <div className="flex items-center gap-4">
+                            <Badge
+                                variant="outline"
+                                className="text-sm px-3 py-1.5 border-primary/50"
+                            >
+                                Network Checker
+                            </Badge>
+                        </div>
+                    </div>
+                </header>
+
+                {/* Description Banner */}
+                <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50">
+                    <div className="container mx-auto px-4 py-3 text-center">
+                        <p className="text-primary-foreground font-semibold">
+                            Configure your wallet to use Fast Protocol RPC for faster transactions and better performance.
                         </p>
                     </div>
+                </div>
 
-                    <div className="flex flex-col items-center space-y-6">
+                <main className="container mx-auto px-4 py-12 md:py-16 min-h-[calc(100vh-200px)] flex flex-col items-center justify-center">
+                    <div className="w-full max-w-4xl ">
+                        {/* Logo */}
+                        <div className="flex justify-center">
+                            <Image
+                                src="/assets/fast-protocol-logo-icon.png"
+                                alt="Fast Protocol"
+                                width={350}
+                                height={350}
+                                priority
+                                className="h-32 md:h-40 w-auto"
+                            />
+                        </div>
+
+                        {/* Main Content */}
                         {!isConnected ? (
-                            <ConnectButton />
+                                    <div className="flex justify-center">
+                                        <ConnectButton />
+                                    </div>
                         ) : (
-                            <div className="flex flex-col items-center gap-3">
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        variant="outline"
-                                        className="h-[44px] px-4 flex items-center gap-2"
-                                        disabled
-                                    >
-                                        {walletIcon && (
-                                            <img
-                                                src={walletIcon}
-                                                alt={walletName}
-                                                className="w-5 h-5 rounded object-contain"
-                                                onError={(e) => {
-                                                    console.error('[Wallet Icon] Failed to load:', walletIcon);
-                                                    (e.target as HTMLImageElement).style.display = 'none';
-                                                }}
-                                                onLoad={() => {
-                                                    console.log('[Wallet Icon] Successfully loaded:', walletIcon);
-                                                }}
-                                            />
-                                        )}
-                                        {walletName}
-                                    </Button>
-                                    <ConnectButton.Custom>
-                                        {({ account, openAccountModal, openChainModal }) => (
-                                            <>
-                                                <Button
-                                                    variant="outline"
-                                                    className="h-[44px] px-4"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        if (openChainModal) {
-                                                            openChainModal();
-                                                        }
-                                                    }}
-                                                >
-                                                    {chain?.id === 1 ? (chain?.name || 'Network') : 'Wrong Network'}
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    className="h-[44px] w-[44px] p-0"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        if (openAccountModal) {
-                                                            openAccountModal();
-                                                        }
-                                                    }}
-                                                >
-                                                    <Lock className="h-5 w-5" />
-                                                </Button>
-                                            </>
-                                        )}
-                                    </ConnectButton.Custom>
-                                </div>
-                            </div>
-                        )}
+                            <Card className="p-6 md:p-8 bg-card/50 border-border/50">
+                                <div className="flex flex-col items-center space-y-6">
+                                    <div className="w-full space-y-6">
+                                    {/* Wallet Info */}
+                                    <div className="space-y-4">
+                                        <h2 className="text-2xl font-semibold text-center">Wallet Connection</h2>
+                                        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                                            <Button
+                                                variant="outline"
+                                                className="h-[44px] px-4 flex items-center gap-2"
+                                                disabled
+                                            >
+                                                {walletIcon && (
+                                                    <img
+                                                        src={walletIcon}
+                                                        alt={walletName}
+                                                        className="w-5 h-5 rounded object-contain"
+                                                        onError={(e) => {
+                                                            console.error('[Wallet Icon] Failed to load:', walletIcon);
+                                                            (e.target as HTMLImageElement).style.display = 'none';
+                                                        }}
+                                                        onLoad={() => {
+                                                            console.log('[Wallet Icon] Successfully loaded:', walletIcon);
+                                                        }}
+                                                    />
+                                                )}
+                                                {walletName}
+                                            </Button>
+                                            <ConnectButton.Custom>
+                                                {({ account, openAccountModal, openChainModal }) => (
+                                                    <>
+                                                        <Button
+                                                            variant="outline"
+                                                            className="h-[44px] px-4"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                if (openChainModal) {
+                                                                    openChainModal();
+                                                                }
+                                                            }}
+                                                        >
+                                                            {chain?.id === 1 ? (chain?.name || 'Network') : 'Wrong Network'}
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            className="h-[44px] w-[44px] p-0"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                if (openAccountModal) {
+                                                                    openAccountModal();
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Lock className="h-5 w-5" />
+                                                        </Button>
+                                                    </>
+                                                )}
+                                            </ConnectButton.Custom>
+                                        </div>
+                                    </div>
 
-                        {isConnected && (
-                            <>
-                                {chain?.id === 1 ? (
-                                    <div className="inline-flex rounded-xl border-1 border-foreground/25 bg-card/50 backdrop-blur-sm overflow-hidden shadow-lg ring-2 ring-foreground/10">
-                                        <Button
-                                            onClick={() => setIsDrawerOpen(true)}
-                                            size="lg"
-                                            className="flex-1 rounded-none border-0 border-r border-foreground/20 px-8 font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-all"
-                                            variant="ghost"
-                                        >
-                                            Setup
-                                        </Button>
-                                        <Button
-                                            onClick={handleTestClick}
-                                            size="lg"
-                                            disabled={rpcTest.isTesting}
-                                            className="flex-1 rounded-none px-8 font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-all disabled:opacity-50"
-                                            variant="ghost"
-                                        >
-                                            {rpcTest.isTesting ? 'Testing...' : 'Test'}
-                                        </Button>
+                                    {/* Actions */}
+                                    {chain?.id === 1 ? (
+                                        <div className="space-y-4">
+                                            <div className="text-center space-y-2">
+                                                <h3 className="text-xl font-semibold">RPC Configuration</h3>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Set up and test your Fast Protocol RPC connection.
+                                                </p>
+                                            </div>
+                                            <div className="grid sm:grid-cols-2 gap-4">
+                                                <Button
+                                                    onClick={() => setIsDrawerOpen(true)}
+                                                    size="lg"
+                                                    className="w-full h-auto py-6 flex flex-col items-center gap-2 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30"
+                                                    variant="outline"
+                                                >
+                                                    <Settings className="w-6 h-6" />
+                                                    <span className="font-semibold">Setup RPC</span>
+                                                    <span className="text-xs text-muted-foreground">Configure your wallet</span>
+                                                </Button>
+                                                <Button
+                                                    onClick={handleTestClick}
+                                                    size="lg"
+                                                    disabled={rpcTest.isTesting}
+                                                    className="w-full h-auto py-6 flex flex-col items-center gap-2 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 disabled:opacity-50"
+                                                    variant="outline"
+                                                >
+                                                    <TestTube className="w-6 h-6" />
+                                                    <span className="font-semibold">
+                                                        {rpcTest.isTesting ? 'Testing...' : 'Test Connection'}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">Verify RPC setup</span>
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <Card className="p-6 bg-destructive/10 border-destructive/30">
+                                            <div className="flex items-center gap-3">
+                                                <AlertCircle className="w-5 h-5 text-destructive" />
+                                                <p className="text-sm font-medium text-foreground">
+                                                    You must switch to Ethereum to continue.
+                                                </p>
+                                            </div>
+                                        </Card>
+                                    )}
                                     </div>
-                                ) : (
-                                    <div className="px-6 py-4 rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm shadow-lg ring-1 ring-black/5 text-center">
-                                        <p className="text-sm font-medium text-foreground">
-                                            You must switch to Ethereum to continue.
-                                        </p>
-                                    </div>
-                                )}
-                            </>
+                                </div>
+                            </Card>
                         )}
                     </div>
-                </div>
+                </main>
             </div>
 
             <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
@@ -208,7 +278,7 @@ const NetworkCheckerPage = () => {
                     }
                 }}
             >
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-md border-primary/50">
                     {rpcTest.testResult ? (
                         <>
                             <DialogHeader>
