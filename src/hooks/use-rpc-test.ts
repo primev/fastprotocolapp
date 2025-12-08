@@ -63,6 +63,7 @@ export function useRPCTest(): UseRPCTestReturn {
     const { isConnected, address } = useAccount();
     const [isTesting, setIsTesting] = useState(false);
     const [testResult, setTestResult] = useState<TestResult | null>(null);
+    const [isQueryingAPI, setIsQueryingAPI] = useState(false);
 
     const {
         data: hash,
@@ -82,18 +83,21 @@ export function useRPCTest(): UseRPCTestReturn {
         hash,
     });
 
-    // Update testing state based on transaction status
+    // Update testing state based on transaction status and API query
     useEffect(() => {
-        if (isSending || isConfirming) {
+        if (isSending || isConfirming || isQueryingAPI) {
             setIsTesting(true);
         } else if (isConfirmed || isSendError || isConfirmError) {
-            setIsTesting(false);
+            if (!isQueryingAPI) {
+                setIsTesting(false);
+            }
         }
-    }, [isSending, isConfirming, isConfirmed, isSendError, isConfirmError]);
+    }, [isSending, isConfirming, isConfirmed, isSendError, isConfirmError, isQueryingAPI]);
 
     // Handle transaction success and query database
     useEffect(() => {
         if (isConfirmed && hash) {
+            setIsQueryingAPI(true);
             // Query database with transaction hash
             queryTransactionHash(hash)
                 .then((result) => {
@@ -101,6 +105,8 @@ export function useRPCTest(): UseRPCTestReturn {
                         success: result.success,
                         hash: result.hash,
                     });
+                    setIsQueryingAPI(false);
+                    setIsTesting(false);
                     toast({
                         title: "Test Successful",
                         description: "Fast Protocol RPC connection was successful. Transaction confirmed.",
@@ -113,6 +119,8 @@ export function useRPCTest(): UseRPCTestReturn {
                         success: false,
                         hash: hash,
                     });
+                    setIsQueryingAPI(false);
+                    setIsTesting(false);
                     toast({
                         title: "Test Completed",
                         description: "Transaction confirmed but database query failed.",
@@ -212,6 +220,7 @@ export function useRPCTest(): UseRPCTestReturn {
     const reset = () => {
         setTestResult(null);
         setIsTesting(false);
+        setIsQueryingAPI(false);
         resetSend();
     };
 
