@@ -113,9 +113,22 @@ const NetworkCheckerPage = () => {
 
                         {/* Main Content */}
                         {!isConnected ? (
-                                    <div className="flex justify-center">
-                                        <ConnectButton />
-                                    </div>
+                            <div className="flex justify-center">
+                                <ConnectButton.Custom>
+                                    {({ account, chain, openConnectModal, mounted }) => {
+                                        return (
+                                            <Button
+                                                variant="hero"
+                                                size="lg"
+                                                onClick={openConnectModal}
+                                                className="h-12 px-8 lg:text-base"
+                                            >
+                                                Connect Wallet
+                                            </Button>
+                                        );
+                                    }}
+                                </ConnectButton.Custom>
+                            </div>
                         ) : (
                             <Card className="p-6 md:p-8 bg-card/50 border-border/50">
                                 <div className="flex flex-col items-center space-y-6">
