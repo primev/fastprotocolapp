@@ -165,7 +165,7 @@ const IndexPage = () => {
 
           {/* Add RPC Button */}
           <div className="flex justify-center">
-            <Button variant="hero" size="lg" asChild className="h-12 px-8">
+            <Button variant="hero" size="lg" asChild className="h-12 px-8 lg:text-base">
               <Link href="/network-checker">Install Fast RPC</Link>
             </Button>
           </div>
