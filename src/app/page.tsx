@@ -9,7 +9,7 @@ import { captureEmailAction } from '@/actions/capture-email';
 import { MessageCircle, Send, Twitter, Check } from 'lucide-react';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import type { CaptureEmailResult } from '@/lib/email';
-import Link from 'next/link';
+import { useAddFastToMetamask } from '@/hooks/use-add-fast-to-metamask';
 
 const socialLinks = [
   {
@@ -33,7 +33,9 @@ const IndexPage = () => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [rpcAdded, setRpcAdded] = useState(false);
   const { toast } = useToast();
+  const { isProcessing, addFastToMetamask } = useAddFastToMetamask();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,9 +166,25 @@ const IndexPage = () => {
           </div>
 
           {/* Add RPC Button */}
-          <div className="flex justify-center">
-            <Button variant="hero" size="lg" asChild className="h-12 px-8 lg:text-base">
-              <Link href="/network-checker">Install Fast RPC</Link>
+          <div className="flex justify-center pt-10">
+            <Button 
+              variant="glass"
+              size="lg"
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const success = await addFastToMetamask();
+                if (success) {
+                  setRpcAdded(true);
+                  setTimeout(() => {
+                    setRpcAdded(false);
+                  }, 3000);
+                }
+              }}
+              disabled={isProcessing || rpcAdded}
+              className="h-12 px-8 lg:text-base border-2 border-primary/20"
+            >
+              {rpcAdded ? '✓ Added Successfully!' : isProcessing ? 'Processing...' : 'Add Fast RPC to MetaMask'}
             </Button>
           </div>
         </div>
