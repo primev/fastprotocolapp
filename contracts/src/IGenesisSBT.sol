@@ -2,9 +2,10 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/interfaces/IERC4906.sol";
 
 /// @title IGenesisSBT - Interface for GenesisSBT contract
-interface IGenesisSBT is IERC721 {
+interface IGenesisSBT is IERC721, IERC4906 {
     // =============================================================
     //                          ERRORS
     // =============================================================
@@ -34,7 +35,7 @@ interface IGenesisSBT is IERC721 {
     /// @param recipient The address that received the tokens
     /// @param quantity The number of tokens minted
     event TokensMinted(address indexed recipient, uint256 quantity);
-
+    
     // =============================================================
     //                          FUNCTIONS
     // =============================================================
@@ -43,7 +44,8 @@ interface IGenesisSBT is IERC721 {
     /// @param asset The asset URI for the NFT
     /// @param owner The initial owner address
     /// @param mintPrice The mint price for tokens
-    function initialize(string calldata asset, address owner, uint256 mintPrice) external;
+    /// @param treasuryReceiver The address that receives mint payments
+    function initialize(string calldata asset, address owner, uint256 mintPrice, address treasuryReceiver) external;
 
     /// @dev Mints a token to the caller
     function mint() external payable;
@@ -68,6 +70,10 @@ interface IGenesisSBT is IERC721 {
     /// @dev Updates the mint price
     /// @param mintPrice New mint price
     function setMintPrice(uint256 mintPrice) external;
+
+    /// @dev Updates the treasury receiver
+    /// @param newTreasuryReceiver New treasury receiver
+    function setTreasuryReceiver(address newTreasuryReceiver) external;
 
     /// @dev Returns the metadata URI for a token
     /// @param tokenId The token ID

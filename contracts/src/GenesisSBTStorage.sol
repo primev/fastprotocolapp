@@ -20,7 +20,7 @@ abstract contract GenesisSBTStorage {
     uint256 public _mintPrice;
 
     // Treasury Recipient
-    address public treasuryReceiver;
+    address public _treasuryReceiver;
 
     /// @dev See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
     uint256[50] private __gap;

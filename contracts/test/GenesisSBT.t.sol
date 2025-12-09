@@ -4,6 +4,8 @@ pragma solidity ^0.8.4;
 import {Test} from "forge-std/Test.sol";
 import {GenesisSBT} from "../src/GenesisSBT.sol";
 import {IGenesisSBT} from "../src/IGenesisSBT.sol";
+import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 
 /// @notice Helper contract to expose Base64.decode for testing
@@ -16,6 +18,7 @@ contract Base64Helper {
 contract GenesisSBTTest is Test {
     GenesisSBT public sbt;
     address public owner;
+    address public treasuryReceiver;
     address public user1;
     address public user2;
     address public user3;
@@ -38,13 +41,14 @@ contract GenesisSBTTest is Test {
 
     function setUp() public {
         owner = makeAddr("owner");
+        treasuryReceiver = makeAddr("treasuryReceiver");
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
         user3 = makeAddr("user3");
 
         vm.prank(owner);
         sbt = new GenesisSBT();
-        sbt.initialize(ASSET_URI, owner, MINT_PRICE);
+        sbt.initialize(ASSET_URI, owner, MINT_PRICE, treasuryReceiver);
     }
 
     // =============================================================
@@ -57,11 +61,12 @@ contract GenesisSBTTest is Test {
         assertEq(sbt.symbol(), "GSBT");
         assertEq(sbt.totalSupply(), 0);
         assertFalse(sbt.paused());
+        assertEq(sbt._treasuryReceiver(), treasuryReceiver);
     }
 
     function test_Initialize_RevertIf_AlreadyInitialized() public {
         vm.expectRevert();
-        sbt.initialize(ASSET_URI, owner, MINT_PRICE);
+        sbt.initialize(ASSET_URI, owner, MINT_PRICE, treasuryReceiver);
     }
 
     // =============================================================
@@ -360,16 +365,20 @@ contract GenesisSBTTest is Test {
     // =============================================================
 
     function test_SetAssetURI() public {
+        // Mint a token first
+        vm.deal(user1, MINT_PRICE);
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+
         string memory newURI = "https://example.com/new-image.png";
+
+        vm.expectEmit(true, false, false, false);
+        emit IERC4906.MetadataUpdate(1);
 
         vm.prank(owner);
         sbt.setAssetURI(newURI);
 
         // Verify by checking tokenURI includes the new URI
-        vm.deal(user1, MINT_PRICE);
-        vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
-
         string memory uri = sbt.tokenURI(1);
 
         // Extract and decode base64 to verify content
@@ -397,8 +406,16 @@ contract GenesisSBTTest is Test {
     }
 
     function test_SetMetadataProperties() public {
+        // Mint a token first
+        vm.deal(user1, MINT_PRICE);
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+
         string memory name = "Test NFT";
         string memory description = "Test Description";
+
+        vm.expectEmit(true, false, false, false);
+        emit IERC4906.MetadataUpdate(1);
 
         vm.prank(owner);
         sbt.setMetadataProperties(name, description);
@@ -647,6 +664,77 @@ contract GenesisSBTTest is Test {
         assertEq(sbt.ownerOf(3), user3);
         assertEq(sbt.ownerOf(4), makeAddr("user4"));
         assertEq(sbt.ownerOf(5), makeAddr("user5"));
+    }
+
+    // =============================================================
+    //              INTERFACE SUPPORT TESTS
+    // =============================================================
+
+    function test_SupportsInterface_ERC4906() public {
+        assertTrue(sbt.supportsInterface(type(IERC4906).interfaceId));
+    }
+
+    function test_SupportsInterface_ERC721() public {
+        assertTrue(sbt.supportsInterface(type(IERC721).interfaceId));
+    }
+
+    // =============================================================
+    //              TREASURY RECEIVER TESTS
+    // =============================================================
+
+    function test_Mint_ForwardsPaymentToTreasuryReceiver() public {
+        uint256 initialBalance = treasuryReceiver.balance;
+        vm.deal(user1, MINT_PRICE);
+
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+
+        assertEq(treasuryReceiver.balance, initialBalance + MINT_PRICE);
+        assertEq(sbt.balanceOf(user1), 1);
+    }
+
+    function test_Mint_ForwardsExactPaymentToTreasuryReceiver() public {
+        uint256 excessAmount = 0.005 ether;
+        uint256 initialBalance = treasuryReceiver.balance;
+        vm.deal(user1, MINT_PRICE + excessAmount);
+
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE + excessAmount}();
+
+        // Only MINT_PRICE should go to treasury, excess should be refunded to user
+        assertEq(treasuryReceiver.balance, initialBalance + MINT_PRICE);
+        assertEq(user1.balance, excessAmount);
+    }
+
+    function test_SetTreasuryReceiver() public {
+        address newTreasuryReceiver = makeAddr("newTreasuryReceiver");
+
+        vm.prank(owner);
+        sbt.setTreasuryReceiver(newTreasuryReceiver);
+
+        assertEq(sbt._treasuryReceiver(), newTreasuryReceiver);
+    }
+
+    function test_SetTreasuryReceiver_UpdatesPaymentDestination() public {
+        address newTreasuryReceiver = makeAddr("newTreasuryReceiver");
+        uint256 initialBalance = newTreasuryReceiver.balance;
+
+        vm.prank(owner);
+        sbt.setTreasuryReceiver(newTreasuryReceiver);
+
+        vm.deal(user1, MINT_PRICE);
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+
+        assertEq(newTreasuryReceiver.balance, initialBalance + MINT_PRICE);
+    }
+
+    function test_SetTreasuryReceiver_RevertIf_NotOwner() public {
+        address newTreasuryReceiver = makeAddr("newTreasuryReceiver");
+
+        vm.expectRevert();
+        vm.prank(user1);
+        sbt.setTreasuryReceiver(newTreasuryReceiver);
     }
 
     // =============================================================

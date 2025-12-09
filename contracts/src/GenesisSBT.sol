@@ -5,6 +5,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts/interfaces/IERC4906.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
@@ -28,7 +29,8 @@ contract GenesisSBT is
     function initialize(
         string calldata asset,
         address owner,
-        uint256 mintPrice
+        uint256 mintPrice,
+        address treasuryReceiver
     ) external initializer {
         __Ownable2Step_init();
         __Ownable_init(owner);
@@ -37,6 +39,7 @@ contract GenesisSBT is
         _assetURI = asset;
         _mintPrice = mintPrice;
         _name = "Fast Protocol Genesis SBT";
+        _treasuryReceiver = treasuryReceiver;
     }
 
     // =============================================================
@@ -109,6 +112,9 @@ contract GenesisSBT is
 
     function setAssetURI(string calldata assetURI) external onlyOwner {
         _assetURI = assetURI;
+        if (_totalTokensMinted > 0) {
+            emit MetadataUpdate(_totalTokensMinted);
+        }
     }
 
     function setMetadataProperties(
@@ -117,10 +123,17 @@ contract GenesisSBT is
     ) external onlyOwner {
         _name = nftName;
         _description = description;
+        if (_totalTokensMinted > 0) {
+            emit MetadataUpdate(_totalTokensMinted);
+        }
     }
 
     function setMintPrice(uint256 mintPrice) external onlyOwner {
         _mintPrice = mintPrice;
+    }
+
+    function setTreasuryReceiver(address newTreasuryReceiver) external onlyOwner {
+        _treasuryReceiver = newTreasuryReceiver;
     }
 
     // =============================================================
@@ -138,6 +151,16 @@ contract GenesisSBT is
     // =============================================================
     //                          OVERRIDES
     // =============================================================
+
+    /// @inheritdoc IERC165
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721Upgradeable, IERC165)
+        returns (bool)
+    {
+        return interfaceId == type(IERC4906).interfaceId || super.supportsInterface(interfaceId);
+    }
 
     /// @notice Transfers are disabled for soul-bound tokens
     function transferFrom(
@@ -187,7 +210,7 @@ contract GenesisSBT is
         _safeMint(to, _totalTokensMinted + 1);
         
         // Forward funds to protocol
-        Address.sendValue(payable(treasuryReceiver), _mintPrice);
+        Address.sendValue(payable(_treasuryReceiver), _mintPrice);
 
         unchecked {
             _totalTokensMinted++;
