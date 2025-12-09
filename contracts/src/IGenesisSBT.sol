@@ -28,15 +28,6 @@ interface IGenesisSBT is IERC721, IERC4906 {
     error InsufficientFunds(uint256 required, uint256 provided);
 
     // =============================================================
-    //                          EVENTS
-    // =============================================================
-
-    /// @dev Emitted when tokens are successfully minted.
-    /// @param recipient The address that received the tokens
-    /// @param quantity The number of tokens minted
-    event TokensMinted(address indexed recipient, uint256 quantity);
-    
-    // =============================================================
     //                          FUNCTIONS
     // =============================================================
 

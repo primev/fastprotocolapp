@@ -215,8 +215,6 @@ contract GenesisSBT is
         unchecked {
             _totalTokensMinted++;
         }
-
-        emit TokensMinted(to, 1);
     }
 
 }

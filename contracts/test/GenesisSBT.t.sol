@@ -83,6 +83,19 @@ contract GenesisSBTTest is Test {
         assertEq(sbt.totalSupply(), 1);
     }
 
+    function test_Mint_EmitsTransferEvent() public {
+        vm.deal(user1, MINT_PRICE);
+
+        vm.expectEmit(true, true, true, false);
+        emit Transfer(address(0), user1, 1);
+
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+
+        assertEq(sbt.balanceOf(user1), 1);
+        assertEq(sbt.ownerOf(1), user1);
+    }
+
     function test_Mint_RevertIf_AlreadyMinted() public {
         vm.deal(user1, MINT_PRICE * 2);
 
