@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
@@ -33,63 +33,107 @@ type Step = {
   completed: boolean;
 };
 
+const ONBOARDING_STORAGE_KEY = 'onboardingSteps';
+
+const baseSteps: Omit<Step, 'completed'>[] = [
+  {
+    id: 'follow',
+    title: 'Follow Us on X',
+    description: 'Follow @fast_protocol to continue',
+    icon: Twitter,
+  },
+  {
+    id: 'wallet',
+    title: 'Connect Wallet',
+    description: 'Connect your wallet to mint your SBT',
+    icon: Wallet,
+  },
+  {
+    id: 'rpc',
+    title: 'Fast RPC Setup',
+    description: 'Configure Fast RPC for your first Fast transaction',
+    icon: Network,
+  },
+];
+
 const OnboardingPage = () => {
   const router = useRouter();
   const { openConnectModal } = useConnectModal();
   const { isConnected } = useAccount();
   const networkInstallation = useNetworkInstallation();
   const rpcTest = useRPCTest();
-  const [steps, setSteps] = useState<Step[]>([
-    {
-      id: 'follow',
-      title: 'Follow Us on X',
-      description: 'Follow @fast_protocol to continue',
-      icon: Twitter,
-      completed: false,
-    },
-    {
-      id: 'wallet',
-      title: 'Connect Wallet',
-      description: 'Connect your wallet to mint your SBT',
-      icon: Wallet,
-      completed: false,
-    },
-    {
-      id: 'rpc',
-      title: 'Fast RPC Setup',
-      description: 'Configure Fast RPC for your first Fast transaction',
-      icon: Network,
-      completed: false,
-    },
-  ]);
+  
+  // Start with default state, load from localStorage after mount
+  const [steps, setSteps] = useState<Step[]>(() => 
+    baseSteps.map(step => ({ ...step, completed: false }))
+  );
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showRpcInfo, setShowRpcInfo] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const hasLoadedFromStorage = useRef(false);
+
+  // Load from localStorage after mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+      const saved = stored ? JSON.parse(stored) : {};
+      setSteps(baseSteps.map(step => ({
+        ...step,
+        completed: saved[step.id] === true,
+      })));
+    } catch (error) {
+      console.error('Error loading onboarding steps:', error);
+    } finally {
+      hasLoadedFromStorage.current = true;
+    }
+  }, []);
 
   const updateStepStatus = (stepId: string, completed: boolean) => {
-    setSteps((prev) =>
-      prev.map((step) => (step.id === stepId ? { ...step, completed } : step))
-    );
+    setSteps((prev) => {
+      const updated = prev.map((step) => 
+        step.id === stepId ? { ...step, completed } : step
+      );
+      
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          const saved = updated.reduce((acc, step) => {
+            acc[step.id] = step.completed;
+            return acc;
+          }, {} as Record<string, boolean>);
+          localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(saved));
+        } catch (error) {
+          console.error('Error saving onboarding steps:', error);
+        }
+      }
+      
+      return updated;
+    });
   };
 
 
-  // Update wallet step status when connection changes or on mount if already connected
+  // Update wallet step status when connection changes
+  // Only mark as completed if not already saved as completed
   useEffect(() => {
-    if (isConnected) {
+    if (!hasLoadedFromStorage.current) return; // Wait for initial load to prevent flash
+    const walletStep = steps.find(s => s.id === 'wallet');
+    if (isConnected && !walletStep?.completed) {
       updateStepStatus('wallet', true);
-    } else {
-      // Mark as incomplete if disconnected
-      updateStepStatus('wallet', false);
     }
   }, [isConnected]);
 
   // Update RPC step status when network is installed or RPC test passes
+  // Only update if not already completed
   useEffect(() => {
-    if (networkInstallation.isInstalled || (rpcTest.testResult?.success === true)) {
-      updateStepStatus('rpc', true);
-      if (networkInstallation.isInstalled) {
-        toast.success('Fast RPC network added successfully!');
+    if (!hasLoadedFromStorage.current) return; // Wait for initial load to prevent flash
+    const rpcStep = steps.find(s => s.id === 'rpc');
+    if (!rpcStep?.completed) {
+      if (networkInstallation.isInstalled || (rpcTest.testResult?.success === true)) {
+        updateStepStatus('rpc', true);
+        if (networkInstallation.isInstalled) {
+          toast.success('Fast RPC network added successfully!');
+        }
       }
     }
   }, [networkInstallation.isInstalled, rpcTest.testResult?.success]);
@@ -204,7 +248,7 @@ const OnboardingPage = () => {
                 return (
                   <Card
                     key={step.id}
-                    className={`p-6 transition-all duration-300 ${
+                    className={`p-6 ${
                       step.completed
                         ? 'bg-primary/5 border-primary/50'
                         : 'bg-card/50 border-border/50 hover:border-primary/30'
