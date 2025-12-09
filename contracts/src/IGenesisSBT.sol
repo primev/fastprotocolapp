@@ -72,10 +72,6 @@ interface IGenesisSBT is IERC721 {
     /// @param mintPrice New mint price
     function setMintPrice(uint256 mintPrice) external;
 
-    /// @dev Updates the maximum mint per wallet
-    /// @param qty New maximum mint per wallet
-    function setMaxMintPerWallet(uint256 qty) external;
-
     /// @dev Returns the metadata URI for a token
     /// @param tokenId The token ID
     /// @return The metadata URI

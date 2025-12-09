@@ -37,7 +37,6 @@ contract GenesisSBT is
         _assetURI = asset;
         _mintPrice = mintPrice;
         _name = "Fast Protocol Genesis SBT";
-        _maxSupplyPerWallet = 1;
     }
 
     // =============================================================
@@ -50,8 +49,8 @@ contract GenesisSBT is
 
         if (balanceOf(msg.sender) > 0) revert TokenAlreadyMinted();
 
-        uint256 requiredPayment = _processPayment(to);
-        _executeMint(to, requiredPayment);
+        _processPayment(to);
+        _executeMint(to);
     }
 
     /// @notice Owner mints tokens to multiple addresses
@@ -124,10 +123,6 @@ contract GenesisSBT is
         _mintPrice = mintPrice;
     }
 
-    function setMaxMintPerWallet(uint256 qty) external onlyOwner {
-        _maxSupplyPerWallet = qty;
-    }
-
     // =============================================================
     //                          PAUSABLE
     // =============================================================
@@ -178,9 +173,9 @@ contract GenesisSBT is
         address to
     ) private returns (uint256 requiredPayment) {
         requiredPayment = _mintPrice;
-        if (msg.value < requiredPayment)
+        if (msg.value < _mintPrice)
             revert InsufficientFunds(_mintPrice, msg.value);
-        if (msg.value > requiredPayment) {
+        if (msg.value > _mintPrice) {
             unchecked {
                 Address.sendValue(payable(to), msg.value - requiredPayment);
             }
@@ -188,17 +183,17 @@ contract GenesisSBT is
     }
 
     /// @dev Executes the mint and updates state
-    function _executeMint(address to, uint256 requiredPayment) private {
+    function _executeMint(address to) private {
         _safeMint(to, _totalTokensMinted + 1);
         
         // Forward funds to protocol
-        Address.sendValue(payable(treasuryReceiver), requiredPayment);
+        Address.sendValue(payable(treasuryReceiver), _mintPrice);
 
         unchecked {
             _totalTokensMinted++;
         }
 
-        emit TokensMinted(to, _maxSupplyPerWallet);
+        emit TokensMinted(to, 1);
     }
 
 }

@@ -19,9 +19,6 @@ abstract contract GenesisSBTStorage {
     // The price to mint a token
     uint256 public _mintPrice;
 
-    // Max Supply Per Wallet
-    uint256 public _maxSupplyPerWallet;
-
     // Treasury Recipient
     address public treasuryReceiver;
 
