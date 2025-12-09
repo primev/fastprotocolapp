@@ -37,5 +37,3 @@ out/
 # Dotenv file
 .env
 
-# Foundry
-contracts/lib/

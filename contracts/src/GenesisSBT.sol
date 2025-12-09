@@ -7,36 +7,15 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "./GenesisSBTStorage.sol";
+import "./IGenesisSBT.sol";
 
 /**
  * @title GenesisSBT
  * @dev Soul Bound Token contract for managing NFT minting with on-chain metadata.
  */
-contract GenesisSBT is Ownable2StepUpgradeable, ERC721Upgradeable, PausableUpgradeable, UUPSUpgradeable {
-    // Metadata
-    string public _name;
-    string public _description;
-    string private _assetURI;
-
-    // Tracks the total number of minted tokens
-    uint256 private _counter;
-
-    // The price to mint a token
-    uint256 public _mintPrice;
-
-    /**
-     * @dev This empty reserved space is put in place to allow future versions to add new
-     * variables without shifting down storage in the inheritance chain.
-     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
-     */
-    uint256[50] private __gap;
-
-    error TokenNotFound();
-    error TokenAlreadyMinted();
-    error SoulBoundToken_TransferNotAllowed();
-    error SoulBoundToken_BurnNotAllowed();
-    error InvalidRecipients();
-    error InsufficientFunds(uint256 required, uint256 provided);
+contract GenesisSBT is Ownable2StepUpgradeable, ERC721Upgradeable, PausableUpgradeable, UUPSUpgradeable, GenesisSBTStorage, IGenesisSBT {
 
     function initialize(string calldata asset, address owner, uint256 mintPrice) external initializer {
         __Ownable2Step_init();
@@ -46,12 +25,16 @@ contract GenesisSBT is Ownable2StepUpgradeable, ERC721Upgradeable, PausableUpgra
         _assetURI = asset;
         _mintPrice = mintPrice;
         _name = "Fast Protocol Genesis SBT";
+        _maxSupplyPerWallet = 1;
     }
 
     function mint() external payable whenNotPaused {
+        address to = msg.sender;
+        
         if (balanceOf(msg.sender) > 0) revert TokenAlreadyMinted();
-        if (msg.value < _mintPrice) revert InsufficientFunds(_mintPrice, msg.value);
-        _safeMint(msg.sender, ++_counter);
+        
+         uint256 requiredPayment = _processPayment(to);
+         _executeMint(to,from, requiredPayment);
     }
 
     /**
@@ -63,12 +46,12 @@ contract GenesisSBT is Ownable2StepUpgradeable, ERC721Upgradeable, PausableUpgra
 
         for (uint256 i = 0; i < to.length; i++) {
             if (balanceOf(to[i]) > 0) continue;
-            _safeMint(to[i], ++_counter);
+            _safeMint(to[i], ++_totalTokensMinted);
         }
     }
 
     function totalSupply() external view returns (uint256) {
-        return _counter;
+        return _totalTokensMinted;
     }
 
     function setAssetURI(string calldata assetURI) external onlyOwner {
@@ -82,6 +65,10 @@ contract GenesisSBT is Ownable2StepUpgradeable, ERC721Upgradeable, PausableUpgra
 
     function setMintPrice(uint256 mintPrice) external onlyOwner {
         _mintPrice = mintPrice;
+    }
+
+    function setMaxMintPerWallet(uint256 qty) external onlyOwner {
+        _maxSupplyPerWallet = qty;
     }
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
@@ -107,32 +94,41 @@ contract GenesisSBT is Ownable2StepUpgradeable, ERC721Upgradeable, PausableUpgra
         );
     }
 
-    function transferFrom(address from, address to, uint256 tokenId) public virtual override {
-        if (to == address(0)) {
-            revert SoulBoundToken_BurnNotAllowed();
+    /// @dev Processes payment and returns required amount
+    function _processPayment(
+        address to
+    ) private returns (uint256 requiredPayment) {
+        if (msg.value < requiredPayment) revert InsufficientFunds(_mintPrice, msg.value);
+        if (msg.value > requiredPayment) {
+            unchecked {
+                Address.sendValue(payable(to), msg.value - requiredPayment);
+            }
         }
-        super.transferFrom(from, to, tokenId);
     }
 
-    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public virtual override {
-        if (to == address(0)) {
-            revert SoulBoundToken_BurnNotAllowed();
+     /// @dev Executes the mint and updates state
+    function _executeMint(
+        address to,
+        uint256 requiredPayment
+    ) private {
+        uint256 qty = _maxSupplyPerWallet;
+
+        _safeMint(to, qty);
+
+        // Forward funds to protocol
+        Address.sendValue(payable(treasuryReceiver), requiredPayment);
+
+        unchecked {
+            // update totalsupply
+            _totalTokensMinted = _totalTokensMinted++;
         }
-        super.safeTransferFrom(from, to, tokenId, data);
+
+        emit TokensMinted(to, qty);
     }
 
     function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
-        address from = _ownerOf(tokenId);
-
-        // Allow minting (from == address(0) and to != address(0))
-        // Prevent transfers (both from and to are non-zero)
-        if (from != address(0) && to != address(0)) {
+        if (from != address(0)) {
             revert SoulBoundToken_TransferNotAllowed();
-        }
-
-        // Prevent burning (from != address(0) and to == address(0))
-        if (from != address(0) && to == address(0)) {
-            revert SoulBoundToken_BurnNotAllowed();
         }
 
         return super._update(to, tokenId, auth);
