@@ -15,9 +15,9 @@ https://book.getfoundry.sh/
 
 ## Usage
 
-### Install (sub modules)
+### Install
 ```shell
-git submodule update --init --recursive
+$ forge install
 ```
 
 ### Build
