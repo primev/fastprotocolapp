@@ -4,11 +4,19 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { captureEmailAction } from '@/actions/capture-email';
-import { MessageCircle, Send, Twitter, Check } from 'lucide-react';
+import { MessageCircle, Send, Twitter, Check, HelpCircle } from 'lucide-react';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import type { CaptureEmailResult } from '@/lib/email';
+import { useAddFastToMetamask } from '@/hooks/use-add-fast-to-metamask';
 
 const socialLinks = [
   {
@@ -32,7 +40,10 @@ const IndexPage = () => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [rpcAdded, setRpcAdded] = useState(false);
+  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { isProcessing, addFastToMetamask } = useAddFastToMetamask();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,6 +172,62 @@ const IndexPage = () => {
               );
             })}
           </div>
+
+          {/* Add RPC Button */}
+          <div className="flex flex-col items-center pt-10 space-y-3">
+            <Button 
+              variant="glass"
+              size="lg"
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const success = await addFastToMetamask();
+                if (success) {
+                  setRpcAdded(true);
+                  setTimeout(() => {
+                    setRpcAdded(false);
+                  }, 3000);
+                }
+              }}
+              disabled={isProcessing || rpcAdded}
+              className="h-12 px-8 lg:text-base border-2 border-primary/20"
+            >
+              {rpcAdded ? '✓ Added Successfully!' : isProcessing ? 'Processing...' : 'Add Fast RPC to MetaMask'}
+            </Button>
+            <button
+              onClick={() => setIsHelpDialogOpen(true)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 underline underline-offset-4"
+            >
+              Need Help?
+            </button>
+          </div>
+
+          {/* Help Dialog */}
+          <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Adding Fast RPC to MetaMask</DialogTitle>
+                <DialogDescription className="pt-4 space-y-3">
+                  <p>
+                    To properly add the Fast RPC network to MetaMask, you need to manually disconnect all other wallet extensions first.
+                  </p>
+                  <div className="space-y-2 pt-2">
+                    <p className="font-medium text-foreground">Steps to follow:</p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-left pl-2">
+                      <li>Open your browser extensions (click the puzzle icon in your browser toolbar)</li>
+                      <li>Disconnect or disable any other wallet extensions (Rabby, Coinbase Wallet, etc.)</li>
+                      <li>Make sure only MetaMask is active</li>
+                      <li>Return to this page and click "Add Fast RPC to MetaMask"</li>
+                    </ol>
+                  </div>
+                  <p className="pt-2 text-xs text-muted-foreground">
+                    This is necessary because multiple wallet extensions can interfere with the network addition process.
+                  </p>
+                </DialogDescription>
+              </DialogHeader>
+            </DialogContent>
+          </Dialog>
+          
         </div>
       </div>
 
