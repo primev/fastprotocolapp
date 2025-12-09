@@ -236,7 +236,7 @@ const DashboardContent = () => {
                 className="text-base flex items-center gap-2"
               >
                 Points{' '}
-                <Badge variant="" className="text-xs">
+                <Badge variant="outline" className="text-xs">
                   Coming Soon
                 </Badge>
               </TabsTrigger>
