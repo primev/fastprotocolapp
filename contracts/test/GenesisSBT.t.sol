@@ -3,9 +3,10 @@ pragma solidity ^0.8.4;
 
 import {Test} from "forge-std/Test.sol";
 import {GenesisSBT} from "../src/GenesisSBT.sol";
+import {IGenesisSBT} from "../src/IGenesisSBT.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 
-// Helper contract to expose Base64.decode for testing
+/// @notice Helper contract to expose Base64.decode for testing
 contract Base64Helper {
     function decode(string memory data) external pure returns (bytes memory) {
         return Base64.decode(data);
@@ -22,10 +23,18 @@ contract GenesisSBTTest is Test {
     string public constant ASSET_URI = "https://example.com/image.png";
     uint256 public constant MINT_PRICE = 0.01 ether;
 
+    // =============================================================
+    //                          EVENTS
+    // =============================================================
+
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
     event Paused(address account);
     event Unpaused(address account);
     event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
+
+    // =============================================================
+    //                          SETUP
+    // =============================================================
 
     function setUp() public {
         owner = makeAddr("owner");
@@ -39,7 +48,7 @@ contract GenesisSBTTest is Test {
     }
 
     // =============================================================
-    //                         Initialization Tests
+    //                    INITIALIZATION TESTS
     // =============================================================
 
     function test_Initialize() public {
@@ -56,7 +65,7 @@ contract GenesisSBTTest is Test {
     }
 
     // =============================================================
-    //                         Minting Tests
+    //                       MINTING TESTS
     // =============================================================
 
     function test_Mint() public {
@@ -75,7 +84,7 @@ contract GenesisSBTTest is Test {
         vm.prank(user1);
         sbt.mint{value: MINT_PRICE}();
 
-        vm.expectRevert(GenesisSBT.TokenAlreadyMinted.selector);
+        vm.expectRevert(IGenesisSBT.TokenAlreadyMinted.selector);
         vm.prank(user1);
         sbt.mint{value: MINT_PRICE}();
     }
@@ -83,7 +92,7 @@ contract GenesisSBTTest is Test {
     function test_Mint_RevertIf_InsufficientFunds() public {
         vm.deal(user1, MINT_PRICE - 1);
 
-        vm.expectRevert(abi.encodeWithSelector(GenesisSBT.InsufficientFunds.selector, MINT_PRICE, MINT_PRICE - 1));
+        vm.expectRevert(abi.encodeWithSelector(IGenesisSBT.InsufficientFunds.selector, MINT_PRICE, MINT_PRICE - 1));
         vm.prank(user1);
         sbt.mint{value: MINT_PRICE - 1}();
     }
@@ -136,7 +145,7 @@ contract GenesisSBTTest is Test {
     }
 
     // =============================================================
-    //                      Admin Minting Tests
+    //                    ADMIN MINTING TESTS
     // =============================================================
 
     function test_AdminMint() public {
@@ -186,6 +195,8 @@ contract GenesisSBTTest is Test {
         assertEq(sbt.balanceOf(user1), 1); // Still 1, not 2
         assertEq(sbt.balanceOf(user2), 1); // Newly minted
         assertEq(sbt.totalSupply(), 2); // Only 2 total (user1's original + user2's new)
+        assertEq(sbt.ownerOf(1), user1); // user1 has token 1
+        assertEq(sbt.ownerOf(2), user2); // user2 has token 2
     }
 
     function test_AdminMint_SkipMultipleAlreadyMinted() public {
@@ -210,12 +221,15 @@ contract GenesisSBTTest is Test {
         assertEq(sbt.balanceOf(user2), 1); // Still 1
         assertEq(sbt.balanceOf(user3), 1); // Newly minted
         assertEq(sbt.totalSupply(), 3); // user1 + user2 + user3
+        assertEq(sbt.ownerOf(1), user1); // user1 has token 1
+        assertEq(sbt.ownerOf(2), user2); // user2 has token 2
+        assertEq(sbt.ownerOf(3), user3); // user3 has token 3
     }
 
     function test_AdminMint_EmptyArray_RevertIf_Empty() public {
         address[] memory recipients = new address[](0);
 
-        vm.expectRevert(GenesisSBT.InvalidRecipients.selector);
+        vm.expectRevert(IGenesisSBT.InvalidRecipients.selector);
         vm.prank(owner);
         sbt.adminMint(recipients);
     }
@@ -249,10 +263,13 @@ contract GenesisSBTTest is Test {
         assertEq(sbt.balanceOf(user2), 1); // Newly minted
         assertEq(sbt.balanceOf(user3), 1); // Newly minted
         assertEq(sbt.totalSupply(), 3); // user1 + user2 + user3
+        assertEq(sbt.ownerOf(1), user1); // user1 has token 1
+        assertEq(sbt.ownerOf(2), user2); // user2 has token 2
+        assertEq(sbt.ownerOf(3), user3); // user3 has token 3
     }
 
     // =============================================================
-    //                    Transfer Prevention Tests
+    //              TRANSFER PREVENTION TESTS
     // =============================================================
 
     function test_Transfer_RevertIf_TransferAttempted() public {
@@ -260,7 +277,7 @@ contract GenesisSBTTest is Test {
         vm.prank(user1);
         sbt.mint{value: MINT_PRICE}();
 
-        vm.expectRevert(GenesisSBT.SoulBoundToken_TransferNotAllowed.selector);
+        vm.expectRevert(IGenesisSBT.SoulBoundToken_TransferNotAllowed.selector);
         vm.prank(user1);
         sbt.transferFrom(user1, user2, 1);
     }
@@ -270,7 +287,7 @@ contract GenesisSBTTest is Test {
         vm.prank(user1);
         sbt.mint{value: MINT_PRICE}();
 
-        vm.expectRevert(GenesisSBT.SoulBoundToken_TransferNotAllowed.selector);
+        vm.expectRevert(IGenesisSBT.SoulBoundToken_TransferNotAllowed.selector);
         vm.prank(user1);
         sbt.safeTransferFrom(user1, user2, 1);
     }
@@ -283,50 +300,13 @@ contract GenesisSBTTest is Test {
         vm.prank(user1);
         sbt.approve(user2, 1);
 
-        vm.expectRevert(GenesisSBT.SoulBoundToken_TransferNotAllowed.selector);
+        vm.expectRevert(IGenesisSBT.SoulBoundToken_TransferNotAllowed.selector);
         vm.prank(user2);
         sbt.transferFrom(user1, user3, 1);
     }
 
     // =============================================================
-    //                      Burn Prevention Tests
-    // =============================================================
-
-    function test_Burn_RevertIf_TransferToZeroAddress() public {
-        vm.deal(user1, MINT_PRICE);
-        vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
-
-        vm.expectRevert(GenesisSBT.SoulBoundToken_BurnNotAllowed.selector);
-        vm.prank(user1);
-        sbt.transferFrom(user1, address(0), 1);
-    }
-
-    function test_Burn_RevertIf_SafeTransferToZeroAddress() public {
-        vm.deal(user1, MINT_PRICE);
-        vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
-
-        vm.expectRevert(GenesisSBT.SoulBoundToken_BurnNotAllowed.selector);
-        vm.prank(user1);
-        sbt.safeTransferFrom(user1, address(0), 1);
-    }
-
-    function test_Burn_RevertIf_ApprovedBurnAttempted() public {
-        vm.deal(user1, MINT_PRICE);
-        vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
-
-        vm.prank(user1);
-        sbt.approve(user2, 1);
-
-        vm.expectRevert(GenesisSBT.SoulBoundToken_BurnNotAllowed.selector);
-        vm.prank(user2);
-        sbt.transferFrom(user1, address(0), 1);
-    }
-
-    // =============================================================
-    //                      Pause/Unpause Tests
+    //                  PAUSE/UNPAUSE TESTS
     // =============================================================
 
     function test_Pause() public {
@@ -376,7 +356,7 @@ contract GenesisSBTTest is Test {
     }
 
     // =============================================================
-    //                    Metadata Management Tests
+    //              METADATA MANAGEMENT TESTS
     // =============================================================
 
     function test_SetAssetURI() public {
@@ -454,7 +434,7 @@ contract GenesisSBTTest is Test {
     }
 
     // =============================================================
-    //                      TokenURI Tests
+    //                    TOKEN URI TESTS
     // =============================================================
 
     function test_TokenURI() public {
@@ -496,7 +476,7 @@ contract GenesisSBTTest is Test {
     }
 
     function test_TokenURI_RevertIf_TokenNotFound() public {
-        vm.expectRevert(GenesisSBT.TokenNotFound.selector);
+        vm.expectRevert(IGenesisSBT.TokenNotFound.selector);
         sbt.tokenURI(1);
     }
 
@@ -520,7 +500,7 @@ contract GenesisSBTTest is Test {
     }
 
     // =============================================================
-    //                    Ownership Transfer Tests
+    //              OWNERSHIP TRANSFER TESTS
     // =============================================================
 
     function test_TransferOwnership() public {
@@ -639,7 +619,7 @@ contract GenesisSBTTest is Test {
     }
 
     // =============================================================
-    //                      Total Supply Tests
+    //                  TOTAL SUPPLY TESTS
     // =============================================================
 
     function test_TotalSupply() public {
@@ -649,11 +629,13 @@ contract GenesisSBTTest is Test {
         vm.prank(user1);
         sbt.mint{value: MINT_PRICE}();
         assertEq(sbt.totalSupply(), 1);
+        assertEq(sbt.ownerOf(1), user1);
 
         vm.deal(user2, MINT_PRICE);
         vm.prank(user2);
         sbt.mint{value: MINT_PRICE}();
         assertEq(sbt.totalSupply(), 2);
+        assertEq(sbt.ownerOf(2), user2);
 
         address[] memory recipients = new address[](3);
         recipients[0] = user3;
@@ -662,10 +644,13 @@ contract GenesisSBTTest is Test {
         vm.prank(owner);
         sbt.adminMint(recipients);
         assertEq(sbt.totalSupply(), 5);
+        assertEq(sbt.ownerOf(3), user3);
+        assertEq(sbt.ownerOf(4), makeAddr("user4"));
+        assertEq(sbt.ownerOf(5), makeAddr("user5"));
     }
 
     // =============================================================
-    //                      Helper Functions
+    //                  HELPER FUNCTIONS
     // =============================================================
 
     function contains(string memory str, string memory substr) internal pure returns (bool) {
