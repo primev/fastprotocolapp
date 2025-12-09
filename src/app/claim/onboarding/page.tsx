@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
+import { useAccount } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -12,9 +14,16 @@ import {
   Zap,
   ChevronRight,
   Home,
-  Globe,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { 
+  WalletInfo, 
+  RPCConfiguration, 
+  NetworkSetupDrawer, 
+  RPCTestModal 
+} from '@/components/network-checker';
+import { useNetworkInstallation } from '@/hooks/use-network-installation';
+import { useRPCTest } from '@/hooks/use-rpc-test';
 
 type Step = {
   id: string;
@@ -24,33 +33,110 @@ type Step = {
   completed: boolean;
 };
 
+const ONBOARDING_STORAGE_KEY = 'onboardingSteps';
+
+const baseSteps: Omit<Step, 'completed'>[] = [
+  {
+    id: 'follow',
+    title: 'Follow Us on X',
+    description: 'Follow @fast_protocol to continue',
+    icon: Twitter,
+  },
+  {
+    id: 'wallet',
+    title: 'Connect Wallet',
+    description: 'Connect your wallet to mint your SBT',
+    icon: Wallet,
+  },
+  {
+    id: 'rpc',
+    title: 'Fast RPC Setup',
+    description: 'Configure Fast RPC for your first Fast transaction',
+    icon: Network,
+  },
+];
+
 const OnboardingPage = () => {
   const router = useRouter();
-  const [steps, setSteps] = useState<Step[]>([
-    {
-      id: 'follow',
-      title: 'Follow Us on X',
-      description: 'Follow @fast_protocol to continue',
-      icon: Twitter,
-      completed: false,
-    },
-    {
-      id: 'wallet',
-      title: 'Connect Wallet',
-      description: 'Connect your wallet to mint your SBT',
-      icon: Wallet,
-      completed: false,
-    },
-    {
-      id: 'rpc',
-      title: 'Fast RPC Setup',
-      description: 'Configure Fast RPC for your first Fast transaction',
-      icon: Network,
-      completed: false,
-    },
-  ]);
+  const { openConnectModal } = useConnectModal();
+  const { isConnected } = useAccount();
+  const networkInstallation = useNetworkInstallation();
+  const rpcTest = useRPCTest();
+  
+  // Start with default state, load from localStorage after mount
+  const [steps, setSteps] = useState<Step[]>(() => 
+    baseSteps.map(step => ({ ...step, completed: false }))
+  );
 
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showRpcInfo, setShowRpcInfo] = useState(false);
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const hasLoadedFromStorage = useRef(false);
+
+  // Load from localStorage after mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+      const saved = stored ? JSON.parse(stored) : {};
+      setSteps(baseSteps.map(step => ({
+        ...step,
+        completed: saved[step.id] === true,
+      })));
+    } catch (error) {
+      console.error('Error loading onboarding steps:', error);
+    } finally {
+      hasLoadedFromStorage.current = true;
+    }
+  }, []);
+
+  const updateStepStatus = (stepId: string, completed: boolean) => {
+    setSteps((prev) => {
+      const updated = prev.map((step) => 
+        step.id === stepId ? { ...step, completed } : step
+      );
+      
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          const saved = updated.reduce((acc, step) => {
+            acc[step.id] = step.completed;
+            return acc;
+          }, {} as Record<string, boolean>);
+          localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(saved));
+        } catch (error) {
+          console.error('Error saving onboarding steps:', error);
+        }
+      }
+      
+      return updated;
+    });
+  };
+
+
+  // Update wallet step status when connection changes
+  // Only mark as completed if not already saved as completed
+  useEffect(() => {
+    if (!hasLoadedFromStorage.current) return; // Wait for initial load to prevent flash
+    const walletStep = steps.find(s => s.id === 'wallet');
+    if (isConnected && !walletStep?.completed) {
+      updateStepStatus('wallet', true);
+    }
+  }, [isConnected]);
+
+  // Update RPC step status when network is installed or RPC test passes
+  // Only update if not already completed
+  useEffect(() => {
+    if (!hasLoadedFromStorage.current) return; // Wait for initial load to prevent flash
+    const rpcStep = steps.find(s => s.id === 'rpc');
+    if (!rpcStep?.completed) {
+      if (networkInstallation.isInstalled || (rpcTest.testResult?.success === true)) {
+        updateStepStatus('rpc', true);
+        if (networkInstallation.isInstalled) {
+          toast.success('Fast RPC network added successfully!');
+        }
+      }
+    }
+  }, [networkInstallation.isInstalled, rpcTest.testResult?.success]);
 
   const handleStepAction = (stepId: string) => {
     if (stepId === 'follow') {
@@ -64,25 +150,33 @@ const OnboardingPage = () => {
         updateStepStatus(stepId, true);
       }, 2000);
     } else if (stepId === 'wallet') {
-      // Simulate wallet connection
-      toast.success('Wallet connected successfully!');
-      updateStepStatus(stepId, true);
+      // Open RainbowKit connect modal
+      if (openConnectModal) {
+        openConnectModal();
+      } else {
+        toast.error('Unable to open wallet connection modal');
+      }
     } else if (stepId === 'rpc') {
+      if (!isConnected) {
+        toast.error('Please connect your wallet first');
+        return;
+      }
       setShowRpcInfo(true);
     }
   };
 
-  const handleAddRpc = () => {
-    // Simulate RPC addition
-    toast.success('Fast RPC added to your wallet!');
-    updateStepStatus('rpc', true);
-    setShowRpcInfo(false);
+  const handleTestClick = () => {
+    setIsTestModalOpen(true);
   };
 
-  const updateStepStatus = (stepId: string, completed: boolean) => {
-    setSteps((prev) =>
-      prev.map((step) => (step.id === stepId ? { ...step, completed } : step))
-    );
+  const handleConfirmTest = () => {
+    // The test is handled by the RPCTestModal component internally
+  };
+
+  const handleCloseModal = () => {
+    setIsTestModalOpen(false);
+    // Clear test result when modal closes
+    rpcTest.reset();
   };
 
   const allStepsCompleted = steps.every((step) => step.completed);
@@ -154,7 +248,7 @@ const OnboardingPage = () => {
                 return (
                   <Card
                     key={step.id}
-                    className={`p-6 transition-all duration-300 ${
+                    className={`p-6 ${
                       step.completed
                         ? 'bg-primary/5 border-primary/50'
                         : 'bg-card/50 border-border/50 hover:border-primary/30'
@@ -190,130 +284,48 @@ const OnboardingPage = () => {
                           </p>
                         </div>
 
-                        {step.id === 'rpc' &&
-                          showRpcInfo &&
-                          !step.completed && (
-                            <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg p-6 space-y-4 border border-primary/30">
-                              <div className="flex items-start gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                                  <Zap className="w-5 h-5 text-primary" />
-                                </div>
-                                <div>
-                                  <h4 className="font-semibold text-lg mb-1">
-                                    Fast RPC Setup
-                                  </h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    Add Fast Protocol network to your wallet
-                                  </p>
-                                </div>
-                              </div>
-
-                              <p className="text-sm leading-relaxed">
-                                Your Genesis SBT will be minted{' '}
-                                <span className="text-primary font-semibold">
-                                  through
-                                </span>{' '}
-                                Fast RPC — this is your first Fast Protocol
-                                transaction.
-                              </p>
-
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                Fast RPC routes your transactions through a
-                                private, cryptoeconomic commitment network that
-                                offers millisecond preconfirmations instead of
-                                dumping your transactions into the public
-                                mempool.
-                              </p>
-
-                              <div className="bg-card/50 rounded-lg p-4 space-y-4 border border-border/50">
-                                <div className="flex items-center gap-2 text-primary">
-                                  <Globe className="w-4 h-4" />
-                                  <span className="font-semibold">
-                                    Network Details
-                                  </span>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <div className="text-xs text-muted-foreground mb-1">
-                                      Network Name
-                                    </div>
-                                    <div className="font-semibold">
-                                      Fast Protocol Mainnet
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <div className="text-xs text-muted-foreground mb-1">
-                                      Chain ID
-                                    </div>
-                                    <div className="font-semibold">42170</div>
-                                  </div>
-                                </div>
-
-                                <div>
-                                  <div className="text-xs text-muted-foreground mb-1">
-                                    RPC URL
-                                  </div>
-                                  <div className="font-mono text-sm text-primary">
-                                    https://rpc.fast.protocol
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <div className="text-xs text-muted-foreground mb-1">
-                                      Currency Symbol
-                                    </div>
-                                    <div className="font-semibold">FAST</div>
-                                  </div>
-                                  <div>
-                                    <div className="text-xs text-muted-foreground mb-1">
-                                      Block Explorer
-                                    </div>
-                                    <div className="font-mono text-sm text-primary truncate">
-                                      https://explorer.fast.pro...
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex gap-3 pt-2">
+                        {step.id === 'rpc' && showRpcInfo && !step.completed && (
+                          <div className="space-y-4 pt-4 border-t border-border/50">
+                            <WalletInfo title="Wallet Connection" size="sm" align="start" />
+                            <RPCConfiguration
+                              onSetupClick={() => setIsDrawerOpen(true)}
+                              onTestClick={handleTestClick}
+                              additionalContent={
                                 <Button
-                                  onClick={handleAddRpc}
-                                  className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
-                                >
-                                  <Zap className="w-4 h-4 mr-2" />
-                                  Add to Wallet
-                                </Button>
-                                <Button
+                                  onClick={() => {
+                                    updateStepStatus('rpc', true);
+                                    setShowRpcInfo(false);
+                                    toast.success('Fast RPC setup marked as completed!');
+                                  }}
                                   variant="outline"
-                                  onClick={() => setShowRpcInfo(false)}
+                                  size="sm"
+                                  className="text-sm"
                                 >
-                                  Cancel
+                                  <Check className="w-3 h-3 mr-2" />
+                                  Mark as Completed
                                 </Button>
-                              </div>
-                            </div>
-                          )}
+                              }
+                            />
+                          </div>
+                        )}
 
-                        {!step.completed && (
+                        {!step.completed && !(step.id === 'rpc' && showRpcInfo) && (
                           <Button
                             onClick={() => handleStepAction(step.id)}
                             variant={
-                              step.id === 'rpc' && !showRpcInfo
+                              step.id === 'rpc'
                                 ? 'default'
                                 : 'outline'
                             }
                             className={
-                              step.id === 'rpc' && !showRpcInfo
+                              step.id === 'rpc'
                                 ? 'bg-primary hover:bg-primary/90'
                                 : ''
                             }
                           >
                             {step.id === 'follow' && 'Follow @fast_protocol'}
                             {step.id === 'wallet' && 'Connect Wallet'}
-                            {step.id === 'rpc' &&
-                              !showRpcInfo &&
-                              'Setup Fast RPC'}
+                            {step.id === 'rpc' && 'Setup Fast RPC'}
                             <ChevronRight className="w-4 h-4 ml-2" />
                           </Button>
                         )}
@@ -345,6 +357,18 @@ const OnboardingPage = () => {
           </div>
         </main>
       </div>
+
+      <NetworkSetupDrawer
+        open={isDrawerOpen}
+        onOpenChange={setIsDrawerOpen}
+      />
+
+      <RPCTestModal
+        open={isTestModalOpen}
+        onOpenChange={setIsTestModalOpen}
+        onConfirm={handleConfirmTest}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 };
