@@ -91,12 +91,12 @@ const IndexPage = () => {
   };
 
   return (
-    <div className="relative h-screen flex items-center justify-center overflow-hidden bg-background">
+    <div className="relative h-screen flex justify-center overflow-hidden bg-background">
       {/* Animated Background */}
       <AnimatedBackground />
 
       {/* Content */}
-      <div className="relative z-10 container mx-auto px-4 -mt-[40vh]">
+      <div className="relative z-10 w-full px-4">
         <div className="max-w-3xl mx-auto space-y-6 text-center">
           {/* Logo */}
           <div className="flex justify-center -mb-16">
@@ -117,7 +117,7 @@ const IndexPage = () => {
           </p>
 
           {/* Email Signup */}
-          <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-2xl p-3 md:p-4 shadow-xl max-w-xl lg:max-w-3xl mx-auto mt-[10vh]">
+          <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-2xl p-3 md:p-4 shadow-xl max-w-xl lg:max-w-3xl mx-auto">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-3">
                 <Input
