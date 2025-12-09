@@ -51,8 +51,6 @@ contract GenesisSBT is
         address to = msg.sender;
 
         if (balanceOf(msg.sender) > 0) revert TokenAlreadyMinted();
-
-        _processPayment(to);
         _executeMint(to);
     }
 
@@ -191,29 +189,27 @@ contract GenesisSBT is
     //                          INTERNAL/PRIVATE
     // =============================================================
 
-    /// @dev Processes payment and returns required amount
-    function _processPayment(
-        address to
-    ) private returns (uint256 requiredPayment) {
-        requiredPayment = _mintPrice;
-        if (msg.value < _mintPrice)
-            revert InsufficientFunds(_mintPrice, msg.value);
-        if (msg.value > _mintPrice) {
-            unchecked {
-                Address.sendValue(payable(to), msg.value - requiredPayment);
-            }
-        }
-    }
-
     /// @dev Executes the mint and updates state
     function _executeMint(address to) private {
+        // Validate payment
+        if (msg.value < _mintPrice)
+            revert InsufficientFunds(_mintPrice, msg.value);
+
+        // Mint token
         _safeMint(to, _totalTokensMinted + 1);
-        
-        // Forward funds to protocol
-        Address.sendValue(payable(_treasuryReceiver), _mintPrice);
 
         unchecked {
             _totalTokensMinted++;
+        }
+
+        // Forward funds to protocol
+        Address.sendValue(payable(_treasuryReceiver), _mintPrice);
+
+        // Refund excess payment if required
+        if (msg.value > _mintPrice) {
+            unchecked {
+                Address.sendValue(payable(to), msg.value - _mintPrice);
+            }
         }
     }
 
