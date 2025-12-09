@@ -28,13 +28,6 @@ const OnboardingPage = () => {
   const router = useRouter();
   const [steps, setSteps] = useState<Step[]>([
     {
-      id: 'twitter',
-      title: 'Connect X',
-      description: 'Connect your X (Twitter) account',
-      icon: Twitter,
-      completed: false,
-    },
-    {
       id: 'follow',
       title: 'Follow Us on X',
       description: 'Follow @fast_protocol to continue',
@@ -60,13 +53,7 @@ const OnboardingPage = () => {
   const [showRpcInfo, setShowRpcInfo] = useState(false);
 
   const handleStepAction = (stepId: string) => {
-    if (stepId === 'twitter') {
-      // Simulate Twitter connection
-      toast.success('X account connected successfully!');
-      setTimeout(() => {
-        updateStepStatus(stepId, true);
-      }, 1000);
-    } else if (stepId === 'follow') {
+    if (stepId === 'follow') {
       // Open follow link
       window.open(
         'https://twitter.com/intent/follow?screen_name=fast_protocol',
@@ -103,7 +90,6 @@ const OnboardingPage = () => {
   const handleMintSbt = () => {
     // Map onboarding steps to Dashboard task names
     const completedTasks = [
-      'Connect X',
       'Follow @fast_protocol',
       'Connect Wallet',
       'Fast RPC Setup',
@@ -323,7 +309,6 @@ const OnboardingPage = () => {
                                 : ''
                             }
                           >
-                            {step.id === 'twitter' && 'Connect X Account'}
                             {step.id === 'follow' && 'Follow @fast_protocol'}
                             {step.id === 'wallet' && 'Connect Wallet'}
                             {step.id === 'rpc' &&
