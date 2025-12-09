@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
+import { useAccount } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -26,6 +28,8 @@ type Step = {
 
 const OnboardingPage = () => {
   const router = useRouter();
+  const { openConnectModal } = useConnectModal();
+  const { isConnected } = useAccount();
   const [steps, setSteps] = useState<Step[]>([
     {
       id: 'follow',
@@ -52,6 +56,22 @@ const OnboardingPage = () => {
 
   const [showRpcInfo, setShowRpcInfo] = useState(false);
 
+  const updateStepStatus = (stepId: string, completed: boolean) => {
+    setSteps((prev) =>
+      prev.map((step) => (step.id === stepId ? { ...step, completed } : step))
+    );
+  };
+
+  // Update wallet step status when connection changes or on mount if already connected
+  useEffect(() => {
+    if (isConnected) {
+      updateStepStatus('wallet', true);
+    } else {
+      // Mark as incomplete if disconnected
+      updateStepStatus('wallet', false);
+    }
+  }, [isConnected]);
+
   const handleStepAction = (stepId: string) => {
     if (stepId === 'follow') {
       // Open follow link
@@ -64,9 +84,12 @@ const OnboardingPage = () => {
         updateStepStatus(stepId, true);
       }, 2000);
     } else if (stepId === 'wallet') {
-      // Simulate wallet connection
-      toast.success('Wallet connected successfully!');
-      updateStepStatus(stepId, true);
+      // Open RainbowKit connect modal
+      if (openConnectModal) {
+        openConnectModal();
+      } else {
+        toast.error('Unable to open wallet connection modal');
+      }
     } else if (stepId === 'rpc') {
       setShowRpcInfo(true);
     }
@@ -77,12 +100,6 @@ const OnboardingPage = () => {
     toast.success('Fast RPC added to your wallet!');
     updateStepStatus('rpc', true);
     setShowRpcInfo(false);
-  };
-
-  const updateStepStatus = (stepId: string, completed: boolean) => {
-    setSteps((prev) =>
-      prev.map((step) => (step.id === stepId ? { ...step, completed } : step))
-    );
   };
 
   const allStepsCompleted = steps.every((step) => step.completed);
