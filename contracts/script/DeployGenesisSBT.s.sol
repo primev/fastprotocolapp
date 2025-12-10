@@ -156,8 +156,8 @@ contract DeployScript is Script {
         console.log("\n=== Post-Deployment Configuration ===");
         GenesisSBT genesisSBT = GenesisSBT(payable(addresses.genesisSBT));
         
-        // Update description via setMetadataProperties
-        genesisSBT.setMetadataProperties(genesisSBT.name(), params.description);
+        // Update description via setNftDescription
+        genesisSBT.setNftDescription(params.description);
         console.log("Description updated successfully");
         console.log("Description:", params.description);
     }

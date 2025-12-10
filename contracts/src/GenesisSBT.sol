@@ -51,7 +51,7 @@ contract GenesisSBT is
     function mint() external payable whenNotPaused {
         address to = msg.sender;
 
-        if (userTokenId[to] != 0) revert TokenAlreadyMinted();
+        if (_userTokenId[to] != 0) revert TokenAlreadyMinted();
         _executeMint(to);
     }
 
@@ -60,10 +60,10 @@ contract GenesisSBT is
         if (to.length == 0) revert InvalidRecipients();
 
         for (uint256 i = 0; i < to.length; i++) {
-            if (userTokenId[to[i]] != 0) continue;
+            if (_userTokenId[to[i]] != 0) continue;
             uint256 tokenId = _totalTokensMinted + 1;
             _safeMint(to[i], tokenId);
-            userTokenId[to[i]] = tokenId;
+            _userTokenId[to[i]] = tokenId;
 
             unchecked {
                 _totalTokensMinted++;
@@ -83,7 +83,7 @@ contract GenesisSBT is
     /// @param user The address to query
     /// @return tokenId The token ID owned by the user, or 0 if the user doesn't have a token
     function getTokenIdByAddress(address user) external view returns (uint256 tokenId) {
-        return userTokenId[user];
+        return _userTokenId[user];
     }
 
     /// @notice Returns the metadata URI for a token
@@ -119,20 +119,17 @@ contract GenesisSBT is
 
     function setAssetURI(string calldata assetURI) external onlyOwner {
         _assetURI = assetURI;
-        if (_totalTokensMinted > 0) {
-            emit MetadataUpdate(_totalTokensMinted);
-        }
+        _updateMetadata();
     }
 
-    function setMetadataProperties(
-        string calldata nftName,
-        string calldata description
-    ) external onlyOwner {
+    function setNftName(string calldata nftName) external onlyOwner {
         _name = nftName;
-        _description = description;
-        if (_totalTokensMinted > 0) {
-            emit MetadataUpdate(_totalTokensMinted);
-        }
+        _updateMetadata();
+    }
+
+    function setNftDescription(string calldata nftDescription) external onlyOwner {
+        _description = nftDescription;
+        _updateMetadata();
     }
 
     function setMintPrice(uint256 mintPrice) external onlyOwner {
@@ -207,7 +204,7 @@ contract GenesisSBT is
         // Mint token
         uint256 tokenId = _totalTokensMinted + 1;
         _safeMint(to, tokenId);
-        userTokenId[to] = tokenId;
+        _userTokenId[to] = tokenId;
 
         unchecked {
             _totalTokensMinted++;
@@ -221,6 +218,13 @@ contract GenesisSBT is
             unchecked {
                 Address.sendValue(payable(to), msg.value - _mintPrice);
             }
+        }
+    }
+
+    /// @dev Updates the metadata for all tokens
+    function _updateMetadata() private {
+         if (_totalTokensMinted > 0) {
+            emit BatchMetadataUpdate(1, _totalTokensMinted);
         }
     }
 

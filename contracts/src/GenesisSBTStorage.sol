@@ -9,12 +9,12 @@ import {IGenesisSBT} from "./IGenesisSBT.sol";
  */
 abstract contract GenesisSBTStorage {
     // Mapping from user address to token ID
-    mapping(address => uint256) public userTokenId;
+    mapping(address => uint256) internal _userTokenId;
 
     // Metadata
     string public _name;
     string public _description;
-    string internal _assetURI;
+    string public _assetURI;
 
     // Tracks the total number of minted tokens
     uint256 internal _totalTokensMinted;

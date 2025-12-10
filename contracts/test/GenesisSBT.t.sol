@@ -386,7 +386,7 @@ contract GenesisSBTTest is Test {
         string memory newURI = "https://example.com/new-image.png";
 
         vm.expectEmit(true, false, false, false);
-        emit IERC4906.MetadataUpdate(1);
+        emit IERC4906.BatchMetadataUpdate(1, 1);
 
         vm.prank(owner);
         sbt.setAssetURI(newURI);
@@ -418,29 +418,50 @@ contract GenesisSBTTest is Test {
         sbt.setAssetURI("https://example.com/new.png");
     }
 
-    function test_SetMetadataProperties() public {
+    function test_SetNftName() public {
         // Mint a token first
         vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
         sbt.mint{value: MINT_PRICE}();
 
         string memory name = "Test NFT";
+
+        vm.expectEmit(true, false, false, false);
+        emit IERC4906.BatchMetadataUpdate(1, 1);
+
+        vm.prank(owner);
+        sbt.setNftName(name);
+
+        assertEq(sbt._name(), name);
+    }
+
+    function test_SetNftName_RevertIf_NotOwner() public {
+        vm.expectRevert();
+        vm.prank(user1);
+        sbt.setNftName("Test");
+    }
+
+    function test_SetNftDescription() public {
+        // Mint a token first
+        vm.deal(user1, MINT_PRICE);
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+
         string memory description = "Test Description";
 
         vm.expectEmit(true, false, false, false);
-        emit IERC4906.MetadataUpdate(1);
+        emit IERC4906.BatchMetadataUpdate(1, 1);
 
         vm.prank(owner);
-        sbt.setMetadataProperties(name, description);
+        sbt.setNftDescription(description);
 
-        assertEq(sbt._name(), name);
         assertEq(sbt._description(), description);
     }
 
-    function test_SetMetadataProperties_RevertIf_NotOwner() public {
+    function test_SetNftDescription_RevertIf_NotOwner() public {
         vm.expectRevert();
         vm.prank(user1);
-        sbt.setMetadataProperties("Test", "Desc");
+        sbt.setNftDescription("Desc");
     }
 
     function test_SetMintPrice() public {
@@ -472,7 +493,9 @@ contract GenesisSBTTest is Test {
         string memory description = "A genesis soul bound token";
 
         vm.prank(owner);
-        sbt.setMetadataProperties(name, description);
+        sbt.setNftName(name);
+        vm.prank(owner);
+        sbt.setNftDescription(description);
 
         vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
@@ -515,7 +538,9 @@ contract GenesisSBTTest is Test {
         string memory description = "Test Desc";
 
         vm.prank(owner);
-        sbt.setMetadataProperties(name, description);
+        sbt.setNftName(name);
+        vm.prank(owner);
+        sbt.setNftDescription(description);
 
         vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
@@ -756,9 +781,9 @@ contract GenesisSBTTest is Test {
 
     function test_UserTokenId_Mapping_InitialState() public {
         // Before minting, mapping should return 0
-        assertEq(sbt.userTokenId(user1), 0);
-        assertEq(sbt.userTokenId(user2), 0);
-        assertEq(sbt.userTokenId(user3), 0);
+        assertEq(sbt.getTokenIdByAddress(user1), 0);
+        assertEq(sbt.getTokenIdByAddress(user2), 0);
+        assertEq(sbt.getTokenIdByAddress(user3), 0);
     }
 
     function test_UserTokenId_Mapping_SetOnMint() public {
@@ -767,7 +792,7 @@ contract GenesisSBTTest is Test {
         sbt.mint{value: MINT_PRICE}();
 
         // Mapping should be set to token ID 1
-        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
         assertEq(sbt.ownerOf(1), user1);
     }
 
@@ -779,7 +804,7 @@ contract GenesisSBTTest is Test {
         sbt.adminMint(recipients);
 
         // Mapping should be set to token ID 1
-        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
         assertEq(sbt.ownerOf(1), user1);
     }
 
@@ -790,20 +815,20 @@ contract GenesisSBTTest is Test {
 
         vm.prank(user1);
         sbt.mint{value: MINT_PRICE}();
-        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
 
         vm.prank(user2);
         sbt.mint{value: MINT_PRICE}();
-        assertEq(sbt.userTokenId(user2), 2);
+        assertEq(sbt.getTokenIdByAddress(user2), 2);
 
         vm.prank(user3);
         sbt.mint{value: MINT_PRICE}();
-        assertEq(sbt.userTokenId(user3), 3);
+        assertEq(sbt.getTokenIdByAddress(user3), 3);
 
         // Verify all mappings are correct
-        assertEq(sbt.userTokenId(user1), 1);
-        assertEq(sbt.userTokenId(user2), 2);
-        assertEq(sbt.userTokenId(user3), 3);
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user2), 2);
+        assertEq(sbt.getTokenIdByAddress(user3), 3);
     }
 
     function test_UserTokenId_Mapping_BatchAdminMint() public {
@@ -816,9 +841,9 @@ contract GenesisSBTTest is Test {
         sbt.adminMint(recipients);
 
         // All mappings should be set correctly
-        assertEq(sbt.userTokenId(user1), 1);
-        assertEq(sbt.userTokenId(user2), 2);
-        assertEq(sbt.userTokenId(user3), 3);
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user2), 2);
+        assertEq(sbt.getTokenIdByAddress(user3), 3);
     }
 
     function test_UserTokenId_Mapping_NotSetForNonMinters() public {
@@ -827,9 +852,9 @@ contract GenesisSBTTest is Test {
         sbt.mint{value: MINT_PRICE}();
 
         // user2 and user3 haven't minted, so mapping should be 0
-        assertEq(sbt.userTokenId(user1), 1);
-        assertEq(sbt.userTokenId(user2), 0);
-        assertEq(sbt.userTokenId(user3), 0);
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user2), 0);
+        assertEq(sbt.getTokenIdByAddress(user3), 0);
     }
 
     function test_UserTokenId_Mapping_PreventsDuplicateMint() public {
@@ -837,7 +862,7 @@ contract GenesisSBTTest is Test {
 
         vm.prank(user1);
         sbt.mint{value: MINT_PRICE}();
-        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
 
         // Try to mint again - should revert
         vm.expectRevert(IGenesisSBT.TokenAlreadyMinted.selector);
@@ -845,7 +870,7 @@ contract GenesisSBTTest is Test {
         sbt.mint{value: MINT_PRICE}();
 
         // Mapping should still be 1, not changed
-        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
     }
 
     function test_UserTokenId_Mapping_AdminMintSkipsAlreadyMinted() public {
@@ -853,7 +878,7 @@ contract GenesisSBTTest is Test {
         vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
         sbt.mint{value: MINT_PRICE}();
-        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
 
         // Admin tries to mint to user1 (should skip) and user2 (should mint)
         address[] memory recipients = new address[](2);
@@ -864,8 +889,8 @@ contract GenesisSBTTest is Test {
         sbt.adminMint(recipients);
 
         // user1's mapping should still be 1, user2 should get token 2
-        assertEq(sbt.userTokenId(user1), 1);
-        assertEq(sbt.userTokenId(user2), 2);
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user2), 2);
     }
 
     function test_GetTokenIdByAddress() public {
@@ -875,7 +900,6 @@ contract GenesisSBTTest is Test {
 
         // Should return the correct token ID
         assertEq(sbt.getTokenIdByAddress(user1), 1);
-        assertEq(sbt.getTokenIdByAddress(user1), sbt.userTokenId(user1));
     }
 
     function test_GetTokenIdByAddress_ReturnsZeroForNonMinters() public {
@@ -914,7 +938,7 @@ contract GenesisSBTTest is Test {
         vm.prank(user1);
         sbt.mint{value: MINT_PRICE}();
 
-        uint256 tokenId = sbt.userTokenId(user1);
+        uint256 tokenId = sbt.getTokenIdByAddress(user1);
         assertEq(tokenId, 1);
         assertEq(sbt.ownerOf(tokenId), user1);
     }
@@ -924,25 +948,25 @@ contract GenesisSBTTest is Test {
         vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
         sbt.mint{value: MINT_PRICE}();
-        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
 
         // User2 mints via public mint
         vm.deal(user2, MINT_PRICE);
         vm.prank(user2);
         sbt.mint{value: MINT_PRICE}();
-        assertEq(sbt.userTokenId(user2), 2);
+        assertEq(sbt.getTokenIdByAddress(user2), 2);
 
         // Admin mints to user3
         address[] memory recipients = new address[](1);
         recipients[0] = user3;
         vm.prank(owner);
         sbt.adminMint(recipients);
-        assertEq(sbt.userTokenId(user3), 3);
+        assertEq(sbt.getTokenIdByAddress(user3), 3);
 
         // Verify all mappings
-        assertEq(sbt.userTokenId(user1), 1);
-        assertEq(sbt.userTokenId(user2), 2);
-        assertEq(sbt.userTokenId(user3), 3);
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user2), 2);
+        assertEq(sbt.getTokenIdByAddress(user3), 3);
         assertEq(sbt.totalSupply(), 3);
     }
 
@@ -951,12 +975,9 @@ contract GenesisSBTTest is Test {
         vm.prank(user1);
         sbt.mint{value: MINT_PRICE}();
 
-        // Mapping is public, so should be accessible directly
-        uint256 tokenId = sbt.userTokenId(user1);
+        // Should be accessible via getTokenIdByAddress
+        uint256 tokenId = sbt.getTokenIdByAddress(user1);
         assertEq(tokenId, 1);
-
-        // Should match getTokenIdByAddress
-        assertEq(tokenId, sbt.getTokenIdByAddress(user1));
     }
 
     // =============================================================

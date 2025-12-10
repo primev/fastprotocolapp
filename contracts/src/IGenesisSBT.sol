@@ -53,10 +53,13 @@ interface IGenesisSBT is IERC721, IERC4906 {
     /// @param assetURI New asset URI
     function setAssetURI(string calldata assetURI) external;
 
-    /// @dev Updates the metadata properties
+    /// @dev Updates the NFT name
     /// @param nftName New NFT name
-    /// @param description New description
-    function setMetadataProperties(string calldata nftName, string calldata description) external;
+    function setNftName(string calldata nftName) external;
+
+    /// @dev Updates the description
+    /// @param nftDescription New description
+    function setNftDescription(string calldata nftDescription) external;
 
     /// @dev Updates the mint price
     /// @param mintPrice New mint price
