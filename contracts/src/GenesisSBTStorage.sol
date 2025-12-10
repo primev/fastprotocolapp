@@ -8,6 +8,9 @@ import {IGenesisSBT} from "./IGenesisSBT.sol";
  * @dev Storage contract for GenesisSBT
  */
 abstract contract GenesisSBTStorage {
+    // Mapping from user address to token ID
+    mapping(address => uint256) public userTokenId;
+
     // Metadata
     string public _name;
     string public _description;

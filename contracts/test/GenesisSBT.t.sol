@@ -751,6 +751,215 @@ contract GenesisSBTTest is Test {
     }
 
     // =============================================================
+    //                  USER TOKEN ID MAPPING TESTS
+    // =============================================================
+
+    function test_UserTokenId_Mapping_InitialState() public {
+        // Before minting, mapping should return 0
+        assertEq(sbt.userTokenId(user1), 0);
+        assertEq(sbt.userTokenId(user2), 0);
+        assertEq(sbt.userTokenId(user3), 0);
+    }
+
+    function test_UserTokenId_Mapping_SetOnMint() public {
+        vm.deal(user1, MINT_PRICE);
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+
+        // Mapping should be set to token ID 1
+        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.ownerOf(1), user1);
+    }
+
+    function test_UserTokenId_Mapping_SetOnAdminMint() public {
+        address[] memory recipients = new address[](1);
+        recipients[0] = user1;
+
+        vm.prank(owner);
+        sbt.adminMint(recipients);
+
+        // Mapping should be set to token ID 1
+        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.ownerOf(1), user1);
+    }
+
+    function test_UserTokenId_Mapping_MultipleUsers() public {
+        vm.deal(user1, MINT_PRICE);
+        vm.deal(user2, MINT_PRICE);
+        vm.deal(user3, MINT_PRICE);
+
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+        assertEq(sbt.userTokenId(user1), 1);
+
+        vm.prank(user2);
+        sbt.mint{value: MINT_PRICE}();
+        assertEq(sbt.userTokenId(user2), 2);
+
+        vm.prank(user3);
+        sbt.mint{value: MINT_PRICE}();
+        assertEq(sbt.userTokenId(user3), 3);
+
+        // Verify all mappings are correct
+        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.userTokenId(user2), 2);
+        assertEq(sbt.userTokenId(user3), 3);
+    }
+
+    function test_UserTokenId_Mapping_BatchAdminMint() public {
+        address[] memory recipients = new address[](3);
+        recipients[0] = user1;
+        recipients[1] = user2;
+        recipients[2] = user3;
+
+        vm.prank(owner);
+        sbt.adminMint(recipients);
+
+        // All mappings should be set correctly
+        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.userTokenId(user2), 2);
+        assertEq(sbt.userTokenId(user3), 3);
+    }
+
+    function test_UserTokenId_Mapping_NotSetForNonMinters() public {
+        vm.deal(user1, MINT_PRICE);
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+
+        // user2 and user3 haven't minted, so mapping should be 0
+        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.userTokenId(user2), 0);
+        assertEq(sbt.userTokenId(user3), 0);
+    }
+
+    function test_UserTokenId_Mapping_PreventsDuplicateMint() public {
+        vm.deal(user1, MINT_PRICE * 2);
+
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+        assertEq(sbt.userTokenId(user1), 1);
+
+        // Try to mint again - should revert
+        vm.expectRevert(IGenesisSBT.TokenAlreadyMinted.selector);
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+
+        // Mapping should still be 1, not changed
+        assertEq(sbt.userTokenId(user1), 1);
+    }
+
+    function test_UserTokenId_Mapping_AdminMintSkipsAlreadyMinted() public {
+        // User1 mints via public mint
+        vm.deal(user1, MINT_PRICE);
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+        assertEq(sbt.userTokenId(user1), 1);
+
+        // Admin tries to mint to user1 (should skip) and user2 (should mint)
+        address[] memory recipients = new address[](2);
+        recipients[0] = user1;
+        recipients[1] = user2;
+
+        vm.prank(owner);
+        sbt.adminMint(recipients);
+
+        // user1's mapping should still be 1, user2 should get token 2
+        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.userTokenId(user2), 2);
+    }
+
+    function test_GetTokenIdByAddress() public {
+        vm.deal(user1, MINT_PRICE);
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+
+        // Should return the correct token ID
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user1), sbt.userTokenId(user1));
+    }
+
+    function test_GetTokenIdByAddress_ReturnsZeroForNonMinters() public {
+        // No mints yet
+        assertEq(sbt.getTokenIdByAddress(user1), 0);
+        assertEq(sbt.getTokenIdByAddress(user2), 0);
+
+        // Mint to user1 only
+        vm.deal(user1, MINT_PRICE);
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user2), 0);
+    }
+
+    function test_GetTokenIdByAddress_MultipleUsers() public {
+        vm.deal(user1, MINT_PRICE);
+        vm.deal(user2, MINT_PRICE);
+        vm.deal(user3, MINT_PRICE);
+
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+        vm.prank(user2);
+        sbt.mint{value: MINT_PRICE}();
+        vm.prank(user3);
+        sbt.mint{value: MINT_PRICE}();
+
+        assertEq(sbt.getTokenIdByAddress(user1), 1);
+        assertEq(sbt.getTokenIdByAddress(user2), 2);
+        assertEq(sbt.getTokenIdByAddress(user3), 3);
+    }
+
+    function test_UserTokenId_Mapping_ConsistentWithOwnerOf() public {
+        vm.deal(user1, MINT_PRICE);
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+
+        uint256 tokenId = sbt.userTokenId(user1);
+        assertEq(tokenId, 1);
+        assertEq(sbt.ownerOf(tokenId), user1);
+    }
+
+    function test_UserTokenId_Mapping_MixedMintAndAdminMint() public {
+        // User1 mints via public mint
+        vm.deal(user1, MINT_PRICE);
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+        assertEq(sbt.userTokenId(user1), 1);
+
+        // User2 mints via public mint
+        vm.deal(user2, MINT_PRICE);
+        vm.prank(user2);
+        sbt.mint{value: MINT_PRICE}();
+        assertEq(sbt.userTokenId(user2), 2);
+
+        // Admin mints to user3
+        address[] memory recipients = new address[](1);
+        recipients[0] = user3;
+        vm.prank(owner);
+        sbt.adminMint(recipients);
+        assertEq(sbt.userTokenId(user3), 3);
+
+        // Verify all mappings
+        assertEq(sbt.userTokenId(user1), 1);
+        assertEq(sbt.userTokenId(user2), 2);
+        assertEq(sbt.userTokenId(user3), 3);
+        assertEq(sbt.totalSupply(), 3);
+    }
+
+    function test_UserTokenId_Mapping_PublicAccess() public {
+        vm.deal(user1, MINT_PRICE);
+        vm.prank(user1);
+        sbt.mint{value: MINT_PRICE}();
+
+        // Mapping is public, so should be accessible directly
+        uint256 tokenId = sbt.userTokenId(user1);
+        assertEq(tokenId, 1);
+
+        // Should match getTokenIdByAddress
+        assertEq(tokenId, sbt.getTokenIdByAddress(user1));
+    }
+
+    // =============================================================
     //                  HELPER FUNCTIONS
     // =============================================================
 

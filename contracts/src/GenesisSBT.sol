@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/interfaces/IERC4906.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "./GenesisSBTStorage.sol";
 import "./IGenesisSBT.sol";
 
@@ -50,18 +51,19 @@ contract GenesisSBT is
     function mint() external payable whenNotPaused {
         address to = msg.sender;
 
-        if (balanceOf(msg.sender) > 0) revert TokenAlreadyMinted();
+        if (userTokenId[to] != 0) revert TokenAlreadyMinted();
         _executeMint(to);
     }
 
     /// @notice Owner mints tokens to multiple addresses
     function adminMint(address[] calldata to) external onlyOwner {
         if (to.length == 0) revert InvalidRecipients();
-    
 
         for (uint256 i = 0; i < to.length; i++) {
-            if (balanceOf(to[i]) > 0) continue;
-            _safeMint(to[i], _totalTokensMinted + 1);
+            if (userTokenId[to[i]] != 0) continue;
+            uint256 tokenId = _totalTokensMinted + 1;
+            _safeMint(to[i], tokenId);
+            userTokenId[to[i]] = tokenId;
 
             unchecked {
                 _totalTokensMinted++;
@@ -75,6 +77,13 @@ contract GenesisSBT is
 
     function totalSupply() external view returns (uint256) {
         return _totalTokensMinted;
+    }
+
+    /// @notice Returns the token ID for a given user address
+    /// @param user The address to query
+    /// @return tokenId The token ID owned by the user, or 0 if the user doesn't have a token
+    function getTokenIdByAddress(address user) external view returns (uint256 tokenId) {
+        return userTokenId[user];
     }
 
     /// @notice Returns the metadata URI for a token
@@ -196,7 +205,9 @@ contract GenesisSBT is
             revert InsufficientFunds(_mintPrice, msg.value);
 
         // Mint token
-        _safeMint(to, _totalTokensMinted + 1);
+        uint256 tokenId = _totalTokensMinted + 1;
+        _safeMint(to, tokenId);
+        userTokenId[to] = tokenId;
 
         unchecked {
             _totalTokensMinted++;
