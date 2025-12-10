@@ -39,7 +39,7 @@ contract GenesisSBT is
         __Pausable_init();
         _assetURI = asset;
         _mintPrice = mintPrice;
-        _name = "Fast Protocol Genesis SBT";
+        _nftName = "Fast Protocol Genesis SBT";
         _treasuryReceiver = treasuryReceiver;
     }
 
@@ -99,13 +99,13 @@ contract GenesisSBT is
                     Base64.encode(
                         abi.encodePacked(
                             '{"name":"',
-                            _name,
+                            _nftName,
                             '","id":"',
                             Strings.toString(tokenId),
                             '","image":"',
                             _assetURI,
                             '","description":"',
-                            _description,
+                            _nftDescription,
                             '"}'
                         )
                     )
@@ -123,12 +123,12 @@ contract GenesisSBT is
     }
 
     function setNftName(string calldata nftName) external onlyOwner {
-        _name = nftName;
+        _nftName = nftName;
         _updateMetadata();
     }
 
     function setNftDescription(string calldata nftDescription) external onlyOwner {
-        _description = nftDescription;
+        _nftDescription = nftDescription;
         _updateMetadata();
     }
 

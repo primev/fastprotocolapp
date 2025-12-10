@@ -12,8 +12,8 @@ abstract contract GenesisSBTStorage {
     mapping(address => uint256) internal _userTokenId;
 
     // Metadata
-    string public _name;
-    string public _description;
+    string public _nftName;
+    string public _nftDescription;
     string public _assetURI;
 
     // Tracks the total number of minted tokens

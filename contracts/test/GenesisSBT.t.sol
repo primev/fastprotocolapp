@@ -432,7 +432,7 @@ contract GenesisSBTTest is Test {
         vm.prank(owner);
         sbt.setNftName(name);
 
-        assertEq(sbt._name(), name);
+        assertEq(sbt._nftName(), name);
     }
 
     function test_SetNftName_RevertIf_NotOwner() public {
@@ -455,7 +455,7 @@ contract GenesisSBTTest is Test {
         vm.prank(owner);
         sbt.setNftDescription(description);
 
-        assertEq(sbt._description(), description);
+        assertEq(sbt._nftDescription(), description);
     }
 
     function test_SetNftDescription_RevertIf_NotOwner() public {
