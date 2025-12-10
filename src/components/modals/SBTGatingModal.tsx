@@ -2,20 +2,31 @@
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Award, ExternalLink } from "lucide-react";
+import { Award, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface SBTGatingModalProps {
   open: boolean;
-  onClose?: () => void;
 }
 
-export const SBTGatingModal = ({ open, onClose }: SBTGatingModalProps) => {
+export const SBTGatingModal = ({ open }: SBTGatingModalProps) => {
   const router = useRouter();
 
+  const handleMintClick = () => {
+    router.push("/claim/onboarding");
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose?.()} modal>
-      <DialogContent className="sm:max-w-md border-primary/50 glow-border">
+    <Dialog 
+      open={open} 
+      onOpenChange={() => {}} 
+      modal
+    >
+      <DialogContent 
+        className="sm:max-w-md border-primary/50 glow-border"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center glow-border">
@@ -27,21 +38,14 @@ export const SBTGatingModal = ({ open, onClose }: SBTGatingModalProps) => {
             You must mint your Genesis SBT to access the Fast Points System and Season 1 leaderboard.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3 pt-4">
+        <div className="pt-4">
           <Button 
             className="w-full" 
             size="lg"
-            onClick={() => router.push("/claim/onboarding")}
+            onClick={handleMintClick}
           >
+            <Zap className="w-4 h-4 mr-2" />
             Mint Genesis SBT
-          </Button>
-          <Button 
-            variant="outline" 
-            className="w-full"
-            onClick={() => window.open("https://docs.fast.xyz/genesis-sbt", "_blank")}
-          >
-            Learn More
-            <ExternalLink className="w-4 h-4 ml-2" />
           </Button>
         </div>
       </DialogContent>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -28,35 +28,191 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAccount, useReadContract } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { CONTRACT_ABI, CONTRACT_ADDRESS } from '@/lib/contract-config';
 import { PointsHUD } from '@/components/dashboard/PointsHUD';
 import { WeeklyTasksSection } from '@/components/dashboard/WeeklyTasksSection';
 import { ReferralsSection } from '@/components/dashboard/ReferralsSection';
 import { PartnerQuestsSection } from '@/components/dashboard/PartnerQuestsSection';
 import { OneTimeTasksSection } from '@/components/dashboard/OneTimeTasksSection';
 import { LeaderboardTable } from '@/components/dashboard/LeaderboardTable';
-import { SBTGatingModal } from '@/components/modals/SBTGatingModal';
+
+// Helper function to parse data URI and extract JSON
+function parseDataURI(dataURI: string): { name: string; id: string; image: string; description: string } | null {
+  try {
+    const base64Data = dataURI.replace('data:application/json;base64,', '');
+    const jsonString = atob(base64Data);
+    return JSON.parse(jsonString);
+  } catch (error) {
+    return null;
+  }
+}
 
 const DashboardContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isConnected, address, isConnecting } = useAccount();
   const [referralCode] = useState('FAST-GEN-ABC123');
   const [points] = useState(0); // Start with 0 points for new users
   const [activeTab, setActiveTab] = useState('genesis');
-  const [hasGenesisSBT, setHasGenesisSBT] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    const stored = localStorage.getItem('hasGenesisSBT');
-    // Default to true so users who already minted (or first-time visitors) are not blocked by the popup
-    return stored ? stored === 'true' : true;
-  });
-  const [showSBTGatingModal, setShowSBTGatingModal] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [emailError, setEmailError] = useState('');
-  const [completedTasks, setCompletedTasks] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return [];
+  const [completedTasks, setCompletedTasks] = useState<string[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Load completed tasks from localStorage after mount to prevent hydration mismatch
+  useEffect(() => {
+    setIsMounted(true);
     const saved = localStorage.getItem('completedTasks');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      try {
+        setCompletedTasks(JSON.parse(saved));
+      } catch (error) {
+        console.error('Error parsing completed tasks:', error);
+      }
+    }
+  }, []);
+
+  // Check user's balance - runs when wallet is connected and fully loaded
+  const { data: balance, isLoading: isLoadingBalance } = useReadContract({
+    address: CONTRACT_ADDRESS as `0x${string}`,
+    abi: CONTRACT_ABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: isMounted && isConnected && !!address && !isConnecting,
+      refetchOnMount: true,
+      refetchOnWindowFocus: true,
+    },
   });
+
+  const hasBalance = balance !== undefined && Number(balance) > 0;
+  
+  const [storedTokenId, setStoredTokenId] = useState<string | null>(null);
+  const [hasCheckedOnce, setHasCheckedOnce] = useState(false);
+
+  useEffect(() => {
+    if (isMounted) {
+      const stored = localStorage.getItem('genesisSBTTokenId');
+      if (stored) {
+        setStoredTokenId(stored);
+      } else {
+        setStoredTokenId(null);
+      }
+    }
+  }, [isMounted]);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'genesisSBTTokenId' && e.newValue) {
+        setStoredTokenId(e.newValue);
+      }
+    };
+
+    const handleFocus = () => {
+      const stored = localStorage.getItem('genesisSBTTokenId');
+      if (stored && stored !== storedTokenId) {
+        setStoredTokenId(stored);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isMounted, storedTokenId]);
+
+  useEffect(() => {
+    if (isMounted) {
+      const stored = localStorage.getItem('genesisSBTTokenId');
+      if (stored && stored !== storedTokenId) {
+        setStoredTokenId(stored);
+      }
+    }
+  }, [isMounted, searchParams, storedTokenId]);
+
+  const shouldCheckOnce = (!storedTokenId || storedTokenId === '0') && hasBalance && isConnected && !!address && !hasCheckedOnce;
+  
+  const { data: fetchedTokenId, isLoading: isLoadingTokenId } = useReadContract({
+    address: CONTRACT_ADDRESS as `0x${string}`,
+    abi: CONTRACT_ABI,
+    functionName: 'getTokenIdByAddress',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: shouldCheckOnce && isMounted && !isConnecting,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+    },
+  });
+
+  useEffect(() => {
+    if (shouldCheckOnce && !hasCheckedOnce) {
+      setHasCheckedOnce(true);
+    }
+  }, [shouldCheckOnce, hasCheckedOnce]);
+
+  useEffect(() => {
+    if (fetchedTokenId !== undefined) {
+      const tokenIdString = fetchedTokenId.toString();
+      
+      if (fetchedTokenId !== BigInt(0)) {
+        localStorage.setItem('genesisSBTTokenId', tokenIdString);
+        setStoredTokenId(tokenIdString);
+      } else if (!storedTokenId) {
+        localStorage.setItem('genesisSBTTokenId', '0');
+        setStoredTokenId('0');
+      }
+    }
+  }, [fetchedTokenId, storedTokenId]);
+
+  const tokenId = storedTokenId && storedTokenId !== '0'
+    ? BigInt(storedTokenId) 
+    : (fetchedTokenId && fetchedTokenId !== BigInt(0) 
+        ? fetchedTokenId 
+        : undefined);
+
+  const hasGenesisSBT = tokenId !== undefined && tokenId !== BigInt(0);
+  const shouldFetchMetadata = isMounted && isConnected && (hasBalance || (tokenId !== undefined && tokenId !== BigInt(0)));
+  
+  const { data: nftName } = useReadContract({
+    address: CONTRACT_ADDRESS as `0x${string}`,
+    abi: CONTRACT_ABI,
+    functionName: '_nftName',
+    query: {
+      enabled: shouldFetchMetadata,
+    },
+  });
+
+  const { data: nftDescription } = useReadContract({
+    address: CONTRACT_ADDRESS as `0x${string}`,
+    abi: CONTRACT_ABI,
+    functionName: '_nftDescription',
+    query: {
+      enabled: shouldFetchMetadata,
+    },
+  });
+
+  const { data: assetURI } = useReadContract({
+    address: CONTRACT_ADDRESS as `0x${string}`,
+    abi: CONTRACT_ABI,
+    functionName: '_assetURI',
+    query: {
+      enabled: shouldFetchMetadata,
+    },
+  });
+
+  const sbtImage = assetURI || null;
+  const defaultDescription = 'Your Genesis SBT proves you were early to Fast Protocol. Your progress will carry into the main Fast ecosystem at launch.';
+  const hasNotMinted = isMounted && isConnected && !isConnecting && 
+    balance !== undefined && Number(balance) === 0 && 
+    (tokenId === undefined || tokenId === BigInt(0));
 
   // Handle tab from URL query parameter
   useEffect(() => {
@@ -64,7 +220,6 @@ const DashboardContent = () => {
     if (tab && ['genesis', 'points', 'leaderboard'].includes(tab)) {
       // Block access to Points and Leaderboard if no Genesis SBT
       if (!hasGenesisSBT && (tab === 'points' || tab === 'leaderboard')) {
-        setShowSBTGatingModal(true);
         setActiveTab('genesis');
         return;
       }
@@ -75,7 +230,6 @@ const DashboardContent = () => {
   const handleTabChange = (value: string) => {
     // Block access to Points and Leaderboard if no Genesis SBT
     if (!hasGenesisSBT && (value === 'points' || value === 'leaderboard')) {
-      setShowSBTGatingModal(true);
       return;
     }
     setActiveTab(value);
@@ -121,59 +275,58 @@ const DashboardContent = () => {
 
     // If Mint Genesis SBT is completed, unlock Points and Leaderboard
     if (taskName === 'Mint Genesis SBT') {
-      setHasGenesisSBT(true);
-      localStorage.setItem('hasGenesisSBT', 'true');
       toast.success('Genesis SBT minted! Points and Leaderboard unlocked!');
     } else {
       toast.success(`${taskName} completed!`);
     }
   };
 
-  const oneTimeTasks = [
+  // Use useMemo to prevent hydration mismatch - only compute after mount
+  const oneTimeTasks = useMemo(() => [
     {
       name: 'Connect X',
       points: 1,
-      completed: completedTasks.includes('Connect X'),
+      completed: isMounted && completedTasks.includes('Connect X'),
     },
     {
       name: 'Follow @fast_protocol',
       points: 1,
-      completed: completedTasks.includes('Follow @fast_protocol'),
+      completed: isMounted && completedTasks.includes('Follow @fast_protocol'),
     },
     {
       name: 'Connect Wallet',
       points: 1,
-      completed: completedTasks.includes('Connect Wallet'),
+      completed: isMounted && completedTasks.includes('Connect Wallet'),
     },
     {
       name: 'Mint Genesis SBT',
       points: 10,
-      completed: completedTasks.includes('Mint Genesis SBT'),
+      completed: isMounted && completedTasks.includes('Mint Genesis SBT'),
     },
     {
       name: 'Fast RPC Setup',
       points: 2,
-      completed: completedTasks.includes('Fast RPC Setup'),
+      completed: isMounted && completedTasks.includes('Fast RPC Setup'),
     },
     {
       name: 'Join Discord',
       points: 1,
-      completed: completedTasks.includes('Join Discord'),
+      completed: isMounted && completedTasks.includes('Join Discord'),
       action: 'https://discord.gg/fast',
     },
     {
       name: 'Join Telegram',
       points: 1,
-      completed: completedTasks.includes('Join Telegram'),
+      completed: isMounted && completedTasks.includes('Join Telegram'),
       action: 'https://t.me/fast',
     },
     {
       name: 'Enter Email',
       points: 1,
-      completed: completedTasks.includes('Enter Email'),
+      completed: isMounted && completedTasks.includes('Enter Email'),
       action: 'email',
     },
-  ];
+  ], [isMounted, completedTasks]);
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -201,6 +354,7 @@ const DashboardContent = () => {
                 <Award className="w-4 h-4 mr-2 text-primary" />
                 {points} Points
               </Badge>
+              <ConnectButton showBalance={false} />
             </div>
           </div>
         </header>
@@ -251,65 +405,116 @@ const DashboardContent = () => {
                 {/* Left Panel - SBT Display */}
                 <div className="space-y-6">
                   <Card className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-bold">Genesis SBT</h2>
-                        {hasGenesisSBT ? (
-                          <Badge className="bg-primary text-primary-foreground">
-                            <Check className="w-3 h-3 mr-1" />
-                            Minted
-                          </Badge>
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            className="border-muted-foreground/50"
-                          >
-                            Not Minted
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* SBT Visual */}
-                      <div className="aspect-square rounded-xl bg-gradient-to-br from-primary via-primary/50 to-primary/20 border border-primary/50 flex items-center justify-center glow-border">
-                        <div className="text-center space-y-2">
-                          <Zap className="w-20 h-20 mx-auto text-primary-foreground" />
-                          <div className="text-primary-foreground font-bold text-xl">
-                            FAST
-                          </div>
-                          <div className="text-primary-foreground/80 text-sm">
-                            Genesis
+                    {hasNotMinted ? (
+                      /* Show mint required content when not minted */
+                      <div className="space-y-6 text-center">
+                        <div className="flex justify-center">
+                          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center glow-border">
+                            <Award className="w-8 h-8 text-primary" />
                           </div>
                         </div>
+                        <div className="space-y-2">
+                          <h2 className="text-2xl font-bold">Fast Genesis SBT Required</h2>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            You must mint your Genesis SBT to access the Fast Points System and Season 1 leaderboard.
+                          </p>
+                        </div>
+                        <Button 
+                          className="w-full" 
+                          size="lg"
+                          onClick={() => router.push("/claim/onboarding")}
+                        >
+                          <Zap className="w-4 h-4 mr-2" />
+                          Mint Genesis SBT
+                        </Button>
                       </div>
+                    ) : (
+                      /* Show minted SBT info when minted */
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h2 className="text-2xl font-bold">
+                            {nftName || 'Genesis SBT'}
+                          </h2>
+                          {hasBalance ? (
+                            <Badge className="bg-primary text-primary-foreground">
+                              <Check className="w-3 h-3 mr-1" />
+                              Minted
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="border-muted-foreground/50"
+                            >
+                              Not Minted
+                            </Badge>
+                          )}
+                        </div>
 
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">SBT ID</span>
-                          <span className="font-mono">#0001234</span>
+                        {/* SBT Visual */}
+                        <div className="aspect-square rounded-xl bg-gradient-to-br from-primary via-primary/50 to-primary/20 border border-primary/50 overflow-hidden glow-border relative">
+                          {sbtImage && (
+                            <img
+                              key={sbtImage}
+                              src={sbtImage}
+                              alt={nftName || 'Genesis SBT'}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Fallback to placeholder if image fails to load
+                                const target = e.currentTarget;
+                                target.style.display = 'none';
+                                const placeholder = target.nextElementSibling as HTMLElement;
+                                if (placeholder) {
+                                  placeholder.classList.remove('hidden');
+                                }
+                              }}
+                            />
+                          )}
+                          <div className={`w-full h-full flex items-center justify-center ${sbtImage ? 'hidden' : ''} absolute inset-0`}>
+                            <div className="text-center space-y-2">
+                              <Zap className="w-20 h-20 mx-auto text-primary-foreground" />
+                              <div className="text-primary-foreground font-bold text-xl">
+                                FAST
+                              </div>
+                              <div className="text-primary-foreground/80 text-sm">
+                                Genesis
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Wallet</span>
-                          <span className="font-mono">0x7a...f9c2</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Status</span>
-                          <Badge
-                            variant="outline"
-                            className="text-xs border-primary/50"
-                          >
-                            On-chain via Fast RPC
-                          </Badge>
-                        </div>
-                      </div>
 
-                      <div className="pt-4 border-t border-border/50">
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          Your Genesis SBT proves you were early to Fast
-                          Protocol. Your progress will carry into the main Fast
-                          ecosystem at launch.
-                        </p>
+                        <div className="space-y-2 text-sm">
+                          {tokenId !== undefined && tokenId !== BigInt(0) && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">SBT ID</span>
+                              <span className="font-mono">#{String(tokenId)}</span>
+                            </div>
+                          )}
+                          {address && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Wallet</span>
+                              <span className="font-mono">
+                                {address.slice(0, 4)}...{address.slice(-4)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">Status</span>
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-primary/50"
+                            >
+                              On-chain via Fast RPC
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-border/50">
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {nftDescription || defaultDescription}
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </Card>
 
                   {/* Referrals Card */}
@@ -555,7 +760,7 @@ const DashboardContent = () => {
                 rank={0}
                 referrals={0}
                 volume={0}
-                hasGenesisSBT={false}
+                hasGenesisSBT={hasGenesisSBT}
                 hasFastRPC={false}
               />
 
@@ -587,11 +792,6 @@ const DashboardContent = () => {
           </Tabs>
         </main>
       </div>
-
-      <SBTGatingModal
-        open={showSBTGatingModal && !hasGenesisSBT}
-        onClose={() => setShowSBTGatingModal(false)}
-      />
 
       <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
         <DialogContent className="sm:max-w-md border-primary/50">

@@ -3,7 +3,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import { useAccount } from 'wagmi';
+import { useAccount, useReadContract } from 'wagmi';
+import { BrowserProvider, Contract, parseEther, formatEther } from 'ethers';
+
+// Extend Window interface for ethereum
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -14,6 +22,7 @@ import {
   Zap,
   ChevronRight,
   Home,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -24,6 +33,7 @@ import {
 } from '@/components/network-checker';
 import { useNetworkInstallation } from '@/hooks/use-network-installation';
 import { useRPCTest } from '@/hooks/use-rpc-test';
+import { CONTRACT_ABI, CONTRACT_ADDRESS } from '@/lib/contract-config';
 
 type Step = {
   id: string;
@@ -59,7 +69,7 @@ const baseSteps: Omit<Step, 'completed'>[] = [
 const OnboardingPage = () => {
   const router = useRouter();
   const { openConnectModal } = useConnectModal();
-  const { isConnected } = useAccount();
+  const { isConnected, address, connector } = useAccount();
   const networkInstallation = useNetworkInstallation();
   const rpcTest = useRPCTest();
   
@@ -73,14 +83,15 @@ const OnboardingPage = () => {
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const hasLoadedFromStorage = useRef(false);
 
-  // Load from localStorage after mount
+  // Load from localStorage after mount - only for step 1 (follow)
   useEffect(() => {
     try {
       const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
       const saved = stored ? JSON.parse(stored) : {};
       setSteps(baseSteps.map(step => ({
         ...step,
-        completed: saved[step.id] === true,
+        // Only load from localStorage for step 1 (follow), others start as false
+        completed: step.id === 'follow' ? (saved[step.id] === true) : false,
       })));
     } catch (error) {
       console.error('Error loading onboarding steps:', error);
@@ -95,11 +106,14 @@ const OnboardingPage = () => {
         step.id === stepId ? { ...step, completed } : step
       );
       
-      // Save to localStorage
-      if (typeof window !== 'undefined') {
+      // Save to localStorage - only for step 1 (follow)
+      if (typeof window !== 'undefined' && stepId === 'follow') {
         try {
           const saved = updated.reduce((acc, step) => {
-            acc[step.id] = step.completed;
+            // Only save step 1 (follow) to localStorage
+            if (step.id === 'follow') {
+              acc[step.id] = step.completed;
+            }
             return acc;
           }, {} as Record<string, boolean>);
           localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(saved));
@@ -181,23 +195,229 @@ const OnboardingPage = () => {
 
   const allStepsCompleted = steps.every((step) => step.completed);
 
-  const handleMintSbt = () => {
-    // Map onboarding steps to Dashboard task names
-    const completedTasks = [
-      'Follow @fast_protocol',
-      'Connect Wallet',
-      'Fast RPC Setup',
-      'Mint Genesis SBT',
-    ];
+  // Check user's balance
+  const { data: balance, refetch: refetchBalance } = useReadContract({
+    address: CONTRACT_ADDRESS as `0x${string}`,
+    abi: CONTRACT_ABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address && isConnected,
+    },
+  });
 
-    // Save completed tasks to localStorage
-    localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
-    localStorage.setItem('hasGenesisSBT', 'true');
+  // Get mint price from contract
+  const { data: mintPrice } = useReadContract({
+    address: CONTRACT_ADDRESS as `0x${string}`,
+    abi: CONTRACT_ABI,
+    functionName: '_mintPrice',
+    query: {
+      enabled: isConnected,
+    },
+  });
 
-    toast.success('Genesis SBT minted successfully!');
-    setTimeout(() => {
+
+  // TODO: Remove this once done testing
+  const hasSBT = false
+  // const hasSBT = balance !== undefined && Number(balance) > 0;
+
+  // Minting state
+  const [isMinting, setIsMinting] = useState(false);
+
+  const parseTokenIdFromReceipt = (receipt: any): bigint | null => {
+    if (!receipt?.logs?.length) return null;
+
+    const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+    const contractAddressLower = CONTRACT_ADDRESS.toLowerCase();
+    
+    for (const log of receipt.logs) {
+      const logAddress = (log.address || '').toLowerCase();
+      const topics = log.topics || [];
+      
+      if (
+        topics[0]?.toLowerCase() === TRANSFER_EVENT_SIGNATURE.toLowerCase() &&
+        logAddress === contractAddressLower &&
+        topics[3]
+      ) {
+        try {
+          return BigInt(topics[3]);
+        } catch (error) {
+          console.error('Error parsing tokenId:', error);
+        }
+      }
+    }
+    
+    return null;
+  };
+
+
+  // Helper function to check for Fast RPC 503 errors
+  const isFastRpc503Error = (error: any): boolean => {
+    if (!error) return false;
+    
+    // Check for 503 in various error formats
+    const errorString = JSON.stringify(error).toLowerCase();
+    if (errorString.includes('503') || errorString.includes('status code 503')) {
+      return true;
+    }
+    
+    // Check error code and data structure
+    if (error?.code === -32603 || error?.code === 'UNKNOWN_ERROR') {
+      if (error?.data?.originalError?.message?.includes('503') || 
+          error?.data?.originalError?.code === 'ERR_BAD_RESPONSE') {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  const handleMintSbt = async () => {
+    if (!isConnected || !address) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+
+    if (mintPrice === undefined) {
+      toast.error('Unable to fetch mint price. Please try again.');
+      return;
+    }
+
+    try {
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error('Wallet not available. Please install a wallet extension.');
+      }
+
+      setIsMinting(true);
+
+      const provider = new BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      let userBalance;
+      try {
+        userBalance = await provider.getBalance(address);
+      } catch (balanceError: any) {
+        if (isFastRpc503Error(balanceError)) {
+          throw new Error('Fast RPC Internal Error (503): The Fast RPC service is temporarily unavailable. Please try again in a moment.');
+        }
+        throw balanceError;
+      }
+      
+      const estimatedGas = BigInt(100000);
+      const totalNeeded = mintPrice + estimatedGas;
+      
+      if (userBalance < totalNeeded) {
+        throw new Error(`Insufficient funds. You need ${formatEther(totalNeeded)} ETH (${formatEther(mintPrice)} for mint + gas), but you have ${formatEther(userBalance)} ETH.`);
+      }
+      
+      const contract = new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+      try {
+        await contract.mint.estimateGas({ value: mintPrice });
+      } catch (estimateError: any) {
+        if (isFastRpc503Error(estimateError)) {
+          throw new Error('Fast RPC Internal Error (503): The Fast RPC service is temporarily unavailable. Please try again in a moment.');
+        }
+        const revertReason = estimateError?.reason || estimateError?.data?.message || estimateError?.message;
+        throw new Error(`Transaction would fail: ${revertReason || 'Unknown error. Please check you have enough ETH and meet all requirements.'}`);
+      }
+
+      let txResponse;
+      try {
+        txResponse = await contract.mint({ value: mintPrice });
+      } catch (mintError: any) {
+        if (isFastRpc503Error(mintError)) {
+          throw new Error('Fast RPC Internal Error (503): The Fast RPC service is temporarily unavailable. Please try again in a moment.');
+        }
+        throw mintError;
+      }
+
+      let receipt = null;
+      let pollAttempts = 0;
+      const maxPollAttempts = 30;
+      const pollDelayMs = 1000;
+      
+      while (!receipt && pollAttempts < maxPollAttempts) {
+        try {
+          receipt = await provider.getTransactionReceipt(txResponse.hash);
+          if (receipt) break;
+        } catch (error: any) {
+          if (!isFastRpc503Error(error)) {
+            // Continue polling for non-503 errors
+          }
+        }
+        
+        pollAttempts++;
+        if (!receipt && pollAttempts < maxPollAttempts) {
+          await new Promise(resolve => setTimeout(resolve, pollDelayMs));
+        }
+      }
+      
+      if (!receipt) {
+        throw new Error('Transaction receipt not found after 30 seconds of polling');
+      }
+
+      const tokenId = parseTokenIdFromReceipt(receipt);
+      
+      if (!tokenId) {
+        throw new Error('TokenId not found in transaction receipt logs');
+      }
+      
+      localStorage.setItem('genesisSBTTokenId', tokenId.toString());
+      refetchBalance();
+      
+      const completedTasks = [
+        'Follow @fast_protocol',
+        'Connect Wallet',
+        'Fast RPC Setup',
+        'Mint Genesis SBT',
+      ];
+
+      localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+
+      setIsMinting(false);
+
+      toast.success('Genesis SBT minted successfully!', {
+        description: 'Your transaction has been confirmed.',
+      });
+      
+      // Navigate to dashboard now that we have confirmed tokenId
       router.push('/dashboard?tab=genesis');
-    }, 1500);
+    } catch (error: any) {
+      setIsMinting(false);
+      console.error('❌ Mint Exception Caught:', error);
+      console.error('❌ Error details:', {
+        message: error?.message,
+        name: error?.name,
+        code: error?.code,
+        cause: error?.cause,
+        shortMessage: error?.shortMessage,
+        stack: error?.stack,
+      });
+      
+      if (isFastRpc503Error(error)) {
+        toast.error('Fast RPC Internal Error', {
+          description: 'Fast RPC service returned error 503 (temporarily unavailable). Please try again in a moment.',
+        });
+        return;
+      }
+      
+      const errorMessage = error?.message || '';
+      if (errorMessage.includes('User rejected') || errorMessage.includes('rejected')) {
+        toast.error('Transaction Rejected', {
+          description: 'You cancelled the transaction.',
+        });
+      } else if (errorMessage.includes('Fast RPC Internal Error')) {
+        // Already handled above, but show it anyway
+        toast.error('Fast RPC Internal Error', {
+          description: errorMessage,
+        });
+      } else {
+        toast.error('Transaction Failed', {
+          description: errorMessage || 'Please try again.',
+        });
+      }
+    }
   };
 
   return (
@@ -297,9 +517,9 @@ const OnboardingPage = () => {
                                     setShowRpcInfo(false);
                                     toast.success('Fast RPC setup marked as completed!');
                                   }}
-                                  variant="outline"
+                                  variant="default"
                                   size="sm"
-                                  className="text-sm"
+                                  className="text-sm bg-primary hover:bg-primary/90"
                                 >
                                   <Check className="w-3 h-3 mr-2" />
                                   Mark as Completed
@@ -312,16 +532,7 @@ const OnboardingPage = () => {
                         {!step.completed && !(step.id === 'rpc' && showRpcInfo) && (
                           <Button
                             onClick={() => handleStepAction(step.id)}
-                            variant={
-                              step.id === 'rpc'
-                                ? 'default'
-                                : 'outline'
-                            }
-                            className={
-                              step.id === 'rpc'
-                                ? 'bg-primary hover:bg-primary/90'
-                                : ''
-                            }
+                            variant="outline"
                           >
                             {step.id === 'follow' && 'Follow @fast_protocol'}
                             {step.id === 'wallet' && 'Connect Wallet'}
@@ -343,15 +554,23 @@ const OnboardingPage = () => {
                 <p className="text-muted-foreground">
                   Complete all steps above to mint your Fast Genesis SBT
                 </p>
-                <Button
-                  size="lg"
-                  disabled={!allStepsCompleted}
-                  onClick={handleMintSbt}
-                  className="text-lg px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold disabled:opacity-50 disabled:cursor-not-allowed glow-border"
-                >
-                  <Zap className="w-5 h-5 mr-2" />
-                  Mint Genesis SBT
-                </Button>
+                      <Button
+                        size="lg"
+                        disabled={!allStepsCompleted || isMinting || hasSBT}
+                        onClick={handleMintSbt}
+                        className="text-lg px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold disabled:opacity-50 disabled:cursor-not-allowed glow-border"
+                      >
+                        {isMinting ? (
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        ) : (
+                          <Zap className="w-5 h-5 mr-2" />
+                        )}
+                        {hasSBT 
+                          ? 'Already Minted' 
+                          : isMinting 
+                            ? 'Minting...' 
+                            : 'Mint Genesis SBT'}
+                      </Button>
               </div>
             </Card>
           </div>
