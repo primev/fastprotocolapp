@@ -29,12 +29,12 @@ const socialLinks = [
 ];
 
 const footerLogos = [
-  { src: '/assets/primev-logo.png', alt: 'Primev', width: 100, height: 24, className: 'h-6 md:h-8 w-auto opacity-80' },
-  { src: '/assets/a16z-logo.webp', alt: 'a16z', width: 177, height: 24, className: 'h-6 md:h-8 w-auto opacity-60 hover:opacity-100 transition-opacity' },
-  { src: '/assets/bodhi-logo.webp', alt: 'Bodhi Ventures', width: 170, height: 16, className: 'h-4 md:h-5 w-auto opacity-60 hover:opacity-100 transition-opacity' },
-  { src: '/assets/figment-logo.webp', alt: 'Figment', width: 96, height: 36, className: 'h-9 md:h-12 w-auto opacity-60 hover:opacity-100 transition-opacity' },
-  { src: '/assets/hashkey-logo.svg', alt: 'HashKey', width: 73, height: 24, className: 'h-6 md:h-8 w-auto opacity-60 hover:opacity-100 transition-opacity' },
-  { src: '/assets/longhash-logo.png', alt: 'LongHash Ventures', width: 96, height: 32, className: 'h-8 md:h-10 w-auto opacity-60 hover:opacity-100 transition-opacity' },
+  { src: '/assets/primev-logo.png', alt: 'Primev', width: 100, height: 24, className: 'h-6 tablet:h-8 w-auto opacity-80' },
+  { src: '/assets/a16z-logo.webp', alt: 'a16z', width: 177, height: 24, className: 'h-6 tablet:h-8 w-auto opacity-60 hover:opacity-100 transition-opacity' },
+  { src: '/assets/bodhi-logo.webp', alt: 'Bodhi Ventures', width: 170, height: 16, className: 'h-4 tablet:h-5 w-auto opacity-60 hover:opacity-100 transition-opacity' },
+  { src: '/assets/figment-logo.webp', alt: 'Figment', width: 96, height: 36, className: 'h-9 tablet:h-12 w-auto opacity-60 hover:opacity-100 transition-opacity' },
+  { src: '/assets/hashkey-logo.svg', alt: 'HashKey', width: 73, height: 24, className: 'h-6 tablet:h-8 w-auto opacity-60 hover:opacity-100 transition-opacity' },
+  { src: '/assets/longhash-logo.png', alt: 'LongHash Ventures', width: 96, height: 32, className: 'h-8 tablet:h-10 w-auto opacity-60 hover:opacity-100 transition-opacity' },
 ];
 
 const IndexPage = () => {
@@ -84,7 +84,7 @@ const IndexPage = () => {
       {/* Animated Background */}
       <AnimatedBackground />
 
-      <div className="relative z-10 w-full px-4 flex-1 flex flex-col justify-between py-4 sm:py-6 md:py-8">
+      <div className="relative z-10 w-full px-4 flex-1 flex flex-col justify-between py-4 sm:py-6 tablet:py-8">
         <div className="max-w-6xl mx-auto w-full text-center flex-1 flex flex-col justify-between">
           {/* Logo */}
           <section className="flex-1 flex items-center justify-center">
@@ -94,26 +94,26 @@ const IndexPage = () => {
               width={512}
               height={512}
               priority
-              className="h-32 xs:h-40 sm:h-48 md:h-72 lg:h-80 xl:h-60 w-auto"
+              className="h-32 xs:h-40 sm:h-48 tablet:h-72 lg:h-80 xl:h-60 w-auto"
               style={{ clipPath: 'inset(10% 0 30% 0)' }}
             />
           </section>
 
           {/* Tagline, Email & Social */}
-          <section className="flex-1 flex flex-col justify-center space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-8">
-            <p className="text-sm xs:text-base sm:text-lg md:text-2xl lg:text-3xl text-muted-foreground px-3 xs:px-4 sm:px-6 md:px-8">
+          <section className="flex-1 flex flex-col justify-center space-y-3 xs:space-y-4 sm:space-y-5 tablet:space-y-8">
+            <p className="text-sm xs:text-base sm:text-lg tablet:text-2xl lg:text-3xl text-muted-foreground px-3 xs:px-4 sm:px-6 tablet:px-8">
               Lightning-fast transactions on L1. Tokenized mev rewards.
             </p>
 
-            <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-xl sm:rounded-2xl p-2.5 xs:p-3 sm:p-3.5 md:p-6 shadow-xl w-full max-w-xs xs:max-w-sm sm:max-w-md md:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto">
-              <form onSubmit={handleSubmit} className="space-y-3 xs:space-y-4 md:space-y-5">
-                <div className="flex flex-col sm:flex-row gap-2 xs:gap-3 md:gap-4">
+            <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-xl sm:rounded-2xl p-2.5 xs:p-3 sm:p-3.5 tablet:p-6 shadow-xl w-full max-w-xs xs:max-w-sm sm:max-w-md tablet:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto">
+              <form onSubmit={handleSubmit} className="space-y-3 xs:space-y-4 tablet:space-y-5">
+                <div className="flex flex-col sm:flex-row gap-2 xs:gap-3 tablet:gap-4">
                   <Input
                     type="email"
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="flex-1 h-10 xs:h-11 sm:h-12 md:h-14 text-sm xs:text-base sm:text-base md:text-lg lg:text-xl bg-background/50 border-primary/30 focus:border-primary"
+                    className="flex-1 h-10 xs:h-11 sm:h-12 tablet:h-14 text-sm xs:text-base sm:text-base tablet:text-lg lg:text-xl bg-background/50 border-primary/30 focus:border-primary"
                     disabled={isLoading}
                   />
                   <Button
@@ -121,10 +121,10 @@ const IndexPage = () => {
                     variant="hero"
                     size="lg"
                     disabled={isLoading}
-                    className="h-10 xs:h-11 sm:h-12 md:h-14 px-6 xs:px-7 sm:px-8 md:px-10 whitespace-nowrap text-sm xs:text-base sm:text-base md:text-lg lg:text-xl"
+                    className="h-10 xs:h-11 sm:h-12 tablet:h-14 px-6 xs:px-7 sm:px-8 tablet:px-10 whitespace-nowrap text-sm xs:text-base sm:text-base tablet:text-lg lg:text-xl"
                   >
                     {isSuccess ? (
-                      <Check className="w-5 h-5 xs:w-6 xs:h-6 md:w-7 md:h-7 text-green-500 animate-scale-in" />
+                      <Check className="w-5 h-5 xs:w-6 xs:h-6 tablet:w-7 tablet:h-7 text-green-500 animate-scale-in" />
                     ) : isLoading ? (
                       'Joining...'
                     ) : (
@@ -136,20 +136,20 @@ const IndexPage = () => {
             </div>
 
             {/* Social Links */}
-            <div className="flex flex-wrap gap-2 xs:gap-3 md:gap-4 justify-center px-3 xs:px-4 md:px-6">
+            <div className="flex flex-wrap gap-2 xs:gap-3 tablet:gap-4 justify-center px-3 xs:px-4 tablet:px-6 mb-4 xs:mb-6 sm:mb-8 tablet:mb-0">
               {socialLinks.map(({ name, icon: Icon, url }) => (
                 <Fragment key={name}>
-                  <Button variant="glass" size="lg" asChild className="sm:hidden px-2.5 xs:px-3 md:px-4 py-2.5 xs:py-3 md:py-4 rounded-full aspect-square">
+                  <Button variant="glass" size="lg" asChild className="sm:hidden px-2.5 xs:px-3 tablet:px-4 py-2.5 xs:py-3 tablet:py-4 rounded-full aspect-square">
                     <a href={url} target={url.startsWith('mailto:') ? undefined : '_blank'} rel={url.startsWith('mailto:') ? undefined : 'noopener noreferrer'} aria-label={name}>
-                      <Icon className="w-6 h-6 xs:w-7 xs:h-7 md:w-8 md:h-8" />
+                      <Icon className="w-6 h-6 xs:w-7 xs:h-7 tablet:w-8 tablet:h-8" />
                     </a>
                   </Button>
-                  <Button variant="glass" size="lg" asChild className="hidden md:flex text-lg lg:text-xl px-6 lg:px-8 py-3">
+                  <Button variant="glass" size="lg" asChild className="hidden tablet:flex text-lg lg:text-xl px-6 lg:px-8 py-3">
                     <a href={url} target={url.startsWith('mailto:') ? undefined : '_blank'} rel={url.startsWith('mailto:') ? undefined : 'noopener noreferrer'} aria-label={name}>
                       <span>{name}</span>
                     </a>
                   </Button>
-                  <Button variant="glass" size="lg" asChild className="hidden sm:flex md:hidden text-sm px-4 py-2">
+                  <Button variant="glass" size="lg" asChild className="hidden sm:flex tablet:hidden text-sm px-4 py-2">
                     <a href={url} target={url.startsWith('mailto:') ? undefined : '_blank'} rel={url.startsWith('mailto:') ? undefined : 'noopener noreferrer'} aria-label={name}>
                       <Icon className="w-4 h-4" />
                       <span>{name}</span>
@@ -161,32 +161,32 @@ const IndexPage = () => {
           </section>
 
           {/* Add RPC Button */}
-          <section className="flex-1 flex items-center justify-center">
-            <div className="flex flex-col items-center space-y-2 xs:space-y-3 md:space-y-4 px-3 xs:px-4 md:px-6">
+          <section className="flex-1 flex items-center justify-center mt-4 xs:mt-6 sm:mt-8 tablet:mt-0">
+            <div className="flex flex-col items-center space-y-2 xs:space-y-3 tablet:space-y-4 px-3 xs:px-4 tablet:px-6">
               <Button
                 variant="glass"
                 size="lg"
                 onClick={handleAddRPC}
                 disabled={isProcessing || rpcAdded}
-                className="h-10 xs:h-11 sm:h-12 md:h-14 px-6 xs:px-7 sm:px-8 md:px-10 text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl border-2 border-primary/20 flex items-center gap-2 md:gap-3"
+                className="h-10 xs:h-11 sm:h-12 tablet:h-14 px-6 xs:px-7 sm:px-8 tablet:px-10 text-xs xs:text-sm sm:text-base tablet:text-lg lg:text-xl border-2 border-primary/20 flex items-center gap-2 tablet:gap-3"
               >
                 {rpcAdded ? (
                   <>
-                    <Check className="w-4 h-4 md:w-5 md:h-5" />
+                    <Check className="w-4 h-4 tablet:w-5 tablet:h-5" />
                     <span>Added Successfully!</span>
                   </>
                 ) : isProcessing ? (
                   'Processing...'
                 ) : (
                   <>
-                    <Image src="/assets/metamask-icon.svg" alt="MetaMask" width={24} height={24} className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6" />
+                    <Image src="/assets/metamask-icon.svg" alt="MetaMask" width={24} height={24} className="w-4 h-4 tablet:w-5 tablet:h-5 lg:w-6 lg:h-6" />
                     <span>Add Fast RPC</span>
                   </>
                 )}
               </Button>
               <button
                 onClick={() => setIsHelpDialogOpen(true)}
-                className="text-xs xs:text-sm sm:text-sm md:text-lg lg:text-xl text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 underline underline-offset-4"
+                className="text-xs xs:text-sm sm:text-sm tablet:text-lg lg:text-xl text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 underline underline-offset-4"
               >
                 Need Help?
               </button>
@@ -219,24 +219,24 @@ const IndexPage = () => {
       </div>
 
       {/* Footer */}
-      <footer className="relative z-10 w-full py-3 sm:py-4 md:py-5 flex-shrink-0">
-        <div className="xl:hidden overflow-hidden">
+      <footer className="relative z-10 w-full py-3 sm:py-4 tablet:py-5 flex-shrink-0">
+        <div className="lg:hidden overflow-hidden">
           <Marquee speed={50} gradient={false} pauseOnHover>
-            <div className="flex items-center gap-4 md:gap-6 text-sm md:text-base lg:text-lg text-muted-foreground whitespace-nowrap mr-8 md:mr-12">
-              <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex items-center gap-4 tablet:gap-6 text-sm tablet:text-base lg:text-lg text-muted-foreground whitespace-nowrap mr-8 tablet:mr-12">
+              <div className="flex items-center gap-2 tablet:gap-3">
                 <span>Built by</span>
-                <Image src={footerLogos[0].src} alt={footerLogos[0].alt} width={footerLogos[0].width} height={footerLogos[0].height} className={footerLogos[0].className} />
+                <Image src={footerLogos[0].src} alt={footerLogos[0].alt} width={footerLogos[0].width} height={footerLogos[0].height} className={footerLogos[0].className.replace('md:', 'tablet:')} />
               </div>
-              <span className="mx-2 md:mx-3">•</span>
+              <span className="mx-2 tablet:mx-3">•</span>
               <span>Backed by</span>
               {footerLogos.slice(1).map((logo) => (
-                <Image key={logo.alt} src={logo.src} alt={logo.alt} width={logo.width} height={logo.height} className={logo.className} />
+                <Image key={logo.alt} src={logo.src} alt={logo.alt} width={logo.width} height={logo.height} className={logo.className.replace('md:', 'tablet:')} />
               ))}
             </div>
           </Marquee>
         </div>
 
-        <div className="hidden xl:flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground px-4">
+        <div className="hidden lg:flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground px-4">
           <div className="flex items-center gap-2">
             <span>Built by</span>
             <Image src={footerLogos[0].src} alt={footerLogos[0].alt} width={footerLogos[0].width} height={footerLogos[0].height} className="h-6 opacity-80" />
@@ -244,7 +244,7 @@ const IndexPage = () => {
           <span className="mx-2">•</span>
           <span>Backed by</span>
           {footerLogos.slice(1).map((logo) => (
-            <Image key={logo.alt} src={logo.src} alt={logo.alt} width={logo.width} height={logo.height} className={logo.className.replace('md:h-8', 'h-6').replace('md:h-5', 'h-4').replace('md:h-12', 'h-9').replace('md:h-10', 'h-8').replace('md:gap-3', '').replace('md:gap-6', '')} />
+            <Image key={logo.alt} src={logo.src} alt={logo.alt} width={logo.width} height={logo.height} className={logo.className.replace('tablet:h-8', 'h-6').replace('tablet:h-5', 'h-4').replace('tablet:h-12', 'h-9').replace('tablet:h-10', 'h-8')} />
           ))}
         </div>
       </footer>

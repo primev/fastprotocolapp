@@ -15,6 +15,8 @@ export default {
     extend: {
       screens: {
         'xs': '475px',
+        'tablet': '800px', // Tablets starting from 800x480
+        // lg: 1024px is default for desktop (1024x600+)
       },
       colors: {
         border: "hsl(var(--border))",
