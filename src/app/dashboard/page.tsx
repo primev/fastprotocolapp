@@ -38,17 +38,6 @@ import { PartnerQuestsSection } from '@/components/dashboard/PartnerQuestsSectio
 import { OneTimeTasksSection } from '@/components/dashboard/OneTimeTasksSection';
 import { LeaderboardTable } from '@/components/dashboard/LeaderboardTable';
 
-// Helper function to parse data URI and extract JSON
-function parseDataURI(dataURI: string): { name: string; id: string; image: string; description: string } | null {
-  try {
-    const base64Data = dataURI.replace('data:application/json;base64,', '');
-    const jsonString = atob(base64Data);
-    return JSON.parse(jsonString);
-  } catch (error) {
-    return null;
-  }
-}
-
 const DashboardContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
