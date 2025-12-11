@@ -101,7 +101,7 @@ const ClaimPage = () => {
             </div>
 
             {/* Stats */}
-            <div className="pt-16 grid grid-cols-2 md:grid-cols-4 gap-8">
+            {/* <div className="pt-16 grid grid-cols-2 md:grid-cols-4 gap-8">
               <div className="space-y-2">
                 <p className="text-3xl font-bold font-mono text-primary">10,234</p>
                 <p className="text-sm text-muted-foreground">Genesis SBTs Minted</p>
@@ -118,7 +118,7 @@ const ClaimPage = () => {
                 <p className="text-3xl font-bold font-mono text-primary">$8.7M</p>
                 <p className="text-sm text-muted-foreground">Total Volume</p>
               </div>
-            </div>
+            </div> */}
           </div>
         </main>
 
