@@ -349,7 +349,16 @@ const DashboardContent = () => {
         >
           <div className="container mx-auto px-4 py-3 text-center">
             <p className="text-primary-foreground font-semibold">
-              🎉 Fast Points Season 1 is coming soon!
+              🎉 You're all set for the points program kickoff! In the meantime, make your first Fast swap at{' '}
+              <a
+                href="https://app.uniswap.org/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-primary"
+              >
+                Uniswap
+              </a>
+              .
             </p>
           </div>
         </div>
