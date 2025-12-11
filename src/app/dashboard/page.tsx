@@ -357,29 +357,6 @@ const DashboardContent = () => {
         </div>
 
         <main className="container mx-auto px-4 py-8">
-          <Tabs
-                value={activeTab}
-                onValueChange={handleTabChange}
-                className="space-y-8"
-              >
-                <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-2">
-                  <TabsTrigger value="genesis" className="text-base">
-                    Genesis SBT
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="points"
-                    disabled
-                    className="text-base flex items-center gap-2"
-                  >
-                    Points{' '}
-                    <Badge variant="outline" className="text-xs">
-                      Coming Soon
-                    </Badge>
-                  </TabsTrigger>
-                </TabsList>
-
-                {/* Genesis SBT Tab */}
-                <TabsContent value="genesis">
                   <div className="grid lg:grid-cols-3 gap-8 items-stretch">
                     {/* Left Panel - SBT Display */}
                     <div className="flex">
@@ -704,41 +681,6 @@ const DashboardContent = () => {
                       </div>
                     </div>
                   </div>
-                </TabsContent>
-
-            {/* Points Tab */}
-            <TabsContent value="points" className="space-y-8">
-              <PointsHUD
-                season="Season 1"
-                points={0}
-                rank={0}
-                referrals={0}
-                volume={0}
-                hasGenesisSBT={hasGenesisSBT}
-                hasFastRPC={false}
-              />
-
-              <WeeklyTasksSection transactions={0} volume={0} />
-
-              <ReferralsSection
-                referralCode={referralCode}
-                successfulReferrals={0}
-                weeklyLimit={100}
-              />
-
-              <PartnerQuestsSection />
-
-              <OneTimeTasksSection tasks={oneTimeTasks} />
-
-              {/* Bottom Banner */}
-              <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 text-center">
-                <p className="text-sm font-medium">
-                  ⚡ Fast Points earned in Season 1 will carry into the official
-                  Fast Points System.
-                </p>
-              </div>
-            </TabsContent>
-              </Tabs>
         </main>
       </div>
 
