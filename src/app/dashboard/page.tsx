@@ -27,17 +27,19 @@ import {
   Mail,
   ChevronRight,
   Settings,
+  Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAccount, useReadContract } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { CONTRACT_ABI, CONTRACT_ADDRESS } from '@/lib/contract-config';
+import { ConnectButton, useAccountModal } from '@rainbow-me/rainbowkit';
+import { CONTRACT_ABI, CONTRACT_ADDRESS, NFT_NAME, NFT_DESCRIPTION, NFT_ASSET } from '@/lib/contract-config';
 import { PointsHUD } from '@/components/dashboard/PointsHUD';
 import { WeeklyTasksSection } from '@/components/dashboard/WeeklyTasksSection';
 import { ReferralsSection } from '@/components/dashboard/ReferralsSection';
 import { PartnerQuestsSection } from '@/components/dashboard/PartnerQuestsSection';
 import { OneTimeTasksSection } from '@/components/dashboard/OneTimeTasksSection';
+import { DeFiProtocolsModal } from '@/components/dashboard/DeFiProtocolsModal';
 import { 
   NetworkSetupDrawer, 
   RPCTestModal 
@@ -48,6 +50,7 @@ const DashboardContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isConnected, address, isConnecting } = useAccount();
+  const { openAccountModal } = useAccountModal();
   const [referralCode] = useState('FAST-GEN-ABC123');
   const [points] = useState(0);
   const [activeTab, setActiveTab] = useState('genesis');
@@ -58,8 +61,8 @@ const DashboardContent = () => {
   const [isMounted, setIsMounted] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const [isDeFiModalOpen, setIsDeFiModalOpen] = useState(false);
   const [storedTokenId, setStoredTokenId] = useState<string | null>(null);
-  const [hasCheckedOnce, setHasCheckedOnce] = useState(false);
   const rpcTest = useRPCTest();
   const previousAddressRef = useRef<string | undefined>(undefined);
 
@@ -76,21 +79,6 @@ const DashboardContent = () => {
     }
   }, []);
 
-  // Check user's balance - runs when wallet is connected and fully loaded
-  const { data: balance, refetch: refetchBalance } = useReadContract({
-    address: CONTRACT_ADDRESS as `0x${string}`,
-    abi: CONTRACT_ABI,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    query: {
-      enabled: isMounted && isConnected && !!address && !isConnecting,
-      refetchOnMount: true,
-      refetchOnWindowFocus: true,
-    },
-  });
-
-  const hasBalance = balance !== undefined && Number(balance) > 0;
-
   // Handle wallet connection/disconnection and address changes
   useEffect(() => {
     if (!isMounted) return;
@@ -99,32 +87,40 @@ const DashboardContent = () => {
     const previousAddress = previousAddressRef.current?.toLowerCase();
 
     if (!isConnected || !address) {
+      // Clear local state on disconnect (localStorage is handled globally in Providers)
       setStoredTokenId(null);
-      setHasCheckedOnce(false);
-      localStorage.removeItem('genesisSBTTokenId');
       previousAddressRef.current = undefined;
       return;
     }
 
     if (previousAddress && currentAddress && previousAddress !== currentAddress) {
-      setStoredTokenId(null);
-      setHasCheckedOnce(false);
+      // Address changed - clear localStorage and reset state to trigger new contract call
       localStorage.removeItem('genesisSBTTokenId');
-      refetchBalance();
+      setStoredTokenId(null);
     }
 
     previousAddressRef.current = address;
-  }, [isMounted, isConnected, address, refetchBalance]);
-
-  // Load stored tokenId from localStorage
-  useEffect(() => {
-    if (isMounted && isConnected && address) {
-      const stored = localStorage.getItem('genesisSBTTokenId');
-      setStoredTokenId(stored && stored !== '0' ? stored : null);
-    } else if (!isConnected) {
-      setStoredTokenId(null);
-    }
   }, [isMounted, isConnected, address]);
+
+  // Load stored tokenId from localStorage on mount/address change
+  // Only load if we haven't already set it from a fetch
+  useEffect(() => {
+    if (!isMounted || !isConnected || !address) {
+      if (!isConnected) {
+        setStoredTokenId(null);
+      }
+      return;
+    }
+
+    // Only load from localStorage if storedTokenId is null (not yet set)
+    // This prevents overwriting a fresh fetch result
+    if (storedTokenId === null) {
+      const stored = localStorage.getItem('genesisSBTTokenId');
+      if (stored) {
+        setStoredTokenId(stored);
+      }
+    }
+  }, [isMounted, isConnected, address, storedTokenId]);
 
   // Sync tokenId from localStorage across tabs/windows
   useEffect(() => {
@@ -152,56 +148,42 @@ const DashboardContent = () => {
     };
   }, [isMounted, storedTokenId]);
 
-  const shouldCheckOnce = (!storedTokenId || storedTokenId === '0') && hasBalance && isConnected && !!address && !hasCheckedOnce;
-  
+  // Check if we need to fetch tokenId from contract
+  // Only fetch if there's no data in localStorage (null means no data, '0' means already checked)
+  const shouldFetchTokenId = 
+    isMounted && 
+    isConnected && 
+    !!address && 
+    !isConnecting && 
+    storedTokenId === null;
+
   const { data: fetchedTokenId } = useReadContract({
     address: CONTRACT_ADDRESS as `0x${string}`,
     abi: CONTRACT_ABI,
     functionName: 'getTokenIdByAddress',
     args: address ? [address] : undefined,
     query: {
-      enabled: shouldCheckOnce && isMounted && !isConnecting,
-      refetchOnMount: false,
+      enabled: shouldFetchTokenId,
+      refetchOnMount: true,
       refetchOnWindowFocus: false,
     },
   });
 
-  // Mark as checked when query is enabled
-  useEffect(() => {
-    if (shouldCheckOnce && !hasCheckedOnce) {
-      setHasCheckedOnce(true);
-    }
-  }, [shouldCheckOnce, hasCheckedOnce]);
-
   // Update stored tokenId when fetched from contract
   useEffect(() => {
-    if (fetchedTokenId !== undefined) {
+    if (fetchedTokenId !== undefined && address) {
       const tokenIdString = fetchedTokenId.toString();
-      if (fetchedTokenId !== BigInt(0)) {
-        localStorage.setItem('genesisSBTTokenId', tokenIdString);
-        setStoredTokenId(tokenIdString);
-      } else if (!storedTokenId) {
-        localStorage.setItem('genesisSBTTokenId', '0');
-        setStoredTokenId('0');
-      }
+      // Always store the result (including '0') to prevent unnecessary re-fetches
+      localStorage.setItem('genesisSBTTokenId', tokenIdString);
+      setStoredTokenId(tokenIdString);
     }
-  }, [fetchedTokenId, storedTokenId]);
-
-  // Reset check flag when address changes
-  useEffect(() => {
-    if (isMounted && isConnected && address && hasBalance && !hasCheckedOnce) {
-      setHasCheckedOnce(false);
-    }
-  }, [isMounted, isConnected, address, hasBalance, hasCheckedOnce]);
+  }, [fetchedTokenId, address]);
 
   const tokenId = storedTokenId && storedTokenId !== '0'
     ? BigInt(storedTokenId) 
     : (fetchedTokenId && fetchedTokenId !== BigInt(0) ? fetchedTokenId : undefined);
 
   const hasGenesisSBT = tokenId !== undefined && tokenId !== BigInt(0);
-  const sbtImage = '/assets/sbt-asset.png';
-  const defaultName = 'Genesis SBT';
-  const defaultDescription = 'Your Genesis SBT proves you were early to Fast Protocol. Your progress will carry into the main Fast ecosystem at launch.';
   const hasNotMinted = isMounted && !hasGenesisSBT;
 
   // Handle tab from URL query parameter
@@ -323,34 +305,80 @@ const DashboardContent = () => {
         {/* Header */}
         <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 bg-background/80 z-50">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <Image
-              src="/assets/fast-protocol-logo-icon.png"
-              alt="Fast Protocol"
-              width={150}
-              height={150}
-            />
-            <div className="flex items-center gap-4">
+            <div className="relative">
+              <Image
+                src="/assets/fast-icon.png"
+                alt="Fast Protocol"
+                width={40}
+                height={40}
+                className="sm:hidden"
+              />
+              <Image
+                src="/assets/fast-protocol-logo-icon.png"
+                alt="Fast Protocol"
+                width={150}
+                height={150}
+                className="hidden sm:block"
+              />
+            </div>
+            <div className="flex items-center gap-2 sm:gap-4">
               <Badge
                 variant="outline"
-                className="text-lg px-4 py-2 border-primary/50"
+                className="h-10 px-3 text-sm border-primary/50 flex items-center"
               >
                 <Award className="w-4 h-4 mr-2 text-primary" />
                 {points} Points
               </Badge>
-              <ConnectButton showBalance={false} accountStatus="address" />
+              {/* Wallet icon button for mobile (when connected) */}
+              {isConnected && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="sm:hidden"
+                  onClick={openAccountModal}
+                >
+                  <Wallet className="w-4 h-4" />
+                </Button>
+              )}
+              {/* ConnectButton - full on desktop, icon-only on mobile when not connected */}
+              <div className={isConnected ? 'hidden sm:block' : ''}>
+                <ConnectButton showBalance={false} accountStatus="address" />
+              </div>
             </div>
           </div>
         </header>
 
         {/* Announcement Banner */}
-        <div
-          className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 cursor-pointer hover:from-primary/90 hover:to-primary/70 transition-all"
-          onClick={() => handleTabChange('points')}
-        >
+        <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50">
           <div className="container mx-auto px-4 py-3 text-center">
-            <p className="text-primary-foreground font-semibold">
-              🎉 Fast Points Season 1 is coming soon!
-            </p>
+            {hasGenesisSBT ? (
+              <p className="text-primary-foreground font-semibold">
+                🎉 You're all set for the points program kickoff! In the meantime, make your first Fast swap on these{' '}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsDeFiModalOpen(true);
+                  }}
+                  className="underline hover:text-primary-foreground transition-colors"
+                >
+                  top DeFi protocols
+                </button>
+                .
+              </p>
+            ) : (
+              <p className="text-primary-foreground font-semibold">
+                🚀 Mint your Genesis SBT to unlock the points program! Complete the onboarding steps to start earning points.{' '}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push('/claim/onboarding');
+                  }}
+                  className="underline hover:text-primary-foreground transition-colors font-bold"
+                >
+                  Get Started
+                </button>
+              </p>
+            )}
           </div>
         </div>
 
@@ -363,7 +391,7 @@ const DashboardContent = () => {
                         <div className="space-y-4 flex-1 flex flex-col">
                           <div className="flex items-center justify-between">
                             <h2 className="text-2xl font-bold">
-                              {defaultName}
+                              {NFT_NAME}
                             </h2>
                             {hasGenesisSBT ? (
                               <Badge className="bg-primary text-primary-foreground">
@@ -383,8 +411,8 @@ const DashboardContent = () => {
                           {/* SBT Visual */}
                           <div className="aspect-square rounded-xl bg-gradient-to-br from-primary via-primary/50 to-primary/20 border border-primary/50 overflow-hidden glow-border relative">
                             <img
-                              src={sbtImage}
-                              alt={defaultName}
+                              src={NFT_ASSET}
+                              alt={NFT_NAME}
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 const target = e.currentTarget;
@@ -455,7 +483,7 @@ const DashboardContent = () => {
 
                           <div className="pt-4 border-t border-border/50 mt-auto">
                             <p className="text-sm text-muted-foreground leading-relaxed">
-                              {defaultDescription}
+                              {NFT_DESCRIPTION}
                             </p>
                           </div>
                         </div>
@@ -752,6 +780,11 @@ const DashboardContent = () => {
           setIsTestModalOpen(false);
           rpcTest.reset();
         }}
+      />
+
+      <DeFiProtocolsModal
+        open={isDeFiModalOpen}
+        onOpenChange={setIsDeFiModalOpen}
       />
     </div>
   );
