@@ -99,9 +99,10 @@ const IndexPage = () => {
 
           {/* Tagline, Email & Social */}
           <section className="flex-1 flex flex-col justify-center space-y-3 xs:space-y-4 sm:space-y-5 tablet:space-y-8">
-            <p className="text-sm xs:text-base sm:text-lg tablet:text-2xl lg:text-3xl text-muted-foreground px-3 xs:px-4 sm:px-6 tablet:px-8">
-              Lightning-fast transactions on L1. Tokenized mev rewards.
-            </p>
+            <div className="text-sm xs:text-base sm:text-lg tablet:text-2xl lg:text-xl xl:text-2xl text-muted-foreground px-3 xs:px-4 sm:px-6 tablet:px-8 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+              <span>Lightning-fast transactions on L1.</span>
+              <span>Tokenized mev rewards.</span>
+            </div>
 
             <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-xl sm:rounded-2xl p-2.5 xs:p-3 sm:p-3.5 tablet:p-6 shadow-xl w-full max-w-xs xs:max-w-sm sm:max-w-md tablet:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto">
               <form onSubmit={handleSubmit} className="space-y-3 xs:space-y-4 tablet:space-y-5">
