@@ -99,19 +99,15 @@ All colors MUST be HSL.
     @apply bg-background text-foreground font-sans antialiased;
     margin: 0;
     padding: 0;
-    height: 100%;
-    overflow: hidden;
   }
   
   html {
-    height: 100%;
-    overflow: hidden;
+    overflow-x: hidden;
   }
   
   #__next,
   [data-nextjs-scroll-focus-boundary] {
-    height: 100%;
-    overflow: hidden;
+    min-height: 100%;
   }
 }
 
