@@ -38,6 +38,7 @@ import { WeeklyTasksSection } from '@/components/dashboard/WeeklyTasksSection';
 import { ReferralsSection } from '@/components/dashboard/ReferralsSection';
 import { PartnerQuestsSection } from '@/components/dashboard/PartnerQuestsSection';
 import { OneTimeTasksSection } from '@/components/dashboard/OneTimeTasksSection';
+import { DeFiProtocolsModal } from '@/components/dashboard/DeFiProtocolsModal';
 import { 
   NetworkSetupDrawer, 
   RPCTestModal 
@@ -58,6 +59,7 @@ const DashboardContent = () => {
   const [isMounted, setIsMounted] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const [isDeFiModalOpen, setIsDeFiModalOpen] = useState(false);
   const [storedTokenId, setStoredTokenId] = useState<string | null>(null);
   const rpcTest = useRPCTest();
   const previousAddressRef = useRef<string | undefined>(undefined);
@@ -321,23 +323,36 @@ const DashboardContent = () => {
         </header>
 
         {/* Announcement Banner */}
-        <div
-          className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 cursor-pointer hover:from-primary/90 hover:to-primary/70 transition-all"
-          onClick={() => handleTabChange('points')}
-        >
+        <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50">
           <div className="container mx-auto px-4 py-3 text-center">
-            <p className="text-primary-foreground font-semibold">
-              🎉 You're all set for the points program kickoff! In the meantime, make your first Fast swap at{' '}
-              <a
-                href="https://app.uniswap.org/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-primary"
-              >
-                Uniswap
-              </a>
-              .
-            </p>
+            {hasGenesisSBT ? (
+              <p className="text-primary-foreground font-semibold">
+                🎉 You're all set for the points program kickoff! In the meantime, make your first Fast swap on these{' '}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsDeFiModalOpen(true);
+                  }}
+                  className="underline hover:text-primary-foreground transition-colors"
+                >
+                  top DeFi protocols
+                </button>
+                .
+              </p>
+            ) : (
+              <p className="text-primary-foreground font-semibold">
+                🚀 Mint your Genesis SBT to unlock the points program! Complete the onboarding steps to start earning points.{' '}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push('/claim/onboarding');
+                  }}
+                  className="underline hover:text-primary-foreground transition-colors font-bold"
+                >
+                  Get Started
+                </button>
+              </p>
+            )}
           </div>
         </div>
 
@@ -739,6 +754,11 @@ const DashboardContent = () => {
           setIsTestModalOpen(false);
           rpcTest.reset();
         }}
+      />
+
+      <DeFiProtocolsModal
+        open={isDeFiModalOpen}
+        onOpenChange={setIsDeFiModalOpen}
       />
     </div>
   );
