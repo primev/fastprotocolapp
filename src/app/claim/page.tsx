@@ -123,7 +123,7 @@ const ClaimPage = () => {
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-border/50 mt-20">
+        {/* <footer className="border-t border-border/50 mt-20">
           <div className="container mx-auto px-4 py-8">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex items-center gap-2">
@@ -135,7 +135,7 @@ const ClaimPage = () => {
               </p>
             </div>
           </div>
-        </footer>
+        </footer> */}
       </div>
     </div>
   );
