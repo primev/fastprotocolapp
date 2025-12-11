@@ -37,7 +37,7 @@ import {
 } from '@/components/network-checker';
 import { useNetworkInstallation } from '@/hooks/use-network-installation';
 import { useRPCTest } from '@/hooks/use-rpc-test';
-import { CONTRACT_ABI, CONTRACT_ADDRESS } from '@/lib/contract-config';
+import { CONTRACT_ABI, CONTRACT_ADDRESS, MINT_PRICE } from '@/lib/contract-config';
 import { captureEmailAction } from '@/actions/capture-email';
 import type { CaptureEmailResult } from '@/lib/email';
 import {
@@ -59,6 +59,8 @@ type Step = {
 };
 
 const ONBOARDING_STORAGE_KEY = 'onboardingSteps';
+const SOCIAL_STEP_IDS = ['follow', 'discord', 'telegram', 'email'] as const;
+const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
 const baseSteps: Omit<Step, 'completed'>[] = [
   {
@@ -102,7 +104,7 @@ const baseSteps: Omit<Step, 'completed'>[] = [
 const OnboardingPage = () => {
   const router = useRouter();
   const { openConnectModal } = useConnectModal();
-  const { isConnected, address, connector } = useAccount();
+  const { isConnected, address } = useAccount();
   const networkInstallation = useNetworkInstallation();
   const rpcTest = useRPCTest();
   
@@ -120,23 +122,60 @@ const OnboardingPage = () => {
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const hasLoadedFromStorage = useRef(false);
 
-  // Load from localStorage after mount - for social steps (follow, discord, telegram, email)
-  useEffect(() => {
+  // Helper function to load steps from localStorage
+  const loadStepsFromStorage = () => {
     try {
       const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
       const saved = stored ? JSON.parse(stored) : {};
       setSteps(baseSteps.map(step => ({
         ...step,
-        // Load from localStorage for social steps (follow, discord, telegram, email)
-        completed: ['follow', 'discord', 'telegram', 'email'].includes(step.id) 
-          ? (saved[step.id] === true) 
+        completed: SOCIAL_STEP_IDS.includes(step.id as typeof SOCIAL_STEP_IDS[number])
+          ? (saved[step.id] === true)
           : false,
       })));
     } catch (error) {
       console.error('Error loading onboarding steps:', error);
-    } finally {
-      hasLoadedFromStorage.current = true;
     }
+  };
+
+  // Load from localStorage after mount
+  useEffect(() => {
+    loadStepsFromStorage();
+    hasLoadedFromStorage.current = true;
+  }, []);
+
+  // Listen for wallet disconnection and reset steps
+  useEffect(() => {
+    if (!hasLoadedFromStorage.current) return;
+    if (!isConnected) {
+      loadStepsFromStorage();
+    }
+  }, [isConnected]);
+
+  // Listen for localStorage changes (when cleared externally, e.g., from Providers component)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === ONBOARDING_STORAGE_KEY || e.key === 'completedTasks') {
+        if (e.newValue === null || (e.newValue !== null && e.key === ONBOARDING_STORAGE_KEY)) {
+          loadStepsFromStorage();
+        }
+      }
+    };
+
+    const handleFocus = () => {
+      const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+      if (!stored) {
+        loadStepsFromStorage();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   const updateStepStatus = (stepId: string, completed: boolean) => {
@@ -145,12 +184,11 @@ const OnboardingPage = () => {
         step.id === stepId ? { ...step, completed } : step
       );
       
-      // Save to localStorage - for social steps (follow, discord, telegram, email)
-      if (typeof window !== 'undefined' && ['follow', 'discord', 'telegram', 'email'].includes(stepId)) {
+      // Save social steps to localStorage
+      if (typeof window !== 'undefined' && SOCIAL_STEP_IDS.includes(stepId as typeof SOCIAL_STEP_IDS[number])) {
         try {
           const saved = updated.reduce((acc, step) => {
-            // Save social steps to localStorage
-            if (['follow', 'discord', 'telegram', 'email'].includes(step.id)) {
+            if (SOCIAL_STEP_IDS.includes(step.id as typeof SOCIAL_STEP_IDS[number])) {
               acc[step.id] = step.completed;
             }
             return acc;
@@ -167,21 +205,24 @@ const OnboardingPage = () => {
 
 
   // Update wallet step status when connection changes
-  // Only mark as completed if not already saved as completed
   useEffect(() => {
-    if (!hasLoadedFromStorage.current) return; // Wait for initial load to prevent flash
+    if (!hasLoadedFromStorage.current) return;
     const walletStep = steps.find(s => s.id === 'wallet');
     if (isConnected && !walletStep?.completed) {
       updateStepStatus('wallet', true);
+    } else if (!isConnected && walletStep?.completed) {
+      updateStepStatus('wallet', false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected]);
 
   // Update RPC step status when network is installed or RPC test passes
-  // Only update if not already completed
   useEffect(() => {
-    if (!hasLoadedFromStorage.current) return; // Wait for initial load to prevent flash
+    if (!hasLoadedFromStorage.current) return;
     const rpcStep = steps.find(s => s.id === 'rpc');
-    if (!rpcStep?.completed) {
+    if (!isConnected && rpcStep?.completed) {
+      updateStepStatus('rpc', false);
+    } else if (!rpcStep?.completed) {
       if (networkInstallation.isInstalled || (rpcTest.testResult?.success === true)) {
         updateStepStatus('rpc', true);
         if (networkInstallation.isInstalled) {
@@ -189,7 +230,8 @@ const OnboardingPage = () => {
         }
       }
     }
-  }, [networkInstallation.isInstalled, rpcTest.testResult?.success]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [networkInstallation.isInstalled, rpcTest.testResult?.success, isConnected]);
 
   const handleStepAction = (stepId: string) => {
     if (stepId === 'follow') {
@@ -275,51 +317,19 @@ const OnboardingPage = () => {
     setIsTestModalOpen(true);
   };
 
-  const handleConfirmTest = () => {
-    // The test is handled by the RPCTestModal component internally
-  };
-
   const handleCloseModal = () => {
     setIsTestModalOpen(false);
-    // Clear test result when modal closes
     rpcTest.reset();
   };
 
   const allStepsCompleted = steps.every((step) => step.completed);
 
-  // Check user's balance
-  const { data: balance, refetch: refetchBalance } = useReadContract({
-    address: CONTRACT_ADDRESS as `0x${string}`,
-    abi: CONTRACT_ABI,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    query: {
-      enabled: !!address && isConnected,
-    },
-  });
-
-  // Get mint price from contract
-  const { data: mintPrice } = useReadContract({
-    address: CONTRACT_ADDRESS as `0x${string}`,
-    abi: CONTRACT_ABI,
-    functionName: '_mintPrice',
-    query: {
-      enabled: isConnected,
-    },
-  });
-
-
-  // TODO: Remove this once done testing
-  const hasSBT = false
-  // const hasSBT = balance !== undefined && Number(balance) > 0;
-
   // Minting state
   const [isMinting, setIsMinting] = useState(false);
 
-  const parseTokenIdFromReceipt = (receipt: any): bigint | null => {
+  const parseTokenIdFromReceipt = (receipt: { logs?: Array<{ address?: string; topics?: string[] }> }): bigint | null => {
     if (!receipt?.logs?.length) return null;
 
-    const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
     const contractAddressLower = CONTRACT_ADDRESS.toLowerCase();
     
     for (const log of receipt.logs) {
@@ -344,7 +354,7 @@ const OnboardingPage = () => {
 
 
   // Helper function to check for Fast RPC 503 errors
-  const isFastRpc503Error = (error: any): boolean => {
+  const isFastRpc503Error = (error: unknown): boolean => {
     if (!error) return false;
     
     // Check for 503 in various error formats
@@ -354,9 +364,10 @@ const OnboardingPage = () => {
     }
     
     // Check error code and data structure
-    if (error?.code === -32603 || error?.code === 'UNKNOWN_ERROR') {
-      if (error?.data?.originalError?.message?.includes('503') || 
-          error?.data?.originalError?.code === 'ERR_BAD_RESPONSE') {
+    const err = error as { code?: number | string; data?: { originalError?: { message?: string; code?: string } } };
+    if (err?.code === -32603 || err?.code === 'UNKNOWN_ERROR') {
+      if (err?.data?.originalError?.message?.includes('503') || 
+          err?.data?.originalError?.code === 'ERR_BAD_RESPONSE') {
         return true;
       }
     }
@@ -370,10 +381,7 @@ const OnboardingPage = () => {
       return;
     }
 
-    if (mintPrice === undefined) {
-      toast.error('Unable to fetch mint price. Please try again.');
-      return;
-    }
+    const mintPrice = MINT_PRICE;
 
     try {
       if (typeof window === 'undefined' || !window.ethereum) {
@@ -456,7 +464,6 @@ const OnboardingPage = () => {
       }
       
       localStorage.setItem('genesisSBTTokenId', tokenId.toString());
-      refetchBalance();
       
       const completedTasks = [
         'Follow @fast_protocol',
@@ -643,7 +650,7 @@ const OnboardingPage = () => {
                 </p>
                       <Button
                         size="lg"
-                        disabled={!allStepsCompleted || isMinting || hasSBT}
+                        disabled={!allStepsCompleted || isMinting}
                         onClick={handleMintSbt}
                         className="text-lg px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold disabled:opacity-50 disabled:cursor-not-allowed glow-border"
                       >
@@ -652,11 +659,7 @@ const OnboardingPage = () => {
                         ) : (
                           <Zap className="w-5 h-5 mr-2" />
                         )}
-                        {hasSBT 
-                          ? 'Already Minted' 
-                          : isMinting 
-                            ? 'Minting...' 
-                            : 'Mint Genesis SBT'}
+                        {isMinting ? 'Minting...' : 'Mint Genesis SBT'}
                       </Button>
               </div>
             </Card>
@@ -672,7 +675,7 @@ const OnboardingPage = () => {
       <RPCTestModal
         open={isTestModalOpen}
         onOpenChange={setIsTestModalOpen}
-        onConfirm={handleConfirmTest}
+        onConfirm={() => {}}
         onClose={handleCloseModal}
       />
 
