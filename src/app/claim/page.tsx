@@ -32,7 +32,7 @@ const ClaimPage = () => {
             <div className="space-y-6">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30">
                 <Zap className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold text-primary">Season 1 is Live</span>
+                <span className="text-sm font-semibold text-primary">Season 1 is coming soon</span>
               </div>
               
               <h1 className="text-5xl md:text-6xl font-bold leading-tight">
