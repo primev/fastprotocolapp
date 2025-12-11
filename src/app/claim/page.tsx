@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Zap, TrendingUp, Users, Shield } from "lucide-react";
@@ -18,10 +19,12 @@ const ClaimPage = () => {
         {/* Header */}
         <header className="border-b border-border/50 backdrop-blur-sm">
           <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center gap-2">
-              <Zap className="w-6 h-6 text-primary" />
-              <span className="text-xl font-bold gradient-text">FAST Protocol</span>
-            </div>
+            <Image
+              src="/assets/fast-protocol-logo-icon.png"
+              alt="Fast Protocol"
+              width={150}
+              height={150}
+            />
           </div>
         </header>
 
@@ -32,7 +35,7 @@ const ClaimPage = () => {
             <div className="space-y-6">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30">
                 <Zap className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold text-primary">Season 1 is Live</span>
+                <span className="text-sm font-semibold text-primary">Season 1 is coming soon</span>
               </div>
               
               <h1 className="text-5xl md:text-6xl font-bold leading-tight">
@@ -98,7 +101,7 @@ const ClaimPage = () => {
             </div>
 
             {/* Stats */}
-            <div className="pt-16 grid grid-cols-2 md:grid-cols-4 gap-8">
+            {/* <div className="pt-16 grid grid-cols-2 md:grid-cols-4 gap-8">
               <div className="space-y-2">
                 <p className="text-3xl font-bold font-mono text-primary">10,234</p>
                 <p className="text-sm text-muted-foreground">Genesis SBTs Minted</p>
@@ -115,12 +118,12 @@ const ClaimPage = () => {
                 <p className="text-3xl font-bold font-mono text-primary">$8.7M</p>
                 <p className="text-sm text-muted-foreground">Total Volume</p>
               </div>
-            </div>
+            </div> */}
           </div>
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-border/50 mt-20">
+        {/* <footer className="border-t border-border/50 mt-20">
           <div className="container mx-auto px-4 py-8">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex items-center gap-2">
@@ -132,7 +135,7 @@ const ClaimPage = () => {
               </p>
             </div>
           </div>
-        </footer>
+        </footer> */}
       </div>
     </div>
   );
