@@ -16,5 +16,14 @@ const nextConfig = {
   //   // config.resolve.alias['@'] = require('path').resolve(__dirname, 'src');
   //   return config;
   // },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'assets.coingecko.com',
+        pathname: '/coins/images/**',
+      },
+    ],
+  },
 };
 export default nextConfig;
