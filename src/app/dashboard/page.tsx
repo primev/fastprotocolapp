@@ -27,11 +27,12 @@ import {
   Mail,
   ChevronRight,
   Settings,
+  Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAccount, useReadContract } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { ConnectButton, useAccountModal } from '@rainbow-me/rainbowkit';
 import { CONTRACT_ABI, CONTRACT_ADDRESS, NFT_NAME, NFT_DESCRIPTION, NFT_ASSET } from '@/lib/contract-config';
 import { PointsHUD } from '@/components/dashboard/PointsHUD';
 import { WeeklyTasksSection } from '@/components/dashboard/WeeklyTasksSection';
@@ -49,6 +50,7 @@ const DashboardContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isConnected, address, isConnecting } = useAccount();
+  const { openAccountModal } = useAccountModal();
   const [referralCode] = useState('FAST-GEN-ABC123');
   const [points] = useState(0);
   const [activeTab, setActiveTab] = useState('genesis');
@@ -303,21 +305,45 @@ const DashboardContent = () => {
         {/* Header */}
         <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 bg-background/80 z-50">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <Image
-              src="/assets/fast-protocol-logo-icon.png"
-              alt="Fast Protocol"
-              width={150}
-              height={150}
-            />
-            <div className="flex items-center gap-4">
+            <div className="relative">
+              <Image
+                src="/assets/fast-icon.png"
+                alt="Fast Protocol"
+                width={40}
+                height={40}
+                className="sm:hidden"
+              />
+              <Image
+                src="/assets/fast-protocol-logo-icon.png"
+                alt="Fast Protocol"
+                width={150}
+                height={150}
+                className="hidden sm:block"
+              />
+            </div>
+            <div className="flex items-center gap-2 sm:gap-4">
               <Badge
                 variant="outline"
-                className="text-lg px-4 py-2 border-primary/50"
+                className="h-10 px-3 text-sm border-primary/50 flex items-center"
               >
                 <Award className="w-4 h-4 mr-2 text-primary" />
                 {points} Points
               </Badge>
-              <ConnectButton showBalance={false} accountStatus="address" />
+              {/* Wallet icon button for mobile (when connected) */}
+              {isConnected && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="sm:hidden"
+                  onClick={openAccountModal}
+                >
+                  <Wallet className="w-4 h-4" />
+                </Button>
+              )}
+              {/* ConnectButton - full on desktop, icon-only on mobile when not connected */}
+              <div className={isConnected ? 'hidden sm:block' : ''}>
+                <ConnectButton showBalance={false} accountStatus="address" />
+              </div>
             </div>
           </div>
         </header>

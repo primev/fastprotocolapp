@@ -481,7 +481,7 @@ const OnboardingPage = () => {
       });
       
       // Navigate to dashboard now that we have confirmed tokenId
-      router.push('/dashboard?tab=genesis');
+      router.push('/dashboard');
     } catch (error: any) {
       setIsMinting(false);
       console.error('❌ Mint Exception Caught:', error);
@@ -529,12 +529,22 @@ const OnboardingPage = () => {
         {/* Header */}
         <header className="border-b border-border/50 backdrop-blur-sm">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <Image
-              src="/assets/fast-protocol-logo-icon.png"
-              alt="Fast Protocol"
-              width={150}
-              height={150}
-            />
+            <div className="relative">
+              <Image
+                src="/assets/fast-icon.png"
+                alt="Fast Protocol"
+                width={40}
+                height={40}
+                className="sm:hidden"
+              />
+              <Image
+                src="/assets/fast-protocol-logo-icon.png"
+                alt="Fast Protocol"
+                width={150}
+                height={150}
+                className="hidden sm:block"
+              />
+            </div>
             <Button
               variant="outline"
               onClick={() => router.push('/claim')}

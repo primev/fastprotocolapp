@@ -43,12 +43,22 @@ const NetworkCheckerPage = () => {
                 {/* Header */}
                 <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 bg-background/80 z-50">
                     <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-                        <Image
-                            src="/assets/fast-protocol-logo-icon.png"
-                            alt="Fast Protocol"
-                            width={150}
-                            height={150}
-                        />
+                        <div className="relative">
+                            <Image
+                                src="/assets/fast-icon.png"
+                                alt="Fast Protocol"
+                                width={40}
+                                height={40}
+                                className="sm:hidden"
+                            />
+                            <Image
+                                src="/assets/fast-protocol-logo-icon.png"
+                                alt="Fast Protocol"
+                                width={150}
+                                height={150}
+                                className="hidden sm:block"
+                            />
+                        </div>
                         <div className="flex items-center gap-4">
                             <Badge
                                 variant="outline"
