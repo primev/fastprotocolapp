@@ -97,6 +97,21 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+  
+  html {
+    height: 100%;
+    overflow: hidden;
+  }
+  
+  #__next,
+  [data-nextjs-scroll-focus-boundary] {
+    height: 100%;
+    overflow: hidden;
   }
 }
 
@@ -114,6 +129,30 @@ All colors MUST be HSL.
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
+  
+  .footer-scroll {
+    display: inline-flex;
+    animation: scroll-footer 15s linear infinite;
+    will-change: transform;
+  }
+  
+  @keyframes scroll-footer {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
   }
 }
 

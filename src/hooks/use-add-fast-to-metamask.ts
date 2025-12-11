@@ -127,11 +127,6 @@ export function useAddFastToMetamask(): UseAddFastToMetamaskReturn {
         params: [NETWORK_CONFIG],
       });
 
-      toast({
-        title: "Success!",
-        description: "Fast Protocol RPC has been added to your wallet.",
-      });
-
       return true;
     } catch (error: any) {
       if (error?.code === 4001) {
