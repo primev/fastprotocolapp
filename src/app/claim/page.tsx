@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Zap, TrendingUp, Users, Shield } from "lucide-react";
@@ -18,10 +19,12 @@ const ClaimPage = () => {
         {/* Header */}
         <header className="border-b border-border/50 backdrop-blur-sm">
           <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center gap-2">
-              <Zap className="w-6 h-6 text-primary" />
-              <span className="text-xl font-bold gradient-text">FAST Protocol</span>
-            </div>
+            <Image
+              src="/assets/fast-protocol-logo-icon.png"
+              alt="Fast Protocol"
+              width={150}
+              height={150}
+            />
           </div>
         </header>
 
