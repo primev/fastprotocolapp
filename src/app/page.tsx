@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,10 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { captureEmailAction } from '@/actions/capture-email';
-import { MessageCircle, Send, Twitter, Check, HelpCircle } from 'lucide-react';
+import { Check, HelpCircle } from 'lucide-react';
+import { FaDiscord } from 'react-icons/fa';
+import { MdEmail } from 'react-icons/md';
+import { FaXTwitter } from 'react-icons/fa6';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import type { CaptureEmailResult } from '@/lib/email';
 import { useAddFastToMetamask } from '@/hooks/use-add-fast-to-metamask';
@@ -21,17 +25,17 @@ import { useAddFastToMetamask } from '@/hooks/use-add-fast-to-metamask';
 const socialLinks = [
   {
     name: 'Discord',
-    icon: MessageCircle,
+    icon: FaDiscord,
     url: 'https://discord.gg/fastprotocol',
   },
   {
-    name: 'Telegram',
-    icon: Send,
-    url: 'https://t.me/Fast_Protocol',
+    name: 'Email',
+    icon: MdEmail,
+    url: 'mailto:info@fastprotocol.io',
   },
   {
-    name: 'Twitter',
-    icon: Twitter,
+    name: 'X',
+    icon: FaXTwitter,
     url: 'https://x.com/Fast_Protocol',
   },
 ];
@@ -152,23 +156,41 @@ const IndexPage = () => {
             {socialLinks.map((social) => {
               const Icon = social.icon;
               return (
-                <Button
-                  key={social.name}
-                  variant="glass"
-                  size="lg"
-                  asChild
-                  className="lg:text-base"
-                >
+                <React.Fragment key={social.name}>
+                  {/* Mobile: Logo only buttons */}
+                  <Button
+                    variant="glass"
+                    size="lg"
+                    asChild
+                    className="sm:hidden px-3 py-3 rounded-full aspect-square"
+                  >
                   <a
                     href={social.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    target={social.url.startsWith('mailto:') ? undefined : '_blank'}
+                    rel={social.url.startsWith('mailto:') ? undefined : 'noopener noreferrer'}
+                    aria-label={social.name}
+                  >
+                    <Icon className="w-7 h-7" />
+                  </a>
+                  </Button>
+                  {/* Desktop: Original buttons with icon and text */}
+                  <Button
+                    variant="glass"
+                    size="lg"
+                    asChild
+                    className="hidden sm:flex lg:text-base"
+                  >
+                  <a
+                    href={social.url}
+                    target={social.url.startsWith('mailto:') ? undefined : '_blank'}
+                    rel={social.url.startsWith('mailto:') ? undefined : 'noopener noreferrer'}
                     aria-label={social.name}
                   >
                     <Icon className="w-5 h-5" />
                     <span>{social.name}</span>
                   </a>
-                </Button>
+                  </Button>
+                </React.Fragment>
               );
             })}
           </div>
