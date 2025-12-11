@@ -13,9 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { captureEmailAction } from '@/actions/capture-email';
-import { Check } from 'lucide-react';
-import { FaDiscord } from 'react-icons/fa';
-import { MdEmail } from 'react-icons/md';
+import { Check, MessageCircle, Send } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import type { CaptureEmailResult } from '@/lib/email';
@@ -23,8 +21,8 @@ import { useAddFastToMetamask } from '@/hooks/use-add-fast-to-metamask';
 import Marquee from 'react-fast-marquee';
 
 const socialLinks = [
-  { name: 'Discord', icon: FaDiscord, url: 'https://discord.gg/fastprotocol' },
-  { name: 'Email', icon: MdEmail, url: 'mailto:info@fastprotocol.io' },
+  { name: 'Discord', icon: MessageCircle, url: 'https://discord.gg/fastprotocol' },
+  { name: 'Telegram', icon: Send, url: 'https://t.me/Fast_Protocol' },
   { name: 'Twitter', icon: FaXTwitter, url: 'https://x.com/Fast_Protocol' },
 ];
 
@@ -146,12 +144,13 @@ const IndexPage = () => {
                   </Button>
                   <Button variant="glass" size="lg" asChild className="hidden tablet:flex text-lg lg:text-xl px-6 lg:px-8 py-3">
                     <a href={url} target={url.startsWith('mailto:') ? undefined : '_blank'} rel={url.startsWith('mailto:') ? undefined : 'noopener noreferrer'} aria-label={name}>
+                      <Icon className="w-5 h-5 lg:w-6 lg:h-6 mr-2" />
                       <span>{name}</span>
                     </a>
                   </Button>
                   <Button variant="glass" size="lg" asChild className="hidden sm:flex tablet:hidden text-sm px-4 py-2">
                     <a href={url} target={url.startsWith('mailto:') ? undefined : '_blank'} rel={url.startsWith('mailto:') ? undefined : 'noopener noreferrer'} aria-label={name}>
-                      <Icon className="w-4 h-4" />
+                      <Icon className="w-4 h-4 mr-2" />
                       <span>{name}</span>
                     </a>
                   </Button>
