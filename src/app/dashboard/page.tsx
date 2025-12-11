@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -322,15 +323,12 @@ const DashboardContent = () => {
         {/* Header */}
         <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 bg-background/80 z-50">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <button
-              onClick={() => router.push('/claim')}
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-            >
-              <Zap className="w-6 h-6 text-primary" />
-              <span className="text-xl font-bold gradient-text">
-                FAST Protocol
-              </span>
-            </button>
+            <Image
+              src="/assets/fast-protocol-logo-icon.png"
+              alt="Fast Protocol"
+              width={150}
+              height={150}
+            />
             <div className="flex items-center gap-4">
               <Badge
                 variant="outline"
