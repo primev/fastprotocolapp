@@ -23,6 +23,9 @@ import {
   ChevronRight,
   Home,
   Loader2,
+  MessageCircle,
+  Send,
+  Mail,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -34,6 +37,17 @@ import {
 import { useNetworkInstallation } from '@/hooks/use-network-installation';
 import { useRPCTest } from '@/hooks/use-rpc-test';
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from '@/lib/contract-config';
+import { captureEmailAction } from '@/actions/capture-email';
+import type { CaptureEmailResult } from '@/lib/email';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type Step = {
   id: string;
@@ -49,19 +63,37 @@ const baseSteps: Omit<Step, 'completed'>[] = [
   {
     id: 'follow',
     title: 'Follow Us on X',
-    description: 'Follow @fast_protocol to continue',
+    description: 'Follow us on X',
     icon: Twitter,
+  },
+  {
+    id: 'discord',
+    title: 'Join Discord',
+    description: 'Join our community on Discord',
+    icon: MessageCircle,
+  },
+  {
+    id: 'telegram',
+    title: 'Join Telegram',
+    description: 'Connect with us on Telegram',
+    icon: Send,
+  },
+  {
+    id: 'email',
+    title: 'Enter Email',
+    description: 'Stay updated with Fast Protocol news',
+    icon: Mail,
   },
   {
     id: 'wallet',
     title: 'Connect Wallet',
-    description: 'Connect your wallet to mint your SBT',
+    description: 'Connect your wallet',
     icon: Wallet,
   },
   {
     id: 'rpc',
     title: 'Fast RPC Setup',
-    description: 'Configure Fast RPC for your first Fast transaction',
+    description: 'Add Fast RPC to your wallet',
     icon: Network,
   },
 ];
@@ -81,17 +113,23 @@ const OnboardingPage = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showRpcInfo, setShowRpcInfo] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const hasLoadedFromStorage = useRef(false);
 
-  // Load from localStorage after mount - only for step 1 (follow)
+  // Load from localStorage after mount - for social steps (follow, discord, telegram, email)
   useEffect(() => {
     try {
       const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
       const saved = stored ? JSON.parse(stored) : {};
       setSteps(baseSteps.map(step => ({
         ...step,
-        // Only load from localStorage for step 1 (follow), others start as false
-        completed: step.id === 'follow' ? (saved[step.id] === true) : false,
+        // Load from localStorage for social steps (follow, discord, telegram, email)
+        completed: ['follow', 'discord', 'telegram', 'email'].includes(step.id) 
+          ? (saved[step.id] === true) 
+          : false,
       })));
     } catch (error) {
       console.error('Error loading onboarding steps:', error);
@@ -106,12 +144,12 @@ const OnboardingPage = () => {
         step.id === stepId ? { ...step, completed } : step
       );
       
-      // Save to localStorage - only for step 1 (follow)
-      if (typeof window !== 'undefined' && stepId === 'follow') {
+      // Save to localStorage - for social steps (follow, discord, telegram, email)
+      if (typeof window !== 'undefined' && ['follow', 'discord', 'telegram', 'email'].includes(stepId)) {
         try {
           const saved = updated.reduce((acc, step) => {
-            // Only save step 1 (follow) to localStorage
-            if (step.id === 'follow') {
+            // Save social steps to localStorage
+            if (['follow', 'discord', 'telegram', 'email'].includes(step.id)) {
               acc[step.id] = step.completed;
             }
             return acc;
@@ -163,6 +201,23 @@ const OnboardingPage = () => {
       setTimeout(() => {
         updateStepStatus(stepId, true);
       }, 2000);
+    } else if (stepId === 'discord') {
+      // Open Discord link
+      window.open('https://discord.gg/fastprotocol', '_blank');
+      toast.success('Opening Discord...');
+      setTimeout(() => {
+        updateStepStatus(stepId, true);
+      }, 1000);
+    } else if (stepId === 'telegram') {
+      // Open Telegram link
+      window.open('https://t.me/Fast_Protocol', '_blank');
+      toast.success('Opening Telegram...');
+      setTimeout(() => {
+        updateStepStatus(stepId, true);
+      }, 1000);
+    } else if (stepId === 'email') {
+      // Open email dialog
+      setShowEmailDialog(true);
     } else if (stepId === 'wallet') {
       // Open RainbowKit connect modal
       if (openConnectModal) {
@@ -176,6 +231,42 @@ const OnboardingPage = () => {
         return;
       }
       setShowRpcInfo(true);
+    }
+  };
+
+  const handleEmailSubmit = async () => {
+    if (!emailInput || !emailInput.includes('@')) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+
+    setIsLoadingEmail(true);
+    setEmailError('');
+
+    try {
+      const result: CaptureEmailResult = await captureEmailAction({ email: emailInput.trim() });
+      if (result.alreadySubscribed) {
+        toast.success("You're already subscribed!");
+        updateStepStatus('email', true);
+        setShowEmailDialog(false);
+        setEmailInput('');
+      } else {
+        toast.success('Success!', {
+          description: "You've been added to the waitlist",
+        });
+        updateStepStatus('email', true);
+        setShowEmailDialog(false);
+        setEmailInput('');
+      }
+    } catch (err: any) {
+      console.error('Failed to capture email', err);
+      const errorMessage = err?.message || 'We could not add your email right now. Please try again.';
+      toast.error('Something went wrong', {
+        description: errorMessage,
+      });
+      setEmailError(errorMessage);
+    } finally {
+      setIsLoadingEmail(false);
     }
   };
 
@@ -468,44 +559,39 @@ const OnboardingPage = () => {
                 return (
                   <Card
                     key={step.id}
-                    className={`p-6 ${
+                    className={`p-4 ${
                       step.completed
                         ? 'bg-primary/5 border-primary/50'
                         : 'bg-card/50 border-border/50 hover:border-primary/30'
                     }`}
                   >
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-center gap-4">
                       <div
-                        className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
                           step.completed
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-background'
                         }`}
                       >
                         {step.completed ? (
-                          <Check className="w-6 h-6" />
+                          <Check className="w-5 h-5" />
                         ) : (
-                          <Icon className="w-6 h-6" />
+                          <Icon className="w-5 h-5" />
                         )}
                       </div>
 
-                      <div className="flex-1 space-y-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">
-                              Step {index + 1}
-                            </span>
-                          </div>
-                          <h3 className="text-xl font-semibold">
-                            {step.title}
-                          </h3>
-                          <p className="text-muted-foreground">
-                            {step.description}
-                          </p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-muted-foreground font-semibold">
+                            Step {index + 1}
+                          </span>
                         </div>
+                        <p className="text-sm text-muted-foreground">
+                          {step.description}
+                        </p>
 
                         {step.id === 'rpc' && showRpcInfo && !step.completed && (
-                          <div className="space-y-4 pt-4 border-t border-border/50">
+                          <div className="space-y-4 pt-4 mt-4 border-t border-border/50">
                             <WalletInfo title="Wallet Connection" size="sm" align="start" />
                             <RPCConfiguration
                               onSetupClick={() => setIsDrawerOpen(true)}
@@ -528,19 +614,23 @@ const OnboardingPage = () => {
                             />
                           </div>
                         )}
-
-                        {!step.completed && !(step.id === 'rpc' && showRpcInfo) && (
-                          <Button
-                            onClick={() => handleStepAction(step.id)}
-                            variant="outline"
-                          >
-                            {step.id === 'follow' && 'Follow @fast_protocol'}
-                            {step.id === 'wallet' && 'Connect Wallet'}
-                            {step.id === 'rpc' && 'Setup Fast RPC'}
-                            <ChevronRight className="w-4 h-4 ml-2" />
-                          </Button>
-                        )}
                       </div>
+
+                      {!step.completed && !(step.id === 'rpc' && showRpcInfo) && (
+                        <Button
+                          onClick={() => handleStepAction(step.id)}
+                          variant="outline"
+                          size="default"
+                          className="flex-shrink-0 w-28"
+                        >
+                          {step.id === 'follow' && 'Follow'}
+                          {step.id === 'discord' && 'Join'}
+                          {step.id === 'telegram' && 'Join'}
+                          {step.id === 'email' && 'Submit'}
+                          {step.id === 'wallet' && 'Connect'}
+                          {step.id === 'rpc' && 'Setup'}
+                        </Button>
+                      )}
                     </div>
                   </Card>
                 );
@@ -550,7 +640,6 @@ const OnboardingPage = () => {
             {/* Mint Button */}
             <Card className="p-8 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30">
               <div className="text-center space-y-4">
-                <h3 className="text-2xl font-bold">Ready to Mint</h3>
                 <p className="text-muted-foreground">
                   Complete all steps above to mint your Fast Genesis SBT
                 </p>
@@ -588,6 +677,70 @@ const OnboardingPage = () => {
         onConfirm={handleConfirmTest}
         onClose={handleCloseModal}
       />
+
+      {/* Email Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent className="sm:max-w-md border-primary/50">
+          <DialogHeader>
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center border border-primary/30">
+                <Mail className="w-8 h-8 text-primary" />
+              </div>
+            </div>
+            <DialogTitle className="text-center text-2xl">
+              Enter Your Email
+            </DialogTitle>
+            <DialogDescription className="text-center text-base pt-2">
+              Stay updated with Fast Protocol news and announcements
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={emailInput}
+                onChange={(e) => {
+                  setEmailInput(e.target.value);
+                  if (emailError) setEmailError('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleEmailSubmit();
+                  }
+                }}
+                className={emailError ? 'border-destructive' : ''}
+                disabled={isLoadingEmail}
+              />
+              {emailError && (
+                <p className="text-sm text-destructive">{emailError}</p>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <Button 
+                className="flex-1" 
+                onClick={handleEmailSubmit}
+                disabled={isLoadingEmail}
+              >
+                {isLoadingEmail ? 'Submitting...' : 'Submit Email'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowEmailDialog(false);
+                  setEmailInput('');
+                  setEmailError('');
+                }}
+                disabled={isLoadingEmail}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
