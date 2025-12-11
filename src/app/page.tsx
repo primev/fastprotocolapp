@@ -21,6 +21,7 @@ import { FaXTwitter } from 'react-icons/fa6';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import type { CaptureEmailResult } from '@/lib/email';
 import { useAddFastToMetamask } from '@/hooks/use-add-fast-to-metamask';
+import Marquee from 'react-fast-marquee';
 
 const socialLinks = [
   {
@@ -34,7 +35,7 @@ const socialLinks = [
     url: 'mailto:info@fastprotocol.io',
   },
   {
-    name: 'X',
+    name: 'Twitter',
     icon: FaXTwitter,
     url: 'https://x.com/Fast_Protocol',
   },
@@ -111,29 +112,29 @@ const IndexPage = () => {
                 width={512}
                 height={512}
                 priority
-                className="h-32 sm:h-40 md:h-48 lg:h-56 w-auto"
+                className="h-32 xs:h-40 sm:h-48 md:h-72 lg:h-80 xl:h-60 w-auto"
                 style={{ clipPath: 'inset(10% 0 30% 0)' }}
               />
             </div>
           </section>
 
           {/* Section 2: Tagline, Email Signup & Social Links */}
-          <section className="flex-1 flex flex-col justify-center space-y-4 sm:space-y-6">
+          <section className="flex-1 flex flex-col justify-center space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-8">
             {/* Tagline */}
-            <p className="text-base sm:text-lg md:text-xl text-muted-foreground px-4">
+            <p className="text-sm xs:text-base sm:text-lg md:text-2xl lg:text-3xl text-muted-foreground px-3 xs:px-4 sm:px-6 md:px-8">
               Lightning-fast transactions on L1. Tokenized mev rewards.
             </p>
 
             {/* Email Signup */}
-            <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-2xl p-3 md:p-4 shadow-xl w-full max-w-lg md:max-w-xl lg:max-w-2xl mx-auto px-4">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-3">
+            <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-xl sm:rounded-2xl p-2.5 xs:p-3 sm:p-3.5 md:p-6 shadow-xl w-full max-w-xs xs:max-w-sm sm:max-w-md md:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto px-3 xs:px-4 md:px-6">
+              <form onSubmit={handleSubmit} className="space-y-3 xs:space-y-4 md:space-y-5">
+                <div className="flex flex-col sm:flex-row gap-2 xs:gap-3 md:gap-4">
                   <Input
                     type="email"
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="flex-1 h-12 bg-background/50 border-primary/30 focus:border-primary lg:text-base"
+                    className="flex-1 h-10 xs:h-11 sm:h-12 md:h-14 text-sm xs:text-base sm:text-base md:text-lg lg:text-xl bg-background/50 border-primary/30 focus:border-primary"
                     disabled={isLoading}
                   />
                   <Button
@@ -141,10 +142,10 @@ const IndexPage = () => {
                     variant="hero"
                     size="lg"
                     disabled={isLoading}
-                    className="h-12 px-8 whitespace-nowrap lg:text-base"
+                    className="h-10 xs:h-11 sm:h-12 md:h-14 px-6 xs:px-7 sm:px-8 md:px-10 whitespace-nowrap text-sm xs:text-base sm:text-base md:text-lg lg:text-xl"
                   >
                     {isSuccess ? (
-                      <Check className="w-6 h-6 text-green-500 animate-scale-in" />
+                      <Check className="w-5 h-5 xs:w-6 xs:h-6 md:w-7 md:h-7 text-green-500 animate-scale-in" />
                     ) : isLoading ? (
                       'Joining...'
                     ) : (
@@ -156,7 +157,7 @@ const IndexPage = () => {
             </div>
 
             {/* Social Links */}
-            <div className="flex flex-wrap gap-3 justify-center px-4">
+            <div className="flex flex-wrap gap-2 xs:gap-3 md:gap-4 justify-center px-3 xs:px-4 md:px-6">
               {socialLinks.map((social) => {
                 const Icon = social.icon;
                 return (
@@ -166,7 +167,7 @@ const IndexPage = () => {
                       variant="glass"
                       size="lg"
                       asChild
-                      className="sm:hidden px-3 py-3 rounded-full aspect-square"
+                      className="sm:hidden px-2.5 xs:px-3 md:px-4 py-2.5 xs:py-3 md:py-4 rounded-full aspect-square"
                     >
                     <a
                       href={social.url}
@@ -174,15 +175,15 @@ const IndexPage = () => {
                       rel={social.url.startsWith('mailto:') ? undefined : 'noopener noreferrer'}
                       aria-label={social.name}
                     >
-                      <Icon className="w-7 h-7" />
+                      <Icon className="w-6 h-6 xs:w-7 xs:h-7 md:w-8 md:h-8" />
                     </a>
                     </Button>
-                    {/* Desktop: Original buttons with icon and text */}
+                    {/* Tablet: Text only buttons (iPad and up) */}
                     <Button
                       variant="glass"
                       size="lg"
                       asChild
-                      className="hidden sm:flex lg:text-base"
+                      className="hidden md:flex text-lg lg:text-xl px-6 lg:px-8 py-3"
                     >
                     <a
                       href={social.url}
@@ -190,7 +191,23 @@ const IndexPage = () => {
                       rel={social.url.startsWith('mailto:') ? undefined : 'noopener noreferrer'}
                       aria-label={social.name}
                     >
-                      <Icon className="w-5 h-5" />
+                      <span>{social.name}</span>
+                    </a>
+                    </Button>
+                    {/* Small desktop: Buttons with icon and text */}
+                    <Button
+                      variant="glass"
+                      size="lg"
+                      asChild
+                      className="hidden sm:flex md:hidden text-sm px-4 py-2"
+                    >
+                    <a
+                      href={social.url}
+                      target={social.url.startsWith('mailto:') ? undefined : '_blank'}
+                      rel={social.url.startsWith('mailto:') ? undefined : 'noopener noreferrer'}
+                      aria-label={social.name}
+                    >
+                      <Icon className="w-4 h-4" />
                       <span>{social.name}</span>
                     </a>
                     </Button>
@@ -202,7 +219,7 @@ const IndexPage = () => {
 
           {/* Section 3: Add RPC Button */}
           <section className="flex-1 flex items-center justify-center">
-            <div className="flex flex-col items-center space-y-3 px-4">
+            <div className="flex flex-col items-center space-y-2 xs:space-y-3 md:space-y-4 px-3 xs:px-4 md:px-6">
               <Button 
                 variant="glass"
                 size="lg"
@@ -218,13 +235,31 @@ const IndexPage = () => {
                   }
                 }}
                 disabled={isProcessing || rpcAdded}
-                className="h-12 px-8 lg:text-base border-2 border-primary/20"
+                className="h-10 xs:h-11 sm:h-12 md:h-14 px-6 xs:px-7 sm:px-8 md:px-10 text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl border-2 border-primary/20 flex items-center gap-2 md:gap-3"
               >
-                {rpcAdded ? '✓ Added Successfully!' : isProcessing ? 'Processing...' : 'Add Fast RPC to MetaMask'}
+                {rpcAdded ? (
+                  <>
+                    <Check className="w-4 h-4 md:w-5 md:h-5" />
+                    <span>Added Successfully!</span>
+                  </>
+                ) : isProcessing ? (
+                  'Processing...'
+                ) : (
+                  <>
+                    <Image
+                      src="/assets/metamask-icon.svg"
+                      alt="MetaMask"
+                      width={24}
+                      height={24}
+                      className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6"
+                    />
+                    <span>Add Fast RPC</span>
+                  </>
+                )}
               </Button>
               <button
                 onClick={() => setIsHelpDialogOpen(true)}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 underline underline-offset-4"
+                className="text-xs xs:text-sm sm:text-sm md:text-lg lg:text-xl text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 underline underline-offset-4"
               >
                 Need Help?
               </button>
@@ -233,7 +268,7 @@ const IndexPage = () => {
 
           {/* Help Dialog */}
           <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="w-full h-full max-w-none max-h-none rounded-none translate-x-0 translate-y-0 left-0 top-0 sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:w-full sm:max-w-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-lg">
               <DialogHeader>
                 <DialogTitle>Adding Fast RPC to MetaMask</DialogTitle>
                 <DialogDescription className="pt-4 space-y-3">
@@ -246,7 +281,7 @@ const IndexPage = () => {
                       <li>Open your browser extensions (click the puzzle icon in your browser toolbar)</li>
                       <li>Disconnect or disable any other wallet extensions (Rabby, Coinbase Wallet, etc.)</li>
                       <li>Make sure only MetaMask is active</li>
-                      <li>Return to this page and click "Add Fast RPC to MetaMask"</li>
+                      <li>Return to this page and click "Add Fast RPC"</li>
                     </ol>
                   </div>
                   <p className="pt-2 text-xs text-muted-foreground">
@@ -259,115 +294,65 @@ const IndexPage = () => {
         </div>
       </div>
 
-      {/* Section 4: Footer - Scrolling on mobile, static on desktop */}
-      <footer className="relative z-10 w-full py-3 sm:py-4 flex-shrink-0">
-        {/* Mobile: Scrolling footer */}
-        <div className="sm:hidden overflow-hidden">
-          <div className="footer-scroll">
-            <div className="flex items-center gap-4 text-sm text-muted-foreground whitespace-nowrap">
-              <div className="flex items-center gap-2">
+      {/* Section 4: Footer - Scrolling on mobile/iPad, static on desktop */}
+      <footer className="relative z-10 w-full py-3 sm:py-4 md:py-5 flex-shrink-0">
+        {/* Mobile & iPad: Scrolling footer with Marquee */}
+        <div className="xl:hidden overflow-hidden">
+          <Marquee speed={50} gradient={false} pauseOnHover>
+            <div className="flex items-center gap-4 md:gap-6 text-sm md:text-base lg:text-lg text-muted-foreground whitespace-nowrap mr-8 md:mr-12">
+              <div className="flex items-center gap-2 md:gap-3">
                 <span>Built by</span>
                 <Image
                   src="/assets/primev-logo.png"
                   alt="Primev"
                   width={100}
                   height={24}
-                  className="h-6 opacity-80"
+                  className="h-6 md:h-8 w-auto opacity-80"
                 />
               </div>
-              <span className="mx-2">•</span>
+              <span className="mx-2 md:mx-3">•</span>
               <span>Backed by</span>
               <Image
                 src="/assets/a16z-logo.webp"
                 alt="a16z"
                 width={177}
                 height={24}
-                className="h-6 opacity-60 hover:opacity-100 transition-opacity"
+                className="h-6 md:h-8 w-auto opacity-60 hover:opacity-100 transition-opacity"
               />
               <Image
                 src="/assets/bodhi-logo.webp"
                 alt="Bodhi Ventures"
                 width={170}
                 height={16}
-                className="h-4 opacity-60 hover:opacity-100 transition-opacity"
+                className="h-4 md:h-5 w-auto opacity-60 hover:opacity-100 transition-opacity"
               />
               <Image
                 src="/assets/figment-logo.webp"
                 alt="Figment"
                 width={96}
                 height={36}
-                className="h-9 opacity-60 hover:opacity-100 transition-opacity"
+                className="h-9 md:h-12 w-auto opacity-60 hover:opacity-100 transition-opacity"
               />
               <Image
                 src="/assets/hashkey-logo.svg"
                 alt="HashKey"
                 width={73}
                 height={24}
-                className="h-6 opacity-60 hover:opacity-100 transition-opacity"
+                className="h-6 md:h-8 w-auto opacity-60 hover:opacity-100 transition-opacity"
               />
               <Image
                 src="/assets/longhash-logo.png"
                 alt="LongHash Ventures"
                 width={96}
                 height={32}
-                className="opacity-60 hover:opacity-100 transition-opacity"
+                className="h-8 md:h-10 w-auto opacity-60 hover:opacity-100 transition-opacity"
               />
-              {/* Duplicate for seamless loop */}
-              <div className="flex items-center gap-4 ml-8">
-                <div className="flex items-center gap-2">
-                  <span>Built by</span>
-                  <Image
-                    src="/assets/primev-logo.png"
-                    alt="Primev"
-                    width={100}
-                    height={24}
-                    className="h-6 opacity-80"
-                  />
-                </div>
-                <span className="mx-2">•</span>
-                <span>Backed by</span>
-                <Image
-                  src="/assets/a16z-logo.webp"
-                  alt="a16z"
-                  width={177}
-                  height={24}
-                  className="h-6 opacity-60 hover:opacity-100 transition-opacity"
-                />
-                <Image
-                  src="/assets/bodhi-logo.webp"
-                  alt="Bodhi Ventures"
-                  width={170}
-                  height={16}
-                  className="h-4 opacity-60 hover:opacity-100 transition-opacity"
-                />
-                <Image
-                  src="/assets/figment-logo.webp"
-                  alt="Figment"
-                  width={96}
-                  height={36}
-                  className="h-9 opacity-60 hover:opacity-100 transition-opacity"
-                />
-                <Image
-                  src="/assets/hashkey-logo.svg"
-                  alt="HashKey"
-                  width={73}
-                  height={24}
-                  className="h-6 opacity-60 hover:opacity-100 transition-opacity"
-                />
-                <Image
-                  src="/assets/longhash-logo.png"
-                  alt="LongHash Ventures"
-                  width={96}
-                  height={32}
-                  className="opacity-60 hover:opacity-100 transition-opacity"
-                />
-              </div>
             </div>
-          </div>
+          </Marquee>
         </div>
 
         {/* Desktop: Static centered footer */}
-        <div className="hidden sm:flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground px-4">
+        <div className="hidden xl:flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground px-4">
           <div className="flex items-center gap-2">
             <span>Built by</span>
             <Image
