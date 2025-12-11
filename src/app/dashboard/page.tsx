@@ -51,6 +51,9 @@ const DashboardContent = () => {
   const [completedTasks, setCompletedTasks] = useState<string[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
+  // Flag to control dashboard display - set to true to show only SBT component
+  const sbtOnly = true;
+
   // Load completed tasks from localStorage after mount to prevent hydration mismatch
   useEffect(() => {
     setIsMounted(true);
@@ -351,49 +354,30 @@ const DashboardContent = () => {
         {/* Announcement Banner */}
         <div
           className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 cursor-pointer hover:from-primary/90 hover:to-primary/70 transition-all"
-          onClick={() => handleTabChange('points')}
+          onClick={() => !sbtOnly && handleTabChange('points')}
         >
           <div className="container mx-auto px-4 py-3 text-center">
             <p className="text-primary-foreground font-semibold">
-              🎉 Fast Points Season 1 is Live Now!{' '}
-              <span className="underline">
-                Click Here to start earning FAST Points.
-              </span>
+              {sbtOnly ? (
+                'Fast Points Season 1 is coming soon!'
+              ) : (
+                <>
+                  🎉 Fast Points Season 1 is Live Now!{' '}
+                  <span className="underline">
+                    Click Here to start earning FAST Points.
+                  </span>
+                </>
+              )}
             </p>
           </div>
         </div>
 
         <main className="container mx-auto px-4 py-8">
-          <Tabs
-            value={activeTab}
-            onValueChange={handleTabChange}
-            className="space-y-8"
-          >
-            <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-2">
-              <TabsTrigger value="genesis" className="text-base">
-                Genesis SBT
-              </TabsTrigger>
-              <TabsTrigger
-                value="points"
-                disabled
-                className="text-base flex items-center gap-2"
-              >
-                Points{' '}
-                <Badge variant="outline" className="text-xs">
-                  Coming Soon
-                </Badge>
-              </TabsTrigger>
-              {/* <TabsTrigger value="leaderboard" className="text-base">
-                Leaderboard
-              </TabsTrigger> */}
-            </TabsList>
-
-            {/* Genesis SBT Tab */}
-            <TabsContent value="genesis">
-              <div className="grid lg:grid-cols-3 gap-8">
-                {/* Left Panel - SBT Display */}
-                <div className="space-y-6">
-                  <Card className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30">
+          {sbtOnly ? (
+            /* SBT Only View - Centered SBT Display */
+            <div className="flex justify-center">
+              <div className="w-full max-w-md">
+                <Card className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30">
                     {hasNotMinted ? (
                       /* Show mint required content when not minted */
                       <div className="space-y-6 text-center">
@@ -505,42 +489,187 @@ const DashboardContent = () => {
                       </div>
                     )}
                   </Card>
-
-                  {/* Referrals Card */}
-                  <Card className="p-6 bg-card/50 border-border/50">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-primary" />
-                        <h3 className="text-xl font-semibold">Referrals</h3>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Earn +1 point per successful referral (max 100/week)
-                      </p>
-                      <div className="bg-secondary/50 rounded-lg p-3 flex items-center justify-between">
-                        <code className="text-xs">{referralCode}</code>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={copyReferralLink}
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">
-                            This week
-                          </span>
-                          <span className="font-semibold">3 / 100</span>
-                        </div>
-                        <Progress value={3} className="h-2" />
-                      </div>
-                    </div>
-                  </Card>
                 </div>
+              </div>
+            ) : (
+              /* Full Dashboard View */
+              <Tabs
+                value={activeTab}
+                onValueChange={handleTabChange}
+                className="space-y-8"
+              >
+                <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-2">
+                  <TabsTrigger value="genesis" className="text-base">
+                    Genesis SBT
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="points"
+                    disabled
+                    className="text-base flex items-center gap-2"
+                  >
+                    Points{' '}
+                    <Badge variant="outline" className="text-xs">
+                      Coming Soon
+                    </Badge>
+                  </TabsTrigger>
+                  {/* <TabsTrigger value="leaderboard" className="text-base">
+                    Leaderboard
+                  </TabsTrigger> */}
+                </TabsList>
 
-                {/* Center Panel - Dashboard Header + Transaction Activity */}
-                <div className="space-y-6">
+                {/* Genesis SBT Tab */}
+                <TabsContent value="genesis">
+                  <div className="grid lg:grid-cols-3 gap-8">
+                    {/* Left Panel - SBT Display */}
+                    <div className="space-y-6">
+                      <Card className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30">
+                        {hasNotMinted ? (
+                          /* Show mint required content when not minted */
+                          <div className="space-y-6 text-center">
+                            <div className="flex justify-center">
+                              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center glow-border">
+                                <Award className="w-8 h-8 text-primary" />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <h2 className="text-2xl font-bold">Fast Genesis SBT Required</h2>
+                              <p className="text-sm text-muted-foreground leading-relaxed">
+                                You must mint your Genesis SBT to access the Fast Points System and Season 1 leaderboard.
+                              </p>
+                            </div>
+                            <Button 
+                              className="w-full" 
+                              size="lg"
+                              onClick={() => router.push("/claim/onboarding")}
+                            >
+                              <Zap className="w-4 h-4 mr-2" />
+                              Mint Genesis SBT
+                            </Button>
+                          </div>
+                        ) : (
+                          /* Show minted SBT info when minted */
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <h2 className="text-2xl font-bold">
+                                {nftName || 'Genesis SBT'}
+                              </h2>
+                              {hasBalance ? (
+                                <Badge className="bg-primary text-primary-foreground">
+                                  <Check className="w-3 h-3 mr-1" />
+                                  Minted
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="border-muted-foreground/50"
+                                >
+                                  Not Minted
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* SBT Visual */}
+                            <div className="aspect-square rounded-xl bg-gradient-to-br from-primary via-primary/50 to-primary/20 border border-primary/50 overflow-hidden glow-border relative">
+                              {sbtImage && (
+                                <img
+                                  key={sbtImage}
+                                  src={sbtImage}
+                                  alt={nftName || 'Genesis SBT'}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    // Fallback to placeholder if image fails to load
+                                    const target = e.currentTarget;
+                                    target.style.display = 'none';
+                                    const placeholder = target.nextElementSibling as HTMLElement;
+                                    if (placeholder) {
+                                      placeholder.classList.remove('hidden');
+                                    }
+                                  }}
+                                />
+                              )}
+                              <div className={`w-full h-full flex items-center justify-center ${sbtImage ? 'hidden' : ''} absolute inset-0`}>
+                                <div className="text-center space-y-2">
+                                  <Zap className="w-20 h-20 mx-auto text-primary-foreground" />
+                                  <div className="text-primary-foreground font-bold text-xl">
+                                    FAST
+                                  </div>
+                                  <div className="text-primary-foreground/80 text-sm">
+                                    Genesis
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2 text-sm">
+                              {tokenId !== undefined && tokenId !== BigInt(0) && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">SBT ID</span>
+                                  <span className="font-mono">#{String(tokenId)}</span>
+                                </div>
+                              )}
+                              {address && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Wallet</span>
+                                  <span className="font-mono">
+                                    {address.slice(0, 4)}...{address.slice(-4)}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex justify-between items-center">
+                                <span className="text-muted-foreground">Status</span>
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs border-primary/50"
+                                >
+                                  On-chain via Fast RPC
+                                </Badge>
+                              </div>
+                            </div>
+
+                            <div className="pt-4 border-t border-border/50">
+                              <p className="text-sm text-muted-foreground leading-relaxed">
+                                {nftDescription || defaultDescription}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+
+                      {/* Referrals Card */}
+                      <Card className="p-6 bg-card/50 border-border/50">
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2">
+                            <Users className="w-5 h-5 text-primary" />
+                            <h3 className="text-xl font-semibold">Referrals</h3>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Earn +1 point per successful referral (max 100/week)
+                          </p>
+                          <div className="bg-secondary/50 rounded-lg p-3 flex items-center justify-between">
+                            <code className="text-xs">{referralCode}</code>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={copyReferralLink}
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">
+                                This week
+                              </span>
+                              <span className="font-semibold">3 / 100</span>
+                            </div>
+                            <Progress value={3} className="h-2" />
+                          </div>
+                        </div>
+                      </Card>
+                    </div>
+
+                    {/* Center Panel - Dashboard Header + Transaction Activity */}
+                    <div className="space-y-6">
                   <div>
                     <h1 className="text-3xl font-bold mb-2">
                       Fast Points Dashboard
@@ -774,15 +903,17 @@ const DashboardContent = () => {
               </div>
             </TabsContent>
 
-            {/* Leaderboard Tab */}
-            {/* <TabsContent value="leaderboard">
-              <LeaderboardTable />
-            </TabsContent> */}
-          </Tabs>
+                {/* Leaderboard Tab */}
+                {/* <TabsContent value="leaderboard">
+                  <LeaderboardTable />
+                </TabsContent> */}
+              </Tabs>
+            )}
         </main>
       </div>
 
-      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+      {!sbtOnly && (
+        <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
         <DialogContent className="sm:max-w-md border-primary/50">
           <DialogHeader>
             <div className="flex justify-center mb-4">
@@ -838,6 +969,7 @@ const DashboardContent = () => {
           </div>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 };
