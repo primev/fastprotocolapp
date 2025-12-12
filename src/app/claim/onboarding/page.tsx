@@ -441,6 +441,9 @@ const OnboardingPage = () => {
           toast.success('Network added successfully', {
             description: 'Fast Protocol network has been added to your wallet.',
           });
+          // Mark toggle and test as completed for MetaMask
+          setRpcAddCompleted(true);
+          setRpcTestCompleted(true);
         }
         setRpcRequired(false);
       } catch (error: any) {
@@ -1099,6 +1102,9 @@ const OnboardingPage = () => {
                                   toast.success('Network added successfully', {
                                     description: 'Fast Protocol network has been added to your wallet.',
                                   });
+                                  // Mark toggle and test as completed for MetaMask
+                                  setRpcAddCompleted(true);
+                                  setRpcTestCompleted(true);
                                 }
                                 setRpcRequired(false);
                                 updateStepStatus('wallet', true);
