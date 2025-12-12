@@ -3,7 +3,8 @@ export const CONTRACT_ABI = [
     { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getTokenIdByAddress", "outputs": [{ "internalType": "uint256", "name": "tokenId", "type": "uint256" }], "stateMutability": "view", "type": "function" },
 ] as const;
 
-export const CONTRACT_ADDRESS = "0xFAee8EDCDF7f7B2B56Ce78171714FC237f86ba7c";
+// export const CONTRACT_ADDRESS = "0xFAee8EDCDF7f7B2B56Ce78171714FC237f86ba7c";
+export const CONTRACT_ADDRESS = "0xb03dCA080853870bF7c862C4F820a2cf4f8AcD71";
 
 // Default data for the SBT
 export const MINT_PRICE = BigInt(0);

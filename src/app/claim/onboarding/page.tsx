@@ -30,6 +30,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Copy,
+  XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -47,6 +48,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -134,6 +136,7 @@ const OnboardingPage = () => {
   const [showAddRpcModal, setShowAddRpcModal] = useState(false);
   const [showBrowserWalletModal, setShowBrowserWalletModal] = useState(false);
   const [showWalletWarningModal, setShowWalletWarningModal] = useState(false);
+  const [showSmartAccountModal, setShowSmartAccountModal] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [emailError, setEmailError] = useState('');
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
@@ -325,6 +328,42 @@ const OnboardingPage = () => {
     });
   };
 
+  // Check if user already has a token minted on page load
+  useEffect(() => {
+    const checkExistingToken = async () => {
+      if (!address || !publicClient) {
+        setAlreadyMinted(false);
+        setExistingTokenId(null);
+        return;
+      }
+
+      try {
+        const tokenId = await publicClient.readContract({
+          address: CONTRACT_ADDRESS as `0x${string}`,
+          abi: CONTRACT_ABI,
+          functionName: 'getTokenIdByAddress',
+          args: [address],
+          blockTag: 'latest',
+        } as any) as bigint;
+
+        // Check if tokenId is valid (not zero)
+        if (tokenId && tokenId > BigInt(0)) {
+          setAlreadyMinted(true);
+          setExistingTokenId(tokenId.toString());
+        } else {
+          setAlreadyMinted(false);
+          setExistingTokenId(null);
+        }
+      } catch (error) {
+        console.error('Error checking existing token:', error);
+        setAlreadyMinted(false);
+        setExistingTokenId(null);
+      }
+    };
+
+    checkExistingToken();
+  }, [address, publicClient]);
+
 
   // Track if we've prompted Add Fast RPC after wallet connection
   const hasPromptedAddRpc = useRef(false);
@@ -344,6 +383,31 @@ const OnboardingPage = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected]);
+
+  // Check for smart account when wallet connects (first check)
+  useEffect(() => {
+    const checkSmartAccount = async () => {
+      if (!isConnected || !address || !publicClient) {
+        return;
+      }
+
+      try {
+        // Check if address has code (is a smart contract/account)
+        const code = await publicClient.getCode({
+          address: address as `0x${string}`,
+        });
+
+        // If code exists and is not empty (not just "0x"), it's a smart account
+        if (code && code !== '0x' && code.length > 2) {
+          setShowSmartAccountModal(true);
+        }
+      } catch (error) {
+        console.error('Error checking smart account:', error);
+      }
+    };
+
+    checkSmartAccount();
+  }, [isConnected, address, publicClient]);
 
   // Prompt Add Fast RPC after wallet step is marked complete
   useEffect(() => {
@@ -594,6 +658,8 @@ const OnboardingPage = () => {
 
   // Minting state
   const [isMinting, setIsMinting] = useState(false);
+  const [alreadyMinted, setAlreadyMinted] = useState(false);
+  const [existingTokenId, setExistingTokenId] = useState<string | null>(null);
 
   // Helper function to parse tokenId from transaction receipt logs
   const parseTokenIdFromReceipt = (receipt: { logs?: Array<{ address?: string; topics?: readonly string[] }> }): bigint | null => {
@@ -650,6 +716,11 @@ const OnboardingPage = () => {
   const handleMintSbt = async () => {
     if (!isConnected || !address) {
       toast.error('Please connect your wallet first');
+      return;
+    }
+
+    if (!publicClient) {
+      toast.error('RPC client not available');
       return;
     }
 
@@ -1067,20 +1138,25 @@ const OnboardingPage = () => {
             <Card className="p-8 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30">
               <div className="text-center space-y-4">
                 <p className="text-muted-foreground">
-                  Complete all steps above to mint your Fast Genesis SBT
+                  {alreadyMinted 
+                    ? `You already have a Genesis SBT${existingTokenId ? ` (Token ID: ${existingTokenId})` : ''}`
+                    : 'Complete all steps above to mint your Fast Genesis SBT'
+                  }
                 </p>
                       <Button
                         size="lg"
-                        disabled={!allStepsCompleted || isMinting}
+                        disabled={!allStepsCompleted || isMinting || alreadyMinted}
                         onClick={handleMintSbt}
                         className="text-lg px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold disabled:opacity-50 disabled:cursor-not-allowed glow-border"
                       >
                         {isMinting ? (
                           <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        ) : alreadyMinted ? (
+                          <Check className="w-5 h-5 mr-2" />
                         ) : (
                           <Zap className="w-5 h-5 mr-2" />
                         )}
-                        {isMinting ? 'Minting...' : 'Mint Genesis SBT'}
+                        {isMinting ? 'Minting...' : alreadyMinted ? 'Already Minted' : 'Mint Genesis SBT'}
                       </Button>
               </div>
             </Card>
@@ -1438,6 +1514,40 @@ const OnboardingPage = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Smart Account Modal */}
+      <Dialog open={showSmartAccountModal} onOpenChange={setShowSmartAccountModal}>
+        <DialogContent className="sm:max-w-md border-primary/50" hideClose>
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+                <XCircle className="h-5 w-5 text-destructive" />
+              </div>
+              <DialogTitle>Smart Account Detected</DialogTitle>
+            </div>
+            <div className="text-left pt-2 space-y-4">
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <p className="text-sm font-medium text-foreground">What's a smart account?</p>
+                <p className="text-sm text-muted-foreground">
+                  A smart account is a wallet address that's been upgraded to a smart contract (for example via EIP-7702). 
+                  These wallets add extra features, but they can't mint the Genesis SBT.
+                </p>
+              </div>
+              <p className="text-sm text-muted-foreground text-center">
+                Try switching to a standard wallet to continue.
+              </p>
+            </div>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => setShowSmartAccountModal(false)}
+              className="w-full"
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
