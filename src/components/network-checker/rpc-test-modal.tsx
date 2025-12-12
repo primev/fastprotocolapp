@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useRPCTest } from '@/hooks/use-rpc-test';
 import { FAST_PROTOCOL_NETWORK } from '@/lib/network-config';
 
@@ -62,11 +62,10 @@ export function RPCTestModal({
           <>
             <DialogHeader>
               <div className="flex items-center gap-3 mb-2">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                  rpcTest.testResult.success 
-                    ? 'bg-green-500/10' 
+                <div className={`flex h-10 w-10 items-center justify-center rounded-full ${rpcTest.testResult.success
+                    ? 'bg-green-500/10'
                     : 'bg-destructive/10'
-                }`}>
+                  }`}>
                   {rpcTest.testResult.success ? (
                     <CheckCircle className="h-5 w-5 text-green-500" />
                   ) : (
@@ -103,8 +102,8 @@ export function RPCTestModal({
               </div>
             </DialogHeader>
             <DialogFooter>
-              <Button 
-                onClick={handleClose} 
+              <Button
+                onClick={handleClose}
                 className="w-full"
               >
                 Close
@@ -148,8 +147,10 @@ export function RPCTestModal({
               <Button
                 onClick={handleConfirmTest}
                 disabled={rpcTest.isTesting}
+                className="flex items-center gap-2"
               >
-                {rpcTest.isTesting ? 'Testing...' : 'Continue Test'}
+                {rpcTest.isTesting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {rpcTest.isTesting ? "Testing..." : "Perform Test"}
               </Button>
             </DialogFooter>
           </>
