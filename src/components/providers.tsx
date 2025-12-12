@@ -45,7 +45,7 @@ function WalletDisconnectHandler() {
       // If accounts array is empty, wallet was disconnected
       if (accounts.length === 0) {
         clearWalletData();
-        refreshPage();
+        // refreshPage();
       }
     };
 

@@ -3,6 +3,7 @@ import { metaMaskWallet, rabbyWallet, injectedWallet } from '@rainbow-me/rainbow
 import { createConfig, http, unstable_connector, fallback } from 'wagmi';
 import { injected } from 'wagmi/connectors';
 import { mainnet } from 'wagmi/chains';
+import { QueryClient } from '@tanstack/react-query';
 
 
 const connectors = connectorsForWallets(
@@ -17,6 +18,18 @@ const connectors = connectorsForWallets(
     projectId: '00000000000000000000000000000000',
   }
 );
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 0,       // Data becomes stale immediately
+      gcTime: 0,          // No cache garbage collection timer
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+    },
+  },
+})
 
 export const config = createConfig({
   chains: [mainnet],
