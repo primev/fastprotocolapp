@@ -151,3 +151,179 @@ export function getWalletName(connector: any): string {
     return getActiveProviderName() || 'Browser Wallet';
 }
 
+/**
+ * Get the wallet type from connector ID
+ * Returns 'metamask', 'rabby', 'brave', 'coinbase', or null
+ */
+function getWalletTypeFromConnector(connector: any): string | null {
+    if (!connector) return null;
+    
+    const connectorId = (connector.id || '').toLowerCase();
+    const rdns = (connector.rdns || '').toLowerCase();
+    const name = (connector.name || '').toLowerCase();
+    
+    // Check connector ID first (most reliable)
+    if (connectorId.includes('brave')) return 'brave';
+    if (connectorId.includes('rabby') || connectorId === 'io.rabby') return 'rabby';
+    if (connectorId.includes('metamask') || connectorId === 'io.metamask' || connectorId === 'io.metamask.snap') return 'metamask';
+    if (connectorId.includes('coinbase')) return 'coinbase';
+    
+    // Check RDNS
+    if (rdns.includes('brave')) return 'brave';
+    if (rdns.includes('rabby')) return 'rabby';
+    if (rdns === 'io.metamask' || rdns.includes('metamask')) return 'metamask';
+    if (rdns.includes('coinbase')) return 'coinbase';
+    
+    // Check name
+    if (name.includes('brave')) return 'brave';
+    if (name.includes('rabby')) return 'rabby';
+    if (name.includes('metamask')) return 'metamask';
+    if (name.includes('coinbase')) return 'coinbase';
+    
+    return null;
+}
+
+/**
+ * Get the specific provider for the connected wallet
+ * Ensures no other wallet interferes with the transaction
+ * 
+ * @param connector - The wagmi connector instance
+ * @returns The provider for the connected wallet, or null if not found
+ */
+export async function getProviderForConnector(connector: any): Promise<any | null> {
+    if (!connector || typeof window === 'undefined') {
+        return null;
+    }
+    
+    const walletType = getWalletTypeFromConnector(connector);
+    if (!walletType) {
+        // Unknown wallet type - fallback to connector provider
+        try {
+            return await connector.getProvider();
+        } catch {
+            return null;
+        }
+    }
+    
+    const ethereum = (window as any).ethereum;
+    if (!ethereum) {
+        return null;
+    }
+    
+    let provider: any = null;
+    
+    // If multiple providers are installed, find the specific one
+    if (ethereum.providers && Array.isArray(ethereum.providers)) {
+        // Find provider by wallet type
+        switch (walletType) {
+            case 'metamask':
+                provider = ethereum.providers.find((p: any) => p && p.isMetaMask === true && !p.isRabby);
+                break;
+            case 'rabby':
+                provider = ethereum.providers.find((p: any) => p && p.isRabby === true);
+                break;
+            case 'brave':
+                provider = ethereum.providers.find((p: any) => p && p.isBraveWallet === true);
+                break;
+            case 'coinbase':
+                provider = ethereum.providers.find((p: any) => p && p.isCoinbaseWallet === true);
+                break;
+        }
+    } else {
+        // Single provider - verify it matches the wallet type
+        switch (walletType) {
+            case 'metamask':
+                if (ethereum.isMetaMask && !ethereum.isRabby) {
+                    provider = ethereum;
+                }
+                break;
+            case 'rabby':
+                if (ethereum.isRabby) {
+                    provider = ethereum;
+                }
+                break;
+            case 'brave':
+                if (ethereum.isBraveWallet) {
+                    provider = ethereum;
+                }
+                break;
+            case 'coinbase':
+                if (ethereum.isCoinbaseWallet) {
+                    provider = ethereum;
+                }
+                break;
+        }
+    }
+    
+    // If we found a provider, validate it matches the connector
+    if (provider) {
+        try {
+            const connectorProvider = await connector.getProvider();
+            // If connector provider exists and is the same instance or matches wallet type, use it
+            if (connectorProvider) {
+                // Verify the connector provider matches the wallet type
+                let isValid = false;
+                switch (walletType) {
+                    case 'metamask':
+                        isValid = connectorProvider.isMetaMask === true && !connectorProvider.isRabby;
+                        break;
+                    case 'rabby':
+                        isValid = connectorProvider.isRabby === true;
+                        break;
+                    case 'brave':
+                        isValid = connectorProvider.isBraveWallet === true;
+                        break;
+                    case 'coinbase':
+                        isValid = connectorProvider.isCoinbaseWallet === true;
+                        break;
+                }
+                
+                if (isValid) {
+                    // Prefer connector provider if it's the same instance or matches
+                    if (connectorProvider === provider || 
+                        (walletType === 'metamask' && connectorProvider.isMetaMask && !connectorProvider.isRabby) ||
+                        (walletType === 'rabby' && connectorProvider.isRabby) ||
+                        (walletType === 'brave' && connectorProvider.isBraveWallet) ||
+                        (walletType === 'coinbase' && connectorProvider.isCoinbaseWallet)) {
+                        return connectorProvider;
+                    }
+                }
+            }
+        } catch {
+            // If we can't get connector provider, use the one we found
+        }
+    }
+    
+    // Fallback: try connector provider if we didn't find a specific one
+    if (!provider) {
+        try {
+            const connectorProvider = await connector.getProvider();
+            if (connectorProvider) {
+                // Validate it matches the wallet type
+                let isValid = false;
+                switch (walletType) {
+                    case 'metamask':
+                        isValid = connectorProvider.isMetaMask === true && !connectorProvider.isRabby;
+                        break;
+                    case 'rabby':
+                        isValid = connectorProvider.isRabby === true;
+                        break;
+                    case 'brave':
+                        isValid = connectorProvider.isBraveWallet === true;
+                        break;
+                    case 'coinbase':
+                        isValid = connectorProvider.isCoinbaseWallet === true;
+                        break;
+                }
+                if (isValid) {
+                    return connectorProvider;
+                }
+            }
+        } catch {
+            // Ignore errors
+        }
+    }
+    
+    return provider;
+}
+

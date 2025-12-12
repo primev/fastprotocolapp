@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -28,10 +29,17 @@ export function RPCTestModal({
 }: RPCTestModalProps) {
   const rpcTest = useRPCTest();
 
+  // Reset state when modal opens to clear any previous test results
+  useEffect(() => {
+    if (open) {
+      rpcTest.reset();
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
-      onClose();
       rpcTest.reset();
+      onClose();
     } else if (!rpcTest.isTesting) {
       onOpenChange(isOpen);
     }
@@ -42,9 +50,14 @@ export function RPCTestModal({
     onConfirm();
   };
 
+  const handleClose = () => {
+    rpcTest.reset();
+    onClose();
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md border-primary/50">
+      <DialogContent className="sm:max-w-md border-primary/50" hideClose>
         {rpcTest.testResult ? (
           <>
             <DialogHeader>
@@ -64,16 +77,14 @@ export function RPCTestModal({
                   {rpcTest.testResult.success ? 'Test Successful' : 'Test Failed'}
                 </DialogTitle>
               </div>
-              <DialogDescription className="text-left pt-2">
-                {rpcTest.testResult.success ? (
-                  <p className="mb-4">
-                    Fast Protocol RPC connection was successfully verified.
-                  </p>
-                ) : (
-                  <p className="mb-4">
-                    The RPC connection test failed. Please check your configuration and try again.
-                  </p>
-                )}
+              <div className="text-left pt-2 space-y-4">
+                <DialogDescription>
+                  {rpcTest.testResult.success ? (
+                    'Fast Protocol RPC connection was successfully verified.'
+                  ) : (
+                    'The RPC connection test failed. Please check your configuration and try again.'
+                  )}
+                </DialogDescription>
                 {rpcTest.testResult.hash && (
                   <div className="pt-2">
                     <a
@@ -89,11 +100,11 @@ export function RPCTestModal({
                     </a>
                   </div>
                 )}
-              </DialogDescription>
+              </div>
             </DialogHeader>
             <DialogFooter>
               <Button 
-                onClick={onClose} 
+                onClick={handleClose} 
                 className="w-full"
               >
                 Close
@@ -109,10 +120,10 @@ export function RPCTestModal({
                 </div>
                 <DialogTitle>RPC Connection Test</DialogTitle>
               </div>
-              <DialogDescription className="text-left pt-2">
-                <p className="mb-4">
+              <div className="text-left pt-2 space-y-4">
+                <DialogDescription>
                   To verify that your RPC is properly configured, a test transaction will be performed.
-                </p>
+                </DialogDescription>
                 <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                   <p className="text-sm font-medium text-foreground">Transaction Details:</p>
                   <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
@@ -121,15 +132,15 @@ export function RPCTestModal({
                     <li>Only verifies RPC connectivity</li>
                   </ul>
                 </div>
-                <p className="mt-4 text-sm">
+                <p className="text-sm text-muted-foreground">
                   You will need to approve this transaction in your wallet to complete the test.
                 </p>
-              </DialogDescription>
+              </div>
             </DialogHeader>
             <DialogFooter className="gap-2 sm:gap-0">
               <Button
                 variant="outline"
-                onClick={onClose}
+                onClick={handleClose}
                 disabled={rpcTest.isTesting}
               >
                 Skip
