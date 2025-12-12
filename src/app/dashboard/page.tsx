@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -30,15 +29,10 @@ import {
   Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAccount, useReadContract } from 'wagmi';
 import { ConnectButton, useAccountModal } from '@rainbow-me/rainbowkit';
 import { CONTRACT_ABI, CONTRACT_ADDRESS, NFT_NAME, NFT_DESCRIPTION, NFT_ASSET } from '@/lib/contract-config';
-import { PointsHUD } from '@/components/dashboard/PointsHUD';
-import { WeeklyTasksSection } from '@/components/dashboard/WeeklyTasksSection';
-import { ReferralsSection } from '@/components/dashboard/ReferralsSection';
-import { PartnerQuestsSection } from '@/components/dashboard/PartnerQuestsSection';
-import { OneTimeTasksSection } from '@/components/dashboard/OneTimeTasksSection';
 import { DeFiProtocolsModal } from '@/components/dashboard/DeFiProtocolsModal';
 import { 
   NetworkSetupDrawer, 
@@ -48,12 +42,10 @@ import { useRPCTest } from '@/hooks/use-rpc-test';
 
 const DashboardContent = () => {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { isConnected, address, isConnecting } = useAccount();
   const { openAccountModal } = useAccountModal();
   const [referralCode] = useState('FAST-GEN-ABC123');
   const [points] = useState(0);
-  const [activeTab, setActiveTab] = useState('genesis');
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -103,7 +95,7 @@ const DashboardContent = () => {
   }, [isMounted, isConnected, address]);
 
   // Load stored tokenId from localStorage on mount/address change
-  // Only load if we haven't already set it from a fetch
+  // Use localStorage as initial value, but always fetch from contract to verify/update
   useEffect(() => {
     if (!isMounted || !isConnected || !address) {
       if (!isConnected) {
@@ -112,15 +104,15 @@ const DashboardContent = () => {
       return;
     }
 
-    // Only load from localStorage if storedTokenId is null (not yet set)
-    // This prevents overwriting a fresh fetch result
-    if (storedTokenId === null) {
-      const stored = localStorage.getItem('genesisSBTTokenId');
-      if (stored) {
-        setStoredTokenId(stored);
-      }
+    // Check localStorage first for initial display
+    const stored = localStorage.getItem('genesisSBTTokenId');
+    if (stored) {
+      setStoredTokenId(stored);
+    } else {
+      // Only set to null if not in localStorage, which will trigger fetch
+      setStoredTokenId(null);
     }
-  }, [isMounted, isConnected, address, storedTokenId]);
+  }, [isMounted, isConnected, address]);
 
   // Sync tokenId from localStorage across tabs/windows
   useEffect(() => {
@@ -149,13 +141,12 @@ const DashboardContent = () => {
   }, [isMounted, storedTokenId]);
 
   // Check if we need to fetch tokenId from contract
-  // Only fetch if there's no data in localStorage (null means no data, '0' means already checked)
+  // Always fetch to verify/update the value (even if localStorage has a value)
   const shouldFetchTokenId = 
     isMounted && 
     isConnected && 
     !!address && 
-    !isConnecting && 
-    storedTokenId === null;
+    !isConnecting;
 
   const { data: fetchedTokenId } = useReadContract({
     address: CONTRACT_ADDRESS as `0x${string}`,
@@ -169,12 +160,13 @@ const DashboardContent = () => {
     },
   });
 
+
   // Update stored tokenId when fetched from contract
+  // Always use contract value when available (it's the source of truth)
+  // Only update state, don't save to localStorage (localStorage is only set during minting)
   useEffect(() => {
     if (fetchedTokenId !== undefined && address) {
       const tokenIdString = fetchedTokenId.toString();
-      // Always store the result (including '0') to prevent unnecessary re-fetches
-      localStorage.setItem('genesisSBTTokenId', tokenIdString);
       setStoredTokenId(tokenIdString);
     }
   }, [fetchedTokenId, address]);
@@ -183,28 +175,10 @@ const DashboardContent = () => {
     ? BigInt(storedTokenId) 
     : (fetchedTokenId && fetchedTokenId !== BigInt(0) ? fetchedTokenId : undefined);
 
+
   const hasGenesisSBT = tokenId !== undefined && tokenId !== BigInt(0);
   const hasNotMinted = isMounted && !hasGenesisSBT;
 
-  // Handle tab from URL query parameter
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab && ['genesis', 'points', 'leaderboard'].includes(tab)) {
-      if (!hasGenesisSBT && (tab === 'points' || tab === 'leaderboard')) {
-        setActiveTab('genesis');
-        return;
-      }
-      setActiveTab(tab);
-    }
-  }, [searchParams, hasGenesisSBT]);
-
-  const handleTabChange = (value: string) => {
-    if (!hasGenesisSBT && (value === 'points' || value === 'leaderboard')) {
-      return;
-    }
-    setActiveTab(value);
-    router.push(`/dashboard?tab=${value}`);
-  };
 
   const copyReferralLink = () => {
     navigator.clipboard.writeText(`https://fast.xyz/claim?ref=${referralCode}`);
