@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, useChainId, useSwitchChain, useDisconnect } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
-import { formatEther } from 'viem';
+import { formatEther, parseGwei } from 'viem';
 
 // Extend Window interface for ethereum
 declare global {
@@ -27,17 +27,20 @@ import {
   MessageCircle,
   Send,
   Mail,
+  AlertCircle,
+  AlertTriangle,
+  Copy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
   WalletInfo, 
-  RPCConfiguration, 
-  NetworkSetupDrawer, 
   RPCTestModal 
 } from '@/components/network-checker';
 import { useNetworkInstallation } from '@/hooks/use-network-installation';
 import { useRPCTest } from '@/hooks/use-rpc-test';
 import { CONTRACT_ABI, CONTRACT_ADDRESS, MINT_PRICE } from '@/lib/contract-config';
+import { NETWORK_CONFIG, FAST_PROTOCOL_NETWORK } from '@/lib/network-config';
+import { getProviderForConnector } from '@/lib/wallet-provider';
 import { captureEmailAction } from '@/actions/capture-email';
 import type { CaptureEmailResult } from '@/lib/email';
 import {
@@ -49,6 +52,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getWalletName } from '@/lib/wallet-provider';
+import { useWalletInfo } from '@/hooks/use-wallet-info';
+import { BrowserWalletSteps } from '@/components/network-checker/browser-wallet-steps';
+import { METAMASK_VIDEO_URL, RABBY_VIDEO_URL } from '@/lib/constants';
 
 type Step = {
   id: string;
@@ -96,7 +104,7 @@ const baseSteps: Omit<Step, 'completed'>[] = [
   {
     id: 'rpc',
     title: 'Fast RPC Setup',
-    description: 'Add Fast RPC to your wallet',
+    description: 'Configure Fast RPC',
     icon: Network,
   },
 ];
@@ -119,16 +127,71 @@ const OnboardingPage = () => {
     baseSteps.map(step => ({ ...step, completed: false }))
   );
 
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [showRpcInfo, setShowRpcInfo] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [showMetaMaskModal, setShowMetaMaskModal] = useState(false);
+  const [showAddRpcModal, setShowAddRpcModal] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [emailError, setEmailError] = useState('');
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
+  const [rpcAddCompleted, setRpcAddCompleted] = useState(false);
+  const [rpcTestCompleted, setRpcTestCompleted] = useState(false);
+  const [rpcRequired, setRpcRequired] = useState(false);
   const hasLoadedFromStorage = useRef(false);
   const hasPromptedNetworkInstall = useRef(false);
+  
+  const { walletName, walletIcon } = useWalletInfo(connector, isConnected);
+
+  // Network Details Component for the modal
+  const NetworkDetailsTab = () => {
+    const [copiedField, setCopiedField] = useState<string | null>(null);
+    const networkDetails = [
+      { label: 'Network Name', value: FAST_PROTOCOL_NETWORK.chainName, field: 'name' },
+      { label: 'RPC URL', value: FAST_PROTOCOL_NETWORK.rpcUrls[0], field: 'rpc' },
+      { label: 'Chain ID', value: FAST_PROTOCOL_NETWORK.chainId.toString(), field: 'chainId' },
+      { label: 'Currency Symbol', value: FAST_PROTOCOL_NETWORK.nativeCurrency.symbol, field: 'symbol' },
+      { label: 'Block Explorer', value: FAST_PROTOCOL_NETWORK.blockExplorerUrls[0], field: 'explorer' },
+    ];
+
+    const copyToClipboard = async (text: string, field: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopiedField(field);
+        setTimeout(() => setCopiedField(null), 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    };
+
+    return (
+      <div className="space-y-2">
+        <h3 className="font-semibold text-sm mb-2">Network Details</h3>
+        {networkDetails.map((detail) => (
+          <div
+            key={detail.field}
+            className="flex items-center justify-between p-2 rounded-lg bg-muted/50 border border-border"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground mb-0.5">{detail.label}</p>
+              <p className="text-xs font-mono break-all">{detail.value}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-2 h-7 w-7 p-0"
+              onClick={() => copyToClipboard(detail.value, detail.field)}
+            >
+              {copiedField === detail.field ? (
+                <Check className="h-3.5 w-3.5 text-green-500" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   // Check if user is using MetaMask
   const isMetaMask = () => {
@@ -248,6 +311,9 @@ const OnboardingPage = () => {
   };
 
 
+  // Track if we've prompted Add Fast RPC after wallet connection
+  const hasPromptedAddRpc = useRef(false);
+
   // Update wallet step status when connection changes
   useEffect(() => {
     if (!hasLoadedFromStorage.current) return;
@@ -255,11 +321,79 @@ const OnboardingPage = () => {
     
     if (isConnected && !walletStep?.completed) {
       updateStepStatus('wallet', true);
+      setRpcRequired(false); // Reset when wallet reconnects
     } else if (!isConnected && walletStep?.completed) {
       updateStepStatus('wallet', false);
+      hasPromptedAddRpc.current = false;
+      setRpcRequired(false); // Reset when disconnected
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected]);
+
+  // Prompt Add Fast RPC after wallet step is marked complete
+  useEffect(() => {
+    if (!hasLoadedFromStorage.current) return;
+    const walletStep = steps.find(s => s.id === 'wallet');
+    
+    // Wait until wallet step is completed and we haven't prompted yet
+    if (!walletStep?.completed || !isConnected || !connector || hasPromptedAddRpc.current) {
+      return;
+    }
+
+    // Wait a moment after step is marked complete, then prompt
+    const timer = setTimeout(async () => {
+      if (!connector) return;
+      
+      hasPromptedAddRpc.current = true;
+      
+      try {
+        // Use robust utility function to get the correct provider
+        const provider = await getProviderForConnector(connector);
+        if (!provider) {
+          return;
+        }
+
+        await provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [NETWORK_CONFIG],
+        });
+        // Only show toast for MetaMask on step 5
+        if (isMetaMask()) {
+          toast.success('Network added successfully', {
+            description: 'Fast Protocol network has been added to your wallet.',
+          });
+        }
+        setRpcRequired(false);
+      } catch (error: any) {
+        // Handle user rejection - mark step 5 as incomplete and show warning
+        if (error?.code === 4001) {
+          // User rejected - mark step 5 as incomplete and show warning
+          const walletStep = steps.find(s => s.id === 'wallet');
+          if (walletStep?.completed) {
+            updateStepStatus('wallet', false);
+            setRpcRequired(true);
+          }
+          return;
+        }
+        
+        const errorMessage = error?.message?.toLowerCase() || '';
+        const isNetworkExistsError = 
+          errorMessage.includes('already') ||
+          errorMessage.includes('exists') ||
+          errorMessage.includes('duplicate');
+        
+        if (isNetworkExistsError) {
+          // Network already added - that's fine
+          return;
+        }
+        
+        // Log other errors but don't show toast since popup appeared
+        console.error('Network addition result:', error);
+      }
+    }, 1500); // Wait 1.5 seconds after step is marked complete
+    
+    return () => clearTimeout(timer);
+  }, [steps, isConnected, connector]);
 
   // Update Ethereum network after wallet step is marked as successful
   useEffect(() => {
@@ -297,41 +431,35 @@ const OnboardingPage = () => {
       return;
     }
 
-    // On mainnet - try to add Fast RPC network after step 5 is successful
-    if (!hasPromptedNetworkInstall.current) {
-      hasPromptedNetworkInstall.current = true;
-      networkInstallation.reset();
-      
-      const timer = setTimeout(async () => {
-        if (isConnected && chainId === mainnet.id && connector) {
-          try {
-            await networkInstallation.install();
-          } catch {
-            // Fail silently - not all wallets support this
-            hasPromptedNetworkInstall.current = false;
-          }
-        }
-      }, 2000);
-      
-      return () => clearTimeout(timer);
-    }
+    // On mainnet - skip the old network installation since we now use the new wagmi-based approach
+    // The new approach is handled in the useEffect above that prompts after wallet step completion
+    // Disable the old automatic installation to avoid conflicts and error toasts
   }, [steps, isConnected, chainId, switchChain, connector, networkInstallation]);
 
 
 
 
-  // Update RPC step status when RPC test passes
+  // Update RPC step status when both Add and Test are completed
   useEffect(() => {
     if (!hasLoadedFromStorage.current) return;
     const rpcStep = steps.find(s => s.id === 'rpc');
     if (!isConnected && rpcStep?.completed) {
       updateStepStatus('rpc', false);
-    } else if (!rpcStep?.completed && rpcTest.testResult?.success === true) {
-      // Mark complete when RPC test passes
+      setRpcAddCompleted(false);
+      setRpcTestCompleted(false);
+    } else if (!rpcStep?.completed && rpcAddCompleted && rpcTestCompleted) {
+      // Mark complete when both Add and Test are completed
       updateStepStatus('rpc', true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rpcTest.testResult?.success, isConnected]);
+  }, [rpcAddCompleted, rpcTestCompleted, isConnected]);
+  
+  // Also mark test as complete when test is successful
+  useEffect(() => {
+    if (rpcTest.testResult?.success === true) {
+      setRpcTestCompleted(true);
+    }
+  }, [rpcTest.testResult?.success]);
 
   const handleStepAction = (stepId: string) => {
     const actions: Record<string, () => void> = {
@@ -363,11 +491,12 @@ const OnboardingPage = () => {
           toast.error('Please connect your wallet first');
           return;
         }
-        // If MetaMask, show toggle network modal instead of expanding
+        // For MetaMask, show toggle network modal
         if (isMetaMask()) {
           setShowMetaMaskModal(true);
         } else {
-          setShowRpcInfo(true);
+          // For non-MetaMask, show Add RPC modal
+          setShowAddRpcModal(true);
         }
       },
     };
@@ -412,13 +541,23 @@ const OnboardingPage = () => {
   };
 
   const handleTestClick = () => {
+    if (!rpcAddCompleted) {
+      const actionText = isMetaMask() ? 'Toggle' : 'Add';
+      toast.error(`Complete the ${actionText} step first`);
+      return;
+    }
     setIsTestModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsTestModalOpen(false);
-    // Mark step 6 as complete when skipping or closing the test modal
-    updateStepStatus('rpc', true);
+    // Mark test as complete when skipping or if test was successful
+    if (rpcTest.testResult?.success) {
+      setRpcTestCompleted(true);
+    } else {
+      // Also mark as complete when user skips
+      setRpcTestCompleted(true);
+    }
     rpcTest.reset();
   };
 
@@ -504,6 +643,9 @@ const OnboardingPage = () => {
         abi: CONTRACT_ABI,
         functionName: 'mint',
         value: MINT_PRICE,
+        gas: BigInt(21000),                                 // or estimate if mint uses more
+        maxFeePerGas: parseGwei("1"),                // adjust based on chain
+        maxPriorityFeePerGas: parseGwei("0"),
       } as unknown as any);
     } catch (error: any) {
       setIsMinting(false);
@@ -640,12 +782,16 @@ const OnboardingPage = () => {
             <div className="space-y-4">
               {steps.map((step, index) => {
                 const Icon = step.icon;
+                const isWalletStepWithWarning = step.id === 'wallet' && rpcRequired;
+                
                 return (
                   <Card
                     key={step.id}
                     className={`p-4 ${
                       step.completed
                         ? 'bg-primary/5 border-primary/50'
+                        : isWalletStepWithWarning
+                        ? 'bg-yellow-500/10 border-yellow-500/50'
                         : 'bg-card/50 border-border/50 hover:border-primary/30'
                     }`}
                   >
@@ -654,11 +800,15 @@ const OnboardingPage = () => {
                         className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
                           step.completed
                             ? 'bg-primary text-primary-foreground'
+                            : isWalletStepWithWarning
+                            ? 'bg-yellow-500/20 text-yellow-600'
                             : 'bg-background'
                         }`}
                       >
                         {step.completed ? (
                           <Check className="w-5 h-5" />
+                        ) : isWalletStepWithWarning ? (
+                          <AlertTriangle className="w-5 h-5" />
                         ) : (
                           <Icon className="w-5 h-5" />
                         )}
@@ -667,45 +817,92 @@ const OnboardingPage = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs text-muted-foreground font-semibold">
-                            Step {index + 1}
+                            {isWalletStepWithWarning ? 'Required step' : `Step ${index + 1}`}
                           </span>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {step.description}
+                          {isWalletStepWithWarning 
+                            ? 'You must add Fast RPC to your wallet to continue'
+                            : step.description}
                         </p>
 
-                        {step.id === 'rpc' && showRpcInfo && !step.completed && !isMetaMask() && (
-                          <div className="space-y-4 pt-4 mt-4 border-t border-border/50">
-                            <WalletInfo title="Wallet Connection" size="sm" align="start" />
-                            <RPCConfiguration
-                              onSetupClick={() => setIsDrawerOpen(true)}
-                              onTestClick={handleTestClick}
-                              additionalContent={
-                                <Button
-                                  onClick={() => {
-                                    updateStepStatus('rpc', true);
-                                    setShowRpcInfo(false);
-                                    toast.success('Fast RPC setup marked as completed!');
-                                  }}
-                                  variant="default"
-                                  size="sm"
-                                  className="text-sm bg-primary hover:bg-primary/90"
-                                >
-                                  <Check className="w-3 h-3 mr-2" />
-                                  Mark as Completed
-                                </Button>
-                              }
-                            />
-                          </div>
-                        )}
                       </div>
 
-                      {!(step.id === 'rpc' && showRpcInfo && !isMetaMask()) && (
+                      {step.id === 'rpc' && isConnected ? (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="default"
+                            className="flex-shrink-0 w-28"
+                            onClick={() => {
+                              if (isMetaMask()) {
+                                setShowMetaMaskModal(true);
+                              } else {
+                                setShowAddRpcModal(true);
+                              }
+                            }}
+                            disabled={!steps.find(s => s.id === 'wallet')?.completed || rpcRequired}
+                          >
+                            {rpcAddCompleted && <Check className="w-4 h-4 mr-1" />}
+                            {isMetaMask() ? 'Toggle' : 'Add'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="default"
+                            className="flex-shrink-0 w-28"
+                            onClick={handleTestClick}
+                            disabled={!steps.find(s => s.id === 'wallet')?.completed || rpcRequired || rpcTest.isTesting}
+                          >
+                            {rpcTestCompleted && <Check className="w-4 h-4 mr-1" />}
+                            {rpcTest.isTesting ? 'Testing...' : 'Test'}
+                          </Button>
+                        </div>
+                      ) : (
                         <Button
-                          onClick={() => {
-                            if (step.id === 'wallet' && step.completed) {
+                          onClick={async () => {
+                            if (step.id === 'wallet' && step.completed && !rpcRequired) {
                               // Disconnect wallet when step 5 is completed
                               disconnect();
+                            } else if (step.id === 'wallet' && rpcRequired) {
+                              // Add RPC when required
+                              if (!connector) {
+                                toast.error('Wallet not connected', {
+                                  description: 'Please connect your wallet first.',
+                                });
+                                return;
+                              }
+                              
+                              try {
+                                // Use robust utility function to get the correct provider
+                                const provider = await getProviderForConnector(connector);
+                                if (!provider) {
+                                  toast.error('Provider not available', {
+                                    description: 'Unable to access wallet provider.',
+                                  });
+                                  return;
+                                }
+                                
+                                await provider.request({
+                                  method: 'wallet_addEthereumChain',
+                                  params: [NETWORK_CONFIG],
+                                });
+                                // Only show toast for MetaMask on step 5
+                                if (isMetaMask()) {
+                                  toast.success('Network added successfully', {
+                                    description: 'Fast Protocol network has been added to your wallet.',
+                                  });
+                                }
+                                setRpcRequired(false);
+                                updateStepStatus('wallet', true);
+                              } catch (error: any) {
+                                if (error?.code === 4001) {
+                                  // User rejected - keep warning state
+                                  return;
+                                }
+                                toast.error('Failed to add network', {
+                                  description: error?.message || 'Failed to add Fast Protocol network.',
+                                });
+                              }
                             } else {
                               handleStepAction(step.id);
                             }
@@ -715,11 +912,11 @@ const OnboardingPage = () => {
                           className="flex-shrink-0 w-28"
                           disabled={step.completed && step.id !== 'rpc' && step.id !== 'wallet'}
                         >
-                          {step.id === 'follow' && 'Follow'}
-                          {step.id === 'discord' && 'Join'}
-                          {step.id === 'telegram' && 'Join'}
-                          {step.id === 'email' && 'Submit'}
-                          {step.id === 'wallet' && (step.completed ? 'Disconnect' : 'Connect')}
+                          {step.id === 'follow' && (step.completed ? 'Following' : 'Follow')}
+                          {step.id === 'discord' && (step.completed ? 'Joined' : 'Join')}
+                          {step.id === 'telegram' && (step.completed ? 'Joined' : 'Join')}
+                          {step.id === 'email' && (step.completed ? 'Submitted' : 'Submit')}
+                          {step.id === 'wallet' && (rpcRequired ? 'Add RPC' : step.completed ? 'Disconnect' : 'Connect')}
                           {step.id === 'rpc' && 'Setup'}
                         </Button>
                       )}
@@ -754,19 +951,11 @@ const OnboardingPage = () => {
         </main>
       </div>
 
-      <NetworkSetupDrawer
-        open={isDrawerOpen}
-        onOpenChange={setIsDrawerOpen}
-      />
-
       <RPCTestModal
         open={isTestModalOpen}
         onOpenChange={setIsTestModalOpen}
         onConfirm={() => {
-          // Mark step 6 as complete when test is successful
-          if (rpcTest.testResult?.success) {
-            updateStepStatus('rpc', true);
-          }
+          // Test completion is handled in handleCloseModal
         }}
         onClose={handleCloseModal}
       />
@@ -796,13 +985,75 @@ const OnboardingPage = () => {
             <Button
               className="w-full"
               onClick={() => {
+                setRpcAddCompleted(true);
                 setShowMetaMaskModal(false);
-                setIsTestModalOpen(true);
               }}
             >
               <Check className="w-4 h-4 mr-2" />
               Mark as Completed
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add RPC Modal for Non-MetaMask Wallets */}
+      <Dialog open={showAddRpcModal} onOpenChange={setShowAddRpcModal}>
+        <DialogContent className="w-full h-full sm:h-auto sm:max-w-2xl border-primary/50 max-h-[100vh] sm:max-h-[90vh] !flex !flex-col m-0 sm:m-4 rounded-none sm:rounded-lg left-0 top-0 sm:left-[50%] sm:top-[50%] translate-x-0 translate-y-0 sm:translate-x-[-50%] sm:translate-y-[-50%] p-4 sm:p-6">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="text-center text-xl sm:text-2xl flex items-center justify-center gap-2">
+              {walletIcon && (
+                <img
+                  src={walletIcon}
+                  alt={walletName}
+                  className="w-8 h-8 rounded object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              )}
+              Add RPC to {walletName}
+            </DialogTitle>
+            <DialogDescription className="text-center text-sm sm:text-base pt-2">
+              Follow these steps to configure your wallet with Fast Protocol RPC
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden -mx-4 sm:mx-0 px-4 sm:px-0 pt-4">
+              <Tabs defaultValue="network" className="w-full h-full flex flex-col min-h-0">
+                <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
+                  <TabsTrigger value="network">Network Details</TabsTrigger>
+                  <TabsTrigger value="video">Toggle Video</TabsTrigger>
+                </TabsList>
+                <TabsContent value="network" className="mt-4 flex-1 min-h-0 overflow-y-auto">
+                  <NetworkDetailsTab />
+                </TabsContent>
+                <TabsContent value="video" className="mt-4 flex-1 min-h-0 overflow-hidden flex items-center justify-center">
+                  <div className="w-full h-full max-w-full max-h-full rounded-lg overflow-hidden flex justify-center items-center p-2">
+                    <Image
+                      src={isMetaMask() ? '/assets/Toggle-Metamask.gif' : '/assets/Rabby-Setup.gif'}
+                      alt={isMetaMask() ? 'Toggle MetaMask Network' : 'Rabby Setup'}
+                      width={800}
+                      height={600}
+                      className="rounded-lg object-contain w-auto h-auto"
+                      style={{ maxHeight: '100%', maxWidth: '100%' }}
+                      unoptimized
+                    />
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+            <div className="flex-shrink-0 pt-4 border-t border-border mt-4">
+              <Button
+                className="w-full"
+                onClick={() => {
+                  setRpcAddCompleted(true);
+                  setShowAddRpcModal(false);
+                }}
+              >
+                <Check className="w-4 h-4 mr-2" />
+                Mark as Completed
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

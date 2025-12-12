@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
-import { parseEther } from 'viem';
+import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
+import { getWalletClient } from 'wagmi/actions';
+import { parseEther, parseGwei } from 'viem';
+import { config } from '@/lib/wagmi';
 
 export interface TestResult {
     success: boolean;
@@ -60,19 +62,14 @@ function getRejectionMessage(): string {
 
 export function useRPCTest(): UseRPCTestReturn {
     const { toast } = useToast();
-    const { isConnected, address } = useAccount();
+    const { isConnected, address, connector } = useAccount();
     const [isTesting, setIsTesting] = useState(false);
     const [testResult, setTestResult] = useState<TestResult | null>(null);
     const [isQueryingAPI, setIsQueryingAPI] = useState(false);
-
-    const {
-        data: hash,
-        isPending: isSending,
-        isError: isSendError,
-        error: sendError,
-        sendTransaction,
-        reset: resetSend,
-    } = useSendTransaction();
+    const [hash, setHash] = useState<`0x${string}` | undefined>(undefined);
+    const [isSending, setIsSending] = useState(false);
+    const [isSendError, setIsSendError] = useState(false);
+    const [sendError, setSendError] = useState<Error | null>(null);
 
     const {
         isLoading: isConfirming,
@@ -93,6 +90,14 @@ export function useRPCTest(): UseRPCTestReturn {
             }
         }
     }, [isSending, isConfirming, isConfirmed, isSendError, isConfirmError, isQueryingAPI]);
+
+    // Reset function
+    const resetSend = () => {
+        setHash(undefined);
+        setIsSending(false);
+        setIsSendError(false);
+        setSendError(null);
+    };
 
     // Handle transaction success and query database
     useEffect(() => {
@@ -143,11 +148,11 @@ export function useRPCTest(): UseRPCTestReturn {
                 hash: null,
             });
 
-            toast({
-                title: isRejection ? "Transaction Rejected" : "Test Failed",
-                description: errorMessage,
-                variant: "destructive",
-            });
+            // toast({
+            //     title: isRejection ? "Transaction Rejected" : "Test Failed",
+            //     description: errorMessage,
+            //     variant: "destructive",
+            // });
             resetSend();
         }
     }, [isSendError, sendError, toast, resetSend]);
@@ -168,8 +173,9 @@ export function useRPCTest(): UseRPCTestReturn {
         }
     }, [isConfirmError, confirmError, hash, toast, resetSend]);
 
-    const test = () => {
+    const test = async () => {
         setTestResult(null);
+        resetSend();
 
         if (!isConnected) {
             toast({
@@ -189,31 +195,76 @@ export function useRPCTest(): UseRPCTestReturn {
             return;
         }
 
-        // This is a zero-value self-transfer to verify RPC connectivity
+        if (!connector) {
+            toast({
+                title: "Wallet not available",
+                description: "Please ensure your wallet is properly connected.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        setIsSending(true);
+        setIsSendError(false);
+        setSendError(null);
+
         try {
-            const transactionPayload = {
-                to: address as `0x${string}`, // Send to self (zero-value transfer)
-                value: parseEther('0'), // Zero ETH - no funds transferred
-                data: '0x' as `0x${string}`, // No data - simple transfer
-                maxPriorityFeePerGas: BigInt(0), // Set priority fee to zero
-            };
-            sendTransaction(transactionPayload);
+            // Temporarily disable Rabby to prevent it from intercepting the transaction
+            // This prevents the "Select a wallet" modal from appearing
+            const oldRabbyState = (window as any).rabby?.shouldInject;
+            if ((window as any).rabby?.isRabby) {
+                (window as any).rabby.shouldInject = false;
+            }
+
+            try {
+                // Use Wagmi's getWalletClient() to bypass window.ethereum
+                // This avoids global wallet interception (e.g., Rabby hijacking MetaMask transactions)
+                // The walletClient uses Wagmi's transport layer, not the global provider
+                const walletClient = await getWalletClient(config, { connector });
+                
+                if (!walletClient) {
+                    throw new Error('Wallet client not available');
+                }
+
+                const txParams = {
+                    to: address, // Send to self (zero-value transfer)
+                    value: BigInt(0), // Zero ETH - no funds transferred
+                    gas: BigInt(21000),
+                    maxFeePerGas: BigInt(30000000000), // 30 gwei
+                    maxPriorityFeePerGas: BigInt(0),
+                };
+                const txHash = await walletClient.sendTransaction(txParams as any);
+                
+                setHash(txHash as `0x${string}`);
+                setIsSending(false);
+            } finally {
+                // Restore Rabby's original state
+                if ((window as any).rabby?.isRabby) {
+                    (window as any).rabby.shouldInject = oldRabbyState;
+                }
+            }
         } catch (error: any) {
+            setIsSending(false);
+            setIsSendError(true);
+            setSendError(error);
+
             const isRejection = isUserRejection(error);
             const errorMessage = isRejection
                 ? getRejectionMessage()
                 : error?.message || "Failed to initiate transaction";
+
+                console.log('errorMessage', errorMessage);
 
             setTestResult({
                 success: false,
                 hash: null,
             });
 
-            toast({
-                title: isRejection ? "Transaction Rejected" : "Test Failed",
-                description: errorMessage,
-                variant: "destructive",
-            });
+            // toast({
+            //     title: isRejection ? "Transaction Rejected" : "Test Failed",
+            //     description: errorMessage,
+            //     variant: "destructive",
+            // });
             setIsTesting(false);
         }
     };
@@ -223,6 +274,7 @@ export function useRPCTest(): UseRPCTestReturn {
         setIsTesting(false);
         setIsQueryingAPI(false);
         resetSend();
+        setHash(undefined);
     };
 
     return {
