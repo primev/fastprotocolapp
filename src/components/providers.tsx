@@ -24,7 +24,6 @@ function WalletDisconnectHandler() {
   // Helper function to clear wallet data from localStorage
   const clearWalletData = () => {
     localStorage.removeItem('genesisSBTTokenId');
-    localStorage.removeItem('onboardingSteps');
     localStorage.removeItem('completedTasks');
   };
 
@@ -36,7 +35,6 @@ function WalletDisconnectHandler() {
   };
 
   const { isConnected, address } = useAccount();
-  const previousConnectedRef = useRef<boolean | null>(null);
 
   // Listen for external wallet disconnection events (manual disconnect from wallet)
   // This is a backup for cases where wagmi doesn't immediately detect manual disconnections
