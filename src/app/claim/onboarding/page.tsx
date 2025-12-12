@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, useChainId, useSwitchChain, useDisconnect } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, useChainId, useSwitchChain, useDisconnect, usePublicClient } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
 import { formatEther, parseGwei } from 'viem';
 
@@ -113,6 +113,7 @@ const OnboardingPage = () => {
   const router = useRouter();
   const { openConnectModal } = useConnectModal();
   const { isConnected, address, connector } = useAccount();
+  const publicClient = usePublicClient();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
   const { disconnect } = useDisconnect();
@@ -142,6 +143,7 @@ const OnboardingPage = () => {
   const [walletWarningAcknowledged, setWalletWarningAcknowledged] = useState(false);
   const hasLoadedFromStorage = useRef(false);
   const hasPromptedNetworkInstall = useRef(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected);
 
@@ -602,6 +604,8 @@ const OnboardingPage = () => {
     for (const log of receipt.logs) {
       const logAddress = (log.address || '').toLowerCase();
       const topics = log.topics || [];
+      console.log('Topics:', topics);
+
       
       if (
         topics[0]?.toLowerCase() === TRANSFER_EVENT_SIGNATURE.toLowerCase() &&
@@ -609,6 +613,7 @@ const OnboardingPage = () => {
         topics[3]
       ) {
         try {
+          console.log('Token ID:', topics[3]);
           return BigInt(topics[3]);
         } catch {
           return null;
@@ -699,35 +704,107 @@ const OnboardingPage = () => {
 
   // Handle transaction confirmation
   useEffect(() => {
-    if (!isConfirmed || !hash || !receipt || !address) return;
+    if (!isConfirmed || !hash || !receipt || !address || !publicClient) return;
 
-    const tokenId = parseTokenIdFromReceipt(receipt);
-    const tokenIdString = tokenId?.toString();
-    
-    if (tokenIdString) {
-      try {
-        localStorage.setItem('genesisSBTTokenId', tokenIdString);
-      } catch (error) {
-        console.error('Error saving tokenId to localStorage:', error);
+    // Parse tokenId from receipt
+    console.log('Receipt:', receipt);
+
+    // Helper function to process tokenId and complete minting
+    const processTokenId = (tokenId: bigint | null) => {
+      // Clear polling interval if it exists
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
+
+      const tokenIdString = tokenId?.toString();
+
+      const completedTasks = [
+        'Follow @fast_protocol',
+        'Connect Wallet',
+        'Fast RPC Setup',
+        'Mint Genesis SBT',
+      ];
+
+      localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+      setIsMinting(false);
+
+      toast.success('Genesis SBT minted successfully!', {
+        description: tokenIdString ? `Token ID: ${tokenIdString}` : 'Your transaction has been confirmed.',
+      });
+
+      
+      // Pass tokenId as query parameter when routing to dashboard
+      const dashboardUrl = tokenIdString 
+        ? `/dashboard?tokenId=${tokenIdString}`
+        : '/dashboard';
+      
+      setTimeout(() => router.push(dashboardUrl), 500);
+    };
+
+    // Check if logs are available
+    if (receipt.logs && receipt.logs.length > 0) {
+      // Logs are available, parse tokenId from receipt
+      const tokenId = parseTokenIdFromReceipt(receipt);
+      processTokenId(tokenId);
+      return;
     }
 
-    const completedTasks = [
-      'Follow @fast_protocol',
-      'Connect Wallet',
-      'Fast RPC Setup',
-      'Mint Genesis SBT',
-    ];
+    // Logs are null - poll the contract to get tokenId by address
+    // Clear any existing polling interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
 
-    localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
-    setIsMinting(false);
+    let pollAttempts = 0;
+    const maxPollAttempts = 15; // Poll for up to 30 seconds (15 attempts * 2 seconds)
 
-    toast.success('Genesis SBT minted successfully!', {
-      description: tokenIdString ? `Token ID: ${tokenIdString}` : 'Your transaction has been confirmed.',
-    });
-    
-    setTimeout(() => router.push('/dashboard'), 500);
-  }, [isConfirmed, hash, receipt, address, router]);
+    const pollForTokenId = async () => {
+      pollAttempts++;
+      
+      // Stop polling after max attempts
+      if (pollAttempts > maxPollAttempts) {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        console.warn('Polling timeout: Could not retrieve tokenId after 30 seconds');
+        // Still process with null tokenId to complete the flow
+        processTokenId(null);
+        return;
+      }
+
+      try {
+        const tokenId = await publicClient.readContract({
+          address: CONTRACT_ADDRESS as `0x${string}`,
+          abi: CONTRACT_ABI,
+          functionName: 'getTokenIdByAddress',
+          args: [address],
+          blockTag: 'latest',
+        } as any) as bigint;
+
+        // Check if tokenId is valid (not zero or null)
+        if (tokenId && tokenId > BigInt(0)) {
+          processTokenId(tokenId);
+        }
+      } catch (error) {
+        console.error('Error polling for tokenId:', error);
+        // Continue polling on error
+      }
+    };
+
+    // Start polling immediately, then every 2 seconds
+    pollForTokenId();
+    pollingIntervalRef.current = setInterval(pollForTokenId, 3000);
+
+    // Cleanup function
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [isConfirmed, hash, receipt, address, router, publicClient]);
 
   // Update minting state based on transaction status
   useEffect(() => {
@@ -1223,8 +1300,19 @@ const OnboardingPage = () => {
       </Dialog>
 
       {/* Wallet Warning Modal */}
-      <Dialog open={showWalletWarningModal} onOpenChange={setShowWalletWarningModal}>
-        <DialogContent className="w-full h-full sm:h-auto sm:max-w-2xl border-primary/50 max-h-[100vh] sm:max-h-[90vh] !flex !flex-col m-0 sm:m-4 rounded-none sm:rounded-lg left-0 top-0 sm:left-[50%] sm:top-[50%] translate-x-0 translate-y-0 sm:translate-x-[-50%] sm:translate-y-[-50%] p-4 sm:p-6">
+      <Dialog 
+        open={showWalletWarningModal} 
+        onOpenChange={(open) => {
+          // Prevent closing - user must click "I Understand"
+          if (!open) return;
+        }}
+      >
+        <DialogContent 
+          hideClose
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          className="w-full h-full sm:h-auto sm:max-w-2xl border-primary/50 max-h-[100vh] sm:max-h-[90vh] !flex !flex-col m-0 sm:m-4 rounded-none sm:rounded-lg left-0 top-0 sm:left-[50%] sm:top-[50%] translate-x-0 translate-y-0 sm:translate-x-[-50%] sm:translate-y-[-50%] p-4 sm:p-6"
+        >
         
           <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
             <div className="flex-1 min-h-0 overflow-hidden -mx-4 sm:mx-0 px-4 sm:px-0 pt-4">
