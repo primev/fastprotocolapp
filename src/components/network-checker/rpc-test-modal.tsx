@@ -132,7 +132,7 @@ export function RPCTestModal({
                 onClick={onClose}
                 disabled={rpcTest.isTesting}
               >
-                Cancel
+                Skip
               </Button>
               <Button
                 onClick={handleConfirmTest}
