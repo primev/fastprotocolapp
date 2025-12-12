@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, useChainId, useSwitchChain } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, useChainId, useSwitchChain, useDisconnect } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
 import { formatEther } from 'viem';
 
@@ -107,6 +107,7 @@ const OnboardingPage = () => {
   const { isConnected, address, connector } = useAccount();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
+  const { disconnect } = useDisconnect();
   const networkInstallation = useNetworkInstallation();
   const rpcTest = useRPCTest();
   const { data: balance } = useBalance({ address });
@@ -122,10 +123,24 @@ const OnboardingPage = () => {
   const [showRpcInfo, setShowRpcInfo] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [showMetaMaskModal, setShowMetaMaskModal] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [emailError, setEmailError] = useState('');
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const hasLoadedFromStorage = useRef(false);
+  const hasPromptedNetworkInstall = useRef(false);
+
+  // Check if user is using MetaMask
+  const isMetaMask = () => {
+    if (!connector) return false;
+    const connectorId = connector.id?.toLowerCase() || '';
+    return (
+      connectorId.includes('metamask') ||
+      connectorId === 'io.metamask' ||
+      connectorId === 'io.metamask.snap' ||
+      (connector as any).provider?.isMetaMask === true
+    );
+  };
 
   // Helper function to load steps from localStorage
   const loadStepsFromStorage = () => {
@@ -155,41 +170,46 @@ const OnboardingPage = () => {
     }
   };
 
-  // Load from localStorage after mount
+  // Initialize: disconnect wallet and load steps from localStorage
   useEffect(() => {
+    const timer = setTimeout(() => {
+      disconnect();
+      if (connector) {
+        connector.disconnect?.();
+      }
+    }, 200);
+    
     loadStepsFromStorage();
     hasLoadedFromStorage.current = true;
+    
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Listen for wallet disconnection and reset steps
+  // Listen for wallet disconnection and localStorage changes
   useEffect(() => {
     if (!hasLoadedFromStorage.current) return;
-    // Only reload steps when disconnecting (not when connecting)
-    // This prevents resetting the wallet step during connection
+
     if (!isConnected) {
       loadStepsFromStorage();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected]);
 
   // Listen for localStorage changes (when cleared externally, e.g., from Providers component)
   useEffect(() => {
+    if (!hasLoadedFromStorage.current) return;
+
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === ONBOARDING_STORAGE_KEY || e.key === 'completedTasks') {
-        // Only reload if wallet is not connected (to avoid resetting wallet step)
-        if (!isConnected && (e.newValue === null || (e.newValue !== null && e.key === ONBOARDING_STORAGE_KEY))) {
+      if ((e.key === ONBOARDING_STORAGE_KEY || e.key === 'completedTasks') && !isConnected) {
+        if (e.newValue === null || e.key === ONBOARDING_STORAGE_KEY) {
           loadStepsFromStorage();
         }
       }
     };
 
     const handleFocus = () => {
-      // Only reload if wallet is not connected (to avoid resetting wallet step)
-      if (!isConnected) {
-        const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
-        if (!stored) {
-          loadStepsFromStorage();
-        }
+      if (!isConnected && !localStorage.getItem(ONBOARDING_STORAGE_KEY)) {
+        loadStepsFromStorage();
       }
     };
 
@@ -200,7 +220,6 @@ const OnboardingPage = () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleFocus);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected]);
 
   const updateStepStatus = (stepId: string, completed: boolean) => {
@@ -210,7 +229,7 @@ const OnboardingPage = () => {
       );
       
       // Save social steps to localStorage
-      if (typeof window !== 'undefined' && SOCIAL_STEP_IDS.includes(stepId as typeof SOCIAL_STEP_IDS[number])) {
+      if (SOCIAL_STEP_IDS.includes(stepId as typeof SOCIAL_STEP_IDS[number])) {
         try {
           const saved = updated.reduce((acc, step) => {
             if (SOCIAL_STEP_IDS.includes(step.id as typeof SOCIAL_STEP_IDS[number])) {
@@ -230,106 +249,130 @@ const OnboardingPage = () => {
 
 
   // Update wallet step status when connection changes
-  // Check network right after wallet connects (step 5)
   useEffect(() => {
     if (!hasLoadedFromStorage.current) return;
     const walletStep = steps.find(s => s.id === 'wallet');
     
     if (isConnected && !walletStep?.completed) {
       updateStepStatus('wallet', true);
-      
-      // Check network immediately after wallet connects (step 5)
-      // Prompt to switch to Ethereum if not on mainnet
-      if (chainId && chainId !== mainnet.id) {
-        // User is connected but not on Ethereum mainnet
-        // Prompt user to switch network automatically
-        if (switchChain && connector) {
-          try {
-            switchChain({ chainId: mainnet.id });
-            toast.info('Switching to Ethereum Mainnet...', {
-              description: 'Please approve the network switch in your wallet.',
-            });
-          } catch (error: any) {
-            // User rejected or error occurred
-            if (error?.code !== 4001) {
-              // Not a user rejection, show error
-              toast.error('Failed to switch network', {
-                description: 'Please manually switch to Ethereum Mainnet in your wallet to continue.',
-              });
-            }
-          }
-        } else {
-          toast.error('Wrong Network', {
-            description: 'Please switch to Ethereum Mainnet in your wallet to continue.',
-            duration: 5000,
-          });
-        }
-      }
     } else if (!isConnected && walletStep?.completed) {
       updateStepStatus('wallet', false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, chainId, switchChain, connector]);
+  }, [isConnected]);
 
-  // Update RPC step status when network is installed or RPC test passes
+  // Update Ethereum network after wallet step is marked as successful
+  useEffect(() => {
+    const walletStep = steps.find(s => s.id === 'wallet');
+    if (!walletStep?.completed || !isConnected || !connector) {
+      hasPromptedNetworkInstall.current = false;
+      return;
+    }
+
+    // Wait for chainId to be available
+    if (chainId === undefined) {
+      const timer = setTimeout(() => {
+        // Will re-run when chainId is available
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+
+    if (chainId !== mainnet.id) {
+      // Not on mainnet - prompt to switch
+      hasPromptedNetworkInstall.current = false;
+      if (switchChain) {
+        try {
+          switchChain({ chainId: mainnet.id });
+          toast.info('Switching to Ethereum Mainnet...', {
+            description: 'Please approve the network switch in your wallet.',
+          });
+        } catch (error: any) {
+          if (error?.code !== 4001) {
+            toast.error('Failed to switch network', {
+              description: 'Please manually switch to Ethereum Mainnet in your wallet to continue.',
+            });
+          }
+        }
+      }
+      return;
+    }
+
+    // On mainnet - try to add Fast RPC network after step 5 is successful
+    if (!hasPromptedNetworkInstall.current) {
+      hasPromptedNetworkInstall.current = true;
+      networkInstallation.reset();
+      
+      const timer = setTimeout(async () => {
+        if (isConnected && chainId === mainnet.id && connector) {
+          try {
+            await networkInstallation.install();
+          } catch {
+            // Fail silently - not all wallets support this
+            hasPromptedNetworkInstall.current = false;
+          }
+        }
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [steps, isConnected, chainId, switchChain, connector, networkInstallation]);
+
+
+
+
+  // Update RPC step status when RPC test passes
   useEffect(() => {
     if (!hasLoadedFromStorage.current) return;
     const rpcStep = steps.find(s => s.id === 'rpc');
     if (!isConnected && rpcStep?.completed) {
       updateStepStatus('rpc', false);
-    } else if (!rpcStep?.completed) {
-      if (networkInstallation.isInstalled || (rpcTest.testResult?.success === true)) {
-        updateStepStatus('rpc', true);
-        if (networkInstallation.isInstalled) {
-          toast.success('Fast RPC network added successfully!');
-        }
-      }
+    } else if (!rpcStep?.completed && rpcTest.testResult?.success === true) {
+      // Mark complete when RPC test passes
+      updateStepStatus('rpc', true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [networkInstallation.isInstalled, rpcTest.testResult?.success, isConnected]);
+  }, [rpcTest.testResult?.success, isConnected]);
 
   const handleStepAction = (stepId: string) => {
-    if (stepId === 'follow') {
-      // Open follow link
-      window.open(
-        'https://twitter.com/intent/follow?screen_name=fast_protocol',
-        '_blank'
-      );
-      toast.success('Please follow @fast_protocol to continue');
-      setTimeout(() => {
-        updateStepStatus(stepId, true);
-      }, 2000);
-    } else if (stepId === 'discord') {
-      // Open Discord link
-      window.open('https://discord.gg/fastprotocol', '_blank');
-      toast.success('Opening Discord...');
-      setTimeout(() => {
-        updateStepStatus(stepId, true);
-      }, 1000);
-    } else if (stepId === 'telegram') {
-      // Open Telegram link
-      window.open('https://t.me/Fast_Protocol', '_blank');
-      toast.success('Opening Telegram...');
-      setTimeout(() => {
-        updateStepStatus(stepId, true);
-      }, 1000);
-    } else if (stepId === 'email') {
-      // Open email dialog
-      setShowEmailDialog(true);
-    } else if (stepId === 'wallet') {
-      // Open RainbowKit connect modal
-      if (openConnectModal) {
-        openConnectModal();
-      } else {
-        toast.error('Unable to open wallet connection modal');
-      }
-    } else if (stepId === 'rpc') {
-      if (!isConnected) {
-        toast.error('Please connect your wallet first');
-        return;
-      }
-      setShowRpcInfo(true);
-    }
+    const actions: Record<string, () => void> = {
+      follow: () => {
+        window.open('https://twitter.com/intent/follow?screen_name=fast_protocol', '_blank');
+        toast.success('Please follow @fast_protocol to continue');
+        setTimeout(() => updateStepStatus(stepId, true), 2000);
+      },
+      discord: () => {
+        window.open('https://discord.gg/fastprotocol', '_blank');
+        toast.success('Opening Discord...');
+        setTimeout(() => updateStepStatus(stepId, true), 1000);
+      },
+      telegram: () => {
+        window.open('https://t.me/Fast_Protocol', '_blank');
+        toast.success('Opening Telegram...');
+        setTimeout(() => updateStepStatus(stepId, true), 1000);
+      },
+      email: () => setShowEmailDialog(true),
+      wallet: () => {
+        if (openConnectModal) {
+          openConnectModal();
+        } else {
+          toast.error('Unable to open wallet connection modal');
+        }
+      },
+      rpc: () => {
+        if (!isConnected) {
+          toast.error('Please connect your wallet first');
+          return;
+        }
+        // If MetaMask, show toggle network modal instead of expanding
+        if (isMetaMask()) {
+          setShowMetaMaskModal(true);
+        } else {
+          setShowRpcInfo(true);
+        }
+      },
+    };
+
+    actions[stepId]?.();
   };
 
   const handleEmailSubmit = async () => {
@@ -374,6 +417,8 @@ const OnboardingPage = () => {
 
   const handleCloseModal = () => {
     setIsTestModalOpen(false);
+    // Mark step 6 as complete when skipping or closing the test modal
+    updateStepStatus('rpc', true);
     rpcTest.reset();
   };
 
@@ -384,25 +429,13 @@ const OnboardingPage = () => {
 
   // Helper function to parse tokenId from transaction receipt logs
   const parseTokenIdFromReceipt = (receipt: { logs?: Array<{ address?: string; topics?: readonly string[] }> }): bigint | null => {
-    if (!receipt?.logs?.length) {
-      console.warn('No logs found in receipt');
-      return null;
-    }
+    if (!receipt?.logs?.length) return null;
 
     const contractAddressLower = CONTRACT_ADDRESS.toLowerCase();
-    console.log('Parsing tokenId from receipt with', receipt.logs.length, 'logs');
     
     for (const log of receipt.logs) {
       const logAddress = (log.address || '').toLowerCase();
       const topics = log.topics || [];
-      
-      console.log('Checking log:', {
-        address: logAddress,
-        contractAddress: contractAddressLower,
-        topics: topics.map(t => t?.toLowerCase()),
-        firstTopic: topics[0]?.toLowerCase(),
-        transferSignature: TRANSFER_EVENT_SIGNATURE.toLowerCase(),
-      });
       
       if (
         topics[0]?.toLowerCase() === TRANSFER_EVENT_SIGNATURE.toLowerCase() &&
@@ -410,16 +443,13 @@ const OnboardingPage = () => {
         topics[3]
       ) {
         try {
-          const tokenId = BigInt(topics[3]);
-          console.log('Found tokenId in log:', tokenId.toString());
-          return tokenId;
-        } catch (error) {
-          console.error('Error parsing tokenId from topic:', error);
+          return BigInt(topics[3]);
+        } catch {
+          return null;
         }
       }
     }
     
-    console.warn('TokenId not found in any receipt logs');
     return null;
   };
 
@@ -447,12 +477,10 @@ const OnboardingPage = () => {
   };
 
   const handleMintSbt = async () => {
-    if (!isConnected || !address || !connector) {
+    if (!isConnected || !address) {
       toast.error('Please connect your wallet first');
       return;
     }
-
-    const mintPrice = MINT_PRICE;
 
     try {
       setIsMinting(true);
@@ -460,32 +488,25 @@ const OnboardingPage = () => {
       // Check balance
       if (balance) {
         const estimatedGas = BigInt(100000);
-        const totalNeeded = mintPrice + estimatedGas;
+        const totalNeeded = MINT_PRICE + estimatedGas;
         
         if (balance.value < totalNeeded) {
           setIsMinting(false);
-          throw new Error(`Insufficient funds. You need ${formatEther(totalNeeded)} ETH (${formatEther(mintPrice)} for mint + gas), but you have ${formatEther(balance.value)} ETH.`);
+          toast.error('Insufficient funds', {
+            description: `You need ${formatEther(totalNeeded)} ETH (${formatEther(MINT_PRICE)} for mint + gas), but you have ${formatEther(balance.value)} ETH.`,
+          });
+          return;
         }
       }
 
-      // Ensure we have a connected account before writing
-      if (!address || !isConnected) {
-        setIsMinting(false);
-        throw new Error('Wallet not connected. Please connect your wallet first.');
-      }
-
-      // Write contract using wagmi - this will use the connected wallet automatically
-      // No need to specify account/chain as wagmi uses the connected account from RainbowKit
-      // The writeContract function will automatically use the connected account
       writeContract({
         address: CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI,
         functionName: 'mint',
-        value: mintPrice,
+        value: MINT_PRICE,
       } as unknown as any);
     } catch (error: any) {
       setIsMinting(false);
-      console.error('❌ Mint Exception Caught:', error);
       
       if (isFastRpc503Error(error)) {
         toast.error('Fast RPC Internal Error', {
@@ -499,13 +520,9 @@ const OnboardingPage = () => {
         toast.error('Transaction Rejected', {
           description: 'You cancelled the transaction.',
         });
-      } else if (errorMessage.includes('Fast RPC Internal Error')) {
-        toast.error('Fast RPC Internal Error', {
-          description: errorMessage,
-        });
-      } else {
+      } else if (errorMessage) {
         toast.error('Transaction Failed', {
-          description: errorMessage || 'Please try again.',
+          description: errorMessage,
         });
       }
     }
@@ -513,56 +530,44 @@ const OnboardingPage = () => {
 
   // Handle transaction confirmation
   useEffect(() => {
-    if (isConfirmed && hash && receipt && address) {
-      // Parse tokenId from transaction receipt logs
-      console.log('Transaction confirmed, parsing tokenId from receipt:', receipt);
-      let tokenId = parseTokenIdFromReceipt(receipt);
-      
-      // Always save tokenId to localStorage if parsed
-      const tokenIdString = tokenId ? tokenId.toString() : null;
-      if (tokenIdString) {
-        console.log('TokenId parsed from receipt:', tokenIdString);
-        // Save to localStorage
-        try {
-          localStorage.setItem('genesisSBTTokenId', tokenIdString);
-          console.log('✅ TokenId saved to localStorage:', tokenIdString);
-        } catch (error) {
-          console.error('Error saving tokenId to localStorage:', error);
-        }
-      } else {
-        console.warn('TokenId not found in transaction receipt logs. Will be fetched from contract on dashboard.');
-        // Fallback: The dashboard will fetch it using getTokenIdByAddress
+    if (!isConfirmed || !hash || !receipt || !address) return;
+
+    const tokenId = parseTokenIdFromReceipt(receipt);
+    const tokenIdString = tokenId?.toString();
+    
+    if (tokenIdString) {
+      try {
+        localStorage.setItem('genesisSBTTokenId', tokenIdString);
+      } catch (error) {
+        console.error('Error saving tokenId to localStorage:', error);
       }
-      
-      const completedTasks = [
-        'Follow @fast_protocol',
-        'Connect Wallet',
-        'Fast RPC Setup',
-        'Mint Genesis SBT',
-      ];
-
-      localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
-
-      setIsMinting(false);
-
-      toast.success('Genesis SBT minted successfully!', {
-        description: tokenIdString ? `Token ID: ${tokenIdString}` : 'Your transaction has been confirmed.',
-      });
-      
-      // Small delay before navigation to ensure wallet state is stable
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 500);
     }
+
+    const completedTasks = [
+      'Follow @fast_protocol',
+      'Connect Wallet',
+      'Fast RPC Setup',
+      'Mint Genesis SBT',
+    ];
+
+    localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+    setIsMinting(false);
+
+    toast.success('Genesis SBT minted successfully!', {
+      description: tokenIdString ? `Token ID: ${tokenIdString}` : 'Your transaction has been confirmed.',
+    });
+    
+    setTimeout(() => router.push('/dashboard'), 500);
   }, [isConfirmed, hash, receipt, address, router]);
 
   // Update minting state based on transaction status
   useEffect(() => {
     if (isWriting || isConfirming) {
       setIsMinting(true);
-    } else if (isConfirmed) {
-      // Keep minting true until confirmation is handled
-    } else if (isWriteError || isConfirmError) {
+      return;
+    }
+
+    if (isWriteError || isConfirmError) {
       setIsMinting(false);
       const error = writeError || confirmError;
       const errorMessage = error?.message || '';
@@ -575,13 +580,13 @@ const OnboardingPage = () => {
         toast.error('Transaction Rejected', {
           description: 'You cancelled the transaction.',
         });
-      } else {
+      } else if (errorMessage) {
         toast.error('Transaction Failed', {
-          description: errorMessage || 'Please try again.',
+          description: errorMessage,
         });
       }
     }
-  }, [isWriting, isConfirming, isConfirmed, isWriteError, isConfirmError, writeError, confirmError, hash]);
+  }, [isWriting, isConfirming, isWriteError, isConfirmError, writeError, confirmError]);
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -669,7 +674,7 @@ const OnboardingPage = () => {
                           {step.description}
                         </p>
 
-                        {step.id === 'rpc' && showRpcInfo && !step.completed && (
+                        {step.id === 'rpc' && showRpcInfo && !step.completed && !isMetaMask() && (
                           <div className="space-y-4 pt-4 mt-4 border-t border-border/50">
                             <WalletInfo title="Wallet Connection" size="sm" align="start" />
                             <RPCConfiguration
@@ -695,18 +700,26 @@ const OnboardingPage = () => {
                         )}
                       </div>
 
-                      {!step.completed && !(step.id === 'rpc' && showRpcInfo) && (
+                      {!(step.id === 'rpc' && showRpcInfo && !isMetaMask()) && (
                         <Button
-                          onClick={() => handleStepAction(step.id)}
+                          onClick={() => {
+                            if (step.id === 'wallet' && step.completed) {
+                              // Disconnect wallet when step 5 is completed
+                              disconnect();
+                            } else {
+                              handleStepAction(step.id);
+                            }
+                          }}
                           variant="outline"
                           size="default"
                           className="flex-shrink-0 w-28"
+                          disabled={step.completed && step.id !== 'rpc' && step.id !== 'wallet'}
                         >
                           {step.id === 'follow' && 'Follow'}
                           {step.id === 'discord' && 'Join'}
                           {step.id === 'telegram' && 'Join'}
                           {step.id === 'email' && 'Submit'}
-                          {step.id === 'wallet' && 'Connect'}
+                          {step.id === 'wallet' && (step.completed ? 'Disconnect' : 'Connect')}
                           {step.id === 'rpc' && 'Setup'}
                         </Button>
                       )}
@@ -749,9 +762,50 @@ const OnboardingPage = () => {
       <RPCTestModal
         open={isTestModalOpen}
         onOpenChange={setIsTestModalOpen}
-        onConfirm={() => {}}
+        onConfirm={() => {
+          // Mark step 6 as complete when test is successful
+          if (rpcTest.testResult?.success) {
+            updateStepStatus('rpc', true);
+          }
+        }}
         onClose={handleCloseModal}
       />
+
+      {/* MetaMask Toggle Network Modal */}
+      <Dialog open={showMetaMaskModal} onOpenChange={setShowMetaMaskModal}>
+        <DialogContent className="sm:max-w-md border-primary/50">
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl">
+              Toggle Network
+            </DialogTitle>
+            <DialogDescription className="text-center text-base pt-2">
+              Switch to Fast Protocol network in MetaMask
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="flex justify-center mb-4">
+              <Image
+                src="/assets/Toggle-Metamask.gif"
+                alt="Toggle MetaMask Network"
+                width={300}
+                height={200}
+                className="rounded-lg"
+                unoptimized
+              />
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => {
+                setShowMetaMaskModal(false);
+                setIsTestModalOpen(true);
+              }}
+            >
+              <Check className="w-4 h-4 mr-2" />
+              Mark as Completed
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Email Dialog */}
       <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
