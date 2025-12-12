@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, useChainId, useSwitchChain } from 'wagmi';
+import { mainnet } from 'wagmi/chains';
 import { formatEther } from 'viem';
 
 // Extend Window interface for ethereum
@@ -104,6 +105,8 @@ const OnboardingPage = () => {
   const router = useRouter();
   const { openConnectModal } = useConnectModal();
   const { isConnected, address, connector } = useAccount();
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
   const networkInstallation = useNetworkInstallation();
   const rpcTest = useRPCTest();
   const { data: balance } = useBalance({ address });
@@ -227,16 +230,46 @@ const OnboardingPage = () => {
 
 
   // Update wallet step status when connection changes
+  // Check network right after wallet connects (step 5)
   useEffect(() => {
     if (!hasLoadedFromStorage.current) return;
     const walletStep = steps.find(s => s.id === 'wallet');
+    
     if (isConnected && !walletStep?.completed) {
       updateStepStatus('wallet', true);
+      
+      // Check network immediately after wallet connects (step 5)
+      // Prompt to switch to Ethereum if not on mainnet
+      if (chainId && chainId !== mainnet.id) {
+        // User is connected but not on Ethereum mainnet
+        // Prompt user to switch network automatically
+        if (switchChain && connector) {
+          try {
+            switchChain({ chainId: mainnet.id });
+            toast.info('Switching to Ethereum Mainnet...', {
+              description: 'Please approve the network switch in your wallet.',
+            });
+          } catch (error: any) {
+            // User rejected or error occurred
+            if (error?.code !== 4001) {
+              // Not a user rejection, show error
+              toast.error('Failed to switch network', {
+                description: 'Please manually switch to Ethereum Mainnet in your wallet to continue.',
+              });
+            }
+          }
+        } else {
+          toast.error('Wrong Network', {
+            description: 'Please switch to Ethereum Mainnet in your wallet to continue.',
+            duration: 5000,
+          });
+        }
+      }
     } else if (!isConnected && walletStep?.completed) {
       updateStepStatus('wallet', false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected]);
+  }, [isConnected, chainId, switchChain, connector]);
 
   // Update RPC step status when network is installed or RPC test passes
   useEffect(() => {
