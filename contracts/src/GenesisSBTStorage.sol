@@ -19,12 +19,6 @@ abstract contract GenesisSBTStorage {
     // Tracks the total number of minted tokens
     uint256 internal _totalTokensMinted;
 
-    // The price to mint a token
-    uint256 public _mintPrice;
-
-    // Treasury Recipient
-    address public _treasuryReceiver;
-
     /// @dev See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
     uint256[50] private __gap;
 }

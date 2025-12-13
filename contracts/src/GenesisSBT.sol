@@ -8,7 +8,6 @@ import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/interfaces/IERC4906.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "./GenesisSBTStorage.sol";
 import "./IGenesisSBT.sol";
@@ -29,18 +28,14 @@ contract GenesisSBT is
     /// @notice Initializes the contract
     function initialize(
         string calldata asset,
-        address owner,
-        uint256 mintPrice,
-        address treasuryReceiver
+        address owner
     ) external initializer {
         __Ownable2Step_init();
         __Ownable_init(owner);
         __ERC721_init("Genesis SBT", "GSBT");
         __Pausable_init();
         _assetURI = asset;
-        _mintPrice = mintPrice;
         _nftName = "Fast Protocol Genesis SBT";
-        _treasuryReceiver = treasuryReceiver;
     }
 
     // =============================================================
@@ -61,13 +56,7 @@ contract GenesisSBT is
 
         for (uint256 i = 0; i < to.length; i++) {
             if (_userTokenId[to[i]] != 0) continue;
-            uint256 tokenId = _totalTokensMinted + 1;
-            _safeMint(to[i], tokenId);
-            _userTokenId[to[i]] = tokenId;
-
-            unchecked {
-                _totalTokensMinted++;
-            }
+            _executeMint(to[i]);
         }
     }
 
@@ -132,14 +121,6 @@ contract GenesisSBT is
         _updateMetadata();
     }
 
-    function setMintPrice(uint256 mintPrice) external onlyOwner {
-        _mintPrice = mintPrice;
-    }
-
-    function setTreasuryReceiver(address newTreasuryReceiver) external onlyOwner {
-        _treasuryReceiver = newTreasuryReceiver;
-    }
-
     // =============================================================
     //                          PAUSABLE
     // =============================================================
@@ -197,27 +178,12 @@ contract GenesisSBT is
 
     /// @dev Executes the mint and updates state
     function _executeMint(address to) private {
-        // Validate payment
-        if (msg.value < _mintPrice)
-            revert InsufficientFunds(_mintPrice, msg.value);
-
-        // Mint token
         uint256 tokenId = _totalTokensMinted + 1;
-        _safeMint(to, tokenId);
+        _mint(to, tokenId);
         _userTokenId[to] = tokenId;
 
         unchecked {
             _totalTokensMinted++;
-        }
-
-        // Forward funds to protocol
-        Address.sendValue(payable(_treasuryReceiver), _mintPrice);
-
-        // Refund excess payment if required
-        if (msg.value > _mintPrice) {
-            unchecked {
-                Address.sendValue(payable(to), msg.value - _mintPrice);
-            }
         }
     }
 

@@ -18,13 +18,11 @@ contract Base64Helper {
 contract GenesisSBTTest is Test {
     GenesisSBT public sbt;
     address public owner;
-    address public treasuryReceiver;
     address public user1;
     address public user2;
     address public user3;
 
     string public constant ASSET_URI = "https://example.com/image.png";
-    uint256 public constant MINT_PRICE = 0.01 ether;
 
     // =============================================================
     //                          EVENTS
@@ -41,14 +39,13 @@ contract GenesisSBTTest is Test {
 
     function setUp() public {
         owner = makeAddr("owner");
-        treasuryReceiver = makeAddr("treasuryReceiver");
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
         user3 = makeAddr("user3");
 
         vm.prank(owner);
         sbt = new GenesisSBT();
-        sbt.initialize(ASSET_URI, owner, MINT_PRICE, treasuryReceiver);
+        sbt.initialize(ASSET_URI, owner);
     }
 
     // =============================================================
@@ -61,12 +58,11 @@ contract GenesisSBTTest is Test {
         assertEq(sbt.symbol(), "GSBT");
         assertEq(sbt.totalSupply(), 0);
         assertFalse(sbt.paused());
-        assertEq(sbt._treasuryReceiver(), treasuryReceiver);
     }
 
     function test_Initialize_RevertIf_AlreadyInitialized() public {
         vm.expectRevert();
-        sbt.initialize(ASSET_URI, owner, MINT_PRICE, treasuryReceiver);
+        sbt.initialize(ASSET_URI, owner);
     }
 
     // =============================================================
@@ -74,9 +70,8 @@ contract GenesisSBTTest is Test {
     // =============================================================
 
     function test_Mint() public {
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         assertEq(sbt.balanceOf(user1), 1);
         assertEq(sbt.ownerOf(1), user1);
@@ -84,82 +79,49 @@ contract GenesisSBTTest is Test {
     }
 
     function test_Mint_EmitsTransferEvent() public {
-        vm.deal(user1, MINT_PRICE);
-
         vm.expectEmit(true, true, true, false);
         emit Transfer(address(0), user1, 1);
 
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         assertEq(sbt.balanceOf(user1), 1);
         assertEq(sbt.ownerOf(1), user1);
     }
 
     function test_Mint_RevertIf_AlreadyMinted() public {
-        vm.deal(user1, MINT_PRICE * 2);
-
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         vm.expectRevert(IGenesisSBT.TokenAlreadyMinted.selector);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
-    }
-
-    function test_Mint_RevertIf_InsufficientFunds() public {
-        vm.deal(user1, MINT_PRICE - 1);
-
-        vm.expectRevert(abi.encodeWithSelector(IGenesisSBT.InsufficientFunds.selector, MINT_PRICE, MINT_PRICE - 1));
-        vm.prank(user1);
-        sbt.mint{value: MINT_PRICE - 1}();
+        sbt.mint();
     }
 
     function test_Mint_RevertIf_Paused() public {
         vm.prank(owner);
         sbt.pause();
 
-        vm.deal(user1, MINT_PRICE);
         vm.expectRevert();
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
     }
 
     function test_Mint_MultipleUsers() public {
-        vm.deal(user1, MINT_PRICE);
-        vm.deal(user2, MINT_PRICE);
-        vm.deal(user3, MINT_PRICE);
-
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         assertEq(sbt.totalSupply(), 1);
         assertEq(sbt.ownerOf(1), user1);
 
         vm.prank(user2);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         assertEq(sbt.totalSupply(), 2);
         assertEq(sbt.ownerOf(2), user2);
 
         vm.prank(user3);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         assertEq(sbt.totalSupply(), 3);
         assertEq(sbt.ownerOf(3), user3);
-    }
-
-    function test_Mint_ExactPayment() public {
-        vm.deal(user1, MINT_PRICE);
-        vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
-
-        assertEq(sbt.balanceOf(user1), 1);
-    }
-
-    function test_Mint_ExcessPayment() public {
-        vm.deal(user1, MINT_PRICE * 2);
-        vm.prank(user1);
-        sbt.mint{value: MINT_PRICE * 2}();
-
-        assertEq(sbt.balanceOf(user1), 1);
     }
 
     // =============================================================
@@ -198,9 +160,8 @@ contract GenesisSBTTest is Test {
 
     function test_AdminMint_SkipIfAlreadyMinted() public {
         // First mint to user1
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         // Try to admin mint to user1 (should skip) and user2 (should mint)
         address[] memory recipients = new address[](2);
@@ -219,12 +180,10 @@ contract GenesisSBTTest is Test {
 
     function test_AdminMint_SkipMultipleAlreadyMinted() public {
         // Mint to user1 and user2 first
-        vm.deal(user1, MINT_PRICE);
-        vm.deal(user2, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         vm.prank(user2);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         // Try to admin mint to all three, but user1 and user2 already have tokens
         address[] memory recipients = new address[](3);
@@ -263,9 +222,8 @@ contract GenesisSBTTest is Test {
 
     function test_AdminMint_MixedAlreadyMintedAndNew() public {
         // Mint to user1 first
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         // Admin mint to user1 (skip), user2 (mint), user1 again (skip), user3 (mint)
         address[] memory recipients = new address[](4);
@@ -291,9 +249,8 @@ contract GenesisSBTTest is Test {
     // =============================================================
 
     function test_Transfer_RevertIf_TransferAttempted() public {
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         vm.expectRevert(IGenesisSBT.SoulBoundToken_TransferNotAllowed.selector);
         vm.prank(user1);
@@ -301,9 +258,8 @@ contract GenesisSBTTest is Test {
     }
 
     function test_Transfer_RevertIf_SafeTransferAttempted() public {
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         vm.expectRevert(IGenesisSBT.SoulBoundToken_TransferNotAllowed.selector);
         vm.prank(user1);
@@ -311,9 +267,8 @@ contract GenesisSBTTest is Test {
     }
 
     function test_Transfer_RevertIf_ApprovedTransferAttempted() public {
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         vm.prank(user1);
         sbt.approve(user2, 1);
@@ -366,9 +321,8 @@ contract GenesisSBTTest is Test {
         vm.prank(owner);
         sbt.unpause();
 
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         assertEq(sbt.balanceOf(user1), 1);
     }
@@ -379,9 +333,8 @@ contract GenesisSBTTest is Test {
 
     function test_SetAssetURI() public {
         // Mint a token first
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         string memory newURI = "https://example.com/new-image.png";
 
@@ -420,9 +373,8 @@ contract GenesisSBTTest is Test {
 
     function test_SetNftName() public {
         // Mint a token first
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         string memory name = "Test NFT";
 
@@ -443,9 +395,8 @@ contract GenesisSBTTest is Test {
 
     function test_SetNftDescription() public {
         // Mint a token first
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         string memory description = "Test Description";
 
@@ -464,26 +415,6 @@ contract GenesisSBTTest is Test {
         sbt.setNftDescription("Desc");
     }
 
-    function test_SetMintPrice() public {
-        uint256 newPrice = 0.02 ether;
-
-        vm.prank(owner);
-        sbt.setMintPrice(newPrice);
-
-        // Verify new price is enforced
-        vm.deal(user1, newPrice);
-        vm.prank(user1);
-        sbt.mint{value: newPrice}();
-
-        assertEq(sbt.balanceOf(user1), 1);
-    }
-
-    function test_SetMintPrice_RevertIf_NotOwner() public {
-        vm.expectRevert();
-        vm.prank(user1);
-        sbt.setMintPrice(0.02 ether);
-    }
-
     // =============================================================
     //                    TOKEN URI TESTS
     // =============================================================
@@ -497,9 +428,8 @@ contract GenesisSBTTest is Test {
         vm.prank(owner);
         sbt.setNftDescription(description);
 
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         string memory uri = sbt.tokenURI(1);
 
@@ -542,9 +472,8 @@ contract GenesisSBTTest is Test {
         vm.prank(owner);
         sbt.setNftDescription(description);
 
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         string memory uri = sbt.tokenURI(1);
 
@@ -645,9 +574,6 @@ contract GenesisSBTTest is Test {
 
         // Owner should still be able to perform owner functions
         vm.prank(owner);
-        sbt.setMintPrice(0.02 ether);
-
-        vm.prank(owner);
         sbt.pause();
 
         assertTrue(sbt.paused());
@@ -664,9 +590,6 @@ contract GenesisSBTTest is Test {
 
         // New owner should be able to perform owner functions
         vm.prank(newOwner);
-        sbt.setMintPrice(0.02 ether);
-
-        vm.prank(newOwner);
         sbt.pause();
         
         vm.prank(newOwner);
@@ -680,15 +603,13 @@ contract GenesisSBTTest is Test {
     function test_TotalSupply() public {
         assertEq(sbt.totalSupply(), 0);
 
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         assertEq(sbt.totalSupply(), 1);
         assertEq(sbt.ownerOf(1), user1);
 
-        vm.deal(user2, MINT_PRICE);
         vm.prank(user2);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         assertEq(sbt.totalSupply(), 2);
         assertEq(sbt.ownerOf(2), user2);
 
@@ -717,65 +638,6 @@ contract GenesisSBTTest is Test {
     }
 
     // =============================================================
-    //              TREASURY RECEIVER TESTS
-    // =============================================================
-
-    function test_Mint_ForwardsPaymentToTreasuryReceiver() public {
-        uint256 initialBalance = treasuryReceiver.balance;
-        vm.deal(user1, MINT_PRICE);
-
-        vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
-
-        assertEq(treasuryReceiver.balance, initialBalance + MINT_PRICE);
-        assertEq(sbt.balanceOf(user1), 1);
-    }
-
-    function test_Mint_ForwardsExactPaymentToTreasuryReceiver() public {
-        uint256 excessAmount = 0.005 ether;
-        uint256 initialBalance = treasuryReceiver.balance;
-        vm.deal(user1, MINT_PRICE + excessAmount);
-
-        vm.prank(user1);
-        sbt.mint{value: MINT_PRICE + excessAmount}();
-
-        // Only MINT_PRICE should go to treasury, excess should be refunded to user
-        assertEq(treasuryReceiver.balance, initialBalance + MINT_PRICE);
-        assertEq(user1.balance, excessAmount);
-    }
-
-    function test_SetTreasuryReceiver() public {
-        address newTreasuryReceiver = makeAddr("newTreasuryReceiver");
-
-        vm.prank(owner);
-        sbt.setTreasuryReceiver(newTreasuryReceiver);
-
-        assertEq(sbt._treasuryReceiver(), newTreasuryReceiver);
-    }
-
-    function test_SetTreasuryReceiver_UpdatesPaymentDestination() public {
-        address newTreasuryReceiver = makeAddr("newTreasuryReceiver");
-        uint256 initialBalance = newTreasuryReceiver.balance;
-
-        vm.prank(owner);
-        sbt.setTreasuryReceiver(newTreasuryReceiver);
-
-        vm.deal(user1, MINT_PRICE);
-        vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
-
-        assertEq(newTreasuryReceiver.balance, initialBalance + MINT_PRICE);
-    }
-
-    function test_SetTreasuryReceiver_RevertIf_NotOwner() public {
-        address newTreasuryReceiver = makeAddr("newTreasuryReceiver");
-
-        vm.expectRevert();
-        vm.prank(user1);
-        sbt.setTreasuryReceiver(newTreasuryReceiver);
-    }
-
-    // =============================================================
     //                  USER TOKEN ID MAPPING TESTS
     // =============================================================
 
@@ -787,9 +649,8 @@ contract GenesisSBTTest is Test {
     }
 
     function test_UserTokenId_Mapping_SetOnMint() public {
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         // Mapping should be set to token ID 1
         assertEq(sbt.getTokenIdByAddress(user1), 1);
@@ -809,20 +670,16 @@ contract GenesisSBTTest is Test {
     }
 
     function test_UserTokenId_Mapping_MultipleUsers() public {
-        vm.deal(user1, MINT_PRICE);
-        vm.deal(user2, MINT_PRICE);
-        vm.deal(user3, MINT_PRICE);
-
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         assertEq(sbt.getTokenIdByAddress(user1), 1);
 
         vm.prank(user2);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         assertEq(sbt.getTokenIdByAddress(user2), 2);
 
         vm.prank(user3);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         assertEq(sbt.getTokenIdByAddress(user3), 3);
 
         // Verify all mappings are correct
@@ -847,9 +704,8 @@ contract GenesisSBTTest is Test {
     }
 
     function test_UserTokenId_Mapping_NotSetForNonMinters() public {
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         // user2 and user3 haven't minted, so mapping should be 0
         assertEq(sbt.getTokenIdByAddress(user1), 1);
@@ -858,16 +714,14 @@ contract GenesisSBTTest is Test {
     }
 
     function test_UserTokenId_Mapping_PreventsDuplicateMint() public {
-        vm.deal(user1, MINT_PRICE * 2);
-
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         assertEq(sbt.getTokenIdByAddress(user1), 1);
 
         // Try to mint again - should revert
         vm.expectRevert(IGenesisSBT.TokenAlreadyMinted.selector);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         // Mapping should still be 1, not changed
         assertEq(sbt.getTokenIdByAddress(user1), 1);
@@ -875,9 +729,8 @@ contract GenesisSBTTest is Test {
 
     function test_UserTokenId_Mapping_AdminMintSkipsAlreadyMinted() public {
         // User1 mints via public mint
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         assertEq(sbt.getTokenIdByAddress(user1), 1);
 
         // Admin tries to mint to user1 (should skip) and user2 (should mint)
@@ -894,9 +747,8 @@ contract GenesisSBTTest is Test {
     }
 
     function test_GetTokenIdByAddress() public {
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         // Should return the correct token ID
         assertEq(sbt.getTokenIdByAddress(user1), 1);
@@ -908,25 +760,20 @@ contract GenesisSBTTest is Test {
         assertEq(sbt.getTokenIdByAddress(user2), 0);
 
         // Mint to user1 only
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         assertEq(sbt.getTokenIdByAddress(user1), 1);
         assertEq(sbt.getTokenIdByAddress(user2), 0);
     }
 
     function test_GetTokenIdByAddress_MultipleUsers() public {
-        vm.deal(user1, MINT_PRICE);
-        vm.deal(user2, MINT_PRICE);
-        vm.deal(user3, MINT_PRICE);
-
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         vm.prank(user2);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         vm.prank(user3);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         assertEq(sbt.getTokenIdByAddress(user1), 1);
         assertEq(sbt.getTokenIdByAddress(user2), 2);
@@ -934,9 +781,8 @@ contract GenesisSBTTest is Test {
     }
 
     function test_UserTokenId_Mapping_ConsistentWithOwnerOf() public {
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         uint256 tokenId = sbt.getTokenIdByAddress(user1);
         assertEq(tokenId, 1);
@@ -945,15 +791,13 @@ contract GenesisSBTTest is Test {
 
     function test_UserTokenId_Mapping_MixedMintAndAdminMint() public {
         // User1 mints via public mint
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         assertEq(sbt.getTokenIdByAddress(user1), 1);
 
         // User2 mints via public mint
-        vm.deal(user2, MINT_PRICE);
         vm.prank(user2);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
         assertEq(sbt.getTokenIdByAddress(user2), 2);
 
         // Admin mints to user3
@@ -971,9 +815,8 @@ contract GenesisSBTTest is Test {
     }
 
     function test_UserTokenId_Mapping_PublicAccess() public {
-        vm.deal(user1, MINT_PRICE);
         vm.prank(user1);
-        sbt.mint{value: MINT_PRICE}();
+        sbt.mint();
 
         // Should be accessible via getTokenIdByAddress
         uint256 tokenId = sbt.getTokenIdByAddress(user1);

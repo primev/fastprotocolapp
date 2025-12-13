@@ -19,9 +19,7 @@ contract DeployScript is Script {
         uint256 deployerPrivateKey;
         address deployer;
         address initialOwner;
-        address treasuryReceiver;
         string assetURI;
-        uint256 mintPrice;
         string description;
     }
 
@@ -64,20 +62,16 @@ contract DeployScript is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         address initialOwner = vm.envOr("INITIAL_OWNER", deployer);
-        address treasuryReceiver = vm.envOr("TREASURY_RECEIVER", deployer);
         string memory assetURI = vm.envString("ASSET_URI");
-        uint256 mintPrice = vm.envUint("MINT_PRICE");
         string memory description = vm.envString("DESCRIPTION");
 
-        _validateParams(deployer, initialOwner, treasuryReceiver, assetURI, mintPrice, description);
+        _validateParams(deployer, initialOwner, assetURI, description);
 
         return DeploymentParams({
             deployerPrivateKey: deployerPrivateKey,
             deployer: deployer,
             initialOwner: initialOwner,
-            treasuryReceiver: treasuryReceiver,
             assetURI: assetURI,
-            mintPrice: mintPrice,
             description: description
         });
     }
@@ -86,16 +80,12 @@ contract DeployScript is Script {
     function _validateParams(
         address deployer,
         address initialOwner,
-        address treasuryReceiver,
         string memory assetURI,
-        uint256 mintPrice,
         string memory description
     ) internal pure {
         require(deployer != address(0), "DeployScript: deployer cannot be zero address");
         require(initialOwner != address(0), "DeployScript: initialOwner cannot be zero address");
-        require(treasuryReceiver != address(0), "DeployScript: treasuryReceiver cannot be zero address");
         require(bytes(assetURI).length > 0, "DeployScript: assetURI cannot be empty");
-        require(mintPrice > 0, "DeployScript: mintPrice must be greater than zero");
         require(bytes(description).length > 0, "DeployScript: description cannot be empty");
     }
 
@@ -134,7 +124,7 @@ contract DeployScript is Script {
 
         bytes memory initData = abi.encodeCall(
             GenesisSBT.initialize,
-            (params.assetURI, params.initialOwner, params.mintPrice, params.treasuryReceiver)
+            (params.assetURI, params.initialOwner)
         );
 
         require(initData.length > 0, "DeployScript: initData cannot be empty");
@@ -180,14 +170,10 @@ contract DeployScript is Script {
         require(bytes(genesisSBT.name()).length > 0, "DeployScript: contract not initialized (name is empty)");
         require(bytes(genesisSBT.symbol()).length > 0, "DeployScript: contract not initialized (symbol is empty)");
         require(genesisSBT.owner() != address(0), "DeployScript: contract not initialized (owner is zero)");
-        require(genesisSBT._mintPrice() > 0, "DeployScript: contract not initialized (mintPrice is zero)");
-        require(genesisSBT._treasuryReceiver() != address(0), "DeployScript: contract not initialized (treasuryReceiver is zero)");
 
         console.log("Name:", genesisSBT.name());
         console.log("Symbol:", genesisSBT.symbol());
         console.log("Owner:", genesisSBT.owner());
-        console.log("Mint Price:", genesisSBT._mintPrice());
-        console.log("Treasury Receiver:", genesisSBT._treasuryReceiver());
         console.log("Deployment verified successfully");
     }
 
@@ -201,8 +187,6 @@ contract DeployScript is Script {
         console.log("Deployer:", params.deployer);
         console.log("Initial Owner:", params.initialOwner);
         console.log("Asset URI:", params.assetURI);
-        console.log("Mint Price:", params.mintPrice);
-        console.log("Treasury Receiver:", params.treasuryReceiver);
         console.log("Description:", params.description);
     }
 
