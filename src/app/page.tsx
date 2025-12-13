@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { captureEmailAction } from '@/actions/capture-email';
 import { Check, MessageCircle, Send } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
@@ -41,27 +41,26 @@ const IndexPage = () => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [rpcAdded, setRpcAdded] = useState(false);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
-  const { toast } = useToast();
   const { isProcessing, addFastToMetamask } = useAddFastToMetamask();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email?.includes('@')) {
-      toast({ title: 'Invalid email', description: 'Please enter a valid email address', variant: 'destructive' });
+      toast.error('Invalid email', { description: 'Please enter a valid email address' });
       return;
     }
 
     setIsLoading(true);
     try {
       const result: CaptureEmailResult = await captureEmailAction({ email });
-      toast({ title: result.alreadySubscribed ? "You're already subscribed!" : 'Success!', description: result.alreadySubscribed ? undefined : "You've been added to the waitlist" });
+      toast.success(result.alreadySubscribed ? "You're already subscribed!" : 'Success!', { description: result.alreadySubscribed ? undefined : "You've been added to the waitlist" });
       if (!result.alreadySubscribed) {
         setIsSuccess(true);
         setTimeout(() => { setEmail(''); setIsSuccess(false); }, 2000);
       }
     } catch (err) {
       console.error('Failed to capture email', err);
-      toast({ title: 'Something went wrong', description: 'We could not add your email right now. Please try again.', variant: 'destructive' });
+      toast.error('Something went wrong', { description: 'We could not add your email right now. Please try again.' });
     } finally {
       setIsLoading(false);
     }

@@ -179,11 +179,18 @@ export function useMinting({
     if (isWriteError || isConfirmError) {
       setIsMinting(false);
       const error = writeError || confirmError;
-      console.error('error', error);
 
-      toast.error('Transaction Failed', {
-        description: 'Check RPC connection and try again',
-      });
+      if (error?.message?.includes('user')) {
+        toast.error('Minting Failed', {
+          description: 'User cancelled the minting',
+        });
+        return;
+      } else {
+        toast.error('Minting Failed', {
+          description: 'Check RPC connection and try again',
+        });
+        return;
+      }
     }
   }, [isWriting, isConfirming, isWriteError, isConfirmError, writeError, confirmError]);
 

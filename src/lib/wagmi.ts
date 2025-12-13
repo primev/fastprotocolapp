@@ -1,5 +1,5 @@
 import { connectorsForWallets } from '@rainbow-me/rainbowkit';
-import { metaMaskWallet, rabbyWallet, injectedWallet } from '@rainbow-me/rainbowkit/wallets';
+import { injectedWallet } from '@rainbow-me/rainbowkit/wallets';
 import { createConfig, http, unstable_connector, fallback } from 'wagmi';
 import { injected } from 'wagmi/connectors';
 import { mainnet } from 'wagmi/chains';
