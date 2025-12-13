@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect, usePublicClient } from 'wagmi';
 
@@ -105,6 +105,8 @@ const OnboardingPage = () => {
 
   // Already configured wallet state - must be declared before hooks that use it
   const [alreadyConfiguredWallet, setAlreadyConfiguredWallet] = useState<boolean | null>(null);
+  const lastRpcAddCompletedRef = useRef(false);
+  const lastRpcTestCompletedRef = useRef(false);
 
   const rpcSetup = useRPCSetup({
     isConnected,
@@ -116,6 +118,24 @@ const OnboardingPage = () => {
     alreadyConfiguredWallet: alreadyConfiguredWallet === true,
   });
 
+  // Destructure setters to ensure stable references
+  const { setRpcAddCompleted, setRpcTestCompleted } = rpcSetup;
+
+  // Debug: Log all step completion states
+  useEffect(() => {
+    console.log('=== Step Completion Debug ===');
+    console.log('allStepsCompleted:', allStepsCompleted);
+    console.log('hasInitialized:', hasInitialized);
+    console.log('Steps:', steps.map(s => ({ id: s.id, title: s.title, completed: s.completed })));
+    console.log('RPC Setup State:', {
+      rpcAddCompleted: rpcSetup.rpcAddCompleted,
+      rpcTestCompleted: rpcSetup.rpcTestCompleted,
+      rpcRequired: rpcSetup.rpcRequired,
+    });
+    console.log('alreadyConfiguredWallet:', alreadyConfiguredWallet);
+    console.log('===========================');
+  }, [steps, allStepsCompleted, hasInitialized, rpcSetup.rpcAddCompleted, rpcSetup.rpcTestCompleted, rpcSetup.rpcRequired, alreadyConfiguredWallet]);
+
   useWalletConnection({
     isConnected,
     connector,
@@ -126,6 +146,10 @@ const OnboardingPage = () => {
     rpcRequired: rpcSetup.rpcRequired,
     alreadyConfiguredWallet: alreadyConfiguredWallet === true,
   });
+
+  // Note: RPC step completion logic is handled in useRPCSetup hook
+  // It automatically sets rpcAddCompleted and rpcTestCompleted to true when alreadyConfiguredWallet is true
+  // and marks the RPC step as complete when both flags are true
 
   const minting = useMinting({
     isConnected,
@@ -193,7 +217,8 @@ const OnboardingPage = () => {
   };
 
   const handleTestClick = () => {
-    if (!rpcSetup.rpcAddCompleted) {
+    // If alreadyConfiguredWallet is true, skip the check since toggle/add is already done
+    if (!alreadyConfiguredWallet && !rpcSetup.rpcAddCompleted) {
       const actionText = isMetaMask ? 'Toggle' : 'Add';
       toast.error(`Complete the ${actionText} step first`);
       return;

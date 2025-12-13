@@ -48,6 +48,8 @@ export const OnboardingStepsList = ({
         // Only show toggle button (hide test) when alreadyConfiguredWallet is false and toggle not completed
         // For happy path: when toggle is completed, show test button (unhide it)
         const showOnlyToggle = isRpcStep && !alreadyConfiguredWallet && !rpcAddCompleted;
+        // Hide toggle/add button when alreadyConfiguredWallet is true (happy path - already configured)
+        const hideToggleButton = isRpcStep && alreadyConfiguredWallet;
 
         return (
           <OnboardingStepCard
@@ -66,6 +68,7 @@ export const OnboardingStepsList = ({
             walletStepCompleted={walletStepCompleted}
             showOnlyToggle={showOnlyToggle}
             showRefreshButton={showRpcWarning}
+            hideToggleButton={hideToggleButton}
             alreadyConfiguredWallet={alreadyConfiguredWallet}
             onStepClick={onStepClick}
             onRpcStepClick={isRpcStep ? onRpcStepClick : undefined}
