@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
-import { sendTransaction } from '@wagmi/core'
 import { getWalletClient } from 'wagmi/actions';
-import { config } from '@/lib/wagmi';
-import { parseGwei, createWalletClient, custom } from 'viem';
-import { getProviderForConnector } from '@/lib/wallet-provider';
+import { mainnet } from 'wagmi/chains';
+import { createWalletClient, custom, type Address } from 'viem';
+import { getProviderForConnector, getWalletTypeFromConnector } from '@/lib/wallet-provider';
 
 export interface TestResult {
     success: boolean;
@@ -58,7 +57,6 @@ function getRejectionMessage(): string {
 }
 
 export function useRPCTest(): UseRPCTestReturn {
-    const { toast } = useToast();
     const { isConnected, address, connector } = useAccount();
     const [isTesting, setIsTesting] = useState(false);
     const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -98,10 +96,8 @@ export function useRPCTest(): UseRPCTestReturn {
                     });
                     setIsQueryingAPI(false);
                     setIsTesting(false);
-                    toast({
-                        title: "Test Successful",
+                    toast.success("Test Successful", {
                         description: "Fast Protocol RPC connection was successful. Transaction confirmed.",
-                        variant: "default",
                     });
                 })
                 .catch((error) => {
@@ -112,10 +108,8 @@ export function useRPCTest(): UseRPCTestReturn {
                     });
                     setIsQueryingAPI(false);
                     setIsTesting(false);
-                    toast({
-                        title: "Test Failed",
+                    toast.error("Test Failed", {
                         description: "RPC connection test failed.",
-                        variant: "destructive",
                     });
                 });
         }
@@ -134,10 +128,8 @@ export function useRPCTest(): UseRPCTestReturn {
                 hash: null,
             });
 
-            toast({
-                title: isRejection ? "Transaction Rejected" : "Test Failed",
+            toast.error(isRejection ? "Transaction Rejected" : "Test Failed", {
                 description: errorMessage,
-                variant: "destructive",
             });
             resetSend();
         }
@@ -150,10 +142,8 @@ export function useRPCTest(): UseRPCTestReturn {
                 success: false,
                 hash: hash || null,
             });
-            toast({
-                title: "Test Failed",
+            toast.error("Test Failed", {
                 description: `RPC connection test failed: ${errorMessage}`,
-                variant: "destructive",
             });
             resetSend();
         }
@@ -164,10 +154,8 @@ export function useRPCTest(): UseRPCTestReturn {
         resetSend();
 
         if (!isConnected || !address || !connector) {
-            toast({
-                title: "Wallet not connected",
+            toast.error("Wallet not connected", {
                 description: "Please connect your wallet first.",
-                variant: "destructive",
             });
             return;
         }
@@ -177,16 +165,63 @@ export function useRPCTest(): UseRPCTestReturn {
         setSendError(null);
 
         try {
+            // Get the specific provider for the connected wallet to avoid conflicts
+            let provider = null;
+            try {
+                provider = await connector.getProvider();
+            } catch (error) {
+                console.error('Error getting provider from connector:', error);
+            }
 
+            // Fallback to getProviderForConnector if connector.getProvider fails
+            if (!provider) {
+                provider = await getProviderForConnector(connector);
+            }
 
-            const txParams = {
-                to: address,
+            // Final fallback to window.ethereum (most reliable)
+            if (!provider && typeof window !== 'undefined' && (window as any).ethereum) {
+                const ethereum = (window as any).ethereum;
+                // If it's an array, find the correct provider
+                if (Array.isArray(ethereum)) {
+                    // Try to find the provider that matches the connector
+                    const walletType = getWalletTypeFromConnector(connector);
+                    if (walletType === 'metamask') {
+                        provider = ethereum.find((p: any) => p && p.isMetaMask === true && !p.isRabby);
+                    } else if (walletType === 'rabby') {
+                        provider = ethereum.find((p: any) => p && p.isRabby === true);
+                    }
+                    // Fallback to first provider if not found
+                    if (!provider) {
+                        provider = ethereum[0];
+                    }
+                } else {
+                    provider = ethereum;
+                }
+            }
+
+            if (!provider) {
+                throw new Error('Provider not available');
+            }
+
+            // Verify provider has request method
+            if (!provider.request || typeof provider.request !== 'function') {
+                throw new Error('Provider not ready');
+            }
+
+            // Create a wallet client with the specific provider
+            const walletClient = createWalletClient({
+                account: address as Address,
+                chain: mainnet,
+                transport: custom(provider),
+            });
+
+            // Send transaction using the specific provider
+            const txHash = await walletClient.sendTransaction({
+                to: address as Address,
                 value: BigInt(0),
                 maxPriorityFeePerGas: BigInt(0),
-            };
-
-            const txHash = await sendTransaction(config, txParams as any);
-            setHash(txHash as `0x${string}`);
+            } as any);
+            setHash(txHash);
             setIsSending(false);
         } catch (error: any) {
             setIsSending(false);
@@ -196,9 +231,14 @@ export function useRPCTest(): UseRPCTestReturn {
             const isRejection = isUserRejection(error);
             const errorMessage = isRejection ? getRejectionMessage() : error?.message || "Failed to initiate transaction";
 
-            console.log('errorMessage', errorMessage);
+            console.error('Transaction error:', errorMessage, error);
             setTestResult({ success: false, hash: null });
             setIsTesting(false);
+            
+            // Reset state on error to allow retry
+            setTimeout(() => {
+                resetSend();
+            }, 1000);
         }
     };
 

@@ -155,7 +155,7 @@ export function getWalletName(connector: any): string {
  * Get the wallet type from connector ID
  * Returns 'metamask', 'rabby', 'brave', 'coinbase', or null
  */
-function getWalletTypeFromConnector(connector: any): string | null {
+export function getWalletTypeFromConnector(connector: any): string | null {
     if (!connector) return null;
     
     const connectorId = (connector.id || '').toLowerCase();
