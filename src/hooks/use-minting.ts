@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { Address, PublicClient, TransactionReceipt } from 'viem';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { toast } from 'sonner';
-import { CONTRACT_ABI, CONTRACT_ADDRESS, MINT_PRICE } from '@/lib/contract-config';
+import { CONTRACT_ABI, CONTRACT_ADDRESS } from '@/lib/contract-config';
 import { parseTokenIdFromReceipt } from '@/lib/onboarding-utils';
 
 export interface UseMintingProps {
@@ -207,7 +207,6 @@ export function useMinting({
         address: CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI,
         functionName: 'mint',
-        value: MINT_PRICE,
       } as unknown as any);
     } catch (error: any) {
       console.log('error', error);
