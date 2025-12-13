@@ -43,7 +43,7 @@ contract GenesisSBT is
     // =============================================================
 
     /// @notice Mints a token to the caller
-    function mint() external payable whenNotPaused {
+    function mint() external whenNotPaused {
         address to = msg.sender;
 
         if (_userTokenId[to] != 0) revert TokenAlreadyMinted();

@@ -32,7 +32,7 @@ interface IGenesisSBT is IERC721, IERC4906 {
     function initialize(string calldata asset, address owner) external;
 
     /// @dev Mints a token to the caller
-    function mint() external payable;
+    function mint() external;
 
     /// @dev Allows the owner to mint tokens to multiple addresses without requiring payment
     /// @param to Array of addresses to mint tokens to. Skips addresses that already have tokens.
