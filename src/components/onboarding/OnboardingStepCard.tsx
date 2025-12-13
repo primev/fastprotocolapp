@@ -113,12 +113,17 @@ export const OnboardingStepCard = ({
           </div>
         ) : (
           <Button
-            onClick={() => onStepClick(step.id)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Button clicked for step:', step.id, 'disabled:', step.completed && !isRpcStep && !isWalletStep);
+              onStepClick(step.id);
+            }}
             variant="outline"
             size="default"
             className="flex-shrink-0 w-28"
             disabled={
-              step.completed && !isRpcStep && !isWalletStep && !isWalletStepWithSmartAccountWarning
+              step.completed && !isRpcStep && !isWalletStep
             }
           >
             {step.id === 'follow' && (step.completed ? 'Following' : 'Follow')}
@@ -126,13 +131,11 @@ export const OnboardingStepCard = ({
             {step.id === 'telegram' && (step.completed ? 'Joined' : 'Join')}
             {step.id === 'email' && (step.completed ? 'Submitted' : 'Submit')}
             {step.id === 'wallet' &&
-              (isWalletStepWithSmartAccountWarning
-                ? 'Alert'
-                : rpcRequired
-                  ? 'Add RPC'
-                  : step.completed
-                    ? 'Disconnect'
-                    : 'Connect')}
+              (rpcRequired
+                ? 'Add RPC'
+                : step.completed
+                  ? 'Disconnect'
+                  : 'Connect')}
             {step.id === 'rpc' && 'Setup'}
           </Button>
         )}
