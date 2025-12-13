@@ -81,7 +81,7 @@ const IndexPage = () => {
       {/* Animated Background */}
       <AnimatedBackground />
 
-      <div className="relative z-10 w-full px-4 flex-1 flex flex-col justify-between py-4 sm:py-6 tablet:py-8">
+      <div className="relative z-10 w-full px-4 flex-1 flex flex-col justify-between py-4 sm:py-6 tablet:py-8 lg:py-6">
         <div className="max-w-6xl mx-auto w-full text-center flex-1 flex flex-col justify-between">
           {/* Logo */}
           <section className="flex-1 flex items-center justify-center">
@@ -91,27 +91,27 @@ const IndexPage = () => {
               width={512}
               height={512}
               priority
-              className="h-32 xs:h-40 sm:h-48 tablet:h-72 lg:h-80 xl:h-60 w-auto"
+              className="h-32 xs:h-40 sm:h-48 tablet:h-72 lg:h-56 xl:h-60 w-auto"
               style={{ clipPath: 'inset(10% 0 30% 0)' }}
             />
           </section>
 
           {/* Tagline, Email & Social */}
-          <section className="flex-1 flex flex-col justify-center space-y-3 xs:space-y-4 sm:space-y-5 tablet:space-y-8">
-            <div className="text-sm xs:text-base sm:text-lg tablet:text-2xl lg:text-lg xl:text-xl text-muted-foreground px-3 xs:px-4 sm:px-6 tablet:px-8 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+          <section className="flex-1 flex flex-col justify-center space-y-3 xs:space-y-4 sm:space-y-5 tablet:space-y-8 lg:space-y-6">
+            <div className="text-sm xs:text-base sm:text-lg tablet:text-2xl lg:text-base xl:text-xl text-muted-foreground px-3 xs:px-4 sm:px-6 tablet:px-8 lg:px-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
               <span>Lightning-fast transactions on L1.</span>
               <span>Tokenized mev rewards.</span>
             </div>
 
-            <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-xl sm:rounded-2xl p-2.5 xs:p-3 sm:p-3.5 tablet:p-6 lg:p-4 shadow-xl w-full max-w-xs xs:max-w-sm sm:max-w-md tablet:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto">
-              <form onSubmit={handleSubmit} className="space-y-3 xs:space-y-4 tablet:space-y-5">
+            <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-xl sm:rounded-2xl p-2.5 xs:p-3 sm:p-3.5 tablet:p-6 lg:p-3.5 shadow-xl w-full max-w-xs xs:max-w-sm sm:max-w-md tablet:max-w-xl lg:max-w-xl xl:max-w-3xl mx-auto">
+              <form onSubmit={handleSubmit} className="space-y-3 xs:space-y-4 tablet:space-y-5 lg:space-y-4">
                 <div className="flex flex-col sm:flex-row gap-2 xs:gap-3 tablet:gap-4">
                   <Input
                     type="email"
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="flex-1 h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-12 text-sm xs:text-base sm:text-base tablet:text-lg lg:text-base bg-background/50 border-primary/30 focus:border-primary"
+                    className="flex-1 h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-11 text-sm xs:text-base sm:text-base tablet:text-lg lg:text-sm bg-background/50 border-primary/30 focus:border-primary"
                     disabled={isLoading}
                   />
                   <Button
@@ -119,10 +119,10 @@ const IndexPage = () => {
                     variant="hero"
                     size="lg"
                     disabled={isLoading}
-                    className="h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-12 px-6 xs:px-7 sm:px-8 tablet:px-10 lg:px-8 whitespace-nowrap text-sm xs:text-base sm:text-base tablet:text-lg lg:text-base"
+                    className="h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-11 px-6 xs:px-7 sm:px-8 tablet:px-10 lg:px-7 whitespace-nowrap text-sm xs:text-base sm:text-base tablet:text-lg lg:text-sm"
                   >
                     {isSuccess ? (
-                      <Check className="w-5 h-5 xs:w-6 xs:h-6 tablet:w-7 tablet:h-7 lg:w-6 lg:h-6 text-green-500 animate-scale-in" />
+                      <Check className="w-5 h-5 xs:w-6 xs:h-6 tablet:w-7 tablet:h-7 lg:w-5 lg:h-5 text-green-500 animate-scale-in" />
                     ) : isLoading ? (
                       'Joining...'
                     ) : (
@@ -142,7 +142,7 @@ const IndexPage = () => {
                       <Icon className="w-6 h-6 xs:w-7 xs:h-7 tablet:w-8 tablet:h-8" />
                     </a>
                   </Button>
-                  <Button variant="glass" size="lg" asChild className="hidden tablet:flex text-lg lg:text-base px-6 lg:px-6 py-3 lg:py-2">
+                  <Button variant="glass" size="lg" asChild className="hidden tablet:flex text-lg lg:text-sm px-6 lg:px-4 py-3 lg:py-2">
                     <a href={url} target={url.startsWith('mailto:') ? undefined : '_blank'} rel={url.startsWith('mailto:') ? undefined : 'noopener noreferrer'} aria-label={name}>
                       <Icon className="w-5 h-5 lg:w-4 lg:h-4 mr-2" />
                       <span>{name}</span>
@@ -167,7 +167,7 @@ const IndexPage = () => {
                 size="lg"
                 onClick={handleAddRPC}
                 disabled={isProcessing || rpcAdded}
-                className="h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-12 px-6 xs:px-7 sm:px-8 tablet:px-10 lg:px-8 text-xs xs:text-sm sm:text-base tablet:text-lg lg:text-base border-2 border-primary/20 flex items-center gap-2 tablet:gap-3"
+                className="h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-11 px-6 xs:px-7 sm:px-8 tablet:px-10 lg:px-7 text-xs xs:text-sm sm:text-base tablet:text-lg lg:text-sm border-2 border-primary/20 flex items-center gap-2 tablet:gap-3 lg:gap-2"
               >
                 {rpcAdded ? (
                   <>
@@ -178,7 +178,7 @@ const IndexPage = () => {
                   'Processing...'
                 ) : (
                   <>
-                    <Image src="/assets/metamask-icon.svg" alt="MetaMask" width={24} height={24} className="w-4 h-4 tablet:w-5 tablet:h-5 lg:w-5 lg:h-5" />
+                    <Image src="/assets/metamask-icon.svg" alt="MetaMask" width={24} height={24} className="w-4 h-4 tablet:w-5 tablet:h-5 lg:w-4 lg:h-4" />
                     <span>Add Fast RPC</span>
                   </>
                 )}

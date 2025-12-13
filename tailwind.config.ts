@@ -5,19 +5,32 @@ export default {
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   prefix: "",
   theme: {
+    screens: {
+      // Extra small phones
+      xs: '475px',
+      // Tailwind defaults
+      sm: '640px',
+      md: '768px',
+      // Tablet range (clear separation from md)
+      // Covers iPad Mini → iPad Pro logical widths
+      tablet: '834px',
+      // Laptops / small desktops (13" MacBook)
+      lg: '1024px',
+      // True desktop breakpoint (14–15"+)
+      xl: '1366px',
+      // Large desktop / external monitors
+      '2xl': '1440px',
+    },
     container: {
       center: true,
-      padding: "2rem",
+      padding: '1rem',
       screens: {
-        "2xl": "1400px",
+        // Container settles earlier so 13" Macs don't feel unfinished
+        xl: '1280px',
+        '2xl': '1440px',
       },
     },
     extend: {
-      screens: {
-        'xs': '475px',
-        'tablet': '800px', // Tablets starting from 800x480
-        // lg: 1024px is default for desktop (1024x600+)
-      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

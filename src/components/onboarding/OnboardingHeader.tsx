@@ -10,7 +10,7 @@ export const OnboardingHeader = () => {
 
   return (
     <header className="border-b border-border/50 backdrop-blur-sm">
-      <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+      <div className="container mx-auto px-4 py-4 lg:py-3 flex items-center justify-between">
         <div className="relative">
           <Image
             src="/assets/fast-icon.png"
