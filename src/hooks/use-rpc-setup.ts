@@ -129,6 +129,11 @@ export function useRPCSetup({
   useEffect(() => {
     if (!hasInitialized) return;
 
+    // Skip auto-prompt if wallet is already configured (happy path)
+    if (alreadyConfiguredWallet) {
+      return;
+    }
+
     // Wait until wallet step is completed and we haven't prompted yet
     if (!walletStepCompleted || !isConnected || !connector || hasPromptedAddRpc.current) {
       return;
@@ -147,21 +152,24 @@ export function useRPCSetup({
           return;
         }
 
-        await provider.request({
-          method: 'wallet_addEthereumChain',
-          params: [NETWORK_CONFIG],
+      await provider.request({
+        method: 'wallet_addEthereumChain',
+        params: [NETWORK_CONFIG],
+      });
+      
+      // Only show toast for MetaMask
+      if (isMetaMaskWallet(connector)) {
+        toast.success('Network added successfully', {
+          description: 'Fast Protocol network has been added to your wallet.',
         });
-        
-        // Only show toast for MetaMask
-        if (isMetaMaskWallet(connector)) {
-          toast.success('Network added successfully', {
-            description: 'Fast Protocol network has been added to your wallet.',
-          });
-        }
-        
-        // Don't auto-complete toggle/add step - user must manually mark it as complete
+      }
+      
+      // Don't auto-complete toggle/add step - user must manually mark it as complete
+      // But skip this if wallet is already configured (happy path)
+      if (!alreadyConfiguredWallet) {
         setRpcAddCompleted(false);
-        setRpcRequired(false);
+      }
+      setRpcRequired(false);
       } catch (error: any) {
         // Handle user rejection - mark step 5 as incomplete and show warning
         if (error?.code === 4001) {
@@ -206,14 +214,27 @@ export function useRPCSetup({
       // Reset state and mark step as incomplete when disconnected
       hasPromptedAddRpc.current = false;
       setRpcRequired(false);
-      setRpcAddCompleted(false);
-      setRpcTestCompleted(false);
+      // Don't reset if wallet is already configured (happy path) - keep rpcAddCompleted true
+      if (!alreadyConfiguredWallet) {
+        setRpcAddCompleted(false);
+        setRpcTestCompleted(false);
+      } else {
+        // Reset test completion but keep add completion
+        setRpcTestCompleted(false);
+      }
       updateStepStatusRef.current('rpc', false);
     } else if (rpcStepCompleted) {
       // Mark step as complete when both are done
       updateStepStatusRef.current('rpc', true);
+    } else if (alreadyConfiguredWallet) {
+      // If wallet is already configured, only set rpcAddCompleted to true
+      // User must still complete the test step
+      if (!rpcAddCompleted) {
+        setRpcAddCompleted(true);
+      }
+      // Don't auto-set rpcTestCompleted - user must complete the test
     }
-  }, [rpcAddCompleted, rpcTestCompleted, isConnected, hasInitialized]);
+  }, [rpcAddCompleted, rpcTestCompleted, isConnected, hasInitialized, alreadyConfiguredWallet]);
 
   return {
     rpcAddCompleted,

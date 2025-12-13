@@ -19,6 +19,7 @@ interface OnboardingStepCardProps {
   isTesting?: boolean;
   showOnlyToggle?: boolean;
   showRefreshButton?: boolean;
+  hideToggleButton?: boolean;
   alreadyConfiguredWallet?: boolean;
   onStepClick: (stepId: string) => void;
   onRpcStepClick?: () => void;
@@ -40,6 +41,7 @@ export const OnboardingStepCard = ({
   isTesting = false,
   showOnlyToggle = false,
   showRefreshButton = false,
+  hideToggleButton = false,
   alreadyConfiguredWallet = false,
   onStepClick,
   onRpcStepClick,
@@ -112,16 +114,19 @@ export const OnboardingStepCard = ({
               </Button>
             ) : (
               <>
-                <Button
-                  variant="outline"
-                  size="default"
-                  className="flex-shrink-0 w-28"
-                  onClick={onRpcStepClick}
-                  disabled={!walletStepCompleted || rpcRequired}
-                >
-                  {rpcAddCompleted && <Check className="w-4 h-4 mr-1" />}
-                  {isMetaMask ? 'Toggle' : 'Add'}
-                </Button>
+                {/* Hide toggle/add button when alreadyConfiguredWallet is true */}
+                {!hideToggleButton && (
+                  <Button
+                    variant="outline"
+                    size="default"
+                    className="flex-shrink-0 w-28"
+                    onClick={onRpcStepClick}
+                    disabled={!walletStepCompleted || rpcRequired}
+                  >
+                    {rpcAddCompleted && <Check className="w-4 h-4 mr-1" />}
+                    {isMetaMask ? 'Toggle' : 'Add'}
+                  </Button>
+                )}
                 {/* Show test button:
                     - For happy path (alreadyConfiguredWallet === true): show when toggle is completed
                     - For not happy path (alreadyConfiguredWallet === false): hide when toggle completed (show refresh instead) */}
