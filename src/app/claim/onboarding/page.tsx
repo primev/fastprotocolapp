@@ -39,7 +39,6 @@ import { MintButtonSection } from '@/components/onboarding/MintButtonSection';
 import { MetaMaskToggleModal } from '@/components/onboarding/MetaMaskToggleModal';
 import { AddRpcModal } from '@/components/onboarding/AddRpcModal';
 import { BrowserWalletStepsModal } from '@/components/onboarding/BrowserWalletStepsModal';
-import { WalletWarningModal } from '@/components/onboarding/WalletWarningModal';
 import { EmailDialog } from '@/components/onboarding/EmailDialog';
 
 // Constants
@@ -132,8 +131,6 @@ const OnboardingPage = () => {
   const [isMetaMaskModalOpen, setIsMetaMaskModalOpen] = useState(false);
   const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false);
   const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false);
-  const [isWalletWarningModalOpen, setIsWalletWarningModalOpen] = useState(false);
-  const [walletWarningAcknowledged, setWalletWarningAcknowledged] = useState(false);
 
   // Derived values
   const walletStep = steps.find((s) => s.id === 'wallet');
@@ -161,14 +158,10 @@ const OnboardingPage = () => {
       },
       email: () => emailCapture.setIsEmailDialogOpen(true),
       wallet: () => {
-        if (!walletWarningAcknowledged) {
-          setIsWalletWarningModalOpen(true);
+        if (openConnectModal) {
+          openConnectModal();
         } else {
-          if (openConnectModal) {
-            openConnectModal();
-          } else {
-            toast.error('Unable to open wallet connection modal');
-          }
+          toast.error('Unable to open wallet connection modal');
         }
       },
       rpc: () => {
@@ -322,21 +315,6 @@ const OnboardingPage = () => {
         onComplete={() => {
           rpcSetup.setRpcAddCompleted(true);
           setIsBrowserWalletModalOpen(false);
-        }}
-      />
-
-      {/* Wallet Warning Modal */}
-      <WalletWarningModal
-        open={isWalletWarningModalOpen}
-        onOpenChange={setIsWalletWarningModalOpen}
-        onAcknowledge={() => {
-          setWalletWarningAcknowledged(true);
-          setIsWalletWarningModalOpen(false);
-          if (openConnectModal) {
-            openConnectModal();
-          } else {
-            toast.error('Unable to open wallet connection modal');
-          }
         }}
       />
 
