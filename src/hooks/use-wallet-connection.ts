@@ -11,6 +11,7 @@ export interface UseWalletConnectionProps {
   hasInitialized: boolean;
   updateStepStatus: (stepId: string, completed: boolean) => void;
   setRpcRequired: (value: boolean) => void;
+  rpcRequired: boolean;
 }
 
 export interface UseWalletConnectionReturn {
@@ -26,7 +27,8 @@ export function useWalletConnection({
   walletStepCompleted,
   hasInitialized,
   updateStepStatus,
-  setRpcRequired
+  setRpcRequired,
+  rpcRequired,
 }: UseWalletConnectionProps): UseWalletConnectionReturn {
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
@@ -48,14 +50,14 @@ export function useWalletConnection({
   useEffect(() => {
     if (!hasInitialized) return;
 
-    if (isConnected && !walletStepCompleted) {
+    if (isConnected && !walletStepCompleted && !rpcRequired) {
       updateStepStatus('wallet', true);
       setRpcRequired(false); // Reset when wallet reconnects
     } else if (!isConnected && walletStepCompleted) {
       updateStepStatus('wallet', false);
       setRpcRequired(false); // Reset when disconnected
     }
-  }, [isConnected, walletStepCompleted, hasInitialized, updateStepStatus, setRpcRequired]);
+  }, [isConnected, walletStepCompleted, hasInitialized, updateStepStatus, setRpcRequired, rpcRequired]);
 
   // Update Ethereum network after wallet step is marked as successful
   useEffect(() => {
