@@ -30,3 +30,4 @@ export const NETWORK_CONFIG = {
  * RPC endpoint for testing
  */
 export const RPC_ENDPOINT = 'https://fastrpc.mev-commit.xyz';
+export const FALLBACK_RPC_ENDPOINT = 'https://eth.llamarpc.com';
