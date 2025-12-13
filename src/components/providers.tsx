@@ -10,7 +10,17 @@ import { Toaster as Sonner } from '@/components/ui/sonner';
 import { config } from '@/lib/wagmi';
 import '@rainbow-me/rainbowkit/styles.css';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 0,       // Data becomes stale immediately
+      gcTime: 0,          // No cache garbage collection timer
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: 'always',
+    },
+  },
+});
 
 const Disclaimer: DisclaimerComponent = ({ Text }) => (
   <Text>
