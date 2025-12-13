@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, useAccount } from 'wagmi';
 import { DisclaimerComponent, RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
@@ -90,7 +90,7 @@ function WalletDisconnectHandler() {
           ethereum.removeEventListener('accountsChanged', handleAccountsChanged);
           ethereum.removeEventListener('disconnect', handleDisconnect);
         }
-        
+
         if (ethereum.providers && Array.isArray(ethereum.providers)) {
           ethereum.providers.forEach((provider: any) => {
             if (provider) {

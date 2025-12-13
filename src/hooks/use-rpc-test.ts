@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { getWalletClient } from 'wagmi/actions';
-import { mainnet } from 'wagmi/chains';
-import { createWalletClient, custom, type Address } from 'viem';
-import { useWalletProvider } from '@/hooks/use-wallet-provider';
+import { type Address } from 'viem';
+import { config } from '@/lib/wagmi';
 
 export interface TestResult {
     success: boolean;
@@ -57,8 +56,7 @@ function getRejectionMessage(): string {
 }
 
 export function useRPCTest(): UseRPCTestReturn {
-    const { isConnected, address, connector } = useAccount();
-    const { provider: walletProvider, isLoading: isLoadingProvider } = useWalletProvider(connector);
+    const { isConnected, address } = useAccount();
     const [isTesting, setIsTesting] = useState(false);
     const [testResult, setTestResult] = useState<TestResult | null>(null);
     const [isQueryingAPI, setIsQueryingAPI] = useState(false);
@@ -154,7 +152,7 @@ export function useRPCTest(): UseRPCTestReturn {
         setTestResult(null);
         resetSend();
 
-        if (!isConnected || !address || !connector) {
+        if (!isConnected || !address) {
             toast.error("Wallet not connected", {
                 description: "Please connect your wallet first.",
             });
@@ -166,26 +164,14 @@ export function useRPCTest(): UseRPCTestReturn {
         setSendError(null);
 
         try {
-            // Wait for provider to be loaded if still loading
-            if (isLoadingProvider) {
-                // Wait a bit for provider to load
-                await new Promise(resolve => setTimeout(resolve, 100));
+            // Get wallet client from wagmi config
+            const walletClient = await getWalletClient(config);
+
+            if (!walletClient) {
+                throw new Error('Wallet client not available');
             }
 
-            const provider = walletProvider;
-
-            if (!provider) {
-                throw new Error('Provider not available');
-            }
-
-            // Create a wallet client with the specific provider
-            const walletClient = createWalletClient({
-                account: address as Address,
-                chain: mainnet,
-                transport: custom(provider),
-            });
-
-            // Send transaction using the specific provider
+            // Send transaction using the wallet client
             const txHash = await walletClient.sendTransaction({
                 to: address as Address,
                 value: BigInt(0),
