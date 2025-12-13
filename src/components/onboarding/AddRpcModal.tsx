@@ -47,9 +47,6 @@ export const AddRpcModal = ({
             )}
             Add RPC to {walletName}
           </DialogTitle>
-          <DialogDescription className="text-center text-sm sm:text-base pt-2">
-            Follow these steps to configure your wallet with Fast Protocol RPC
-          </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <div className="flex-1 min-h-0 overflow-hidden -mx-4 sm:mx-0 px-4 sm:px-0 pt-4">
@@ -60,30 +57,29 @@ export const AddRpcModal = ({
               </TabsList>
               <TabsContent value="network" className="mt-4 flex-1 min-h-0 overflow-y-auto">
                 <NetworkDetailsTab />
+                <div className="flex-shrink-0 pt-4 border-t border-border mt-4">
+                  <Button className="w-full" onClick={onComplete}>
+                    <Check className="w-4 h-4 mr-2" />
+                    Mark as Completed
+                  </Button>
+                </div>
               </TabsContent>
               <TabsContent
                 value="video"
                 className="mt-4 flex-1 min-h-0 overflow-hidden flex items-center justify-center"
               >
-                <div className="w-full h-full max-w-full max-h-full rounded-lg overflow-hidden flex justify-center items-center p-2">
+                <div className="flex justify-center mb-4">
                   <Image
-                    src={isMetaMask ? '/assets/Toggle-Metamask.gif' : '/assets/Rabby-Setup.gif'}
-                    alt={isMetaMask ? 'Toggle MetaMask Network' : 'Rabby Setup'}
-                    width={800}
-                    height={600}
-                    className="rounded-lg object-contain w-auto h-auto"
-                    style={{ maxHeight: '100%', maxWidth: '100%' }}
+                    src="/assets/Rabby-Setup.gif"
+                    alt="Rabby Setup"
+                    width={300}
+                    height={200}
+                    className="rounded-lg"
                     unoptimized
                   />
                 </div>
               </TabsContent>
             </Tabs>
-          </div>
-          <div className="flex-shrink-0 pt-4 border-t border-border mt-4">
-            <Button className="w-full" onClick={onComplete}>
-              <Check className="w-4 h-4 mr-2" />
-              Mark as Completed
-            </Button>
           </div>
         </div>
       </DialogContent>
