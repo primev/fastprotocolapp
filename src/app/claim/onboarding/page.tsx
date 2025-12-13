@@ -117,7 +117,8 @@ const OnboardingPage = () => {
     walletStepCompleted: steps.find((s) => s.id === 'wallet')?.completed || false,
     hasInitialized,
     updateStepStatus,
-    setRpcRequired: rpcSetup.setRpcRequired
+    setRpcRequired: rpcSetup.setRpcRequired,
+    rpcRequired: rpcSetup.rpcRequired,
   });
 
   const minting = useMinting({
@@ -136,7 +137,7 @@ const OnboardingPage = () => {
   const walletStep = steps.find((s) => s.id === 'wallet');
   const isMetaMask = isMetaMaskWallet(connector);
   const isRabby = isRabbyWallet(connector);
-  const isWalletStepWithWarning = walletStep?.id === 'wallet' && rpcSetup.rpcRequired;
+  const isWalletStepWithWarning = rpcSetup.rpcRequired;
 
   // Event handlers
   const handleStepAction = (stepId: string) => {

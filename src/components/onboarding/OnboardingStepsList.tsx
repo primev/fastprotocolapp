@@ -37,8 +37,7 @@ export const OnboardingStepsList = ({
       {steps.map((step, index) => {
         const isWalletStep = step.id === 'wallet';
         const isRpcStep = step.id === 'rpc';
-        const showWarning =
-          (isWalletStepWithWarning && isWalletStep);
+        const showWarning = isWalletStep && (isWalletStepWithWarning || rpcRequired);
 
         return (
           <OnboardingStepCard

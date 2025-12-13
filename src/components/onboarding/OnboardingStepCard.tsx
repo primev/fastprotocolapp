@@ -42,7 +42,6 @@ export const OnboardingStepCard = ({
 }: OnboardingStepCardProps) => {
   const Icon = step.icon;
   const isWalletStepWithWarning = isWalletStep && rpcRequired;
-  const isWalletStepWithSmartAccountWarning = isWalletStep && showWarning && !rpcRequired;
 
   return (
     <Card
@@ -82,9 +81,7 @@ export const OnboardingStepCard = ({
           <p className="text-sm text-muted-foreground">
             {isWalletStepWithWarning
               ? 'You must add Fast RPC to your wallet to continue'
-              : isWalletStepWithSmartAccountWarning
-                ? 'This wallet is using a smart account.'
-                : step.description}
+              : step.description}
           </p>
         </div>
 
@@ -123,7 +120,7 @@ export const OnboardingStepCard = ({
             size="default"
             className="flex-shrink-0 w-28"
             disabled={
-              step.completed && !isRpcStep && !isWalletStep
+              step.completed && !isRpcStep && !isWalletStep && !rpcRequired
             }
           >
             {step.id === 'follow' && (step.completed ? 'Following' : 'Follow')}

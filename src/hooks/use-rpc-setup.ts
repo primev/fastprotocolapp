@@ -41,7 +41,7 @@ export function useRPCSetup({
   const [rpcRequired, setRpcRequired] = useState(false);
   const hasPromptedAddRpc = useRef(false);
   const updateStepStatusRef = useRef(updateStepStatus);
-  
+
   // Keep ref in sync with latest function
   useEffect(() => {
     updateStepStatusRef.current = updateStepStatus;
@@ -101,18 +101,15 @@ export function useRPCSetup({
         method: 'wallet_addEthereumChain',
         params: [NETWORK_CONFIG],
       });
-      
+
       // Only show toast for MetaMask
       if (isMetaMaskWallet(connector)) {
         toast.success('Network added successfully', {
           description: 'Fast Protocol network has been added to your wallet.',
         });
-        // Mark toggle and test as completed for MetaMask
-        setRpcAddCompleted(true);
-        setRpcTestCompleted(true);
-      } else {
-        setRpcAddCompleted(true);
       }
+      
+      setRpcAddCompleted(false);
       setRpcRequired(false);
       updateStepStatus('wallet', true);
     } catch (error: any) {
@@ -159,6 +156,9 @@ export function useRPCSetup({
             description: 'Fast Protocol network has been added to your wallet.',
           });
         }
+        
+        // Don't auto-complete toggle/add step - user must manually mark it as complete
+        setRpcAddCompleted(false);
         setRpcRequired(false);
       } catch (error: any) {
         // Handle user rejection - mark step 5 as incomplete and show warning
@@ -199,7 +199,7 @@ export function useRPCSetup({
   useEffect(() => {
     if (!hasInitialized) return;
     const rpcStepCompleted = rpcAddCompleted && rpcTestCompleted;
-    
+
     if (!isConnected) {
       // Reset state and mark step as incomplete when disconnected
       hasPromptedAddRpc.current = false;
