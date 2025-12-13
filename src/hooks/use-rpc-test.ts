@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
+import { sendTransaction } from '@wagmi/core'
 import { getWalletClient } from 'wagmi/actions';
 import { config } from '@/lib/wagmi';
+import { parseGwei, createWalletClient, custom } from 'viem';
+import { getProviderForConnector } from '@/lib/wallet-provider';
 
 export interface TestResult {
     success: boolean;
@@ -174,21 +177,15 @@ export function useRPCTest(): UseRPCTestReturn {
         setSendError(null);
 
         try {
-            // getWalletClient already bypasses window.ethereum - no need to disable interceptors
-            const walletClient = await getWalletClient(config, { connector });
 
-            if (!walletClient) {
-                throw new Error('Wallet client not available');
-            }
 
             const txParams = {
                 to: address,
                 value: BigInt(0),
-                gas: BigInt(21000),
-                maxFeePerGas: BigInt(30000000000),
                 maxPriorityFeePerGas: BigInt(0),
             };
-            const txHash = await walletClient.sendTransaction(txParams as any);
+
+            const txHash = await sendTransaction(config, txParams as any);
             setHash(txHash as `0x${string}`);
             setIsSending(false);
         } catch (error: any) {
