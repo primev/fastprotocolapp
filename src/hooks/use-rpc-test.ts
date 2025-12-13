@@ -4,7 +4,7 @@ import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { getWalletClient } from 'wagmi/actions';
 import { mainnet } from 'wagmi/chains';
 import { createWalletClient, custom, type Address } from 'viem';
-import { getProviderForConnector, getWalletTypeFromConnector } from '@/lib/wallet-provider';
+import { useWalletProvider } from '@/hooks/use-wallet-provider';
 
 export interface TestResult {
     success: boolean;
@@ -58,6 +58,7 @@ function getRejectionMessage(): string {
 
 export function useRPCTest(): UseRPCTestReturn {
     const { isConnected, address, connector } = useAccount();
+    const { provider: walletProvider, isLoading: isLoadingProvider } = useWalletProvider(connector);
     const [isTesting, setIsTesting] = useState(false);
     const [testResult, setTestResult] = useState<TestResult | null>(null);
     const [isQueryingAPI, setIsQueryingAPI] = useState(false);
@@ -165,47 +166,16 @@ export function useRPCTest(): UseRPCTestReturn {
         setSendError(null);
 
         try {
-            // Get the specific provider for the connected wallet to avoid conflicts
-            let provider = null;
-            try {
-                provider = await connector.getProvider();
-            } catch (error) {
-                console.error('Error getting provider from connector:', error);
+            // Wait for provider to be loaded if still loading
+            if (isLoadingProvider) {
+                // Wait a bit for provider to load
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
 
-            // Fallback to getProviderForConnector if connector.getProvider fails
-            if (!provider) {
-                provider = await getProviderForConnector(connector);
-            }
-
-            // Final fallback to window.ethereum (most reliable)
-            if (!provider && typeof window !== 'undefined' && (window as any).ethereum) {
-                const ethereum = (window as any).ethereum;
-                // If it's an array, find the correct provider
-                if (Array.isArray(ethereum)) {
-                    // Try to find the provider that matches the connector
-                    const walletType = getWalletTypeFromConnector(connector);
-                    if (walletType === 'metamask') {
-                        provider = ethereum.find((p: any) => p && p.isMetaMask === true && !p.isRabby);
-                    } else if (walletType === 'rabby') {
-                        provider = ethereum.find((p: any) => p && p.isRabby === true);
-                    }
-                    // Fallback to first provider if not found
-                    if (!provider) {
-                        provider = ethereum[0];
-                    }
-                } else {
-                    provider = ethereum;
-                }
-            }
+            const provider = walletProvider;
 
             if (!provider) {
                 throw new Error('Provider not available');
-            }
-
-            // Verify provider has request method
-            if (!provider.request || typeof provider.request !== 'function') {
-                throw new Error('Provider not ready');
             }
 
             // Create a wallet client with the specific provider
