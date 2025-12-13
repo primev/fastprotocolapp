@@ -1,9 +1,8 @@
 import { connectorsForWallets } from '@rainbow-me/rainbowkit';
 import { injectedWallet } from '@rainbow-me/rainbowkit/wallets';
-import { createConfig, http, unstable_connector, fallback } from 'wagmi';
-import { injected } from 'wagmi/connectors';
+import { createConfig, http, fallback } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
-import { QueryClient } from '@tanstack/react-query';
+import { RPC_ENDPOINT } from '@/lib/network-config';
 
 
 const connectors = connectorsForWallets(
@@ -19,25 +18,14 @@ const connectors = connectorsForWallets(
   }
 );
 
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 0,       // Data becomes stale immediately
-      gcTime: 0,          // No cache garbage collection timer
-      refetchOnMount: true,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: true,
-    },
-  },
-})
 
 export const config = createConfig({
   chains: [mainnet],
   connectors,
   transports: {
     [mainnet.id]: fallback([
-      unstable_connector(injected), // This will use the custom RPC endpoint for the wallet
-      http(), // This will use the default RPC endpoint
+      http(RPC_ENDPOINT), // Fast RPC
+      http(), // public fallback
     ]),
   },
   ssr: true,
