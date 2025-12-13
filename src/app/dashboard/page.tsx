@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, Suspense, useCallback } from 'react';
 import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -31,23 +31,22 @@ import {
   Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAccount, usePublicClient } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { ConnectButton, useAccountModal } from '@rainbow-me/rainbowkit';
 import { CONTRACT_ABI, CONTRACT_ADDRESS, NFT_NAME, NFT_DESCRIPTION, NFT_ASSET } from '@/lib/contract-config';
+import { useReadOnlyContractCall } from '@/hooks/use-read-only-contract-call';
 import { DeFiProtocolsModal } from '@/components/dashboard/DeFiProtocolsModal';
 import {
   NetworkSetupDrawer,
   RPCTestModal
 } from '@/components/network-checker';
 import { useRPCTest } from '@/hooks/use-rpc-test';
-import type { Address, Abi } from 'viem';
 
 
 const DashboardContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isConnected, address, status } = useAccount();
-  const publicClient = usePublicClient();
   const { openAccountModal } = useAccountModal();
 
   const [referralCode] = useState('FAST-GEN-ABC123');
@@ -74,90 +73,81 @@ const DashboardContent = () => {
 
   useEffect(() => setIsMounted(true), []);
 
-  // Handle tokenId from query params (post-mint redirect)
-  // useEffect(() => {
-  //   if (!isMounted || hasProcessedQueryParam.current) return;
+  // Memoize args to prevent unnecessary refetches
+  const contractArgs = useMemo(() => (address ? [address] : []), [address]);
 
-  //   const tokenIdParam = searchParams.get('tokenId');
-  //   if (tokenIdParam) {
-  //     setTokenIdFromQuery(tokenIdParam);
-  //     localStorage.setItem('genesisSBTTokenId', tokenIdParam);
-  //     hasProcessedQueryParam.current = true;
+  // Use the read-only contract call hook
+  const {
+    data: contractTokenId,
+    isLoading: isLoadingTokenId,
+    error: tokenIdError,
+  } = useReadOnlyContractCall<bigint>({
+    contractAddress: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: 'getTokenIdByAddress',
+    args: contractArgs,
+    enabled: isConnected && !!address,
+  });
 
-  //     const newUrl = new URL(window.location.href);
-  //     newUrl.searchParams.delete('tokenId');
-  //     router.replace(newUrl.pathname + newUrl.search, { scroll: false });
-  //   }
-  // }, [isMounted, searchParams, router]);
-
-  // Fetch tokenId from contract
+  // Handle query params and process contract result
   useEffect(() => {
-    if (!isConnected || !address || !publicClient) {
+    if (!isConnected || !address) {
+      setFetchedTokenId(undefined);
+      setTokenIdFromQuery(null); // Clear query tokenId when disconnected
+      return;
+    }
+
+    // Handle tokenId from query params (post-mint redirect)
+    const tokenIdParam = searchParams.get('tokenId');
+    if (tokenIdParam && !hasProcessedQueryParam.current) {
+      setTokenIdFromQuery(tokenIdParam);
+      localStorage.setItem('genesisSBTTokenId', tokenIdParam);
+      hasProcessedQueryParam.current = true;
+
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('tokenId');
+      router.replace(newUrl.pathname + newUrl.search, { scroll: false });
+    }
+
+    // Process contract result
+    if (tokenIdError) {
+      console.error('Error reading tokenId:', tokenIdError);
       setFetchedTokenId(undefined);
       return;
     }
 
-    let cancelled = false;
+    if (!isLoadingTokenId && contractTokenId !== null && contractTokenId !== undefined) {
+      const fetchedValue = contractTokenId;
+      console.log('Fetched tokenId from contract:', fetchedValue?.toString(), 'for address:', address);
 
-    const fetchTokenId = async () => {
-      try {
-          // Handle tokenId from query params (post-mint redirect)
-        const tokenIdParam = searchParams.get('tokenId');
-        if (tokenIdParam) {
-          setTokenIdFromQuery(tokenIdParam);
-          localStorage.setItem('genesisSBTTokenId', tokenIdParam);
-          hasProcessedQueryParam.current = true;
-    
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.delete('tokenId');
-          router.replace(newUrl.pathname + newUrl.search, { scroll: false });
-        }
+      const tokenIdFromLocalStorage = localStorage.getItem('genesisSBTTokenId');
 
-        // Force provider sync
-        await publicClient.getBlockNumber();
-
-        const result = await publicClient.readContract({
-          address: CONTRACT_ADDRESS as Address,
-          abi: CONTRACT_ABI,
-          functionName: 'getTokenIdByAddress',
-          args: [address as Address],
-          blockTag: 'latest',
-        } as any);
-
-        if (!cancelled) {
-          const fetchedValue = result as bigint;
-          const tokenIdFromLocalStorage = localStorage.getItem('genesisSBTTokenId');
-
-          // If contract value matches stored value, clear from localStorage.
-          // This means that the contract has been updated and the user has minted the SBT.
-          if (tokenIdFromLocalStorage && fetchedValue !== BigInt(0) && fetchedValue.toString() === tokenIdFromLocalStorage) {
-            localStorage.removeItem('genesisSBTTokenId');
-              setFetchedTokenId(BigInt(tokenIdFromLocalStorage));
-
-          }
-          // Contract has not been updated yet, user just minted the SBT.
-          // Use the stored value from the query param.
-            setFetchedTokenId(BigInt(fetchedValue));
-        }
-      } catch (err) {
-        console.error('Error reading tokenId:', err);
-        if (!cancelled) setFetchedTokenId(undefined);
+      // If contract value matches stored value, clear from localStorage.
+      // This means that the contract has been updated and the user has minted the SBT.
+      if (tokenIdFromLocalStorage && fetchedValue !== BigInt(0) && fetchedValue.toString() === tokenIdFromLocalStorage) {
+        localStorage.removeItem('genesisSBTTokenId');
+        setFetchedTokenId(fetchedValue);
+      } else if (fetchedValue !== BigInt(0)) {
+        // Use the value from the contract
+        setFetchedTokenId(fetchedValue);
+      } else {
+        // No token found in contract
+        setFetchedTokenId(undefined);
       }
-    };
-
-    fetchTokenId();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isConnected, address, publicClient, tokenIdFromQuery]);
+    } else if (!isLoadingTokenId) {
+      // No token found
+      setFetchedTokenId(undefined);
+    }
+  }, [isConnected, address, contractTokenId, isLoadingTokenId, tokenIdError, searchParams, router]);
 
   // Determine final tokenId: query param > contract value
+  // Only use tokenId if wallet is connected
   const tokenId = useMemo(() => {
+    if (!isConnected || !address) return undefined;
     if (tokenIdFromQuery) return BigInt(tokenIdFromQuery);
     if (fetchedTokenId !== undefined && fetchedTokenId !== BigInt(0)) return fetchedTokenId;
     return undefined;
-  }, [tokenIdFromQuery, fetchedTokenId]);
+  }, [tokenIdFromQuery, fetchedTokenId, isConnected, address]);
 
 
   const hasGenesisSBT = tokenId !== undefined && tokenId !== BigInt(0);
