@@ -40,6 +40,7 @@ import { MetaMaskToggleModal } from '@/components/onboarding/MetaMaskToggleModal
 import { AddRpcModal } from '@/components/onboarding/AddRpcModal';
 import { BrowserWalletStepsModal } from '@/components/onboarding/BrowserWalletStepsModal';
 import { EmailDialog } from '@/components/onboarding/EmailDialog';
+import { AlreadyConfiguredWallet } from '@/components/onboarding/AlreadyConfiguredWallet';
 
 // Constants
 const baseSteps: BaseStep[] = [
@@ -102,6 +103,9 @@ const OnboardingPage = () => {
 
   const emailCapture = useEmailCapture();
 
+  // Already configured wallet state - must be declared before hooks that use it
+  const [alreadyConfiguredWallet, setAlreadyConfiguredWallet] = useState<boolean | null>(null);
+
   const rpcSetup = useRPCSetup({
     isConnected,
     connector,
@@ -109,6 +113,7 @@ const OnboardingPage = () => {
     hasInitialized,
     updateStepStatus,
     rpcTest,
+    alreadyConfiguredWallet: alreadyConfiguredWallet === true,
   });
 
   useWalletConnection({
@@ -119,6 +124,7 @@ const OnboardingPage = () => {
     updateStepStatus,
     setRpcRequired: rpcSetup.setRpcRequired,
     rpcRequired: rpcSetup.rpcRequired,
+    alreadyConfiguredWallet: alreadyConfiguredWallet === true,
   });
 
   const minting = useMinting({
@@ -132,12 +138,14 @@ const OnboardingPage = () => {
   const [isMetaMaskModalOpen, setIsMetaMaskModalOpen] = useState(false);
   const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false);
   const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false);
+  const [isAlreadyConfiguredModalOpen, setIsAlreadyConfiguredModalOpen] = useState(false);
 
   // Derived values
   const walletStep = steps.find((s) => s.id === 'wallet');
   const isMetaMask = isMetaMaskWallet(connector);
   const isRabby = isRabbyWallet(connector);
   const isWalletStepWithWarning = rpcSetup.rpcRequired;
+  
 
   // Event handlers
   const handleStepAction = (stepId: string) => {
@@ -159,11 +167,8 @@ const OnboardingPage = () => {
       },
       email: () => emailCapture.setIsEmailDialogOpen(true),
       wallet: () => {
-        if (openConnectModal) {
-          openConnectModal();
-        } else {
-          toast.error('Unable to open wallet connection modal');
-        }
+        // Always show the modal when connect button is clicked
+        setIsAlreadyConfiguredModalOpen(true);
       },
       rpc: () => {
         if (!isConnected) {
@@ -200,6 +205,12 @@ const OnboardingPage = () => {
     setIsRPCTestModalOpen(false);
     rpcSetup.setRpcTestCompleted(true);
     rpcTest.reset();
+  };
+
+  const handleAlreadyConfiguredSelect = (isConfigured: boolean) => {
+    setAlreadyConfiguredWallet(isConfigured);
+    setIsAlreadyConfiguredModalOpen(false);
+    openConnectModal();
   };
 
   const handleWalletStepClick = async () => {
@@ -258,6 +269,7 @@ const OnboardingPage = () => {
               rpcRequired={rpcSetup.rpcRequired}
               isTesting={rpcTest.isTesting}
               walletStepCompleted={walletStep?.completed || false}
+              alreadyConfiguredWallet={alreadyConfiguredWallet ?? false}
               onStepClick={handleStepClick}
               onRpcStepClick={handleRpcStepClick}
               onTestClick={handleTestClick}
@@ -333,6 +345,12 @@ const OnboardingPage = () => {
           updateStepStatus('email', true);
           emailCapture.resetEmailForm();
         }}
+      />
+
+      {/* Already Configured Wallet Modal */}
+      <AlreadyConfiguredWallet
+        open={isAlreadyConfiguredModalOpen}
+        onSelect={handleAlreadyConfiguredSelect}
       />
 
     </div>

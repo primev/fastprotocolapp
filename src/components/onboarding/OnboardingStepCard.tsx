@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Check, AlertTriangle } from 'lucide-react';
+import { Check, AlertTriangle, RefreshCw } from 'lucide-react';
 import type { BaseStep } from '@/hooks/use-onboarding-steps';
 
 interface OnboardingStepCardProps {
@@ -17,6 +17,9 @@ interface OnboardingStepCardProps {
   rpcTestCompleted?: boolean;
   rpcRequired?: boolean;
   isTesting?: boolean;
+  showOnlyToggle?: boolean;
+  showRefreshButton?: boolean;
+  alreadyConfiguredWallet?: boolean;
   onStepClick: (stepId: string) => void;
   onRpcStepClick?: () => void;
   onTestClick?: () => void;
@@ -35,6 +38,9 @@ export const OnboardingStepCard = ({
   rpcTestCompleted = false,
   rpcRequired = false,
   isTesting = false,
+  showOnlyToggle = false,
+  showRefreshButton = false,
+  alreadyConfiguredWallet = false,
   onStepClick,
   onRpcStepClick,
   onTestClick,
@@ -42,11 +48,16 @@ export const OnboardingStepCard = ({
 }: OnboardingStepCardProps) => {
   const Icon = step.icon;
   const isWalletStepWithWarning = isWalletStep && rpcRequired;
+  const isRpcStepWithWarning = isRpcStep && showWarning;
+
+  const handleRefresh = () => {
+    window.location.reload();
+  };
 
   return (
     <Card
       className={`p-4 ${
-        showWarning && isWalletStep
+        showWarning && (isWalletStep || isRpcStep)
           ? 'bg-yellow-500/10 border-yellow-500/50'
           : step.completed
             ? 'bg-primary/5 border-primary/50'
@@ -56,14 +67,14 @@ export const OnboardingStepCard = ({
       <div className="flex items-center gap-4">
         <div
           className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-            showWarning && isWalletStep
+            showWarning && (isWalletStep || isRpcStep)
               ? 'bg-yellow-500/20 text-yellow-600'
               : step.completed
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-background'
           }`}
         >
-          {showWarning && isWalletStep ? (
+          {showWarning && (isWalletStep || isRpcStep) ? (
             <AlertTriangle className="w-5 h-5" />
           ) : step.completed ? (
             <Check className="w-5 h-5" />
@@ -81,32 +92,53 @@ export const OnboardingStepCard = ({
           <p className="text-sm text-muted-foreground">
             {isWalletStepWithWarning
               ? 'You must add Fast RPC to your wallet to continue'
-              : step.description}
+              : isRpcStepWithWarning
+                ? 'Page refresh required for configuration to take affect'
+                : step.description}
           </p>
         </div>
 
         {isRpcStep && isConnected ? (
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="default"
-              className="flex-shrink-0 w-28"
-              onClick={onRpcStepClick}
-              disabled={!walletStepCompleted || rpcRequired}
-            >
-              {rpcAddCompleted && <Check className="w-4 h-4 mr-1" />}
-              {isMetaMask ? 'Toggle' : 'Add'}
-            </Button>
-            <Button
-              variant="outline"
-              size="default"
-              className="flex-shrink-0 w-28"
-              onClick={onTestClick}
-              disabled={!walletStepCompleted || rpcRequired || isTesting}
-            >
-              {rpcTestCompleted && <Check className="w-4 h-4 mr-1" />}
-              {isTesting ? 'Testing...' : 'Test'}
-            </Button>
+            {showRefreshButton ? (
+              <Button
+                variant="outline"
+                size="default"
+                className="flex-shrink-0 w-28"
+                onClick={handleRefresh}
+              >
+                <RefreshCw className="w-4 h-4 mr-1" />
+                Refresh
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="default"
+                  className="flex-shrink-0 w-28"
+                  onClick={onRpcStepClick}
+                  disabled={!walletStepCompleted || rpcRequired}
+                >
+                  {rpcAddCompleted && <Check className="w-4 h-4 mr-1" />}
+                  {isMetaMask ? 'Toggle' : 'Add'}
+                </Button>
+                {/* Show test button:
+                    - For happy path (alreadyConfiguredWallet === true): show when toggle is completed
+                    - For not happy path (alreadyConfiguredWallet === false): hide when toggle completed (show refresh instead) */}
+                {((alreadyConfiguredWallet && rpcAddCompleted) || (!showOnlyToggle && !showRefreshButton && alreadyConfiguredWallet)) && (
+                  <Button
+                    variant="outline"
+                    size="default"
+                    className="flex-shrink-0 w-28"
+                    onClick={onTestClick}
+                    disabled={!walletStepCompleted || rpcRequired || isTesting}
+                  >
+                    {rpcTestCompleted && <Check className="w-4 h-4 mr-1" />}
+                    {isTesting ? 'Testing...' : 'Test'}
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         ) : (
           <Button

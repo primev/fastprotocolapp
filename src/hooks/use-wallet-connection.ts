@@ -12,6 +12,7 @@ export interface UseWalletConnectionProps {
   updateStepStatus: (stepId: string, completed: boolean) => void;
   setRpcRequired: (value: boolean) => void;
   rpcRequired: boolean;
+  alreadyConfiguredWallet?: boolean;
 }
 
 export interface UseWalletConnectionReturn {
@@ -29,6 +30,7 @@ export function useWalletConnection({
   updateStepStatus,
   setRpcRequired,
   rpcRequired,
+  alreadyConfiguredWallet = false,
 }: UseWalletConnectionProps): UseWalletConnectionReturn {
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
@@ -70,8 +72,8 @@ export function useWalletConnection({
       return;
     }
 
-    if (chainId !== mainnet.id) {
-      // Not on mainnet - prompt to switch
+    if (chainId !== mainnet.id && !alreadyConfiguredWallet) {
+      // Not on mainnet - prompt to switch (only if wallet is not already configured)
       if (switchChain) {
         try {
           switchChain({ chainId: mainnet.id });
@@ -87,7 +89,7 @@ export function useWalletConnection({
         }
       }
     }
-  }, [walletStepCompleted, isConnected, chainId, switchChain, connector]);
+  }, [walletStepCompleted, isConnected, chainId, switchChain, connector, alreadyConfiguredWallet]);
 
   return {};
 }

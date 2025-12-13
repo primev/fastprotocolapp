@@ -13,6 +13,7 @@ interface OnboardingStepsListProps {
   rpcRequired: boolean;
   isTesting: boolean;
   walletStepCompleted: boolean;
+  alreadyConfiguredWallet?: boolean;
   onStepClick: (stepId: string) => void;
   onRpcStepClick: () => void;
   onTestClick: () => void;
@@ -28,6 +29,7 @@ export const OnboardingStepsList = ({
   rpcRequired,
   isTesting,
   walletStepCompleted,
+  alreadyConfiguredWallet = false,
   onStepClick,
   onRpcStepClick,
   onTestClick,
@@ -38,13 +40,21 @@ export const OnboardingStepsList = ({
         const isWalletStep = step.id === 'wallet';
         const isRpcStep = step.id === 'rpc';
         const showWarning = isWalletStep && (isWalletStepWithWarning || rpcRequired);
+        
+        // Show warning on step 6 if toggle is completed and alreadyConfiguredWallet is false (not happy path)
+        // alreadyConfiguredWallet === false means they said "No" or "Unsure" (not happy path)
+        // When toggle is completed on not happy path: show refresh button, hide test button
+        const showRpcWarning = isRpcStep && !alreadyConfiguredWallet && rpcAddCompleted && !rpcTestCompleted;
+        // Only show toggle button (hide test) when alreadyConfiguredWallet is false and toggle not completed
+        // For happy path: when toggle is completed, show test button (unhide it)
+        const showOnlyToggle = isRpcStep && !alreadyConfiguredWallet && !rpcAddCompleted;
 
         return (
           <OnboardingStepCard
             key={step.id}
             step={step}
             index={index}
-            showWarning={showWarning}
+            showWarning={showWarning || showRpcWarning}
             isWalletStep={isWalletStep}
             isRpcStep={isRpcStep}
             isConnected={isConnected}
@@ -54,6 +64,9 @@ export const OnboardingStepsList = ({
             rpcRequired={rpcRequired}
             isTesting={isTesting}
             walletStepCompleted={walletStepCompleted}
+            showOnlyToggle={showOnlyToggle}
+            showRefreshButton={showRpcWarning}
+            alreadyConfiguredWallet={alreadyConfiguredWallet}
             onStepClick={onStepClick}
             onRpcStepClick={isRpcStep ? onRpcStepClick : undefined}
             onTestClick={isRpcStep ? onTestClick : undefined}

@@ -13,6 +13,7 @@ export interface UseRPCSetupProps {
   hasInitialized: boolean;
   updateStepStatus: (stepId: string, completed: boolean) => void;
   rpcTest: UseRPCTestReturn;
+  alreadyConfiguredWallet?: boolean;
 }
 
 export interface UseRPCSetupReturn {
@@ -35,6 +36,7 @@ export function useRPCSetup({
   hasInitialized,
   updateStepStatus,
   rpcTest,
+  alreadyConfiguredWallet = false,
 }: UseRPCSetupProps): UseRPCSetupReturn {
   const [rpcAddCompleted, setRpcAddCompleted] = useState(false);
   const [rpcTestCompleted, setRpcTestCompleted] = useState(false);
@@ -102,8 +104,8 @@ export function useRPCSetup({
         params: [NETWORK_CONFIG],
       });
 
-      // Only show toast for MetaMask
-      if (isMetaMaskWallet(connector)) {
+      // Only show toast for MetaMask if wallet is not already configured
+      if (isMetaMaskWallet(connector) && !alreadyConfiguredWallet) {
         toast.success('Network added successfully', {
           description: 'Fast Protocol network has been added to your wallet.',
         });
