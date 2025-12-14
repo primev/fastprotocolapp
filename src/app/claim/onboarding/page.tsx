@@ -250,8 +250,8 @@ const OnboardingPage = () => {
       <div className="relative z-10 flex flex-col min-h-screen">
         <OnboardingHeader />
 
-        <main className="container mx-auto px-4 flex-1 flex items-center justify-center">
-          <div className="max-w-3xl mx-auto w-full space-y-6 sm:space-y-8 lg:space-y-5">
+        <main className="w-full px-4 lg:container lg:mx-auto xl:w-full xl:max-w-none 2xl:container 2xl:mx-auto flex-1 flex items-center justify-center">
+          <div className="w-full lg:max-w-3xl xl:max-w-none 2xl:max-w-3xl mx-auto space-y-6 sm:space-y-8 lg:space-y-5">
             <OnboardingStepsList
               steps={steps}
               isWalletStepWithWarning={isWalletStepWithWarning}
@@ -276,8 +276,8 @@ const OnboardingPage = () => {
               onMint={minting.handleMintSbt}
             />
 
-            <div className="text-center space-y-1.5 sm:space-y-2 lg:space-y-1.5">
-              <p className="text-muted-foreground text-base sm:text-lg lg:text-sm xl:text-base">
+            <div className="text-center space-y-1.5 sm:space-y-2 tablet:space-y-2 lg:space-y-1.5 pb-4 sm:pb-0">
+              <p className="text-muted-foreground text-sm sm:text-base md:text-base tablet:text-lg lg:text-base xl:text-base">
                 Complete these steps to mint your Genesis SBT
               </p>
             </div>
