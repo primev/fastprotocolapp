@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ArrowRight } from 'lucide-react';
 
 interface SmartAccountModalProps {
   open: boolean;
@@ -41,6 +42,18 @@ export const SmartAccountModal = ({
   onOpenChange,
   onAcknowledged,
 }: SmartAccountModalProps) => {
+  const [activeTab, setActiveTab] = useState('warning');
+
+  const getTabMessage = () => {
+    if (activeTab === 'check') {
+      return 'Requires MetaMask.';
+    }
+    if (activeTab === 'video') {
+      return 'Requires MetaMask and Fast RPC disabled.';
+    }
+    return null;
+  };
+
   return (
     <Dialog
       open={open}
@@ -60,23 +73,32 @@ export const SmartAccountModal = ({
           translate-x-0 translate-y-0 sm:-translate-x-1/2 sm:-translate-y-1/2
           p-4 sm:p-6"
       >
-        {/* Header */}
         <DialogHeader className="flex-shrink-0">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500/10">
+          <div className="flex items-start gap-3 items-center">
+            {/* 1. Icon Container */}
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500/10 flex-shrink-0">
               <AlertTriangle className="h-5 w-5 text-yellow-600" />
             </div>
-            <DialogTitle>Smart Account Information</DialogTitle>
+
+            {/* 2. Text Column (Added justify-start) */}
+            <div className="flex flex-col">
+              <DialogTitle>Smart Account Information</DialogTitle>
+              {getTabMessage() && (
+                <div className="flex items-center gap-1 mt-2">
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    {getTabMessage()}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </DialogHeader>
 
-        {/* Body */}
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden pt-4">
-          <Tabs defaultValue="warning" className="h-full flex flex-col">
+          <Tabs defaultValue="warning" value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
             <TabsList className="grid grid-cols-3 flex-shrink-0">
-              <TabsTrigger value="warning">Why this matters</TabsTrigger>
-              <TabsTrigger value="check">Check</TabsTrigger>
-              <TabsTrigger value="video" className="flex items-center gap-2">
+              <TabsTrigger value="warning">Why this matters</TabsTrigger><TabsTrigger value="check">Check</TabsTrigger><TabsTrigger value="video" className="flex items-center gap-2">
                 Disable
                 <Badge
                   variant="secondary"
@@ -104,20 +126,16 @@ export const SmartAccountModal = ({
               value="check"
               className="mt-4 flex-1 overflow-hidden flex flex-col items-center gap-4"
             >
-              <div className="text-sm text-muted-foreground text-center">
-                  This only works if your wallet has been added to MetaMask.
-              </div>
-
               <div className="flex justify-center mb-4">
-                  <Image
-                    src="/assets/smart-check.gif"
-                    alt="Smart Check"
-                    width={300}
-                    height={200}
-                    className="rounded-lg"
-                    unoptimized
-                  />
-                </div>
+                <Image
+                  src="/assets/smart-check.gif"
+                  alt="Smart Check"
+                  width={300}
+                  height={200}
+                  className="rounded-lg"
+                  unoptimized
+                />
+              </div>
             </TabsContent>
 
             {/* Video Tab */}
@@ -125,20 +143,16 @@ export const SmartAccountModal = ({
               value="video"
               className="mt-4 flex-1 overflow-hidden flex flex-col items-center gap-4"
             >
-              <div className="text-sm text-muted-foreground text-center">
-                  This only works if your wallet has been added to MetaMask and you are NOT using the Fast RPC.
-              </div>
-
               <div className="flex justify-center mb-4">
-                  <Image
-                    src="/assets/smart-disable.gif"
-                    alt="Smart Disable"
-                    width={300}
-                    height={200}
-                    className="rounded-lg"
-                    unoptimized
-                  />
-                </div>
+                <Image
+                  src="/assets/smart-disable.gif"
+                  alt="Smart Disable"
+                  width={300}
+                  height={200}
+                  className="rounded-lg"
+                  unoptimized
+                />
+              </div>
             </TabsContent>
           </Tabs>
 
