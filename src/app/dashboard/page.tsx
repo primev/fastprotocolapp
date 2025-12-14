@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAccount } from 'wagmi';
-import { ConnectButton, useAccountModal } from '@rainbow-me/rainbowkit';
+import { ConnectButton, useAccountModal, useConnectModal } from '@rainbow-me/rainbowkit';
 import { CONTRACT_ABI, CONTRACT_ADDRESS, NFT_NAME, NFT_DESCRIPTION, NFT_ASSET } from '@/lib/contract-config';
 import { useReadOnlyContractCall } from '@/hooks/use-read-only-contract-call';
 import { DeFiProtocolsModal } from '@/components/dashboard/DeFiProtocolsModal';
@@ -55,6 +55,7 @@ const DashboardContent = () => {
   const searchParams = useSearchParams();
   const { isConnected, address, status, connector } = useAccount();
   const { openAccountModal } = useAccountModal();
+  const { openConnectModal } = useConnectModal();
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected);
 
   const [referralCode] = useState('FAST-GEN-ABC123');
@@ -345,7 +346,7 @@ const DashboardContent = () => {
             <div className="flex items-center gap-2 sm:gap-4">
               <Badge
                 variant="outline"
-                className="h-10 lg:h-8 px-3 lg:px-2.5 text-sm lg:text-sm border-primary/50 flex items-center"
+                className="h-10 px-3 lg:px-2.5 text-sm lg:text-sm border-primary/50 flex items-center"
               >
                 <Award className="w-4 h-4 lg:w-3.5 lg:h-3.5 mr-2 lg:mr-1.5 text-primary" />
                 {points} Points
@@ -361,14 +362,30 @@ const DashboardContent = () => {
                   <Wallet className="w-4 h-4" />
                 </Button>
               )}
-              {/* ConnectButton - full on desktop, icon-only on mobile when not connected */}
-              <div className={isConnected ? 'hidden sm:block' : ''}>
-                {!isMounted || status === 'connecting' || status === 'reconnecting' ? (
-                  <Skeleton className="h-10 w-32 rounded-full" />
-                ) : (
+              {/* ConnectButton - full on desktop, "Connect" only on mobile when not connected */}
+              {isConnected ? (
+                <div className="hidden sm:block">
                   <ConnectButton showBalance={false} accountStatus="address" />
-                )}
-              </div>
+                </div>
+              ) : (
+                <>
+                  {!isMounted || status === 'connecting' || status === 'reconnecting' ? (
+                    <Skeleton className="h-10 w-32 rounded-full" />
+                  ) : (
+                    <>
+                      <Button
+                        onClick={openConnectModal}
+                        className="h-10 sm:hidden px-4"
+                      >
+                        Connect
+                      </Button>
+                      <div className="hidden sm:block">
+                        <ConnectButton showBalance={false} accountStatus="address" />
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </header>
