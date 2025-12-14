@@ -37,7 +37,7 @@ export const EmailDialog = ({
 }: EmailDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md border-primary/50">
+      <DialogContent className="w-full h-full sm:h-auto sm:max-w-md border-primary/50 max-h-[100vh] sm:max-h-[90vh] rounded-none sm:rounded-lg inset-0 sm:inset-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%]">
         <DialogHeader>
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center border border-primary/30">

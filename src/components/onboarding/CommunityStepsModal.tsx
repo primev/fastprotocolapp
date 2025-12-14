@@ -138,7 +138,7 @@ export const CommunityStepsModal = forwardRef<CommunityStepsModalRef, CommunityS
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl border-primary/50 max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full h-full sm:h-auto sm:max-w-2xl border-primary/50 max-h-[100vh] sm:max-h-[90vh] rounded-none sm:rounded-lg inset-0 sm:inset-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-center text-2xl">Join Our Community</DialogTitle>
           <DialogDescription className="text-center text-base pt-2">
