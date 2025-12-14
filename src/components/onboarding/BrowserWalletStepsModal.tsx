@@ -29,7 +29,7 @@ export const BrowserWalletStepsModal = ({
 }: BrowserWalletStepsModalProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full h-full sm:h-auto sm:max-w-2xl border-primary/50 max-h-[100vh] sm:max-h-[90vh] !flex !flex-col m-0 sm:m-4 rounded-none sm:rounded-lg inset-0 sm:inset-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] p-4 sm:p-6">
+      <DialogContent className="w-full h-full sm:h-auto sm:max-w-2xl border-primary/50 max-h-[100vh] sm:max-h-[90vh] !flex !flex-col m-0 sm:m-4 rounded-none sm:rounded-lg inset-0 sm:inset-auto sm:left-[50%] sm:top-[50%] translate-x-0 translate-y-0 sm:translate-x-[-50%] sm:translate-y-[-50%] p-4 sm:p-6">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-center text-xl sm:text-2xl flex items-center justify-center gap-2">
             {walletIcon && (
@@ -55,7 +55,7 @@ export const BrowserWalletStepsModal = ({
                 <TabsTrigger value="steps">Steps</TabsTrigger>
                 <TabsTrigger value="network">Network Details</TabsTrigger>
               </TabsList>
-              <TabsContent value="steps" className="mt-4 flex-1 min-h-0 overflow-y-auto">
+              <TabsContent value="steps" className="mt-4 flex-1 min-h-0 overflow-y-auto flex flex-col justify-center sm:justify-start">
                 <div className="space-y-6">
                   <div className="space-y-3">
                     <div className="flex gap-3">
@@ -111,12 +111,12 @@ export const BrowserWalletStepsModal = ({
                   </div>
                 </div>
               </TabsContent>
-              <TabsContent value="network" className="mt-4 flex-1 min-h-0 overflow-y-auto">
+              <TabsContent value="network" className="mt-4 flex-1 min-h-0 overflow-y-auto flex flex-col justify-center sm:justify-start">
                 <NetworkDetailsTab />
               </TabsContent>
             </Tabs>
           </div>
-          <div className="flex-shrink-0 pt-4 border-t border-border mt-4">
+          <div className="flex-shrink-0 pt-4 border-t border-border mt-4 -mx-4 sm:mx-0 px-4 sm:px-0">
             <Button className="w-full" onClick={onComplete}>
               <Check className="w-4 h-4 mr-2" />
               Mark as Complete

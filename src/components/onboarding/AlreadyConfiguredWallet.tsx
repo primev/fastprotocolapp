@@ -27,7 +27,7 @@ export const AlreadyConfiguredWallet = ({
         <Dialog open={open} onOpenChange={() => { }}>
             <DialogContent
                 hideClose
-                className="w-full h-full sm:h-auto sm:max-w-lg border-primary/50 max-h-[100vh] sm:max-h-[90vh] !flex !flex-col m-0 sm:m-4 rounded-none sm:rounded-lg inset-0 sm:inset-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] p-6 sm:p-8">
+                className="w-full h-full sm:h-auto sm:max-w-lg border-primary/50 max-h-[100vh] sm:max-h-[90vh] !flex !flex-col m-0 sm:m-4 rounded-none sm:rounded-lg inset-0 sm:inset-auto sm:left-[50%] sm:top-[50%] translate-x-0 translate-y-0 sm:translate-x-[-50%] sm:translate-y-[-50%] p-6 sm:p-8">
                 <DialogHeader className="flex-shrink-0 text-center">
                     <div className="flex justify-center mb-4">
                         <Image

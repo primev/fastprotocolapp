@@ -24,7 +24,7 @@ export const MetaMaskToggleModal = ({
 }: MetaMaskToggleModalProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full h-full sm:h-auto sm:max-w-md border-primary/50 max-h-[100vh] sm:max-h-[90vh] rounded-none sm:rounded-lg inset-0 sm:inset-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%]">
+      <DialogContent className="w-full h-full sm:h-auto sm:max-w-md border-primary/50 max-h-[100vh] sm:max-h-[90vh] flex flex-col m-0 sm:m-4 rounded-none sm:rounded-lg inset-0 sm:inset-auto sm:left-[50%] sm:top-[50%] translate-x-0 translate-y-0 sm:translate-x-[-50%] sm:translate-y-[-50%] p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-center text-2xl">Toggle Network</DialogTitle>
           <DialogDescription className="text-center text-base pt-2">

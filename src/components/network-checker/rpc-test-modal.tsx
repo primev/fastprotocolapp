@@ -57,10 +57,10 @@ export function RPCTestModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md border-primary/50" hideClose>
+      <DialogContent className="w-full h-full sm:h-auto sm:max-w-md border-primary/50 max-h-[100vh] sm:max-h-[90vh] flex flex-col justify-center sm:justify-start m-0 sm:m-4 rounded-none sm:rounded-lg inset-0 sm:inset-auto sm:left-[50%] sm:top-[50%] translate-x-0 translate-y-0 sm:translate-x-[-50%] sm:translate-y-[-50%] p-4 sm:p-6" hideClose>
         {rpcTest.testResult ? (
           <>
-            <DialogHeader>
+            <DialogHeader className="flex-shrink-0">
               <div className="flex items-center gap-3 mb-2">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-full ${rpcTest.testResult.success
                     ? 'bg-green-500/10'
@@ -101,7 +101,7 @@ export function RPCTestModal({
                 )}
               </div>
             </DialogHeader>
-            <DialogFooter>
+            <DialogFooter className="flex-shrink-0">
               <Button
                 onClick={handleClose}
                 className="w-full"
@@ -112,7 +112,7 @@ export function RPCTestModal({
           </>
         ) : (
           <>
-            <DialogHeader>
+            <DialogHeader className="flex-shrink-0">
               <div className="flex items-center gap-3 mb-2">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
                   <AlertCircle className="h-5 w-5 text-primary" />
@@ -136,7 +136,7 @@ export function RPCTestModal({
                 </p>
               </div>
             </DialogHeader>
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter className="flex-shrink-0 gap-2 sm:gap-0">
               <Button
                 variant="outline"
                 onClick={handleClose}
