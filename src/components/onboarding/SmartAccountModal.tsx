@@ -105,13 +105,13 @@ export const SmartAccountModal = ({
               className="mt-4 flex-1 overflow-hidden flex flex-col items-center gap-4"
             >
               <div className="text-sm text-muted-foreground text-center">
-                  This only works if your wallet has been added to MetaMask and you are NOT using the Fast RPC.
+                  This only works if your wallet has been added to MetaMask.
               </div>
 
               <div className="flex justify-center mb-4">
                   <Image
-                    src="/assets/Rabby-Setup.gif"
-                    alt="Rabby Setup"
+                    src="/assets/smart-check.gif"
+                    alt="Smart Check"
                     width={300}
                     height={200}
                     className="rounded-lg"
@@ -131,8 +131,8 @@ export const SmartAccountModal = ({
 
               <div className="flex justify-center mb-4">
                   <Image
-                    src="/assets/Rabby-Setup.gif"
-                    alt="Rabby Setup"
+                    src="/assets/smart-disable.gif"
+                    alt="Smart Disable"
                     width={300}
                     height={200}
                     className="rounded-lg"
