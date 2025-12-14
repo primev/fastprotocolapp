@@ -1,78 +1,71 @@
-import { useState, useEffect } from 'react';
-import { Address, PublicClient } from 'viem';
+import { useState } from 'react';
 
 export interface UseSmartAccountDetectionProps {
-  isConnected: boolean;
-  address: Address | undefined;
-  publicClient: PublicClient | undefined;
+  // No props needed - check is triggered manually
 }
 
 export interface UseSmartAccountDetectionReturn {
-  isSmartAccount: boolean;
   isSmartAccountModalOpen: boolean;
   smartAccountNotComplete: boolean;
   setIsSmartAccountModalOpen: (open: boolean) => void;
   setSmartAccountNotComplete: (value: boolean) => void;
+  markAsAcknowledged: () => void;
+  checkAndShowModal: () => boolean; // Returns true if modal should be shown, false if already acknowledged
+}
+
+const STORAGE_KEY = 'smart-account-notification-acknowledged';
+
+/**
+ * Check if user has acknowledged the smart account notification
+ */
+function hasAcknowledged(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(STORAGE_KEY) === 'true';
 }
 
 /**
- * Hook to detect if the connected wallet is a smart account
+ * Mark the smart account notification as acknowledged
  */
-export function useSmartAccountDetection({
-  isConnected,
-  address,
-  publicClient,
-}: UseSmartAccountDetectionProps): UseSmartAccountDetectionReturn {
+function markAsAcknowledged(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(STORAGE_KEY, 'true');
+}
+
+/**
+ * Hook to show smart account notification when user clicks connect button
+ */
+export function useSmartAccountDetection(
+  {}: UseSmartAccountDetectionProps = {}
+): UseSmartAccountDetectionReturn {
   const [isSmartAccountModalOpen, setIsSmartAccountModalOpen] = useState(false);
   const [smartAccountNotComplete, setSmartAccountNotComplete] = useState(false);
 
-  useEffect(() => {
-    const checkSmartAccount = async () => {
-      if (!isConnected || !address || !publicClient) {
-        return;
-      }
+  /**
+   * Check if user has acknowledged and show modal if not
+   * Returns true if modal should be shown, false if already acknowledged
+   */
+  const checkAndShowModal = (): boolean => {
+    // Check if user has already acknowledged
+    if (hasAcknowledged()) {
+      return false; // Already acknowledged, don't show modal
+    }
 
-      try {
-        // Check if address has code (is a smart contract/account)
-        const code = await publicClient.getCode({
-          address: address,
-          blockTag: 'latest',
-        });
+    // Show modal if not acknowledged
+    setIsSmartAccountModalOpen(true);
+    return true; // Modal will be shown
+  };
 
-        console.log('address', address);
-        console.log('code', code);
-
-        // If code exists and is not empty (not just "0x"), it's a smart account
-        // Check for code length > 2 to account for "0x" prefix
-        if (code && code !== '0x' && code !== '0x0' && code.length > 2) {
-          console.log('Smart account detected, code:', code.substring(0, 20) + '...');
-          setIsSmartAccountModalOpen(true);
-          // Reset the not complete state when a new smart account is detected
-          setSmartAccountNotComplete(false);
-        } else {
-          // Not a smart account, reset the state
-          setSmartAccountNotComplete(false);
-        }
-      } catch (error) {
-        console.error('Error checking smart account:', error);
-      }
-    };
-
-    // Add a small delay to ensure wallet is fully connected
-    const timer = setTimeout(() => {
-      checkSmartAccount();
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [isConnected, address, publicClient]);
-
-  const isSmartAccount = smartAccountNotComplete || isSmartAccountModalOpen;
+  const handleMarkAsAcknowledged = () => {
+    markAsAcknowledged();
+    setIsSmartAccountModalOpen(false);
+  };
 
   return {
-    isSmartAccount,
     isSmartAccountModalOpen,
     smartAccountNotComplete,
     setIsSmartAccountModalOpen,
     setSmartAccountNotComplete,
+    markAsAcknowledged: handleMarkAsAcknowledged,
+    checkAndShowModal,
   };
 }

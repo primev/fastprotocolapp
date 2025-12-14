@@ -8,7 +8,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { CheckCircle2, XCircle, HelpCircle } from 'lucide-react';
+import { Check, X, HelpCircle } from 'lucide-react';
 
 interface AlreadyConfiguredWalletProps {
     open: boolean;
@@ -52,7 +52,9 @@ export const AlreadyConfiguredWallet = ({
                             onClick={() => handleSelect(true)}
                         >
                             <div className="flex items-center gap-3 w-full">
-                                <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+                                <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                                    <Check className="w-9 h-9 text-green-500" />
+                                </div>
                                 <div className="flex-1 text-left">
                                     <div className="font-semibold">Yes, it's configured</div>
                                     <div className="text-xs text-muted-foreground">
@@ -69,7 +71,9 @@ export const AlreadyConfiguredWallet = ({
                             onClick={() => handleSelect(false)}
                         >
                             <div className="flex items-center gap-3 w-full">
-                                <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                                <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                                    <X className="w-9 h-9 text-red-500" />
+                                </div>
                                 <div className="flex-1 text-left">
                                     <div className="font-semibold">No, it's not configured</div>
                                     <div className="text-xs text-muted-foreground">
@@ -86,7 +90,9 @@ export const AlreadyConfiguredWallet = ({
                             onClick={() => handleSelect(false)}
                         >
                             <div className="flex items-center gap-3 w-full">
-                                <HelpCircle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+                                <div className="w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center flex-shrink-0">
+                                    <HelpCircle className="w-12 h-12 text-yellow-500" />
+                                </div>
                                 <div className="flex-1 text-left">
                                     <div className="font-semibold">I'm not sure</div>
                                     <div className="text-xs text-muted-foreground">
