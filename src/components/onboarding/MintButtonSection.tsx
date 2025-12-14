@@ -59,9 +59,9 @@ export const MintButtonSection = ({
           <div className="flex-1 space-y-4 w-full sm:w-auto">
 
 
-            <div className="pt-3 border-t border-border/50 flex flex-col justify-between h-48 sm:h-56">
+            <div className="pt-3 border-t border-border/50 flex flex-col justify-between min-h-[200px] sm:h-56">
             {/* Description */}
-              <div >
+              <div className="flex-shrink-0">
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Mint your Genesis SBT, earn Fast Points, and prove you were early to the execution UX layer that makes Ethereum feel instant.
                 </p>
@@ -70,16 +70,16 @@ export const MintButtonSection = ({
                 </p>
               </div>
               {/* Mint Button */}
-              <div className="flex flex-col items-end mt-auto">
+              <div className="flex flex-col items-center justify-center sm:items-end sm:justify-end mt-4 sm:mt-auto w-full sm:w-auto flex-shrink-0">
                 <Button
                   disabled={!allStepsCompleted || isMinting || alreadyMinted}
                   onClick={onMint}
-                  className="text-lg px-12 py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold disabled:opacity-50 disabled:cursor-not-allowed glow-border min-w-[200px] cursor-pointer"
+                  className="text-sm sm:text-base md:text-lg tablet:text-lg lg:text-lg px-4 sm:px-8 md:px-10 tablet:px-12 lg:px-12 py-2.5 sm:py-4 md:py-5 tablet:py-6 lg:py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold disabled:opacity-50 disabled:cursor-not-allowed glow-border w-full sm:w-auto sm:min-w-[180px] md:min-w-[200px] tablet:min-w-[200px] lg:min-w-[200px] cursor-pointer"
                 >
                   {isMinting ? (
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    <Loader2 className="w-4 h-4 sm:w-4 sm:h-4 md:w-5 md:h-5 tablet:w-5 tablet:h-5 lg:w-5 lg:h-5 mr-2 animate-spin" />
                   ) : alreadyMinted ? (
-                    <Check className="w-5 h-5 mr-2" />
+                    <Check className="w-4 h-4 sm:w-4 sm:h-4 md:w-5 md:h-5 tablet:w-5 tablet:h-5 lg:w-5 lg:h-5 mr-2" />
                   ) : (
                     <></>
                   )}

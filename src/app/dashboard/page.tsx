@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, Suspense, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -41,13 +41,21 @@ import {
   RPCTestModal
 } from '@/components/network-checker';
 import { useRPCTest } from '@/hooks/use-rpc-test';
+import { Separator } from '@/components/ui/separator';
+import { isMetaMaskWallet, isRabbyWallet } from '@/lib/onboarding-utils';
+import { useWalletInfo } from '@/hooks/use-wallet-info';
+import { MetaMaskToggleModal } from '@/components/onboarding/MetaMaskToggleModal';
+import { AddRpcModal } from '@/components/onboarding/AddRpcModal';
+import { BrowserWalletStepsModal } from '@/components/onboarding/BrowserWalletStepsModal';
+import { NETWORK_CONFIG } from '@/lib/network-config';
 
 
 const DashboardContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isConnected, address, status } = useAccount();
+  const { isConnected, address, status, connector } = useAccount();
   const { openAccountModal } = useAccountModal();
+  const { walletName, walletIcon } = useWalletInfo(connector, isConnected);
 
   const [referralCode] = useState('FAST-GEN-ABC123');
   const [points] = useState(0);
@@ -62,6 +70,9 @@ const DashboardContent = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [isDeFiModalOpen, setIsDeFiModalOpen] = useState(false);
+  const [isMetaMaskModalOpen, setIsMetaMaskModalOpen] = useState(false);
+  const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false);
+  const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false);
 
   // TokenId from query param (post-mint redirect)
   const [tokenIdFromQuery, setTokenIdFromQuery] = useState<string | null>(null);
@@ -70,6 +81,71 @@ const DashboardContent = () => {
 
   const rpcTest = useRPCTest();
 
+  // Wallet detection
+  const isMetaMask = isMetaMaskWallet(connector);
+  const isRabby = isRabbyWallet(connector);
+
+  // Handler for adding network (MetaMask wallet_addEthereumChain)
+  const handleAddNetwork = async () => {
+    if (!isConnected || !connector) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+
+    try {
+      let provider = null;
+      try {
+        provider = await connector.getProvider();
+      } catch (error) {
+        console.error('Error getting provider from connector:', error);
+      }
+
+      // Fallback to window.ethereum
+      if (!provider && typeof window !== 'undefined' && (window as any).ethereum) {
+        const ethereum = (window as any).ethereum;
+        provider = Array.isArray(ethereum) ? ethereum[0] : ethereum;
+      }
+
+      if (!provider || !provider.request) {
+        toast.error('Provider not available', {
+          description: 'Unable to access wallet provider.',
+        });
+        return;
+      }
+
+      await provider.request({
+        method: 'wallet_addEthereumChain',
+        params: [NETWORK_CONFIG],
+      });
+
+      toast.success('Network added successfully', {
+        description: 'Fast Protocol network has been added to your wallet.',
+      });
+    } catch (error: any) {
+      if (error?.code === 4001) {
+        // User rejected
+        return;
+      }
+      toast.error('Failed to add network', {
+        description: error?.message || 'Failed to add Fast Protocol network.',
+      });
+    }
+  };
+
+  // Handler for RPC setup based on wallet type
+  const handleRpcSetup = () => {
+    if (!isConnected) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+    if (isMetaMask) {
+      setIsMetaMaskModalOpen(true);
+    } else if (isRabby) {
+      setIsAddRpcModalOpen(true);
+    } else {
+      setIsBrowserWalletModalOpen(true);
+    }
+  };
 
   useEffect(() => setIsMounted(true), []);
 
@@ -245,13 +321,10 @@ const DashboardContent = () => {
   ], [isMounted, completedTasks]);
 
   return (
-    <div className="min-h-screen bg-background relative overflow-y-auto">
-      {/* Background effects */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10" />
+    <div className="h-screen w-full bg-background relative overflow-y-auto flex flex-col">
 
-      <div className="relative z-10 flex flex-col min-h-screen">
-        {/* Header */}
-        <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 bg-background/80 z-50">
+  {/* Header */}
+  <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 bg-background/80 z-50">
           <div className="container mx-auto px-4 py-4 lg:py-2.5 flex items-center justify-between">
             <div className="relative">
               <Image
@@ -334,7 +407,8 @@ const DashboardContent = () => {
           </div>
         </div>
 
-        <main className="container mx-auto px-4 py-6 sm:py-8 lg:py-6 flex-1 flex flex-col">
+      <div className="flex-1 w-full flex items-center justify-center">
+        <main className="container  p-2 w-full flex flex-col">
           <div className="grid lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-4 items-stretch">
             {/* Left Panel - SBT Display */}
             <div className="flex flex-col h-full">
@@ -446,38 +520,41 @@ const DashboardContent = () => {
             <div className="lg:col-span-2 flex h-full">
               <div className="flex flex-col gap-6 sm:gap-6 lg:h-full lg:justify-between lg:gap-3 w-full">
               {/* Dashboard Splash Header */}
-              <Card className="p-4 sm:p-5 lg:p-3 bg-gradient-to-br from-primary/10 via-primary/5 to-primary/10 border-primary/30">
-                <div className="space-y-2.5 sm:space-y-3 lg:space-y-2">
-                  <div className="flex items-center gap-2.5 sm:gap-3 lg:gap-2">
-                    <div className="w-10 h-10 sm:w-10 sm:h-10 lg:w-7 lg:h-7 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30 flex-shrink-0">
-                      <Award className="w-5 h-5 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
+              <Card className="p-4 sm:p-5 lg:p-4 bg-gradient-to-br from-primary/10 via-primary/5 to-primary/10 border-primary/30">
+                <div className="flex flex-col gap-4 sm:gap-6 lg:gap-4">
+                  {/* Fast Points Dashboard Column */}
+                  <div className="flex items-start gap-3 sm:gap-4 lg:gap-3 px-2 sm:px-3 lg:px-2 rounded-lg  w-full">
+                    <div className="m-auto text-primary w-8 h-full">
+                      <Award className="w-full h-full" />
                     </div>
-                    <div>
-                      <h1 className="text-xl sm:text-2xl lg:text-base font-bold">
+                    <div className="flex-1 min-w-0">
+                      <h1 className="text-xl sm:text-2xl lg:text-base font-bold text-foreground">
                         Fast Points Dashboard
                       </h1>
-                      <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mt-0.5">
+                      <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mt-1.5 sm:mt-2 lg:mt-1 leading-relaxed">
                         Complete tasks to earn points. Your points will carry into
                         the official Fast Point System.
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2.5 sm:gap-3 lg:gap-2">
-                    <div className="w-10 h-10 sm:w-10 sm:h-10 lg:w-7 lg:h-7 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30 flex-shrink-0">
-                      <TrendingUp className="w-5 h-5 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
+                  <Separator />
+
+                  {/* Transaction Activity Column */}
+                  <div className="flex items-start gap-3 sm:gap-4 lg:gap-3 px-2 sm:px-3 lg:px-2 rounded-lg">
+                  <div className="m-auto text-primary w-8 h-full">
+                      <TrendingUp className="w-full h-full" />
                     </div>
-                    <div>
-                      <h1 className="text-xl sm:text-2xl lg:text-base font-bold">
-                      Transaction Activity
+                    <div className="flex-1 min-w-0">
+                      <h1 className="text-xl sm:text-2xl lg:text-base font-bold text-foreground">
+                        Transaction Activity
                       </h1>
-                      <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mt-0.5">
-                      Track your weekly transactions and volume to earn bonus points
+                      <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mt-1.5 sm:mt-2 lg:mt-1 leading-relaxed">
+                        Track your weekly transactions and volume to earn bonus points
                       </p>
                     </div>
                   </div>
-
-                  </div>
+                </div>
               </Card>
 
               {/* Transaction Cards - Side by Side */}
@@ -621,34 +698,40 @@ const DashboardContent = () => {
                 </Card>
 
                 {/* Test RPC Connection Section */}
-                <Card className="p-5 sm:p-6 lg:p-3.5 bg-card/50 border-border/50">
-                  <div className="space-y-3 sm:space-y-4 lg:space-y-2.5">
-                    <div className="flex items-center gap-2">
+                <Card className="p-5 sm:p-6 lg:p-3.5 bg-card/50 border-border/50 h-full flex flex-col">
+                  <div className="flex flex-col h-full">
+                    <div className="flex items-center gap-2 mb-3 sm:mb-4 lg:mb-2.5">
                       <Settings className="w-4 h-4 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
                       <h3 className="text-lg sm:text-xl lg:text-sm font-semibold">Test RPC connection</h3>
                     </div>
-                    <div>
-                      <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mb-3 sm:mb-4 lg:mb-2.5">
-                        Add Fast RPC to your wallet and test the connection to earn bonus points.
-                      </p>
-                      <div className="flex gap-4 lg:gap-2.5">
+                    <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mb-3 sm:mb-4 lg:mb-2.5">
+                      Add Fast RPC to your wallet and test the connection to earn bonus points.
+                    </p>
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="flex gap-4 lg:gap-2.5 relative z-10 w-full">
+                        {isMetaMask && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="flex-1 lg:text-sm lg:h-9 pointer-events-auto"
+                            onClick={handleAddNetwork}
+                          >
+                            Add
+                          </Button>
+                        )}
                         <Button
+                          type="button"
                           variant="outline"
-                          className="flex-1 lg:text-sm lg:h-9"
-                          onClick={() => {
-                            if (!isConnected) {
-                              toast.error('Please connect your wallet first');
-                              return;
-                            }
-                            setIsDrawerOpen(true);
-                          }}
+                          className="flex-1 lg:text-sm lg:h-9 pointer-events-auto"
+                          onClick={handleRpcSetup}
                         >
-                          Setup
+                          {isMetaMask ? 'Toggle' : 'Setup'}
                         </Button>
-                        <Button
-                          variant="outline"
-                          className="flex-1 lg:text-sm lg:h-9"
-                          onClick={() => {
+                        <button
+                          type="button"
+                          className="flex-1 lg:text-sm lg:h-9 cursor-pointer pointer-events-auto relative z-10 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+                          onClick={(e) => {
+                            console.log('Test button clicked, isConnected:', isConnected);
                             if (!isConnected) {
                               toast.error('Please connect your wallet first');
                               return;
@@ -657,7 +740,7 @@ const DashboardContent = () => {
                           }}
                         >
                           Test
-                        </Button>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -738,6 +821,38 @@ const DashboardContent = () => {
         onClose={() => {
           setIsTestModalOpen(false);
           rpcTest.reset();
+        }}
+      />
+
+      {/* MetaMask Toggle Network Modal */}
+      <MetaMaskToggleModal
+        open={isMetaMaskModalOpen}
+        onOpenChange={setIsMetaMaskModalOpen}
+        onComplete={() => {
+          setIsMetaMaskModalOpen(false);
+        }}
+      />
+
+      {/* Add RPC Modal for Non-MetaMask Wallets */}
+      <AddRpcModal
+        open={isAddRpcModalOpen}
+        onOpenChange={setIsAddRpcModalOpen}
+        walletName={walletName}
+        walletIcon={walletIcon}
+        isMetaMask={isMetaMask}
+        onComplete={() => {
+          setIsAddRpcModalOpen(false);
+        }}
+      />
+
+      {/* Browser Wallet Steps Modal */}
+      <BrowserWalletStepsModal
+        open={isBrowserWalletModalOpen}
+        onOpenChange={setIsBrowserWalletModalOpen}
+        walletName={walletName}
+        walletIcon={walletIcon}
+        onComplete={() => {
+          setIsBrowserWalletModalOpen(false);
         }}
       />
 
