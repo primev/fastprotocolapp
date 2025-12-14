@@ -10,7 +10,104 @@ export const ONBOARDING_STORAGE_KEY = 'onboardingSteps';
 /**
  * Step IDs that are social-related and should be persisted to localStorage
  */
-export const SOCIAL_STEP_IDS = ['follow', 'discord', 'telegram', 'email'] as const;
+export const SOCIAL_STEP_IDS = ['community', 'follow', 'discord', 'telegram', 'email'] as const;
+
+/**
+ * Community step IDs that need to be completed
+ */
+export const COMMUNITY_STEP_IDS = ['follow', 'discord', 'telegram', 'email'] as const;
+
+/**
+ * Type for onboarding steps storage
+ */
+export type OnboardingStepsStorage = Record<string, boolean>;
+
+/**
+ * Safely reads and parses onboarding steps from localStorage
+ * Returns an empty object if there's an error or no data
+ */
+export function getOnboardingStepsFromStorage(): OnboardingStepsStorage {
+  try {
+    const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored) as OnboardingStepsStorage;
+    }
+  } catch (error) {
+    console.error('Error loading onboarding steps from localStorage:', error);
+  }
+  return {};
+}
+
+/**
+ * Gets completion status for a specific step from localStorage
+ * Returns false if the step is not found or there's an error
+ */
+export function getOnboardingStepFromStorage(stepId: string): boolean {
+  try {
+    const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+    if (stored) {
+      const saved = JSON.parse(stored) as OnboardingStepsStorage;
+      return saved[stepId] === true;
+    }
+  } catch (error) {
+    console.error('Error reading onboarding step from localStorage:', error);
+  }
+  return false;
+}
+
+/**
+ * Updates a single step in localStorage
+ * Merges with existing data to preserve other steps
+ */
+export function saveOnboardingStepToStorage(stepId: string, completed: boolean): void {
+  try {
+    const existing = getOnboardingStepsFromStorage();
+    existing[stepId] = completed;
+    localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(existing));
+  } catch (error) {
+    console.error('Error saving onboarding step to localStorage:', error);
+  }
+}
+
+/**
+ * Saves multiple onboarding steps to localStorage at once
+ * Merges with existing data to preserve other steps
+ */
+export function saveOnboardingStepsToStorage(steps: OnboardingStepsStorage): void {
+  try {
+    const existing = getOnboardingStepsFromStorage();
+    const merged = { ...existing, ...steps };
+    localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(merged));
+  } catch (error) {
+    console.error('Error saving onboarding steps to localStorage:', error);
+  }
+}
+
+/**
+ * Returns array of completed community step IDs
+ */
+export function getCompletedCommunitySteps(): string[] {
+  try {
+    const saved = getOnboardingStepsFromStorage();
+    return COMMUNITY_STEP_IDS.filter(id => saved[id] === true);
+  } catch (error) {
+    console.error('Error getting completed community steps:', error);
+    return [];
+  }
+}
+
+/**
+ * Checks if all community steps (follow, discord, telegram, email) are completed
+ */
+export function areCommunityStepsCompleted(): boolean {
+  try {
+    const saved = getOnboardingStepsFromStorage();
+    return COMMUNITY_STEP_IDS.every(id => saved[id] === true);
+  } catch (error) {
+    console.error('Error checking community steps completion:', error);
+    return false;
+  }
+}
 
 /**
  * ERC721 Transfer event signature

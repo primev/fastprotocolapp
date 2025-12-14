@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect, usePublicClient } from 'wagmi';
 
@@ -16,8 +16,6 @@ import {
   Wallet,
   Network,
   MessageCircle,
-  Send,
-  Mail,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RPCTestModal } from '@/components/network-checker';
@@ -32,7 +30,7 @@ import { useWalletConnection } from '@/hooks/use-wallet-connection';
 import { useMinting } from '@/hooks/use-minting';
 
 // Utils and components
-import { isMetaMaskWallet, isRabbyWallet } from '@/lib/onboarding-utils';
+import { isMetaMaskWallet, isRabbyWallet, areCommunityStepsCompleted } from '@/lib/onboarding-utils';
 import { OnboardingHeader } from '@/components/onboarding/OnboardingHeader';
 import { OnboardingStepsList } from '@/components/onboarding/OnboardingStepsList';
 import { MintButtonSection } from '@/components/onboarding/MintButtonSection';
@@ -41,32 +39,15 @@ import { AddRpcModal } from '@/components/onboarding/AddRpcModal';
 import { BrowserWalletStepsModal } from '@/components/onboarding/BrowserWalletStepsModal';
 import { EmailDialog } from '@/components/onboarding/EmailDialog';
 import { AlreadyConfiguredWallet } from '@/components/onboarding/AlreadyConfiguredWallet';
+import { CommunityStepsModal, type CommunityStepsModalRef } from '@/components/onboarding/CommunityStepsModal';
 
 // Constants
 const baseSteps: BaseStep[] = [
   {
-    id: 'follow',
-    title: 'Follow Us on X',
-    description: 'Follow us on X',
-    icon: Twitter,
-  },
-  {
-    id: 'discord',
-    title: 'Join Discord',
-    description: 'Join our community on Discord',
+    id: 'community',
+    title: 'Join Our Community',
+    description: 'Join our community',
     icon: MessageCircle,
-  },
-  {
-    id: 'telegram',
-    title: 'Join Telegram',
-    description: 'Connect with us on Telegram',
-    icon: Send,
-  },
-  {
-    id: 'email',
-    title: 'Enter Email',
-    description: 'Stay updated with Fast Protocol news',
-    icon: Mail,
   },
   {
     id: 'wallet',
@@ -101,12 +82,22 @@ const OnboardingPage = () => {
     isConnected,
   });
 
+  // Check if all community steps are completed on mount and mark community step as complete
+  useEffect(() => {
+    if (!hasInitialized) return;
+
+    if (areCommunityStepsCompleted()) {
+      const communityStep = steps.find(s => s.id === 'community');
+      if (communityStep && !communityStep.completed) {
+        updateStepStatus('community', true);
+      }
+    }
+  }, [hasInitialized, steps, updateStepStatus]);
+
   const emailCapture = useEmailCapture();
 
   // Already configured wallet state - must be declared before hooks that use it
   const [alreadyConfiguredWallet, setAlreadyConfiguredWallet] = useState<boolean | null>(null);
-  const lastRpcAddCompletedRef = useRef(false);
-  const lastRpcTestCompletedRef = useRef(false);
 
   const rpcSetup = useRPCSetup({
     isConnected,
@@ -118,23 +109,8 @@ const OnboardingPage = () => {
     alreadyConfiguredWallet: alreadyConfiguredWallet === true,
   });
 
-  // Destructure setters to ensure stable references
-  const { setRpcAddCompleted, setRpcTestCompleted } = rpcSetup;
+ 
 
-  // Debug: Log all step completion states
-  useEffect(() => {
-    console.log('=== Step Completion Debug ===');
-    console.log('allStepsCompleted:', allStepsCompleted);
-    console.log('hasInitialized:', hasInitialized);
-    console.log('Steps:', steps.map(s => ({ id: s.id, title: s.title, completed: s.completed })));
-    console.log('RPC Setup State:', {
-      rpcAddCompleted: rpcSetup.rpcAddCompleted,
-      rpcTestCompleted: rpcSetup.rpcTestCompleted,
-      rpcRequired: rpcSetup.rpcRequired,
-    });
-    console.log('alreadyConfiguredWallet:', alreadyConfiguredWallet);
-    console.log('===========================');
-  }, [steps, allStepsCompleted, hasInitialized, rpcSetup.rpcAddCompleted, rpcSetup.rpcTestCompleted, rpcSetup.rpcRequired, alreadyConfiguredWallet]);
 
   useWalletConnection({
     isConnected,
@@ -163,33 +139,24 @@ const OnboardingPage = () => {
   const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false);
   const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false);
   const [isAlreadyConfiguredModalOpen, setIsAlreadyConfiguredModalOpen] = useState(false);
+  const [isCommunityModalOpen, setIsCommunityModalOpen] = useState(false);
+
+  // Ref for community modal to mark email as completed
+  const communityModalRef = useRef<CommunityStepsModalRef>(null);
 
   // Derived values
   const walletStep = steps.find((s) => s.id === 'wallet');
   const isMetaMask = isMetaMaskWallet(connector);
   const isRabby = isRabbyWallet(connector);
   const isWalletStepWithWarning = rpcSetup.rpcRequired;
-  
+
 
   // Event handlers
   const handleStepAction = (stepId: string) => {
     const actions: Record<string, () => void> = {
-      follow: () => {
-        window.open('https://twitter.com/intent/follow?screen_name=fast_protocol', '_blank');
-        toast.success('Please follow @fast_protocol to continue');
-        setTimeout(() => updateStepStatus(stepId, true), 2000);
+      community: () => {
+        setIsCommunityModalOpen(true);
       },
-      discord: () => {
-        window.open('https://discord.gg/fastprotocol', '_blank');
-        toast.success('Opening Discord...');
-        setTimeout(() => updateStepStatus(stepId, true), 1000);
-      },
-      telegram: () => {
-        window.open('https://t.me/Fast_Protocol', '_blank');
-        toast.success('Opening Telegram...');
-        setTimeout(() => updateStepStatus(stepId, true), 1000);
-      },
-      email: () => emailCapture.setIsEmailDialogOpen(true),
       wallet: () => {
         // Always show the modal when connect button is clicked
         setIsAlreadyConfiguredModalOpen(true);
@@ -212,9 +179,17 @@ const OnboardingPage = () => {
 
   const handleEmailSubmit = async () => {
     await emailCapture.handleEmailSubmit(() => {
-      updateStepStatus('email', true);
+      // Mark email as completed in the community modal
+      if (communityModalRef.current) {
+        communityModalRef.current.markEmailCompleted();
+      }
     });
   };
+
+  const handleCommunityStepsCompleted = useCallback(() => {
+    updateStepStatus('community', true);
+    setIsCommunityModalOpen(false);
+  }, [updateStepStatus]);
 
   const handleTestClick = () => {
     // If alreadyConfiguredWallet is true, skip the check since toggle/add is already done
@@ -272,18 +247,11 @@ const OnboardingPage = () => {
       <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10" />
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
 
-      <div className="relative z-10">
+      <div className="relative z-10 flex flex-col min-h-screen">
         <OnboardingHeader />
 
-        <main className="container mx-auto px-4 py-8 sm:py-12 lg:py-6">
-          <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 lg:space-y-5">
-            <div className="text-center space-y-1.5 sm:space-y-2 lg:space-y-1.5">
-              <h1 className="text-4xl md:text-5xl lg:text-4xl xl:text-5xl font-bold">Setup Your Account</h1>
-              <p className="text-muted-foreground text-base sm:text-lg lg:text-sm xl:text-base">
-                Complete these steps to mint your Genesis SBT
-              </p>
-            </div>
-
+        <main className="container mx-auto px-4 flex-1 flex items-center justify-center">
+          <div className="max-w-3xl mx-auto w-full space-y-6 sm:space-y-8 lg:space-y-5">
             <OnboardingStepsList
               steps={steps}
               isWalletStepWithWarning={isWalletStepWithWarning}
@@ -307,76 +275,95 @@ const OnboardingPage = () => {
               existingTokenId={minting.existingTokenId}
               onMint={minting.handleMintSbt}
             />
+
+            <div className="text-center space-y-1.5 sm:space-y-2 lg:space-y-1.5">
+              <p className="text-muted-foreground text-base sm:text-lg lg:text-sm xl:text-base">
+                Complete these steps to mint your Genesis SBT
+              </p>
+            </div>
           </div>
         </main>
+
+        {/* RPC Test Modal */}
+        <RPCTestModal
+          open={isRPCTestModalOpen}
+          onOpenChange={setIsRPCTestModalOpen}
+          onConfirm={() => {
+            // Test completion is handled in handleCloseTestModal
+          }}
+          onClose={handleCloseTestModal}
+        />
+
+        {/* MetaMask Toggle Network Modal */}
+        <MetaMaskToggleModal
+          open={isMetaMaskModalOpen}
+          onOpenChange={setIsMetaMaskModalOpen}
+          onComplete={() => {
+            rpcSetup.setRpcAddCompleted(true);
+            setIsMetaMaskModalOpen(false);
+          }}
+        />
+
+        {/* Add RPC Modal for Non-MetaMask Wallets */}
+        <AddRpcModal
+          open={isAddRpcModalOpen}
+          onOpenChange={setIsAddRpcModalOpen}
+          walletName={walletName}
+          walletIcon={walletIcon}
+          isMetaMask={isMetaMask}
+          onComplete={() => {
+            rpcSetup.setRpcAddCompleted(true);
+            setIsAddRpcModalOpen(false);
+          }}
+        />
+
+        {/* Browser Wallet Steps Modal */}
+        <BrowserWalletStepsModal
+          open={isBrowserWalletModalOpen}
+          onOpenChange={setIsBrowserWalletModalOpen}
+          walletName={walletName}
+          walletIcon={walletIcon}
+          onComplete={() => {
+            rpcSetup.setRpcAddCompleted(true);
+            setIsBrowserWalletModalOpen(false);
+          }}
+        />
+
+        {/* Email Dialog */}
+        <EmailDialog
+          open={emailCapture.isEmailDialogOpen}
+          onOpenChange={emailCapture.setIsEmailDialogOpen}
+          emailInput={emailCapture.emailInput}
+          emailError={emailCapture.emailError}
+          isLoading={emailCapture.isLoadingEmail}
+          onEmailChange={emailCapture.setEmailInput}
+          onEmailErrorChange={emailCapture.setEmailError}
+          onSubmit={handleEmailSubmit}
+          onCancel={() => {
+            // Mark email as completed in the community modal if it's open
+            if (communityModalRef.current) {
+              communityModalRef.current.markEmailCompleted();
+            }
+            updateStepStatus('email', true);
+            emailCapture.resetEmailForm();
+          }}
+        />
+
+        {/* Already Configured Wallet Modal */}
+        <AlreadyConfiguredWallet
+          open={isAlreadyConfiguredModalOpen}
+          onSelect={handleAlreadyConfiguredSelect}
+        />
+
+        {/* Community Steps Modal */}
+        <CommunityStepsModal
+          ref={communityModalRef}
+          open={isCommunityModalOpen}
+          onOpenChange={setIsCommunityModalOpen}
+          onAllStepsCompleted={handleCommunityStepsCompleted}
+          onEmailDialogOpen={() => emailCapture.setIsEmailDialogOpen(true)}
+        />
       </div>
-
-      {/* RPC Test Modal */}
-      <RPCTestModal
-        open={isRPCTestModalOpen}
-        onOpenChange={setIsRPCTestModalOpen}
-        onConfirm={() => {
-          // Test completion is handled in handleCloseTestModal
-        }}
-        onClose={handleCloseTestModal}
-      />
-
-      {/* MetaMask Toggle Network Modal */}
-      <MetaMaskToggleModal
-        open={isMetaMaskModalOpen}
-        onOpenChange={setIsMetaMaskModalOpen}
-        onComplete={() => {
-          rpcSetup.setRpcAddCompleted(true);
-          setIsMetaMaskModalOpen(false);
-        }}
-      />
-
-      {/* Add RPC Modal for Non-MetaMask Wallets */}
-      <AddRpcModal
-        open={isAddRpcModalOpen}
-        onOpenChange={setIsAddRpcModalOpen}
-        walletName={walletName}
-        walletIcon={walletIcon}
-        isMetaMask={isMetaMask}
-        onComplete={() => {
-          rpcSetup.setRpcAddCompleted(true);
-          setIsAddRpcModalOpen(false);
-        }}
-      />
-
-      {/* Browser Wallet Steps Modal */}
-      <BrowserWalletStepsModal
-        open={isBrowserWalletModalOpen}
-        onOpenChange={setIsBrowserWalletModalOpen}
-        walletName={walletName}
-        walletIcon={walletIcon}
-        onComplete={() => {
-          rpcSetup.setRpcAddCompleted(true);
-          setIsBrowserWalletModalOpen(false);
-        }}
-      />
-
-      {/* Email Dialog */}
-      <EmailDialog
-        open={emailCapture.isEmailDialogOpen}
-        onOpenChange={emailCapture.setIsEmailDialogOpen}
-        emailInput={emailCapture.emailInput}
-        emailError={emailCapture.emailError}
-        isLoading={emailCapture.isLoadingEmail}
-        onEmailChange={emailCapture.setEmailInput}
-        onEmailErrorChange={emailCapture.setEmailError}
-        onSubmit={handleEmailSubmit}
-        onCancel={() => {
-          updateStepStatus('email', true);
-          emailCapture.resetEmailForm();
-        }}
-      />
-
-      {/* Already Configured Wallet Modal */}
-      <AlreadyConfiguredWallet
-        open={isAlreadyConfiguredModalOpen}
-        onSelect={handleAlreadyConfiguredSelect}
-      />
 
     </div>
   );

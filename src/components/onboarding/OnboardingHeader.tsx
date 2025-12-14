@@ -2,8 +2,6 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Home } from 'lucide-react';
 
 export const OnboardingHeader = () => {
   const router = useRouter();
@@ -17,20 +15,20 @@ export const OnboardingHeader = () => {
             alt="Fast Protocol"
             width={40}
             height={40}
-            className="sm:hidden"
+            className="sm:hidden cursor-pointer"
+            onClick={() => router.push('/claim')}
           />
           <Image
             src="/assets/fast-protocol-logo-icon.png"
             alt="Fast Protocol"
             width={150}
             height={150}
-            className="hidden sm:block"
+            className="hidden sm:block cursor-pointer"
+            onClick={() => router.push('/claim')}
           />
         </div>
-        <Button variant="outline" onClick={() => router.push('/claim')} className="gap-2">
-          <Home className="w-4 h-4" />
-          Return to Home
-        </Button>
+       
+        <h1 className="text-muted-foreground font-bold">  Claim Genesis SBT</h1>
       </div>
     </header>
   );

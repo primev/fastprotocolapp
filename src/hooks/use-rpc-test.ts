@@ -65,8 +65,15 @@ export function useRPCTest(): UseRPCTestReturn {
     const [isSendError, setIsSendError] = useState(false);
     const [sendError, setSendError] = useState<Error | null>(null);
 
-    const { isLoading: isConfirming, isSuccess: isConfirmed, isError: isConfirmError, error: confirmError } =
+    const { data: receipt, isLoading: isConfirming, isSuccess: isConfirmed, isError: isConfirmError, error: confirmError } =
         useWaitForTransactionReceipt({ hash });
+
+    // Log receipt when available
+    useEffect(() => {
+        if (receipt) {
+            console.log('Transaction receipt:', receipt);
+        }
+    }, [receipt]);
 
     // Update testing state based on transaction status and API query
     useEffect(() => {
@@ -85,7 +92,7 @@ export function useRPCTest(): UseRPCTestReturn {
 
     // Handle transaction success and query database
     useEffect(() => {
-        if (isConfirmed && hash) {
+        if (receipt) {
             setIsQueryingAPI(true);
             queryTransactionHash(hash)
                 .then((result) => {
@@ -112,7 +119,7 @@ export function useRPCTest(): UseRPCTestReturn {
                     });
                 });
         }
-    }, [isConfirmed, hash, toast]);
+    }, [receipt]);
 
     // Handle transaction errors
     useEffect(() => {

@@ -25,6 +25,7 @@ interface OnboardingStepCardProps {
   onRpcStepClick?: () => void;
   onTestClick?: () => void;
   walletStepCompleted?: boolean;
+  forceDisabled?: boolean;
 }
 
 export const OnboardingStepCard = ({
@@ -47,6 +48,7 @@ export const OnboardingStepCard = ({
   onRpcStepClick,
   onTestClick,
   walletStepCompleted = false,
+  forceDisabled = false,
 }: OnboardingStepCardProps) => {
   const Icon = step.icon;
   const isWalletStepWithWarning = isWalletStep && rpcRequired;
@@ -155,11 +157,22 @@ export const OnboardingStepCard = ({
             }}
             variant="outline"
             size="default"
-            className="flex-shrink-0 w-28"
+            className={`flex-shrink-0 w-28 ${
+              // First 4 steps: keep disabled appearance but remain clickable
+              (step.id === 'follow' || step.id === 'discord' || step.id === 'telegram' || step.id === 'email') && step.completed
+                ? 'opacity-50 cursor-pointer'
+                : ''
+            }`}
             disabled={
-              step.completed && !isRpcStep && !isWalletStep && !rpcRequired
+              forceDisabled
+                ? true
+                : // Community step and first 4 steps should not be disabled (remain clickable) unless forceDisabled
+                (step.id === 'community' || step.id === 'follow' || step.id === 'discord' || step.id === 'telegram' || step.id === 'email')
+                  ? false
+                  : step.completed && !isRpcStep && !isWalletStep && !rpcRequired
             }
           >
+            {step.id === 'community' && (step.completed ? 'Joined' : 'Join')}
             {step.id === 'follow' && (step.completed ? 'Following' : 'Follow')}
             {step.id === 'discord' && (step.completed ? 'Joined' : 'Join')}
             {step.id === 'telegram' && (step.completed ? 'Joined' : 'Join')}
