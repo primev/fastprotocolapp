@@ -35,6 +35,7 @@ function WalletDisconnectHandler() {
   const clearWalletData = () => {
     localStorage.removeItem('genesisSBTTokenId');
     localStorage.removeItem('completedTasks');
+    localStorage.removeItem('smart-account-notification-acknowledged');
   };
 
   // Helper function to refresh the page

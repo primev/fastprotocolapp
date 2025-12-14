@@ -28,6 +28,7 @@ import { useEmailCapture } from '@/hooks/use-email-capture';
 import { useRPCSetup } from '@/hooks/use-rpc-setup';
 import { useWalletConnection } from '@/hooks/use-wallet-connection';
 import { useMinting } from '@/hooks/use-minting';
+import { useSmartAccountDetection } from '@/hooks/use-smart-account-detection';
 
 // Utils and components
 import { isMetaMaskWallet, isRabbyWallet, areCommunityStepsCompleted } from '@/lib/onboarding-utils';
@@ -40,6 +41,7 @@ import { BrowserWalletStepsModal } from '@/components/onboarding/BrowserWalletSt
 import { EmailDialog } from '@/components/onboarding/EmailDialog';
 import { AlreadyConfiguredWallet } from '@/components/onboarding/AlreadyConfiguredWallet';
 import { CommunityStepsModal, type CommunityStepsModalRef } from '@/components/onboarding/CommunityStepsModal';
+import { SmartAccountModal } from '@/components/onboarding/SmartAccountModal';
 
 // Constants
 const baseSteps: BaseStep[] = [
@@ -70,6 +72,9 @@ const OnboardingPage = () => {
   const { disconnect } = useDisconnect();
   const rpcTest = useRPCTest();
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected);
+
+  // Smart account notification
+  const smartAccountDetection = useSmartAccountDetection();
 
   // Custom hooks
   const {
@@ -158,6 +163,13 @@ const OnboardingPage = () => {
         setIsCommunityModalOpen(true);
       },
       wallet: () => {
+        // Check if we should show the smart account notification modal
+        const shouldShowModal = smartAccountDetection.checkAndShowModal();
+        if (shouldShowModal) {
+          // Modal will be shown, don't proceed with connection yet
+          return;
+        }
+
         // Always show the modal when connect button is clicked
         setIsAlreadyConfiguredModalOpen(true);
       },
@@ -362,6 +374,18 @@ const OnboardingPage = () => {
           onOpenChange={setIsCommunityModalOpen}
           onAllStepsCompleted={handleCommunityStepsCompleted}
           onEmailDialogOpen={() => emailCapture.setIsEmailDialogOpen(true)}
+        />
+
+        {/* Smart Account Modal */}
+        <SmartAccountModal
+          open={smartAccountDetection.isSmartAccountModalOpen}
+          onOpenChange={smartAccountDetection.setIsSmartAccountModalOpen}
+          onAcknowledged={() => {
+            // Mark as acknowledged (sets localStorage flag)
+            smartAccountDetection.markAsAcknowledged();
+            // Show Already Configured modal
+            setIsAlreadyConfiguredModalOpen(true);
+          }}
         />
       </div>
 
