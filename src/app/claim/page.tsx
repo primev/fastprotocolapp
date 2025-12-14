@@ -57,7 +57,7 @@ const ClaimPage = () => {
                 onClick={() => router.push("/claim/onboarding")}
               >
                 <Zap className="w-5 h-5 lg:w-4 lg:h-4 mr-2" />
-                Start App
+                Claim Now
               </Button>
             </div>
 

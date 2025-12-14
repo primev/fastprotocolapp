@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { ONBOARDING_STORAGE_KEY, SOCIAL_STEP_IDS } from '@/lib/onboarding-utils';
+import { 
+  ONBOARDING_STORAGE_KEY, 
+  SOCIAL_STEP_IDS,
+  getOnboardingStepsFromStorage,
+  saveOnboardingStepsToStorage,
+} from '@/lib/onboarding-utils';
 
 export type Step = {
   id: string;
@@ -39,30 +44,25 @@ export function useOnboardingSteps({
    * Load steps from localStorage and merge with current state
    */
   const loadStepsFromStorage = () => {
-    try {
-      const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
-      const saved = stored ? JSON.parse(stored) : {};
-      setSteps((prevSteps) => {
-        return baseSteps.map(step => {
-          // For social steps, load from localStorage
-          if (SOCIAL_STEP_IDS.includes(step.id as typeof SOCIAL_STEP_IDS[number])) {
-            return { ...step, completed: saved[step.id] === true };
-          }
-          // For wallet step, preserve current state if connected, otherwise use saved or false
-          if (step.id === 'wallet') {
-            return { ...step, completed: isConnected || (saved[step.id] === true) };
-          }
-          // For RPC step, preserve current state
-          if (step.id === 'rpc') {
-            const currentRpcStep = prevSteps.find(s => s.id === 'rpc');
-            return { ...step, completed: currentRpcStep?.completed || false };
-          }
-          return { ...step, completed: false };
-        });
+    const saved = getOnboardingStepsFromStorage();
+    setSteps((prevSteps) => {
+      return baseSteps.map(step => {
+        // For social steps, load from localStorage
+        if (SOCIAL_STEP_IDS.includes(step.id as typeof SOCIAL_STEP_IDS[number])) {
+          return { ...step, completed: saved[step.id] === true };
+        }
+        // For wallet step, preserve current state if connected, otherwise use saved or false
+        if (step.id === 'wallet') {
+          return { ...step, completed: isConnected || (saved[step.id] === true) };
+        }
+        // For RPC step, preserve current state
+        if (step.id === 'rpc') {
+          const currentRpcStep = prevSteps.find(s => s.id === 'rpc');
+          return { ...step, completed: currentRpcStep?.completed || false };
+        }
+        return { ...step, completed: false };
       });
-    } catch (error) {
-      console.error('Error loading onboarding steps:', error);
-    }
+    });
   };
 
   /**
@@ -76,17 +76,13 @@ export function useOnboardingSteps({
 
       // Save social steps to localStorage
       if (SOCIAL_STEP_IDS.includes(stepId as typeof SOCIAL_STEP_IDS[number])) {
-        try {
-          const saved = updated.reduce((acc, step) => {
-            if (SOCIAL_STEP_IDS.includes(step.id as typeof SOCIAL_STEP_IDS[number])) {
-              acc[step.id] = step.completed;
-            }
-            return acc;
-          }, {} as Record<string, boolean>);
-          localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(saved));
-        } catch (error) {
-          console.error('Error saving onboarding steps:', error);
-        }
+        const saved = updated.reduce((acc, step) => {
+          if (SOCIAL_STEP_IDS.includes(step.id as typeof SOCIAL_STEP_IDS[number])) {
+            acc[step.id] = step.completed;
+          }
+          return acc;
+        }, {} as Record<string, boolean>);
+        saveOnboardingStepsToStorage(saved);
       }
 
       return updated;
@@ -120,8 +116,13 @@ export function useOnboardingSteps({
     };
 
     const handleFocus = () => {
-      if (!isConnected && !localStorage.getItem(ONBOARDING_STORAGE_KEY)) {
-        loadStepsFromStorage();
+      if (!isConnected) {
+        // Check if storage exists by trying to read it
+        const saved = getOnboardingStepsFromStorage();
+        // If storage is empty, reload steps
+        if (Object.keys(saved).length === 0) {
+          loadStepsFromStorage();
+        }
       }
     };
 
