@@ -275,11 +275,11 @@ const OnboardingPage = () => {
       <div className="relative z-10">
         <OnboardingHeader />
 
-        <main className="container mx-auto px-4 py-12">
-          <div className="max-w-3xl mx-auto space-y-8">
-            <div className="text-center space-y-2">
-              <h1 className="text-4xl md:text-5xl font-bold">Setup Your Account</h1>
-              <p className="text-muted-foreground text-lg">
+        <main className="container mx-auto px-4 py-8 sm:py-12 lg:py-6">
+          <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 lg:space-y-5">
+            <div className="text-center space-y-1.5 sm:space-y-2 lg:space-y-1.5">
+              <h1 className="text-4xl md:text-5xl lg:text-4xl xl:text-5xl font-bold">Setup Your Account</h1>
+              <p className="text-muted-foreground text-base sm:text-lg lg:text-sm xl:text-base">
                 Complete these steps to mint your Genesis SBT
               </p>
             </div>

@@ -249,10 +249,10 @@ const DashboardContent = () => {
       {/* Background effects */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10" />
 
-      <div className="relative z-10">
+      <div className="relative z-10 flex flex-col min-h-screen">
         {/* Header */}
         <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 bg-background/80 z-50">
-          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="container mx-auto px-4 py-4 lg:py-2.5 flex items-center justify-between">
             <div className="relative">
               <Image
                 src="/assets/fast-icon.png"
@@ -272,9 +272,9 @@ const DashboardContent = () => {
             <div className="flex items-center gap-2 sm:gap-4">
               <Badge
                 variant="outline"
-                className="h-10 px-3 text-sm border-primary/50 flex items-center"
+                className="h-10 lg:h-8 px-3 lg:px-2.5 text-sm lg:text-sm border-primary/50 flex items-center"
               >
-                <Award className="w-4 h-4 mr-2 text-primary" />
+                <Award className="w-4 h-4 lg:w-3.5 lg:h-3.5 mr-2 lg:mr-1.5 text-primary" />
                 {points} Points
               </Badge>
               {/* Wallet icon button for mobile (when connected) */}
@@ -302,9 +302,9 @@ const DashboardContent = () => {
 
         {/* Announcement Banner */}
         <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50">
-          <div className="container mx-auto px-4 py-3 text-center">
+          <div className="container mx-auto px-4 py-2.5 lg:py-2 text-center">
             {hasGenesisSBT ? (
-              <p className="text-primary-foreground font-semibold">
+              <p className="text-primary-foreground font-semibold text-sm lg:text-sm">
                 🎉 You're all set for the points program kickoff! In the meantime, make your first Fast swap on these{' '}
                 <button
                   onClick={(e) => {
@@ -318,7 +318,7 @@ const DashboardContent = () => {
                 .
               </p>
             ) : (
-              <p className="text-primary-foreground font-semibold">
+              <p className="text-primary-foreground font-semibold text-sm lg:text-sm">
                 🚀 Mint your Genesis SBT to unlock the points program! Complete the onboarding steps to start earning points.{' '}
                 <button
                   onClick={(e) => {
@@ -334,15 +334,15 @@ const DashboardContent = () => {
           </div>
         </div>
 
-        <main className="container mx-auto px-4 py-8">
-          <div className="grid lg:grid-cols-3 gap-8 items-stretch">
+        <main className="container mx-auto px-4 py-6 sm:py-8 lg:py-6 flex-1 flex flex-col">
+          <div className="grid lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-4 items-stretch">
             {/* Left Panel - SBT Display */}
-            <div className="flex">
-              <Card className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30 w-full flex flex-col">
+            <div className="flex flex-col h-full">
+              <Card className="p-5 sm:p-6 lg:p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30 w-full flex flex-col h-full min-h-0">
                 {/* Always show SBT info */}
-                <div className="space-y-4 flex-1 flex flex-col">
+                <div className="space-y-3 sm:space-y-4 lg:space-y-2.5 flex-1 flex flex-col min-h-0">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold">
+                    <h2 className="text-xl sm:text-2xl lg:text-base font-bold">
                       {NFT_NAME}
                     </h2>
                     {hasGenesisSBT ? (
@@ -361,7 +361,7 @@ const DashboardContent = () => {
                   </div>
 
                   {/* SBT Visual */}
-                  <div className="aspect-square rounded-xl bg-gradient-to-br from-primary via-primary/50 to-primary/20 border border-primary/50 overflow-hidden glow-border relative">
+                  <div className="w-full aspect-square max-h-full rounded-xl bg-gradient-to-br from-primary via-primary/50 to-primary/20 border border-primary/50 overflow-hidden glow-border relative flex-shrink">
                     <img
                       src={NFT_ASSET}
                       alt={NFT_NAME}
@@ -396,20 +396,20 @@ const DashboardContent = () => {
                             e.stopPropagation();
                             router.push('/claim/onboarding');
                           }}
-                          className="bg-background/90 hover:bg-background border-primary/50 hover:border-primary hover:scale-105 transition-all duration-200 hover:shadow-lg hover:shadow-primary/20 group pointer-events-auto"
+                          className="bg-background/90 hover:bg-background border-primary/50 hover:border-primary hover:scale-105 transition-all duration-200 hover:shadow-lg hover:shadow-primary/20 group pointer-events-auto lg:text-sm lg:h-10 lg:px-6"
                         >
                           Mint Genesis SBT
-                          <ChevronRight className="w-4 h-4 ml-2 transition-transform duration-200 group-hover:translate-x-1" />
+                          <ChevronRight className="w-4 h-4 lg:w-3.5 lg:h-3.5 ml-2 lg:ml-1.5 transition-transform duration-200 group-hover:translate-x-1" />
                         </Button>
                       </div>
                     )}
                   </div>
 
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-2 text-sm lg:text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">SBT ID</span>
                       {hasGenesisSBT ? (
-                        <span className="font-mono">#{String(tokenId)}</span>
+                        <span className="font-mono text-xs">#{String(tokenId)}</span>
                       ) : (
                         <span className="text-muted-foreground">Not Minted</span>
                       )}
@@ -417,7 +417,7 @@ const DashboardContent = () => {
                     {address && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Wallet</span>
-                        <span className="font-mono">
+                        <span className="font-mono text-xs">
                           {address.slice(0, 4)}...{address.slice(-4)}
                         </span>
                       </div>
@@ -433,8 +433,8 @@ const DashboardContent = () => {
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-border/50 mt-auto">
-                    <p className="text-sm text-muted-foreground leading-relaxed">
+                  <div className="pt-3 sm:pt-4 lg:pt-2.5 border-t border-border/50 mt-auto">
+                    <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground leading-relaxed">
                       {NFT_DESCRIPTION}
                     </p>
                   </div>
@@ -443,86 +443,91 @@ const DashboardContent = () => {
             </div>
 
             {/* Right Side - Spans 2 columns */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 flex h-full">
+              <div className="flex flex-col gap-6 sm:gap-6 lg:h-full lg:justify-between lg:gap-3 w-full">
               {/* Dashboard Splash Header */}
-              <Card className="p-4 bg-gradient-to-br from-primary/10 via-primary/5 to-primary/10 border-primary/30">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30">
-                      <Award className="w-5 h-5 text-primary" />
+              <Card className="p-4 sm:p-5 lg:p-3 bg-gradient-to-br from-primary/10 via-primary/5 to-primary/10 border-primary/30">
+                <div className="space-y-2.5 sm:space-y-3 lg:space-y-2">
+                  <div className="flex items-center gap-2.5 sm:gap-3 lg:gap-2">
+                    <div className="w-10 h-10 sm:w-10 sm:h-10 lg:w-7 lg:h-7 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30 flex-shrink-0">
+                      <Award className="w-5 h-5 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
                     </div>
                     <div>
-                      <h1 className="text-2xl font-bold">
+                      <h1 className="text-xl sm:text-2xl lg:text-base font-bold">
                         Fast Points Dashboard
                       </h1>
-                      <p className="text-sm text-muted-foreground mt-0.5">
+                      <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mt-0.5">
                         Complete tasks to earn points. Your points will carry into
                         the official Fast Point System.
                       </p>
                     </div>
                   </div>
-                  <div className="pt-3 border-t border-primary/20">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-primary" />
-                      <h2 className="text-lg font-semibold">
-                        Transaction Activity
-                      </h2>
+
+                  <div className="flex items-center gap-2.5 sm:gap-3 lg:gap-2">
+                    <div className="w-10 h-10 sm:w-10 sm:h-10 lg:w-7 lg:h-7 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30 flex-shrink-0">
+                      <TrendingUp className="w-5 h-5 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <div>
+                      <h1 className="text-xl sm:text-2xl lg:text-base font-bold">
+                      Transaction Activity
+                      </h1>
+                      <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mt-0.5">
                       Track your weekly transactions and volume to earn bonus points
-                    </p>
+                      </p>
+                    </div>
                   </div>
-                </div>
+
+                  </div>
               </Card>
 
               {/* Transaction Cards - Side by Side */}
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid md:grid-cols-2 gap-4 sm:gap-5 md:gap-5 lg:gap-3">
                 {/* Transaction Activity */}
-                <Card className="p-6 bg-card/50 border-border/50">
-                  <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-5 h-5 text-primary" />
-                    <h3 className="text-xl font-semibold">
+                <Card className="p-5 sm:p-6 lg:p-3.5 bg-card/50 border-border/50">
+                  <div className="flex items-center gap-2 mb-3 sm:mb-4 lg:mb-2.5">
+                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
+                    <h3 className="text-lg sm:text-xl lg:text-sm font-semibold">
                       Weekly Fast RPC Transactions
                     </h3>
                   </div>
-                  <div className="space-y-4 blur-sm">
+                  <div className="space-y-3 sm:space-y-4 lg:space-y-2.5 blur-sm">
                     <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-xs sm:text-sm lg:text-sm">
                         <span className="text-muted-foreground">
                           Progress to 100 txs
                         </span>
                         <span className="font-semibold">17 / 100</span>
                       </div>
-                      <Progress value={17} className="h-3" />
+                      <Progress value={17} className="h-2 sm:h-3 lg:h-1.5" />
                     </div>
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2.5 pt-3 sm:pt-4 lg:pt-2.5 border-t border-border/50">
                       <div className="text-center">
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
                           1 tx
                         </div>
-                        <div className="font-semibold text-primary">+1</div>
+                        <div className="font-semibold text-primary text-xs lg:text-sm">+1</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
                           10 txs
                         </div>
-                        <div className="font-semibold text-primary">
+                        <div className="font-semibold text-primary text-xs lg:text-sm">
                           +10
                         </div>
                       </div>
                       <div className="text-center">
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
                           100 txs
                         </div>
-                        <div className="font-semibold text-primary">
+                        <div className="font-semibold text-primary text-xs lg:text-sm">
                           +100
                         </div>
                       </div>
                       <div className="text-center">
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
                           1000 txs
                         </div>
-                        <div className="font-semibold text-primary">
+                        <div className="font-semibold text-primary text-xs lg:text-sm">
                           +500
                         </div>
                       </div>
@@ -531,16 +536,16 @@ const DashboardContent = () => {
                 </Card>
 
                 {/* Volume Activity */}
-                <Card className="p-6 bg-card/50 border-border/50">
-                  <div className="flex items-center gap-2 mb-4">
-                    <DollarSign className="w-5 h-5 text-primary" />
-                    <h3 className="text-xl font-semibold">
+                <Card className="p-5 sm:p-6 lg:p-3.5 bg-card/50 border-border/50">
+                  <div className="flex items-center gap-2 mb-3 sm:mb-4 lg:mb-2.5">
+                    <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
+                    <h3 className="text-lg sm:text-xl lg:text-sm font-semibold">
                       Weekly Fast RPC Volume
                     </h3>
                   </div>
-                  <div className="space-y-4 blur-sm">
+                  <div className="space-y-3 sm:space-y-4 lg:space-y-2.5 blur-sm">
                     <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-xs sm:text-sm lg:text-sm">
                         <span className="text-muted-foreground">
                           Progress to $10,000
                         </span>
@@ -548,28 +553,28 @@ const DashboardContent = () => {
                           $2,130 / $10,000
                         </span>
                       </div>
-                      <Progress value={21.3} className="h-3" />
+                      <Progress value={21.3} className="h-2 sm:h-3 lg:h-1.5" />
                     </div>
-                    <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border/50">
+                    <div className="grid grid-cols-3 gap-3 sm:gap-4 lg:gap-2.5 pt-3 sm:pt-4 lg:pt-2.5 border-t border-border/50">
                       <div className="text-center">
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
                           $100
                         </div>
-                        <div className="font-semibold text-primary">+1</div>
+                        <div className="font-semibold text-primary text-xs lg:text-sm">+1</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
                           $1,000
                         </div>
-                        <div className="font-semibold text-primary">
+                        <div className="font-semibold text-primary text-xs lg:text-sm">
                           +10
                         </div>
                       </div>
                       <div className="text-center">
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
                           $10,000
                         </div>
-                        <div className="font-semibold text-primary">
+                        <div className="font-semibold text-primary text-xs lg:text-sm">
                           +100
                         </div>
                       </div>
@@ -579,56 +584,57 @@ const DashboardContent = () => {
               </div>
 
               {/* Referrals and Test RPC Section - Side by Side */}
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid md:grid-cols-2 gap-4 sm:gap-5 md:gap-5 lg:gap-3 mb-0 pb-0">
                 {/* Referrals Section */}
-                <Card className="p-6 bg-card/50 border-border/50">
-                  <div className="space-y-4">
+                <Card className="p-5 sm:p-6 lg:p-3.5 bg-card/50 border-border/50">
+                  <div className="space-y-3 sm:space-y-4 lg:space-y-2.5">
                     <div className="flex items-center gap-2">
-                      <Users className="w-5 h-5 text-primary" />
-                      <h3 className="text-xl font-semibold">Referrals</h3>
+                      <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
+                      <h3 className="text-lg sm:text-xl lg:text-sm font-semibold">Referrals</h3>
                     </div>
                     <div className="blur-sm">
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm lg:text-sm text-muted-foreground">
                         Earn +1 point per successful referral (max 100/week)
                       </p>
-                      <div className="bg-secondary/50 rounded-lg p-3 flex items-center justify-between">
-                        <code className="text-xs">{referralCode}</code>
+                      <div className="bg-secondary/50 rounded-lg p-2.5 sm:p-3 lg:p-2 flex items-center justify-between mt-2">
+                        <code className="text-xs lg:text-[10px]">{referralCode}</code>
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={copyReferralLink}
+                          className="lg:h-8 lg:w-8 lg:p-0"
                         >
-                          <Copy className="w-4 h-4" />
+                          <Copy className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
                         </Button>
                       </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
+                      <div className="space-y-2 mt-2">
+                        <div className="flex justify-between text-xs sm:text-sm lg:text-sm">
                           <span className="text-muted-foreground">
                             This week
                           </span>
                           <span className="font-semibold">3 / 100</span>
                         </div>
-                        <Progress value={3} className="h-2" />
+                        <Progress value={3} className="h-2 lg:h-1.5" />
                       </div>
                     </div>
                   </div>
                 </Card>
 
                 {/* Test RPC Connection Section */}
-                <Card className="p-6 bg-card/50 border-border/50">
-                  <div className="space-y-4">
+                <Card className="p-5 sm:p-6 lg:p-3.5 bg-card/50 border-border/50">
+                  <div className="space-y-3 sm:space-y-4 lg:space-y-2.5">
                     <div className="flex items-center gap-2">
-                      <Settings className="w-5 h-5 text-primary" />
-                      <h3 className="text-xl font-semibold">Test RPC connection</h3>
+                      <Settings className="w-4 h-4 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
+                      <h3 className="text-lg sm:text-xl lg:text-sm font-semibold">Test RPC connection</h3>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground mb-4">
+                      <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mb-3 sm:mb-4 lg:mb-2.5">
                         Add Fast RPC to your wallet and test the connection to earn bonus points.
                       </p>
-                      <div className="flex gap-4">
+                      <div className="flex gap-4 lg:gap-2.5">
                         <Button
                           variant="outline"
-                          className="flex-1"
+                          className="flex-1 lg:text-sm lg:h-9"
                           onClick={() => {
                             if (!isConnected) {
                               toast.error('Please connect your wallet first');
@@ -641,7 +647,7 @@ const DashboardContent = () => {
                         </Button>
                         <Button
                           variant="outline"
-                          className="flex-1"
+                          className="flex-1 lg:text-sm lg:h-9"
                           onClick={() => {
                             if (!isConnected) {
                               toast.error('Please connect your wallet first');
@@ -656,6 +662,7 @@ const DashboardContent = () => {
                     </div>
                   </div>
                 </Card>
+              </div>
               </div>
             </div>
           </div>
