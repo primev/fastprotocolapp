@@ -28,7 +28,7 @@ export const MetaMaskToggleModal = ({
         <DialogHeader>
           <DialogTitle className="text-center text-2xl">Toggle Network</DialogTitle>
           <DialogDescription className="text-center text-base pt-2">
-            Switch to Fast Protocol network in MetaMask
+            Switch to FastRPC under Ethereum in MetaMask network settings
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-4">
