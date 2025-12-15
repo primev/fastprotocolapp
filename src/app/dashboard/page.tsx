@@ -23,12 +23,12 @@ import {
   Check,
   Copy,
   TrendingUp,
-  DollarSign,
   Users,
   Mail,
   ChevronRight,
   Settings,
   Wallet,
+  ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAccount } from 'wagmi';
@@ -49,6 +49,40 @@ import { AddRpcModal } from '@/components/onboarding/AddRpcModal';
 import { BrowserWalletStepsModal } from '@/components/onboarding/BrowserWalletStepsModal';
 import { NETWORK_CONFIG } from '@/lib/network-config';
 
+interface DeFiProtocol {
+  name: string;
+  swapUrl: string;
+  logo: string;
+}
+
+// Top DeFi swap protocols on Ethereum
+const TOP_DEFI_PROTOCOLS: DeFiProtocol[] = [
+  {
+    name: 'Uniswap',
+    swapUrl: 'https://app.uniswap.org/',
+    logo: 'https://assets.coingecko.com/coins/images/12504/large/uniswap-uni.png',
+  },
+  {
+    name: 'Curve',
+    swapUrl: 'https://curve.fi/',
+    logo: 'https://assets.coingecko.com/coins/images/12124/large/Curve.png',
+  },
+  {
+    name: 'Balancer',
+    swapUrl: 'https://balancer.fi/swap/ethereum/ETH',
+    logo: 'https://assets.coingecko.com/coins/images/11683/large/Balancer.png',
+  },
+  {
+    name: '1inch',
+    swapUrl: 'https://app.1inch.io/',
+    logo: 'https://assets.coingecko.com/coins/images/13469/large/1inch-token.png',
+  },
+  {
+    name: 'SushiSwap',
+    swapUrl: 'https://www.sushi.com/swap',
+    logo: 'https://assets.coingecko.com/coins/images/12271/large/512x512_Logo_no_chop.png',
+  },
+];
 
 const DashboardContent = () => {
   const router = useRouter();
@@ -324,447 +358,435 @@ const DashboardContent = () => {
   return (
     <div className="h-screen w-full bg-background relative overflow-y-auto flex flex-col">
 
-  {/* Header */}
-  <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 bg-background/80 z-50">
-          <div className="container mx-auto px-4 py-4 lg:py-2.5 flex items-center justify-between">
-            <div className="relative">
-              <Image
-                src="/assets/fast-icon.png"
-                alt="Fast Protocol"
-                width={40}
-                height={40}
-                className="sm:hidden"
-              />
-              <Image
-                src="/assets/fast-protocol-logo-icon.png"
-                alt="Fast Protocol"
-                width={150}
-                height={150}
-                className="hidden sm:block"
-              />
-            </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-              <Badge
-                variant="outline"
-                className="h-10 px-3 lg:px-2.5 text-sm lg:text-sm border-primary/50 flex items-center"
-              >
-                <Award className="w-4 h-4 lg:w-3.5 lg:h-3.5 mr-2 lg:mr-1.5 text-primary" />
-                {points} Points
-              </Badge>
-              {/* Wallet icon button for mobile (when connected) */}
-              {isConnected && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="sm:hidden"
-                  onClick={openAccountModal}
-                >
-                  <Wallet className="w-4 h-4" />
-                </Button>
-              )}
-              {/* ConnectButton - full on desktop, "Connect" only on mobile when not connected */}
-              {isConnected ? (
-                <div className="hidden sm:block">
-                  <ConnectButton showBalance={false} accountStatus="address" />
-                </div>
-              ) : (
-                <>
-                  {!isMounted || status === 'connecting' || status === 'reconnecting' ? (
-                    <Skeleton className="h-10 w-32 rounded-full" />
-                  ) : (
-                    <>
-                      <Button
-                        onClick={openConnectModal}
-                        className="h-10 sm:hidden px-4"
-                      >
-                        Connect
-                      </Button>
-                      <div className="hidden sm:block">
-                        <ConnectButton showBalance={false} accountStatus="address" />
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
+      {/* Header */}
+      <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 bg-background/80 z-50">
+        <div className="container mx-auto px-4 py-4 lg:py-2.5 flex items-center justify-between">
+          <div className="relative">
+            <Image
+              src="/assets/fast-icon.png"
+              alt="Fast Protocol"
+              width={40}
+              height={40}
+              className="sm:hidden"
+            />
+            <Image
+              src="/assets/fast-protocol-logo-icon.png"
+              alt="Fast Protocol"
+              width={150}
+              height={150}
+              className="hidden sm:block"
+            />
           </div>
-        </header>
-
-        {/* Announcement Banner */}
-        <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50">
-          <div className="container mx-auto px-4 py-2.5 lg:py-2 text-center">
-            {hasGenesisSBT ? (
-              <p className="text-primary-foreground font-semibold text-sm lg:text-sm">
-                🎉 You're all set for the points program kickoff! In the meantime, make your first Fast swap on these{' '}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsDeFiModalOpen(true);
-                  }}
-                  className="underline hover:text-primary-foreground transition-colors"
-                >
-                  top DeFi protocols
-                </button>
-                .
-              </p>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Badge
+              variant="outline"
+              className="h-10 px-3 lg:px-2.5 text-sm lg:text-sm border-primary/50 flex items-center"
+            >
+              <Award className="w-4 h-4 lg:w-3.5 lg:h-3.5 mr-2 lg:mr-1.5 text-primary" />
+              {points} Points
+            </Badge>
+            {/* Wallet icon button for mobile (when connected) */}
+            {isConnected && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="sm:hidden"
+                onClick={openAccountModal}
+              >
+                <Wallet className="w-4 h-4" />
+              </Button>
+            )}
+            {/* ConnectButton - full on desktop, "Connect" only on mobile when not connected */}
+            {isConnected ? (
+              <div className="hidden sm:block">
+                <ConnectButton showBalance={false} accountStatus="address" />
+              </div>
             ) : (
-              <p className="text-primary-foreground font-semibold text-sm lg:text-sm">
-                🚀 Mint your Genesis SBT to unlock the points program! Complete the onboarding steps to start earning points.{' '}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    router.push('/claim/onboarding');
-                  }}
-                  className="underline hover:text-primary-foreground transition-colors font-bold"
-                >
-                  Get Started
-                </button>
-              </p>
+              <>
+                {!isMounted || status === 'connecting' || status === 'reconnecting' ? (
+                  <Skeleton className="h-10 w-32 rounded-full" />
+                ) : (
+                  <>
+                    <Button
+                      onClick={openConnectModal}
+                      className="h-10 sm:hidden px-4"
+                    >
+                      Connect
+                    </Button>
+                    <div className="hidden sm:block">
+                      <ConnectButton showBalance={false} accountStatus="address" />
+                    </div>
+                  </>
+                )}
+              </>
             )}
           </div>
         </div>
+      </header>
+
+      {/* Announcement Banner */}
+      <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 mb-4">
+        <div className="container mx-auto px-4 py-2.5 lg:py-2 text-center">
+          {hasGenesisSBT ? (
+            <p className="text-primary-foreground font-semibold text-sm lg:text-sm">
+              🎉 You're all set for the points program kickoff! In the meantime, make your first Fast swap on these top DeFi protocols.
+            </p>
+          ) : (
+            <p className="text-primary-foreground font-semibold text-sm lg:text-sm">
+              🚀 Mint your Genesis SBT to unlock the points program! Complete the onboarding steps to start earning points.{' '}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push('/claim/onboarding');
+                }}
+                className="underline hover:text-primary-foreground transition-colors font-bold"
+              >
+                Get Started
+              </button>
+            </p>
+          )}
+        </div>
+      </div>
 
       <div className="flex-1 w-full flex items-center justify-center">
-        <main className="container  p-2 w-full flex flex-col">
-          <div className="grid lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-4 items-stretch">
-            {/* Left Panel - SBT Display */}
-            <div className="flex flex-col h-full">
-              <Card className="p-5 sm:p-6 lg:p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30 w-full flex flex-col h-full min-h-0">
-                {/* Always show SBT info */}
-                <div className="space-y-3 sm:space-y-4 lg:space-y-2.5 flex-1 flex flex-col min-h-0">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-xl sm:text-2xl lg:text-base font-bold">
-                      {NFT_NAME}
-                    </h2>
-                    {hasGenesisSBT ? (
-                      <Badge className="bg-primary text-primary-foreground">
-                        <Check className="w-3 h-3 mr-1" />
-                        Minted
-                      </Badge>
-                    ) : (
-                      <Badge
+        <main className="container p-2 w-full flex flex-col">
+          <div
+            className="
+              grid
+              gap-6 sm:gap-8 lg:gap-4
+              lg:[grid-template-columns:minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)]
+            "
+          >
+            {/* ================= NFT CARD ================= */}
+            <Card className="lg:row-span-4 p-5 sm:p-6 lg:p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30 flex flex-col h-fit">
+              <div className="space-y-3 sm:space-y-4 lg:space-y-2.5 flex flex-col">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl sm:text-2xl lg:text-base font-bold">
+                    {NFT_NAME}
+                  </h2>
+                  {hasGenesisSBT ? (
+                    <Badge className="bg-primary text-primary-foreground">
+                      <Check className="w-3 h-3 mr-1" />
+                      Minted
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-muted-foreground/50">
+                      Not Minted
+                    </Badge>
+                  )}
+                </div>
+
+                {/* NFT Visual */}
+                <div className="w-full aspect-square rounded-xl bg-gradient-to-br from-primary via-primary/50 to-primary/20 border border-primary/50 overflow-hidden relative">
+                  <img
+                    src={NFT_ASSET}
+                    alt={NFT_NAME}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.style.display = 'none';
+                      const placeholder = target.nextElementSibling as HTMLElement;
+                      if (placeholder) placeholder.classList.remove('hidden');
+                    }}
+                  />
+                  <div className="w-full h-full flex items-center justify-center hidden absolute inset-0">
+                    <div className="text-center space-y-2">
+                      <Zap className="w-20 h-20 mx-auto text-primary-foreground" />
+                      <div className="text-primary-foreground font-bold text-xl">
+                        FAST
+                      </div>
+                      <div className="text-primary-foreground/80 text-sm">
+                        Genesis
+                      </div>
+                    </div>
+                  </div>
+                  {hasNotMinted && (
+                    <div className="absolute inset-0 bg-background/40 backdrop-blur-sm flex items-center justify-center z-10 pointer-events-none">
+                      <Button
                         variant="outline"
-                        className="border-muted-foreground/50"
+                        size="lg"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          router.push('/claim/onboarding');
+                        }}
+                        className="bg-background/90 hover:bg-background border-primary/50 hover:border-primary hover:scale-105 transition-all duration-200 hover:shadow-lg hover:shadow-primary/20 group pointer-events-auto lg:text-sm lg:h-10 lg:px-6"
                       >
-                        Not Minted
-                      </Badge>
+                        Mint Genesis SBT
+                        <ChevronRight className="w-4 h-4 lg:w-3.5 lg:h-3.5 ml-2 lg:ml-1.5 transition-transform duration-200 group-hover:translate-x-1" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">SBT ID</span>
+                    {hasGenesisSBT ? (
+                      <span className="font-mono text-xs">#{String(tokenId)}</span>
+                    ) : (
+                      <span className="text-muted-foreground">Not Minted</span>
                     )}
                   </div>
 
-                  {/* SBT Visual */}
-                  <div className="w-full aspect-square max-h-full rounded-xl bg-gradient-to-br from-primary via-primary/50 to-primary/20 border border-primary/50 overflow-hidden glow-border relative flex-shrink">
-                    <img
-                      src={NFT_ASSET}
-                      alt={NFT_NAME}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        target.style.display = 'none';
-                        const placeholder = target.nextElementSibling as HTMLElement;
-                        if (placeholder) {
-                          placeholder.classList.remove('hidden');
+
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Wallet</span>
+                    {address && (
+                      <span className="font-mono text-xs">
+                        {address.slice(0, 4)}...{address.slice(-4)}
+                      </span>
+                    )}
+                    {!address && (
+                      <span className="text-muted-foreground">Not Connected</span>
+                    )}
+                  </div>
+
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Status</span>
+                    <Badge
+                      variant="outline"
+                      className="text-xs border-primary/50"
+                    >
+                      On-chain via Fast RPC
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-border/50">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    {NFT_DESCRIPTION}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* ================= DASHBOARD HEADER ================= */}
+            <Card className="lg:col-span-2 p-4 sm:p-5 lg:p-4 bg-gradient-to-br from-primary/10 via-primary/5 to-primary/10 border-primary/30">
+              <div className="flex flex-col gap-4 sm:gap-6 lg:gap-4">
+                {/* Fast Points Dashboard Column */}
+                <div className="flex items-start gap-3 sm:gap-4 lg:gap-3 px-2 sm:px-3 lg:px-2 rounded-lg w-full">
+                  <div className="m-auto text-primary w-8 h-full">
+                    <Award className="w-full h-full" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h1 className="text-xl sm:text-2xl lg:text-base font-bold text-foreground">
+                      Fast Points Dashboard
+                    </h1>
+                    <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mt-1.5 sm:mt-2 lg:mt-1 leading-relaxed">
+                      Complete tasks to earn points. Your points will carry into
+                      the official Fast Point System.
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Transaction Activity Column */}
+                <div className="flex items-start gap-3 sm:gap-4 lg:gap-3 px-2 sm:px-3 lg:px-2 rounded-lg">
+                  <div className="m-auto text-primary w-8 h-full">
+                    <TrendingUp className="w-full h-full" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h1 className="text-xl sm:text-2xl lg:text-base font-bold text-foreground">
+                      Transaction Activity
+                    </h1>
+                    <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mt-1.5 sm:mt-2 lg:mt-1 leading-relaxed">
+                      Track your weekly transactions and volume to earn bonus points
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* ================= TRANSACTIONS ================= */}
+            <Card className="lg:row-span-1 p-5 sm:p-6 lg:p-3.5 bg-card/50 border-border/50 flex flex-col">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4 lg:mb-2.5">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
+                <h3 className="text-lg sm:text-xl lg:text-sm font-semibold">
+                  Weekly Fast RPC Transactions
+                </h3>
+              </div>
+              <div className="space-y-3 sm:space-y-4 lg:space-y-2.5 blur-sm">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs sm:text-sm lg:text-sm">
+                    <span className="text-muted-foreground">
+                      Progress to 100 txs
+                    </span>
+                    <span className="font-semibold">17 / 100</span>
+                  </div>
+                  <Progress value={17} className="h-2 sm:h-3 lg:h-1.5" />
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2.5 pt-3 sm:pt-4 lg:pt-2.5 border-t border-border/50">
+                  <div className="text-center">
+                    <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
+                      1 tx
+                    </div>
+                    <div className="font-semibold text-primary text-xs lg:text-sm">+1</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
+                      10 txs
+                    </div>
+                    <div className="font-semibold text-primary text-xs lg:text-sm">
+                      +10
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
+                      100 txs
+                    </div>
+                    <div className="font-semibold text-primary text-xs lg:text-sm">
+                      +100
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
+                      1000 txs
+                    </div>
+                    <div className="font-semibold text-primary text-xs lg:text-sm">
+                      +500
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* ================= DEFI PROTOCOLS ================= */}
+            <Card className="lg:row-span-3 p-5 sm:p-6 lg:p-4 bg-card/50 border-border/50 flex flex-col">
+              {/* Header */}
+              <div className="flex items-center gap-2 mb-4 sm:mb-5 lg:mb-3">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 lg:w-4 lg:h-4 text-primary" />
+                <h3 className="text-lg sm:text-xl lg:text-base font-semibold">
+                  Linked DeFi Protocols
+                </h3>
+              </div>
+
+              {/* Scroll / Center Container */}
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <div className="min-h-full flex flex-col justify-center space-y-3">
+                  {TOP_DEFI_PROTOCOLS.map((protocol) => (
+                    <Card
+                      key={protocol.name}
+                      className="p-3 sm:p-4 lg:p-3 hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-all group"
+                      onClick={() => {
+                        if (protocol.swapUrl) {
+                          window.open(protocol.swapUrl, '_blank', 'noopener,noreferrer');
                         }
                       }}
-                    />
-                    <div className="w-full h-full flex items-center justify-center hidden absolute inset-0">
-                      <div className="text-center space-y-2">
-                        <Zap className="w-20 h-20 mx-auto text-primary-foreground" />
-                        <div className="text-primary-foreground font-bold text-xl">
-                          FAST
+                    >
+                      <div className="flex items-center gap-3 sm:gap-4 lg:gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 lg:w-10 lg:h-10 rounded-lg bg-background border border-border/50 flex-shrink-0">
+                          <div className="relative w-8 h-8 sm:w-10 sm:h-10 lg:w-8 lg:h-8">
+                            <Image
+                              src={protocol.logo}
+                              alt={protocol.name}
+                              fill
+                              className="object-contain rounded"
+                            />
+                          </div>
                         </div>
-                        <div className="text-primary-foreground/80 text-sm">
-                          Genesis
-                        </div>
-                      </div>
-                    </div>
-                    {hasNotMinted && (
-                      <div className="absolute inset-0 bg-background/40 backdrop-blur-sm flex items-center justify-center z-10 pointer-events-none">
-                        <Button
-                          variant="outline"
-                          size="lg"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            router.push('/claim/onboarding');
-                          }}
-                          className="bg-background/90 hover:bg-background border-primary/50 hover:border-primary hover:scale-105 transition-all duration-200 hover:shadow-lg hover:shadow-primary/20 group pointer-events-auto lg:text-sm lg:h-10 lg:px-6"
-                        >
-                          Mint Genesis SBT
-                          <ChevronRight className="w-4 h-4 lg:w-3.5 lg:h-3.5 ml-2 lg:ml-1.5 transition-transform duration-200 group-hover:translate-x-1" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="space-y-2 text-sm lg:text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">SBT ID</span>
-                      {hasGenesisSBT ? (
-                        <span className="font-mono text-xs">#{String(tokenId)}</span>
-                      ) : (
-                        <span className="text-muted-foreground">Not Minted</span>
-                      )}
-                    </div>
-                    {address && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Wallet</span>
-                        <span className="font-mono text-xs">
-                          {address.slice(0, 4)}...{address.slice(-4)}
-                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-semibold text-sm sm:text-base lg:text-sm group-hover:text-primary transition-colors">
+                              {protocol.name}
+                            </h4>
+                            <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+                          </div>
+                        </div>
                       </div>
-                    )}
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Status</span>
-                      <Badge
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </Card>
+
+
+            {/* ================= RPC TEST ================= */}
+            <Card className="lg:row-span-2 p-5 sm:p-6 lg:p-3.5 bg-card/50 border-border/50 flex flex-col">
+              <div className="flex flex-col h-full">
+                <div className="flex items-center gap-2 mb-3 sm:mb-4 lg:mb-2.5">
+                  <Settings className="w-4 h-4 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
+                  <h3 className="text-lg sm:text-xl lg:text-sm font-semibold">Test RPC connection</h3>
+                </div>
+                <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mb-3 sm:mb-4 lg:mb-2.5">
+                  Add Fast RPC to your wallet and test the connection to earn bonus points.
+                </p>
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="flex gap-4 lg:gap-2.5 relative z-10 w-full">
+                    {isMetaMask && (
+                      <Button
+                        type="button"
                         variant="outline"
-                        className="text-xs border-primary/50"
+                        className="flex-1 lg:text-sm lg:h-9 pointer-events-auto"
+                        onClick={handleAddNetwork}
                       >
-                        On-chain via Fast RPC
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 sm:pt-4 lg:pt-2.5 border-t border-border/50 mt-auto">
-                    <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground leading-relaxed">
-                      {NFT_DESCRIPTION}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            </div>
-
-            {/* Right Side - Spans 2 columns */}
-            <div className="lg:col-span-2 flex h-full">
-              <div className="flex flex-col gap-6 sm:gap-6 lg:h-full lg:justify-between lg:gap-3 w-full">
-              {/* Dashboard Splash Header */}
-              <Card className="p-4 sm:p-5 lg:p-4 bg-gradient-to-br from-primary/10 via-primary/5 to-primary/10 border-primary/30">
-                <div className="flex flex-col gap-4 sm:gap-6 lg:gap-4">
-                  {/* Fast Points Dashboard Column */}
-                  <div className="flex items-start gap-3 sm:gap-4 lg:gap-3 px-2 sm:px-3 lg:px-2 rounded-lg  w-full">
-                    <div className="m-auto text-primary w-8 h-full">
-                      <Award className="w-full h-full" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h1 className="text-xl sm:text-2xl lg:text-base font-bold text-foreground">
-                        Fast Points Dashboard
-                      </h1>
-                      <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mt-1.5 sm:mt-2 lg:mt-1 leading-relaxed">
-                        Complete tasks to earn points. Your points will carry into
-                        the official Fast Point System.
-                      </p>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Transaction Activity Column */}
-                  <div className="flex items-start gap-3 sm:gap-4 lg:gap-3 px-2 sm:px-3 lg:px-2 rounded-lg">
-                  <div className="m-auto text-primary w-8 h-full">
-                      <TrendingUp className="w-full h-full" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h1 className="text-xl sm:text-2xl lg:text-base font-bold text-foreground">
-                        Transaction Activity
-                      </h1>
-                      <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mt-1.5 sm:mt-2 lg:mt-1 leading-relaxed">
-                        Track your weekly transactions and volume to earn bonus points
-                      </p>
-                    </div>
+                        Add
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1 lg:text-sm lg:h-9 pointer-events-auto"
+                      onClick={handleRpcSetup}
+                    >
+                      {isMetaMask ? 'Toggle' : 'Setup'}
+                    </Button>
+                    <button
+                      type="button"
+                      className="flex-1 lg:text-sm lg:h-9 cursor-pointer pointer-events-auto relative z-10 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+                      onClick={(e) => {
+                        console.log('Test button clicked, isConnected:', isConnected);
+                        if (!isConnected) {
+                          toast.error('Please connect your wallet first');
+                          return;
+                        }
+                        setIsTestModalOpen(true);
+                      }}
+                    >
+                      Test
+                    </button>
                   </div>
                 </div>
-              </Card>
-
-              {/* Transaction Cards - Side by Side */}
-              <div className="grid md:grid-cols-2 gap-4 sm:gap-5 md:gap-5 lg:gap-3">
-                {/* Transaction Activity */}
-                <Card className="p-5 sm:p-6 lg:p-3.5 bg-card/50 border-border/50">
-                  <div className="flex items-center gap-2 mb-3 sm:mb-4 lg:mb-2.5">
-                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
-                    <h3 className="text-lg sm:text-xl lg:text-sm font-semibold">
-                      Weekly Fast RPC Transactions
-                    </h3>
-                  </div>
-                  <div className="space-y-3 sm:space-y-4 lg:space-y-2.5 blur-sm">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs sm:text-sm lg:text-sm">
-                        <span className="text-muted-foreground">
-                          Progress to 100 txs
-                        </span>
-                        <span className="font-semibold">17 / 100</span>
-                      </div>
-                      <Progress value={17} className="h-2 sm:h-3 lg:h-1.5" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2.5 pt-3 sm:pt-4 lg:pt-2.5 border-t border-border/50">
-                      <div className="text-center">
-                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
-                          1 tx
-                        </div>
-                        <div className="font-semibold text-primary text-xs lg:text-sm">+1</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
-                          10 txs
-                        </div>
-                        <div className="font-semibold text-primary text-xs lg:text-sm">
-                          +10
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
-                          100 txs
-                        </div>
-                        <div className="font-semibold text-primary text-xs lg:text-sm">
-                          +100
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
-                          1000 txs
-                        </div>
-                        <div className="font-semibold text-primary text-xs lg:text-sm">
-                          +500
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Volume Activity */}
-                <Card className="p-5 sm:p-6 lg:p-3.5 bg-card/50 border-border/50">
-                  <div className="flex items-center gap-2 mb-3 sm:mb-4 lg:mb-2.5">
-                    <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
-                    <h3 className="text-lg sm:text-xl lg:text-sm font-semibold">
-                      Weekly Fast RPC Volume
-                    </h3>
-                  </div>
-                  <div className="space-y-3 sm:space-y-4 lg:space-y-2.5 blur-sm">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs sm:text-sm lg:text-sm">
-                        <span className="text-muted-foreground">
-                          Progress to $10,000
-                        </span>
-                        <span className="font-semibold">
-                          $2,130 / $10,000
-                        </span>
-                      </div>
-                      <Progress value={21.3} className="h-2 sm:h-3 lg:h-1.5" />
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 sm:gap-4 lg:gap-2.5 pt-3 sm:pt-4 lg:pt-2.5 border-t border-border/50">
-                      <div className="text-center">
-                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
-                          $100
-                        </div>
-                        <div className="font-semibold text-primary text-xs lg:text-sm">+1</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
-                          $1,000
-                        </div>
-                        <div className="font-semibold text-primary text-xs lg:text-sm">
-                          +10
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs sm:text-sm lg:text-sm text-muted-foreground">
-                          $10,000
-                        </div>
-                        <div className="font-semibold text-primary text-xs lg:text-sm">
-                          +100
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
               </div>
+            </Card>
 
-              {/* Referrals and Test RPC Section - Side by Side */}
-              <div className="grid md:grid-cols-2 gap-4 sm:gap-5 md:gap-5 lg:gap-3 mb-0 pb-0">
-                {/* Referrals Section */}
-                <Card className="p-5 sm:p-6 lg:p-3.5 bg-card/50 border-border/50">
-                  <div className="space-y-3 sm:space-y-4 lg:space-y-2.5">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
-                      <h3 className="text-lg sm:text-xl lg:text-sm font-semibold">Referrals</h3>
-                    </div>
-                    <div className="blur-sm">
-                      <p className="text-sm lg:text-sm text-muted-foreground">
-                        Earn +1 point per successful referral (max 100/week)
-                      </p>
-                      <div className="bg-secondary/50 rounded-lg p-2.5 sm:p-3 lg:p-2 flex items-center justify-between mt-2">
-                        <code className="text-xs lg:text-[10px]">{referralCode}</code>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={copyReferralLink}
-                          className="lg:h-8 lg:w-8 lg:p-0"
-                        >
-                          <Copy className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
-                        </Button>
-                      </div>
-                      <div className="space-y-2 mt-2">
-                        <div className="flex justify-between text-xs sm:text-sm lg:text-sm">
-                          <span className="text-muted-foreground">
-                            This week
-                          </span>
-                          <span className="font-semibold">3 / 100</span>
-                        </div>
-                        <Progress value={3} className="h-2 lg:h-1.5" />
-                      </div>
-                    </div>
+            {/* ================= REFERRALS ================= */}
+            <Card className="lg:row-span-2 p-5 sm:p-6 lg:p-3.5 bg-card/50 border-border/50 flex flex-col">
+              <div className="space-y-3 sm:space-y-4 lg:space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
+                  <h3 className="text-lg sm:text-xl lg:text-sm font-semibold">Referrals</h3>
+                </div>
+                <div className="blur-sm">
+                  <p className="text-sm lg:text-sm text-muted-foreground">
+                    Earn +1 point per successful referral (max 100/week)
+                  </p>
+                  <div className="bg-secondary/50 rounded-lg p-2.5 sm:p-3 lg:p-2 flex items-center justify-between mt-2">
+                    <code className="text-xs lg:text-[10px]">{referralCode}</code>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={copyReferralLink}
+                      className="lg:h-8 lg:w-8 lg:p-0"
+                    >
+                      <Copy className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
+                    </Button>
                   </div>
-                </Card>
-
-                {/* Test RPC Connection Section */}
-                <Card className="p-5 sm:p-6 lg:p-3.5 bg-card/50 border-border/50 h-full flex flex-col">
-                  <div className="flex flex-col h-full">
-                    <div className="flex items-center gap-2 mb-3 sm:mb-4 lg:mb-2.5">
-                      <Settings className="w-4 h-4 sm:w-5 sm:h-5 lg:w-3.5 lg:h-3.5 text-primary" />
-                      <h3 className="text-lg sm:text-xl lg:text-sm font-semibold">Test RPC connection</h3>
+                  <div className="space-y-2 mt-2">
+                    <div className="flex justify-between text-xs sm:text-sm lg:text-sm">
+                      <span className="text-muted-foreground">
+                        This week
+                      </span>
+                      <span className="font-semibold">3 / 100</span>
                     </div>
-                    <p className="text-xs sm:text-sm lg:text-sm text-muted-foreground mb-3 sm:mb-4 lg:mb-2.5">
-                      Add Fast RPC to your wallet and test the connection to earn bonus points.
-                    </p>
-                    <div className="flex-1 flex items-center justify-center">
-                      <div className="flex gap-4 lg:gap-2.5 relative z-10 w-full">
-                        {isMetaMask && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="flex-1 lg:text-sm lg:h-9 pointer-events-auto"
-                            onClick={handleAddNetwork}
-                          >
-                            Add
-                          </Button>
-                        )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="flex-1 lg:text-sm lg:h-9 pointer-events-auto"
-                          onClick={handleRpcSetup}
-                        >
-                          {isMetaMask ? 'Toggle' : 'Setup'}
-                        </Button>
-                        <button
-                          type="button"
-                          className="flex-1 lg:text-sm lg:h-9 cursor-pointer pointer-events-auto relative z-10 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground"
-                          onClick={(e) => {
-                            console.log('Test button clicked, isConnected:', isConnected);
-                            if (!isConnected) {
-                              toast.error('Please connect your wallet first');
-                              return;
-                            }
-                            setIsTestModalOpen(true);
-                          }}
-                        >
-                          Test
-                        </button>
-                      </div>
-                    </div>
+                    <Progress value={3} className="h-2 lg:h-1.5" />
                   </div>
-                </Card>
+                </div>
               </div>
-              </div>
-            </div>
+            </Card>
           </div>
         </main>
       </div>
