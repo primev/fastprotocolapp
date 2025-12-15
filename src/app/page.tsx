@@ -81,6 +81,19 @@ const IndexPage = () => {
       {/* Animated Background */}
       <AnimatedBackground />
 
+      {/* Header */}
+      <header className="relative z-20 w-full border-b border-primary/20 backdrop-blur-sm bg-background/60 sticky top-0 p-3">
+        <div className="flex items-center justify-end">
+          <Button
+            variant="glass"
+            size="sm"
+            onClick={() => window.open('https://paragraph.com/@0xfa0b0f5d298d28efe4d35641724141ef19c05684/introducing-fast-protocol-a-coordinated-rewards-layer', '_blank')}
+          > 
+              Learn More
+          </Button>
+        </div>
+      </header>
+
       <div className="relative z-10 w-full px-4 flex-1 flex flex-col justify-between py-4 sm:py-6 tablet:py-8 lg:py-6">
         <div className="max-w-6xl mx-auto w-full text-center flex-1 flex flex-col justify-between">
           {/* Logo */}
