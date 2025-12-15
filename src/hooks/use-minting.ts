@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Address, PublicClient, TransactionReceipt } from 'viem';
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useWriteContract, useWaitForTransactionReceipt, } from 'wagmi';
 import { toast } from 'sonner';
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from '@/lib/contract-config';
 import { parseTokenIdFromReceipt } from '@/lib/onboarding-utils';
@@ -84,90 +84,20 @@ export function useMinting({
     checkExistingToken();
   }, [address, publicClient]);
 
-  // Handle transaction confirmation with polling for logs
+  // Handle transaction receipt and parse token ID
   useEffect(() => {
-    if (!isConfirmed || !hash || !address || !publicClient) return;
+    if (!receipt) return;
+    console.log('receipt', receipt);
 
-    let pollInterval: NodeJS.Timeout | null = null;
-    let pollAttempts = 0;
-    const MAX_POLL_ATTEMPTS = 30; // Poll for up to 30 seconds (30 attempts * 1 second)
-    const POLL_INTERVAL_MS = 1000; // Poll every 1 second
+    const tokenId = parseTokenIdFromReceipt(receipt);
+    if (!tokenId) {
+      return;
+    }
 
-    const handleReceipt = async (): Promise<boolean> => {
-      // Prefer the wagmi receipt if available
-      let currentReceipt: TransactionReceipt | null = (receipt as TransactionReceipt | null) || null;
+    router.push(`/dashboard?tokenId=${tokenId.toString()}`);
+  }, [receipt]);
 
-      // If logs are missing, refetch from RPC (Smart Account delay)
-      if (!currentReceipt?.logs || currentReceipt.logs.length === 0) {
-        try {
-          currentReceipt = await publicClient.getTransactionReceipt({
-            hash: hash,
-          });
-        } catch {
-          // Receipt not indexed yet — return false to continue polling
-          return false;
-        }
-      }
 
-      if (!currentReceipt?.logs || currentReceipt.logs.length === 0) {
-        // Still no logs — return false to continue polling
-        return false;
-      }
-
-      const tokenId = parseTokenIdFromReceipt(currentReceipt);
-      if (!tokenId) {
-        // No token ID found — return false to continue polling
-        return false;
-      }
-
-      // Success! Stop polling and handle success
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-      setIsMinting(false);
-
-      toast.success('Genesis SBT minted successfully!', {
-        description: `Token ID: ${tokenId.toString()}`,
-      });
-
-      router.push(`/dashboard?tokenId=${tokenId.toString()}`);
-      return true;
-    };
-
-    // Try immediately first
-    handleReceipt().then((success) => {
-      if (success) return;
-
-      // If logs are missing, start polling
-      pollInterval = setInterval(async () => {
-        pollAttempts++;
-        
-        if (pollAttempts >= MAX_POLL_ATTEMPTS) {
-          // Stop polling after max attempts
-          if (pollInterval) {
-            clearInterval(pollInterval);
-          }
-          setIsMinting(false);
-          toast.error('Transaction confirmed but logs not found', {
-            description: 'The transaction was confirmed but we could not retrieve the token ID. Please check your wallet.',
-          });
-          return;
-        }
-
-        const success = await handleReceipt();
-        if (success && pollInterval) {
-          clearInterval(pollInterval);
-        }
-      }, POLL_INTERVAL_MS);
-    });
-
-    // Cleanup on unmount or when dependencies change
-    return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-    };
-  }, [isConfirmed, hash, receipt, address, publicClient, router]);
 
   // Update minting state based on transaction status
   useEffect(() => {
