@@ -6,6 +6,8 @@ import { getProviderForConnector } from '@/lib/wallet-provider';
 import { isMetaMaskWallet } from '@/lib/onboarding-utils';
 import { UseRPCTestReturn } from './use-rpc-test';
 
+const ETHEREUM_NETWORK_UPDATED_KEY = 'ethereum-network-updated';
+
 export interface UseRPCSetupProps {
   isConnected: boolean;
   connector: Connector | undefined;
@@ -43,6 +45,30 @@ export function useRPCSetup({
   const [rpcRequired, setRpcRequired] = useState(false);
   const hasPromptedAddRpc = useRef(false);
   const updateStepStatusRef = useRef(updateStepStatus);
+
+  /**
+   * Check if user has already updated Ethereum network
+   */
+  const hasUpdatedEthereumNetwork = (): boolean => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return localStorage.getItem(ETHEREUM_NETWORK_UPDATED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  };
+
+  /**
+   * Mark Ethereum network as updated in localStorage
+   */
+  const markEthereumNetworkUpdated = (): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(ETHEREUM_NETWORK_UPDATED_KEY, 'true');
+    } catch (error) {
+      console.error('Error saving Ethereum network update status:', error);
+    }
+  };
 
   // Keep ref in sync with latest function
   useEffect(() => {
@@ -104,6 +130,9 @@ export function useRPCSetup({
         params: [NETWORK_CONFIG],
       });
 
+      // Mark as updated in localStorage
+      markEthereumNetworkUpdated();
+
       // Only show toast for MetaMask if wallet is not already configured
       if (isMetaMaskWallet(connector) && !alreadyConfiguredWallet) {
         toast.success('Network added successfully', {
@@ -125,21 +154,21 @@ export function useRPCSetup({
     }
   };
 
-  // Prompt Add Fast RPC after wallet step is marked complete
+  // Prompt Add Fast RPC after wallet connection - check localStorage first
   useEffect(() => {
     if (!hasInitialized) return;
 
-    // Skip auto-prompt if wallet is already configured (happy path)
-    if (alreadyConfiguredWallet) {
+    // Check if user has already updated Ethereum network
+    if (hasUpdatedEthereumNetwork()) {
       return;
     }
 
-    // Wait until wallet step is completed and we haven't prompted yet
-    if (!walletStepCompleted || !isConnected || !connector || hasPromptedAddRpc.current) {
+    // Wait until wallet is connected and we haven't prompted yet
+    if (!isConnected || !connector || hasPromptedAddRpc.current) {
       return;
     }
 
-    // Wait a moment after step is marked complete, then prompt
+    // Wait a moment after connection, then prompt
     const timer = setTimeout(async () => {
       if (!connector) return;
 
@@ -157,6 +186,9 @@ export function useRPCSetup({
         params: [NETWORK_CONFIG],
       });
       
+      // Mark as updated in localStorage
+      markEthereumNetworkUpdated();
+      
       // Only show toast for MetaMask
       if (isMetaMaskWallet(connector)) {
         toast.success('Network added successfully', {
@@ -165,10 +197,7 @@ export function useRPCSetup({
       }
       
       // Don't auto-complete toggle/add step - user must manually mark it as complete
-      // But skip this if wallet is already configured (happy path)
-      if (!alreadyConfiguredWallet) {
-        setRpcAddCompleted(false);
-      }
+      setRpcAddCompleted(false);
       setRpcRequired(false);
       } catch (error: any) {
         // Handle user rejection - mark step 5 as incomplete and show warning
@@ -186,17 +215,18 @@ export function useRPCSetup({
           errorMessage.includes('duplicate');
 
         if (isNetworkExistsError) {
-          // Network already added - that's fine
+          // Network already added - mark as updated in localStorage
+          markEthereumNetworkUpdated();
           return;
         }
 
         // Log other errors but don't show toast since popup appeared
         console.error('Network addition result:', error);
       }
-    }, 1500); // Wait 1.5 seconds after step is marked complete
+    }, 1500); // Wait 1.5 seconds after connection
 
     return () => clearTimeout(timer);
-  }, [walletStepCompleted, isConnected, connector, hasInitialized]);
+  }, [isConnected, connector, hasInitialized]);
 
   // Mark test as complete when test is successful
   useEffect(() => {

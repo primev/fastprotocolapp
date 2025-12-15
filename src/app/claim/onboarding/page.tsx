@@ -26,7 +26,6 @@ import { useOnboardingSteps, type BaseStep } from '@/hooks/use-onboarding-steps'
 import { useRPCSetup } from '@/hooks/use-rpc-setup';
 import { useWalletConnection } from '@/hooks/use-wallet-connection';
 import { useMinting } from '@/hooks/use-minting';
-import { useSmartAccountDetection } from '@/hooks/use-smart-account-detection';
 
 // Utils and components
 import { isMetaMaskWallet, isRabbyWallet } from '@/lib/onboarding-utils';
@@ -36,8 +35,6 @@ import { MintButtonSection } from '@/components/onboarding/MintButtonSection';
 import { MetaMaskToggleModal } from '@/components/onboarding/MetaMaskToggleModal';
 import { AddRpcModal } from '@/components/onboarding/AddRpcModal';
 import { BrowserWalletStepsModal } from '@/components/onboarding/BrowserWalletStepsModal';
-import { AlreadyConfiguredWallet } from '@/components/onboarding/AlreadyConfiguredWallet';
-import { SmartAccountModal } from '@/components/onboarding/SmartAccountModal';
 
 // Constants
 const baseSteps: BaseStep[] = [
@@ -68,9 +65,6 @@ const OnboardingPage = () => {
   const { disconnect } = useDisconnect();
   const rpcTest = useRPCTest();
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected);
-
-  // Smart account notification
-  const smartAccountDetection = useSmartAccountDetection();
 
   // Custom hooks
   const {
@@ -103,8 +97,8 @@ const OnboardingPage = () => {
     }
   }, [hasInitialized, steps, updateStepStatus]);
 
-  // Already configured wallet state - must be declared before hooks that use it
-  const [alreadyConfiguredWallet, setAlreadyConfiguredWallet] = useState<boolean | null>(null);
+  // Already configured wallet state - default to false (not configured)
+  const [alreadyConfiguredWallet] = useState<boolean>(false);
 
   const rpcSetup = useRPCSetup({
     isConnected,
@@ -113,7 +107,7 @@ const OnboardingPage = () => {
     hasInitialized,
     updateStepStatus,
     rpcTest,
-    alreadyConfiguredWallet: alreadyConfiguredWallet === true,
+    alreadyConfiguredWallet,
   });
 
  
@@ -127,7 +121,7 @@ const OnboardingPage = () => {
     updateStepStatus,
     setRpcRequired: rpcSetup.setRpcRequired,
     rpcRequired: rpcSetup.rpcRequired,
-    alreadyConfiguredWallet: alreadyConfiguredWallet === true,
+    alreadyConfiguredWallet,
   });
 
   // Note: RPC step completion logic is handled in useRPCSetup hook
@@ -145,7 +139,6 @@ const OnboardingPage = () => {
   const [isMetaMaskModalOpen, setIsMetaMaskModalOpen] = useState(false);
   const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false);
   const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false);
-  const [isAlreadyConfiguredModalOpen, setIsAlreadyConfiguredModalOpen] = useState(false);
 
   // Derived values
   const walletStep = steps.find((s) => s.id === 'wallet');
@@ -170,15 +163,8 @@ const OnboardingPage = () => {
         }, 2000);
       },
       wallet: () => {
-        // Check if we should show the smart account notification modal
-        const shouldShowModal = smartAccountDetection.checkAndShowModal();
-        if (shouldShowModal) {
-          // Modal will be shown, don't proceed with connection yet
-          return;
-        }
-
-        // Always show the modal when connect button is clicked
-        setIsAlreadyConfiguredModalOpen(true);
+        // Directly open the connect modal
+        openConnectModal();
       },
       rpc: () => {
         if (!isConnected) {
@@ -213,11 +199,6 @@ const OnboardingPage = () => {
     rpcTest.reset();
   };
 
-  const handleAlreadyConfiguredSelect = (isConfigured: boolean) => {
-    setAlreadyConfiguredWallet(isConfigured);
-    setIsAlreadyConfiguredModalOpen(false);
-    openConnectModal();
-  };
 
   const handleWalletStepClick = async () => {
     if (walletStep?.completed && !rpcSetup.rpcRequired) {
@@ -268,7 +249,7 @@ const OnboardingPage = () => {
               rpcRequired={rpcSetup.rpcRequired}
               isTesting={rpcTest.isTesting}
               walletStepCompleted={walletStep?.completed || false}
-              alreadyConfiguredWallet={alreadyConfiguredWallet ?? false}
+              alreadyConfiguredWallet={alreadyConfiguredWallet}
               onStepClick={handleStepClick}
               onRpcStepClick={handleRpcStepClick}
               onTestClick={handleTestClick}
@@ -332,24 +313,6 @@ const OnboardingPage = () => {
           onComplete={() => {
             rpcSetup.setRpcAddCompleted(true);
             setIsBrowserWalletModalOpen(false);
-          }}
-        />
-
-        {/* Already Configured Wallet Modal */}
-        <AlreadyConfiguredWallet
-          open={isAlreadyConfiguredModalOpen}
-          onSelect={handleAlreadyConfiguredSelect}
-        />
-
-        {/* Smart Account Modal */}
-        <SmartAccountModal
-          open={smartAccountDetection.isSmartAccountModalOpen}
-          onOpenChange={smartAccountDetection.setIsSmartAccountModalOpen}
-          onAcknowledged={() => {
-            // Mark as acknowledged (sets localStorage flag)
-            smartAccountDetection.markAsAcknowledged();
-            // Show Already Configured modal
-            setIsAlreadyConfiguredModalOpen(true);
           }}
         />
       </div>
