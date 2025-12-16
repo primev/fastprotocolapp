@@ -39,7 +39,7 @@ import { BrowserWalletStepsModal } from '@/components/onboarding/BrowserWalletSt
 // Constants
 const baseSteps: BaseStep[] = [
   {
-    id: 'community',
+    id: 'follow',
     title: 'Follow Us on X',
     description: 'Follow us on X',
     icon: Twitter,
@@ -77,7 +77,7 @@ const OnboardingPage = () => {
     isConnected,
   });
 
-  // Check if follow step is completed on mount and mark community step as complete
+  // Check if follow step is completed on mount
   useEffect(() => {
     if (!hasInitialized) return;
 
@@ -86,9 +86,9 @@ const OnboardingPage = () => {
       try {
         const parsed = JSON.parse(saved);
         if (parsed.follow === true) {
-          const communityStep = steps.find(s => s.id === 'community');
-          if (communityStep && !communityStep.completed) {
-            updateStepStatus('community', true);
+          const followStep = steps.find(s => s.id === 'follow');
+          if (followStep && !followStep.completed) {
+            updateStepStatus('follow', true);
           }
         }
       } catch (error) {
@@ -150,12 +150,12 @@ const OnboardingPage = () => {
   // Event handlers
   const handleStepAction = (stepId: string) => {
     const actions: Record<string, () => void> = {
-      community: () => {
+      follow: () => {
         window.open('https://twitter.com/intent/follow?screen_name=fast_protocol', '_blank');
         toast.success('Please follow @fast_protocol to continue');
         setTimeout(() => {
-          updateStepStatus('community', true);
-          // Also save 'follow' to localStorage for consistency
+          updateStepStatus('follow', true);
+          // Save 'follow' to localStorage
           const saved = localStorage.getItem('onboardingSteps');
           const parsed = saved ? JSON.parse(saved) : {};
           parsed.follow = true;

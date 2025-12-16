@@ -44,17 +44,7 @@ export const OnboardingStepsList = ({
         const isWalletStep = step.id === 'wallet';
         const isRpcStep = step.id === 'rpc';
         const showWarning = isWalletStep && (isWalletStepWithWarning || rpcRequired);
-        
-        // Show warning on step 6 if toggle is completed and alreadyConfiguredWallet is false (not happy path)
-        // alreadyConfiguredWallet === false means they said "No" or "Unsure" (not happy path)
-        // When toggle is completed on not happy path: show refresh button, hide test button
-        // But don't show refresh button if refresh was already processed (after refresh completes)
         const showRpcWarning = isRpcStep && !alreadyConfiguredWallet && rpcAddCompleted && !rpcTestCompleted && !refreshProcessed;
-        // Only show toggle button (hide test) when alreadyConfiguredWallet is false and toggle not completed
-        // For happy path: when toggle is completed, show test button (unhide it)
-        const showOnlyToggle = isRpcStep && !alreadyConfiguredWallet && !rpcAddCompleted;
-        // Hide toggle/add button when alreadyConfiguredWallet is true (happy path - already configured)
-        // Also hide toggle button when refresh was processed (after refresh completes)
         const hideToggleButton = isRpcStep && (alreadyConfiguredWallet || refreshProcessed);
 
         return (
@@ -72,11 +62,9 @@ export const OnboardingStepsList = ({
             rpcRequired={rpcRequired}
             isTesting={isTesting}
             walletStepCompleted={walletStepCompleted}
-            showOnlyToggle={showOnlyToggle}
             showRefreshButton={showRpcWarning}
             hideToggleButton={hideToggleButton}
             refreshProcessed={refreshProcessed}
-            alreadyConfiguredWallet={alreadyConfiguredWallet}
             onStepClick={onStepClick}
             onRpcStepClick={isRpcStep ? onRpcStepClick : undefined}
             onTestClick={isRpcStep ? onTestClick : undefined}

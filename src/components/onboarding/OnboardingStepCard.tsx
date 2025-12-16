@@ -17,11 +17,9 @@ interface OnboardingStepCardProps {
   rpcTestCompleted?: boolean;
   rpcRequired?: boolean;
   isTesting?: boolean;
-  showOnlyToggle?: boolean;
   showRefreshButton?: boolean;
   hideToggleButton?: boolean;
   refreshProcessed?: boolean;
-  alreadyConfiguredWallet?: boolean;
   onStepClick: (stepId: string) => void;
   onRpcStepClick?: () => void;
   onTestClick?: () => void;
@@ -42,11 +40,9 @@ export const OnboardingStepCard = ({
   rpcTestCompleted = false,
   rpcRequired = false,
   isTesting = false,
-  showOnlyToggle = false,
   showRefreshButton = false,
   hideToggleButton = false,
   refreshProcessed = false,
-  alreadyConfiguredWallet = false,
   onStepClick,
   onRpcStepClick,
   onTestClick,
@@ -64,23 +60,21 @@ export const OnboardingStepCard = ({
 
   return (
     <Card
-      className={`p-4 ${
-        showWarning && (isWalletStep || isRpcStep)
+      className={`p-4 ${showWarning && (isWalletStep || isRpcStep)
           ? 'bg-yellow-500/10 border-yellow-500/50'
           : step.completed
             ? 'bg-primary/5 border-primary/50'
             : 'bg-card/50 border-border/50 hover:border-primary/30'
-      }`}
+        }`}
     >
       <div className="flex items-center gap-4">
         <div
-          className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-            showWarning && (isWalletStep || isRpcStep)
+          className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${showWarning && (isWalletStep || isRpcStep)
               ? 'bg-yellow-500/20 text-yellow-600'
               : step.completed
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-background'
-          }`}
+            }`}
         >
           {showWarning && (isWalletStep || isRpcStep) ? (
             <AlertTriangle className="w-5 h-5" />
@@ -160,26 +154,16 @@ export const OnboardingStepCard = ({
             }}
             variant="outline"
             size="default"
-            className={`flex-shrink-0 w-28 ${
-              // First 4 steps: keep disabled appearance but remain clickable
-              (step.id === 'follow' || step.id === 'discord' || step.id === 'telegram' || step.id === 'email') && step.completed
-                ? 'opacity-50 cursor-pointer'
-                : ''
-            }`}
+            className="flex-shrink-0 w-28"
             disabled={
               forceDisabled
                 ? true
-                : // Community step and first 4 steps should not be disabled (remain clickable) unless forceDisabled
-                (step.id === 'community' || step.id === 'follow' || step.id === 'discord' || step.id === 'telegram' || step.id === 'email')
+                : step.id === 'follow'
                   ? false
                   : step.completed && !isRpcStep && !isWalletStep && !rpcRequired
             }
           >
-            {step.id === 'community' && (step.completed ? 'Joined' : 'Join')}
             {step.id === 'follow' && (step.completed ? 'Following' : 'Follow')}
-            {step.id === 'discord' && (step.completed ? 'Joined' : 'Join')}
-            {step.id === 'telegram' && (step.completed ? 'Joined' : 'Join')}
-            {step.id === 'email' && (step.completed ? 'Submitted' : 'Submit')}
             {step.id === 'wallet' &&
               (rpcRequired
                 ? 'Add RPC'
