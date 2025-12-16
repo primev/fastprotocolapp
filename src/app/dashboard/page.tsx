@@ -48,6 +48,7 @@ import { MetaMaskToggleModal } from '@/components/onboarding/MetaMaskToggleModal
 import { AddRpcModal } from '@/components/onboarding/AddRpcModal';
 import { BrowserWalletStepsModal } from '@/components/onboarding/BrowserWalletStepsModal';
 import { NETWORK_CONFIG } from '@/lib/network-config';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface DeFiProtocol {
   name: string;
@@ -419,6 +420,64 @@ const DashboardContent = () => {
                   </>
                 )}
               </>
+            )}
+            {isConnected && (
+              <div className="relative">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Account Settings"
+                      className="w-10 h-10 rounded-full border border-border shadow-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary/50 transition"
+                    >
+                      <Settings className="w-5 h-5 text-primary" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[220px] rounded-lg shadow-lg border border-border p-2 bg-background">
+                    <DropdownMenuLabel className="text-[13px] text-foreground/80 font-semibold pb-1">
+                      Fast Protocol Network
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {isMetaMask && (
+                      <DropdownMenuItem
+                        className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-accent/60 rounded"
+                        onSelect={e => {
+                          e.preventDefault();
+                          handleAddNetwork();
+                        }}
+                      >
+                        <span className="inline-block w-2 h-2 rounded-full bg-primary mr-2" />
+                        Add RPC to Wallet
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-accent/60 rounded"
+                      onSelect={e => {
+                        e.preventDefault();
+                        handleRpcSetup();
+                      }}
+                    >
+                      <span className="inline-block w-2 h-2 rounded-full bg-muted-foreground mr-2" />
+                      {isMetaMask ? 'Toggle Network' : 'Setup RPC'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-accent/60 rounded"
+                      onSelect={e => {
+                        e.preventDefault();
+                        if (!isConnected) {
+                          toast.error('Please connect your wallet first');
+                          return;
+                        }
+                        setIsTestModalOpen(true);
+                      }}
+                    >
+                      <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-2" />
+                      Test RPC Connection
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )}
           </div>
         </div>
