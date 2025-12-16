@@ -6,7 +6,7 @@ import { getProviderForConnector } from '@/lib/wallet-provider';
 import { isMetaMaskWallet } from '@/lib/onboarding-utils';
 import { UseRPCTestReturn } from './use-rpc-test';
 
-const ETHEREUM_NETWORK_UPDATED_KEY = 'ethereum-network-updated';
+const RPC_REFRESH_FLAG_KEY = 'rpc-refresh-flag';
 
 export interface UseRPCSetupProps {
   isConnected: boolean;
@@ -22,10 +22,12 @@ export interface UseRPCSetupReturn {
   rpcAddCompleted: boolean;
   rpcTestCompleted: boolean;
   rpcRequired: boolean;
+  refreshProcessed: boolean;
   setRpcAddCompleted: (value: boolean) => void;
   setRpcTestCompleted: (value: boolean) => void;
   setRpcRequired: (value: boolean) => void;
   handleAddRPC: () => Promise<void>;
+  handleRefresh: () => void;
 }
 
 /**
@@ -43,32 +45,82 @@ export function useRPCSetup({
   const [rpcAddCompleted, setRpcAddCompleted] = useState(false);
   const [rpcTestCompleted, setRpcTestCompleted] = useState(false);
   const [rpcRequired, setRpcRequired] = useState(false);
+  const [refreshProcessed, setRefreshProcessed] = useState(false);
   const hasPromptedAddRpc = useRef(false);
+  const refreshProcessedRef = useRef(false);
   const updateStepStatusRef = useRef(updateStepStatus);
 
   /**
-   * Check if user has already updated Ethereum network
+   * Check if refresh flag exists in localStorage
    */
-  const hasUpdatedEthereumNetwork = (): boolean => {
+  const hasRefreshFlag = (): boolean => {
     if (typeof window === 'undefined') return false;
     try {
-      return localStorage.getItem(ETHEREUM_NETWORK_UPDATED_KEY) === 'true';
+      return localStorage.getItem(RPC_REFRESH_FLAG_KEY) === 'true';
     } catch {
       return false;
     }
   };
 
   /**
-   * Mark Ethereum network as updated in localStorage
+   * Set refresh flag in localStorage
    */
-  const markEthereumNetworkUpdated = (): void => {
+  const setRefreshFlag = (): void => {
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(ETHEREUM_NETWORK_UPDATED_KEY, 'true');
+      localStorage.setItem(RPC_REFRESH_FLAG_KEY, 'true');
     } catch (error) {
-      console.error('Error saving Ethereum network update status:', error);
+      console.error('Error setting refresh flag:', error);
     }
   };
+
+  /**
+   * Clear refresh flag from localStorage
+   */
+  const clearRefreshFlag = (): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(RPC_REFRESH_FLAG_KEY);
+    } catch (error) {
+      console.error('Error clearing refresh flag:', error);
+    }
+  };
+
+  /**
+   * Handle refresh button click - set flag and reload
+   */
+  const handleRefresh = (): void => {
+    setRefreshFlag();
+    window.location.reload();
+  };
+
+  // Check for refresh flag on initialization - check immediately, don't wait for connection
+  useEffect(() => {
+    if (!hasInitialized) return;
+    
+    // Check for flag immediately when initialized (after page reload)
+    if (hasRefreshFlag()) {
+      // Flag found - user clicked refresh, so set toggle/add as completed
+      setRpcAddCompleted(true);
+      setRefreshProcessed(true);
+      refreshProcessedRef.current = true;
+      clearRefreshFlag();
+    }
+  }, [hasInitialized]);
+
+  // Also check when connection is established (in case flag check happened before connection)
+  useEffect(() => {
+    if (!hasInitialized || !isConnected) return;
+    
+    // Double-check for flag when connected (in case it wasn't processed earlier)
+    if (hasRefreshFlag()) {
+      // Flag found - user clicked refresh, so set toggle/add as completed
+      setRpcAddCompleted(true);
+      setRefreshProcessed(true);
+      refreshProcessedRef.current = true;
+      clearRefreshFlag();
+    }
+  }, [hasInitialized, isConnected]);
 
   // Keep ref in sync with latest function
   useEffect(() => {
@@ -130,9 +182,6 @@ export function useRPCSetup({
         params: [NETWORK_CONFIG],
       });
 
-      // Mark as updated in localStorage
-      markEthereumNetworkUpdated();
-
       // Only show toast for MetaMask if wallet is not already configured
       if (isMetaMaskWallet(connector) && !alreadyConfiguredWallet) {
         toast.success('Network added successfully', {
@@ -154,14 +203,9 @@ export function useRPCSetup({
     }
   };
 
-  // Prompt Add Fast RPC after wallet connection - check localStorage first
+  // Prompt Add Fast RPC after wallet connection
   useEffect(() => {
     if (!hasInitialized) return;
-
-    // Check if user has already updated Ethereum network
-    if (hasUpdatedEthereumNetwork()) {
-      return;
-    }
 
     // Wait until wallet is connected and we haven't prompted yet
     if (!isConnected || !connector || hasPromptedAddRpc.current) {
@@ -185,9 +229,6 @@ export function useRPCSetup({
         method: 'wallet_addEthereumChain',
         params: [NETWORK_CONFIG],
       });
-      
-      // Mark as updated in localStorage
-      markEthereumNetworkUpdated();
       
       // Only show toast for MetaMask
       if (isMetaMaskWallet(connector)) {
@@ -215,8 +256,7 @@ export function useRPCSetup({
           errorMessage.includes('duplicate');
 
         if (isNetworkExistsError) {
-          // Network already added - mark as updated in localStorage
-          markEthereumNetworkUpdated();
+          // Network already added
           return;
         }
 
@@ -235,6 +275,13 @@ export function useRPCSetup({
     }
   }, [rpcTest.testResult?.success]);
 
+  // Ensure rpcAddCompleted is set when refreshProcessed is true
+  useEffect(() => {
+    if (refreshProcessed && !rpcAddCompleted) {
+      setRpcAddCompleted(true);
+    }
+  }, [refreshProcessed, rpcAddCompleted]);
+
   // Update RPC step status when both Add and Test are completed, or reset on disconnect
   useEffect(() => {
     if (!hasInitialized) return;
@@ -244,8 +291,15 @@ export function useRPCSetup({
       // Reset state and mark step as incomplete when disconnected
       hasPromptedAddRpc.current = false;
       setRpcRequired(false);
+      // Don't reset refreshProcessed or rpcAddCompleted if refresh was processed
+      // This preserves the state after refresh even if user disconnects
+      const wasRefreshProcessed = refreshProcessedRef.current;
+      if (!wasRefreshProcessed) {
+        setRefreshProcessed(false);
+      }
       // Don't reset if wallet is already configured (happy path) - keep rpcAddCompleted true
-      if (!alreadyConfiguredWallet) {
+      // Also don't reset if refresh was processed - keep rpcAddCompleted true
+      if (!alreadyConfiguredWallet && !wasRefreshProcessed) {
         setRpcAddCompleted(false);
         setRpcTestCompleted(false);
       } else {
@@ -270,9 +324,11 @@ export function useRPCSetup({
     rpcAddCompleted,
     rpcTestCompleted,
     rpcRequired,
+    refreshProcessed,
     setRpcAddCompleted,
     setRpcTestCompleted,
     setRpcRequired,
     handleAddRPC,
+    handleRefresh,
   };
 }

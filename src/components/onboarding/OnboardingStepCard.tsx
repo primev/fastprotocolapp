@@ -20,10 +20,12 @@ interface OnboardingStepCardProps {
   showOnlyToggle?: boolean;
   showRefreshButton?: boolean;
   hideToggleButton?: boolean;
+  refreshProcessed?: boolean;
   alreadyConfiguredWallet?: boolean;
   onStepClick: (stepId: string) => void;
   onRpcStepClick?: () => void;
   onTestClick?: () => void;
+  onRefresh?: () => void;
   walletStepCompleted?: boolean;
   forceDisabled?: boolean;
 }
@@ -43,10 +45,12 @@ export const OnboardingStepCard = ({
   showOnlyToggle = false,
   showRefreshButton = false,
   hideToggleButton = false,
+  refreshProcessed = false,
   alreadyConfiguredWallet = false,
   onStepClick,
   onRpcStepClick,
   onTestClick,
+  onRefresh,
   walletStepCompleted = false,
   forceDisabled = false,
 }: OnboardingStepCardProps) => {
@@ -54,9 +58,9 @@ export const OnboardingStepCard = ({
   const isWalletStepWithWarning = isWalletStep && rpcRequired;
   const isRpcStepWithWarning = isRpcStep && showWarning;
 
-  const handleRefresh = () => {
+  const handleRefresh = onRefresh || (() => {
     window.location.reload();
-  };
+  });
 
   return (
     <Card
@@ -129,10 +133,9 @@ export const OnboardingStepCard = ({
                     {isMetaMask ? 'Toggle' : 'Add'}
                   </Button>
                 )}
-                {/* Show test button:
-                    - For happy path (alreadyConfiguredWallet === true): show when toggle is completed
-                    - For not happy path (alreadyConfiguredWallet === false): hide when toggle completed (show refresh instead) */}
-                {((alreadyConfiguredWallet && rpcAddCompleted) || (!showOnlyToggle && !showRefreshButton && alreadyConfiguredWallet)) && (
+                {/* Show test button when connected, refresh button is not shown, and toggle/add is completed
+                    Also show test button when refresh was processed (after refresh completes) */}
+                {!showRefreshButton && (rpcAddCompleted || refreshProcessed) && (
                   <Button
                     variant="outline"
                     size="default"
@@ -183,7 +186,7 @@ export const OnboardingStepCard = ({
                 : step.completed
                   ? 'Disconnect'
                   : 'Connect')}
-            {step.id === 'rpc' && 'Setup'}
+            {step.id === 'rpc' && 'Test'}
           </Button>
         )}
       </div>

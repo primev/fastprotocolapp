@@ -185,7 +185,8 @@ const OnboardingPage = () => {
 
   const handleTestClick = () => {
     // If alreadyConfiguredWallet is true, skip the check since toggle/add is already done
-    if (!alreadyConfiguredWallet && !rpcSetup.rpcAddCompleted) {
+    // Also allow if refresh was processed (after refresh, toggle/add is considered complete)
+    if (!alreadyConfiguredWallet && !rpcSetup.rpcAddCompleted && !rpcSetup.refreshProcessed) {
       const actionText = isMetaMask ? 'Toggle' : 'Add';
       toast.error(`Complete the ${actionText} step first`);
       return;
@@ -247,12 +248,14 @@ const OnboardingPage = () => {
               rpcAddCompleted={rpcSetup.rpcAddCompleted}
               rpcTestCompleted={rpcSetup.rpcTestCompleted}
               rpcRequired={rpcSetup.rpcRequired}
+              refreshProcessed={rpcSetup.refreshProcessed}
               isTesting={rpcTest.isTesting}
               walletStepCompleted={walletStep?.completed || false}
               alreadyConfiguredWallet={alreadyConfiguredWallet}
               onStepClick={handleStepClick}
               onRpcStepClick={handleRpcStepClick}
               onTestClick={handleTestClick}
+              onRefresh={rpcSetup.handleRefresh}
             />
 
             <MintButtonSection
