@@ -84,7 +84,7 @@ const TOP_DEFI_PROTOCOLS: DeFiProtocol[] = [
   {
     name: 'Balancer',
     swapUrl: 'https://balancer.fi/swap/ethereum/ETH',
-    logo: 'https://assets.coingecko.com/coins/images/11683/large/Balancer.png',
+    logo: 'https://cryptologos.cc/logos/balancer-bal-logo.png',
   },
   {
     name: '1inch',
@@ -139,9 +139,7 @@ const DashboardContent = () => {
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected);
   const [isMounted, setIsMounted] = useState(false);
   const hasProcessedMintFeedback = useRef(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
-  const [isDeFiModalOpen, setIsDeFiModalOpen] = useState(false);
   const [isMetaMaskModalOpen, setIsMetaMaskModalOpen] = useState(false);
   const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false);
   const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false);
@@ -152,7 +150,6 @@ const DashboardContent = () => {
     if (tab && ['genesis', 'points', 'leaderboard'].includes(tab)) {
       // Block access to Points and Leaderboard if no Genesis SBT
       if (!hasGenesisSBT && (tab === 'points' || tab === 'leaderboard')) {
-        setShowSBTGatingModal(true); // todo, remove
         setActiveTab('genesis');
         return;
       }
@@ -848,7 +845,6 @@ const DashboardContent = () => {
                               }}
                             >
                               <div className="flex items-center gap-3 sm:gap-4 lg:gap-3">
-                                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 lg:w-10 lg:h-10 rounded-lg bg-background border border-border/50 flex-shrink-0">
                                   <div className="relative w-8 h-8 sm:w-10 sm:h-10 lg:w-8 lg:h-8">
                                     <Image
                                       src={protocol.logo}
@@ -856,7 +852,6 @@ const DashboardContent = () => {
                                       fill
                                       className="object-contain rounded"
                                     />
-                                  </div>
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between gap-2">
