@@ -121,9 +121,15 @@ const DashboardContent = () => {
   const [emailError, setEmailError] = useState('');
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [completedTasks, setCompletedTasks] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return [];
+    if (typeof window === 'undefined') return ['Enter Email'];
     const saved = localStorage.getItem('completedTasks');
-    return saved ? JSON.parse(saved) : [];
+    const tasks = saved ? JSON.parse(saved) : [];
+    // Ensure "Enter Email" is always in completed tasks
+    if (!tasks.includes('Enter Email')) {
+      tasks.push('Enter Email');
+      localStorage.setItem('completedTasks', JSON.stringify(tasks));
+    }
+    return tasks;
   });
 
 
@@ -146,7 +152,7 @@ const DashboardContent = () => {
     if (tab && ['genesis', 'points', 'leaderboard'].includes(tab)) {
       // Block access to Points and Leaderboard if no Genesis SBT
       if (!hasGenesisSBT && (tab === 'points' || tab === 'leaderboard')) {
-        setShowSBTGatingModal(true);
+        setShowSBTGatingModal(true); // todo, remove
         setActiveTab('genesis');
         return;
       }
@@ -238,7 +244,7 @@ const DashboardContent = () => {
   };
 
   useEffect(() => {setIsMounted(true);
-    // setShowFeedbackModal(true);
+    setShowFeedbackModal(true);
   }, []);
 
   // Memoize args to prevent unnecessary refetches
@@ -396,11 +402,6 @@ const DashboardContent = () => {
   };
 
   const oneTimeTasks = [
-    // {
-    //   name: 'Connect X',
-    //   points: 1,
-    //   completed: completedTasks.includes('Connect X'),
-    
     {
       name: 'Connect Wallet',
       completed: completedTasks.includes('Connect Wallet'),
@@ -431,7 +432,7 @@ const DashboardContent = () => {
     },
     {
       name: 'Enter Email',
-      completed: completedTasks.includes('Enter Email'),
+      completed: true, // Todo --> set back to false after testing
       action: 'email',
     },
   ];
@@ -756,18 +757,22 @@ const DashboardContent = () => {
                     </p>
                   </div>
 
-                  {/* One-Time Tasks Accordion */}
-                  <Accordion type="single" collapsible className="mb-6 bg-card/50 border border-border/50 rounded-lg overflow-hidden">
-                    <AccordionItem value="one-time-tasks">
-                      <AccordionTrigger className="flex justify-between items-center px-6 py-4 no-underline hover:no-underline focus:no-underline">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-xl font-semibold m-0">One-Time Tasks</h3>
-                        </div>
-                      </AccordionTrigger>
+                  {/* One-Time Tasks Accordion - Only show if there are incomplete tasks */}
+                  {oneTimeTasks.some(task => !task.completed) && (
+                    <Accordion type="single" collapsible className="mb-6 bg-card/50 border border-border/50 rounded-lg overflow-hidden">
+                      <AccordionItem value="one-time-tasks">
+                        <AccordionTrigger className="flex justify-between items-center px-6 py-4 no-underline hover:no-underline focus:no-underline">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-xl font-semibold m-0">One-Time Tasks</h3>
+                            <span className="text-sm text-muted-foreground">
+                              ({oneTimeTasks.filter(task => !task.completed).length} remaining)
+                            </span>
+                          </div>
+                        </AccordionTrigger>
 
-                      <AccordionContent className="px-6 pb-6">
-                        <div className="space-y-3">
-                          {oneTimeTasks.map((task) => (
+                        <AccordionContent className="px-6 pb-6">
+                          <div className="space-y-3">
+                            {oneTimeTasks.filter(task => !task.completed).map((task) => (
                             <div
                               key={task.name}
                               className={`flex items-center justify-between p-3 rounded-lg border transition-all ${task.completed
@@ -776,16 +781,6 @@ const DashboardContent = () => {
                                 }`}
                             >
                               <div className="flex items-center gap-3">
-                                <div
-                                  className={`w-6 h-6 rounded-full flex items-center justify-center ${task.completed
-                                      ? 'bg-primary'
-                                      : 'bg-background border border-border'
-                                    }`}
-                                >
-                                  {task.completed && (
-                                    <Check className="w-4 h-4 text-primary-foreground" />
-                                  )}
-                                </div>
                                 <span
                                   className={
                                     task.completed
@@ -829,6 +824,7 @@ const DashboardContent = () => {
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>
+                  )}
 
                   {/* Swap & Earn Accordion */}
                   <Accordion type="single" collapsible defaultValue="swap-earn" className="mb-6 bg-card/50 border border-border/50 rounded-lg overflow-hidden">
