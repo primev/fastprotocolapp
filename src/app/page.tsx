@@ -105,7 +105,6 @@ const IndexPage = () => {
               height={512}
               priority
               className="h-32 xs:h-40 sm:h-48 tablet:h-72 lg:h-56 xl:h-60 w-auto"
-              style={{ clipPath: 'inset(10% 0 30% 0)' }}
             />
           </section>
 
