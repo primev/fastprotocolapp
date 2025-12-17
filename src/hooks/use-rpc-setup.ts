@@ -6,6 +6,8 @@ import { getProviderForConnector } from '@/lib/wallet-provider';
 import { isMetaMaskWallet } from '@/lib/onboarding-utils';
 import { UseRPCTestReturn } from './use-rpc-test';
 
+const RPC_REFRESH_FLAG_KEY = 'rpc-refresh-flag';
+
 export interface UseRPCSetupProps {
   isConnected: boolean;
   connector: Connector | undefined;
@@ -20,10 +22,12 @@ export interface UseRPCSetupReturn {
   rpcAddCompleted: boolean;
   rpcTestCompleted: boolean;
   rpcRequired: boolean;
+  refreshProcessed: boolean;
   setRpcAddCompleted: (value: boolean) => void;
   setRpcTestCompleted: (value: boolean) => void;
   setRpcRequired: (value: boolean) => void;
   handleAddRPC: () => Promise<void>;
+  handleRefresh: () => void;
 }
 
 /**
@@ -41,8 +45,82 @@ export function useRPCSetup({
   const [rpcAddCompleted, setRpcAddCompleted] = useState(false);
   const [rpcTestCompleted, setRpcTestCompleted] = useState(false);
   const [rpcRequired, setRpcRequired] = useState(false);
+  const [refreshProcessed, setRefreshProcessed] = useState(false);
   const hasPromptedAddRpc = useRef(false);
+  const refreshProcessedRef = useRef(false);
   const updateStepStatusRef = useRef(updateStepStatus);
+
+  /**
+   * Check if refresh flag exists in localStorage
+   */
+  const hasRefreshFlag = (): boolean => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return localStorage.getItem(RPC_REFRESH_FLAG_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  };
+
+  /**
+   * Set refresh flag in localStorage
+   */
+  const setRefreshFlag = (): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(RPC_REFRESH_FLAG_KEY, 'true');
+    } catch (error) {
+      console.error('Error setting refresh flag:', error);
+    }
+  };
+
+  /**
+   * Clear refresh flag from localStorage
+   */
+  const clearRefreshFlag = (): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(RPC_REFRESH_FLAG_KEY);
+    } catch (error) {
+      console.error('Error clearing refresh flag:', error);
+    }
+  };
+
+  /**
+   * Handle refresh button click - set flag and reload
+   */
+  const handleRefresh = (): void => {
+    setRefreshFlag();
+    window.location.reload();
+  };
+
+  // Check for refresh flag on initialization - check immediately, don't wait for connection
+  useEffect(() => {
+    if (!hasInitialized) return;
+    
+    // Check for flag immediately when initialized (after page reload)
+    if (hasRefreshFlag()) {
+      // Flag found - user clicked refresh, so set toggle/add as completed
+      setRpcAddCompleted(true);
+      setRefreshProcessed(true);
+      refreshProcessedRef.current = true;
+      clearRefreshFlag();
+    }
+  }, [hasInitialized]);
+
+  // Also check when connection is established (in case flag check happened before connection)
+  useEffect(() => {
+    if (!hasInitialized || !isConnected) return;
+    
+    // Double-check for flag when connected (in case it wasn't processed earlier)
+    if (hasRefreshFlag()) {
+      // Flag found - user clicked refresh, so set toggle/add as completed
+      setRpcAddCompleted(true);
+      setRefreshProcessed(true);
+      refreshProcessedRef.current = true;
+      clearRefreshFlag();
+    }
+  }, [hasInitialized, isConnected]);
 
   // Keep ref in sync with latest function
   useEffect(() => {
@@ -125,21 +203,16 @@ export function useRPCSetup({
     }
   };
 
-  // Prompt Add Fast RPC after wallet step is marked complete
+  // Prompt Add Fast RPC after wallet connection
   useEffect(() => {
     if (!hasInitialized) return;
 
-    // Skip auto-prompt if wallet is already configured (happy path)
-    if (alreadyConfiguredWallet) {
+    // Wait until wallet is connected and we haven't prompted yet
+    if (!isConnected || !connector || hasPromptedAddRpc.current) {
       return;
     }
 
-    // Wait until wallet step is completed and we haven't prompted yet
-    if (!walletStepCompleted || !isConnected || !connector || hasPromptedAddRpc.current) {
-      return;
-    }
-
-    // Wait a moment after step is marked complete, then prompt
+    // Wait a moment after connection, then prompt
     const timer = setTimeout(async () => {
       if (!connector) return;
 
@@ -165,10 +238,7 @@ export function useRPCSetup({
       }
       
       // Don't auto-complete toggle/add step - user must manually mark it as complete
-      // But skip this if wallet is already configured (happy path)
-      if (!alreadyConfiguredWallet) {
-        setRpcAddCompleted(false);
-      }
+      setRpcAddCompleted(false);
       setRpcRequired(false);
       } catch (error: any) {
         // Handle user rejection - mark step 5 as incomplete and show warning
@@ -186,17 +256,17 @@ export function useRPCSetup({
           errorMessage.includes('duplicate');
 
         if (isNetworkExistsError) {
-          // Network already added - that's fine
+          // Network already added
           return;
         }
 
         // Log other errors but don't show toast since popup appeared
         console.error('Network addition result:', error);
       }
-    }, 1500); // Wait 1.5 seconds after step is marked complete
+    }, 1500); // Wait 1.5 seconds after connection
 
     return () => clearTimeout(timer);
-  }, [walletStepCompleted, isConnected, connector, hasInitialized]);
+  }, [isConnected, connector, hasInitialized]);
 
   // Mark test as complete when test is successful
   useEffect(() => {
@@ -204,6 +274,13 @@ export function useRPCSetup({
       setRpcTestCompleted(true);
     }
   }, [rpcTest.testResult?.success]);
+
+  // Ensure rpcAddCompleted is set when refreshProcessed is true
+  useEffect(() => {
+    if (refreshProcessed && !rpcAddCompleted) {
+      setRpcAddCompleted(true);
+    }
+  }, [refreshProcessed, rpcAddCompleted]);
 
   // Update RPC step status when both Add and Test are completed, or reset on disconnect
   useEffect(() => {
@@ -214,8 +291,15 @@ export function useRPCSetup({
       // Reset state and mark step as incomplete when disconnected
       hasPromptedAddRpc.current = false;
       setRpcRequired(false);
+      // Don't reset refreshProcessed or rpcAddCompleted if refresh was processed
+      // This preserves the state after refresh even if user disconnects
+      const wasRefreshProcessed = refreshProcessedRef.current;
+      if (!wasRefreshProcessed) {
+        setRefreshProcessed(false);
+      }
       // Don't reset if wallet is already configured (happy path) - keep rpcAddCompleted true
-      if (!alreadyConfiguredWallet) {
+      // Also don't reset if refresh was processed - keep rpcAddCompleted true
+      if (!alreadyConfiguredWallet && !wasRefreshProcessed) {
         setRpcAddCompleted(false);
         setRpcTestCompleted(false);
       } else {
@@ -240,9 +324,11 @@ export function useRPCSetup({
     rpcAddCompleted,
     rpcTestCompleted,
     rpcRequired,
+    refreshProcessed,
     setRpcAddCompleted,
     setRpcTestCompleted,
     setRpcRequired,
     handleAddRPC,
+    handleRefresh,
   };
 }

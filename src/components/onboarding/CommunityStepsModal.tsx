@@ -163,10 +163,8 @@ export const CommunityStepsModal = forwardRef<CommunityStepsModalRef, CommunityS
                 rpcRequired={false}
                 isTesting={false}
                 showWarning={false}
-                showOnlyToggle={false}
                 showRefreshButton={false}
                 hideToggleButton={false}
-                alreadyConfiguredWallet={false}
                 forceDisabled={false}
               />
             );

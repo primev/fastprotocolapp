@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect, usePublicClient } from 'wagmi';
 
@@ -15,7 +15,6 @@ import {
   Twitter,
   Wallet,
   Network,
-  MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RPCTestModal } from '@/components/network-checker';
@@ -24,32 +23,26 @@ import { RPCTestModal } from '@/components/network-checker';
 import { useRPCTest } from '@/hooks/use-rpc-test';
 import { useWalletInfo } from '@/hooks/use-wallet-info';
 import { useOnboardingSteps, type BaseStep } from '@/hooks/use-onboarding-steps';
-import { useEmailCapture } from '@/hooks/use-email-capture';
 import { useRPCSetup } from '@/hooks/use-rpc-setup';
 import { useWalletConnection } from '@/hooks/use-wallet-connection';
 import { useMinting } from '@/hooks/use-minting';
-import { useSmartAccountDetection } from '@/hooks/use-smart-account-detection';
 
 // Utils and components
-import { isMetaMaskWallet, isRabbyWallet, areCommunityStepsCompleted } from '@/lib/onboarding-utils';
+import { isMetaMaskWallet, isRabbyWallet } from '@/lib/onboarding-utils';
 import { OnboardingHeader } from '@/components/onboarding/OnboardingHeader';
 import { OnboardingStepsList } from '@/components/onboarding/OnboardingStepsList';
 import { MintButtonSection } from '@/components/onboarding/MintButtonSection';
 import { MetaMaskToggleModal } from '@/components/onboarding/MetaMaskToggleModal';
 import { AddRpcModal } from '@/components/onboarding/AddRpcModal';
 import { BrowserWalletStepsModal } from '@/components/onboarding/BrowserWalletStepsModal';
-import { EmailDialog } from '@/components/onboarding/EmailDialog';
-import { AlreadyConfiguredWallet } from '@/components/onboarding/AlreadyConfiguredWallet';
-import { CommunityStepsModal, type CommunityStepsModalRef } from '@/components/onboarding/CommunityStepsModal';
-import { SmartAccountModal } from '@/components/onboarding/SmartAccountModal';
 
 // Constants
 const baseSteps: BaseStep[] = [
   {
-    id: 'community',
-    title: 'Join Our Community',
-    description: 'Join our community',
-    icon: MessageCircle,
+    id: 'follow',
+    title: 'Follow Us on X',
+    description: 'Follow us on X',
+    icon: Twitter,
   },
   {
     id: 'wallet',
@@ -73,9 +66,6 @@ const OnboardingPage = () => {
   const rpcTest = useRPCTest();
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected);
 
-  // Smart account notification
-  const smartAccountDetection = useSmartAccountDetection();
-
   // Custom hooks
   const {
     steps,
@@ -87,22 +77,28 @@ const OnboardingPage = () => {
     isConnected,
   });
 
-  // Check if all community steps are completed on mount and mark community step as complete
+  // Check if follow step is completed on mount
   useEffect(() => {
     if (!hasInitialized) return;
 
-    if (areCommunityStepsCompleted()) {
-      const communityStep = steps.find(s => s.id === 'community');
-      if (communityStep && !communityStep.completed) {
-        updateStepStatus('community', true);
+    const saved = localStorage.getItem('onboardingSteps');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.follow === true) {
+          const followStep = steps.find(s => s.id === 'follow');
+          if (followStep && !followStep.completed) {
+            updateStepStatus('follow', true);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking follow step:', error);
       }
     }
   }, [hasInitialized, steps, updateStepStatus]);
 
-  const emailCapture = useEmailCapture();
-
-  // Already configured wallet state - must be declared before hooks that use it
-  const [alreadyConfiguredWallet, setAlreadyConfiguredWallet] = useState<boolean | null>(null);
+  // Already configured wallet state - default to false (not configured)
+  const [alreadyConfiguredWallet] = useState<boolean>(false);
 
   const rpcSetup = useRPCSetup({
     isConnected,
@@ -111,7 +107,7 @@ const OnboardingPage = () => {
     hasInitialized,
     updateStepStatus,
     rpcTest,
-    alreadyConfiguredWallet: alreadyConfiguredWallet === true,
+    alreadyConfiguredWallet,
   });
 
  
@@ -125,7 +121,7 @@ const OnboardingPage = () => {
     updateStepStatus,
     setRpcRequired: rpcSetup.setRpcRequired,
     rpcRequired: rpcSetup.rpcRequired,
-    alreadyConfiguredWallet: alreadyConfiguredWallet === true,
+    alreadyConfiguredWallet,
   });
 
   // Note: RPC step completion logic is handled in useRPCSetup hook
@@ -143,11 +139,6 @@ const OnboardingPage = () => {
   const [isMetaMaskModalOpen, setIsMetaMaskModalOpen] = useState(false);
   const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false);
   const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false);
-  const [isAlreadyConfiguredModalOpen, setIsAlreadyConfiguredModalOpen] = useState(false);
-  const [isCommunityModalOpen, setIsCommunityModalOpen] = useState(false);
-
-  // Ref for community modal to mark email as completed
-  const communityModalRef = useRef<CommunityStepsModalRef>(null);
 
   // Derived values
   const walletStep = steps.find((s) => s.id === 'wallet');
@@ -159,19 +150,21 @@ const OnboardingPage = () => {
   // Event handlers
   const handleStepAction = (stepId: string) => {
     const actions: Record<string, () => void> = {
-      community: () => {
-        setIsCommunityModalOpen(true);
+      follow: () => {
+        window.open('https://twitter.com/intent/follow?screen_name=fast_protocol', '_blank');
+        toast.success('Please follow @fast_protocol to continue');
+        setTimeout(() => {
+          updateStepStatus('follow', true);
+          // Save 'follow' to localStorage
+          const saved = localStorage.getItem('onboardingSteps');
+          const parsed = saved ? JSON.parse(saved) : {};
+          parsed.follow = true;
+          localStorage.setItem('onboardingSteps', JSON.stringify(parsed));
+        }, 2000);
       },
       wallet: () => {
-        // Check if we should show the smart account notification modal
-        const shouldShowModal = smartAccountDetection.checkAndShowModal();
-        if (shouldShowModal) {
-          // Modal will be shown, don't proceed with connection yet
-          return;
-        }
-
-        // Always show the modal when connect button is clicked
-        setIsAlreadyConfiguredModalOpen(true);
+        // Directly open the connect modal
+        openConnectModal();
       },
       rpc: () => {
         if (!isConnected) {
@@ -189,23 +182,11 @@ const OnboardingPage = () => {
     actions[stepId]?.();
   };
 
-  const handleEmailSubmit = async () => {
-    await emailCapture.handleEmailSubmit(() => {
-      // Mark email as completed in the community modal
-      if (communityModalRef.current) {
-        communityModalRef.current.markEmailCompleted();
-      }
-    });
-  };
-
-  const handleCommunityStepsCompleted = useCallback(() => {
-    updateStepStatus('community', true);
-    setIsCommunityModalOpen(false);
-  }, [updateStepStatus]);
 
   const handleTestClick = () => {
     // If alreadyConfiguredWallet is true, skip the check since toggle/add is already done
-    if (!alreadyConfiguredWallet && !rpcSetup.rpcAddCompleted) {
+    // Also allow if refresh was processed (after refresh, toggle/add is considered complete)
+    if (!alreadyConfiguredWallet && !rpcSetup.rpcAddCompleted && !rpcSetup.refreshProcessed) {
       const actionText = isMetaMask ? 'Toggle' : 'Add';
       toast.error(`Complete the ${actionText} step first`);
       return;
@@ -219,11 +200,6 @@ const OnboardingPage = () => {
     rpcTest.reset();
   };
 
-  const handleAlreadyConfiguredSelect = (isConfigured: boolean) => {
-    setAlreadyConfiguredWallet(isConfigured);
-    setIsAlreadyConfiguredModalOpen(false);
-    openConnectModal();
-  };
 
   const handleWalletStepClick = async () => {
     if (walletStep?.completed && !rpcSetup.rpcRequired) {
@@ -272,12 +248,14 @@ const OnboardingPage = () => {
               rpcAddCompleted={rpcSetup.rpcAddCompleted}
               rpcTestCompleted={rpcSetup.rpcTestCompleted}
               rpcRequired={rpcSetup.rpcRequired}
+              refreshProcessed={rpcSetup.refreshProcessed}
               isTesting={rpcTest.isTesting}
               walletStepCompleted={walletStep?.completed || false}
-              alreadyConfiguredWallet={alreadyConfiguredWallet ?? false}
+              alreadyConfiguredWallet={alreadyConfiguredWallet}
               onStepClick={handleStepClick}
               onRpcStepClick={handleRpcStepClick}
               onTestClick={handleTestClick}
+              onRefresh={rpcSetup.handleRefresh}
             />
 
             <MintButtonSection
@@ -338,53 +316,6 @@ const OnboardingPage = () => {
           onComplete={() => {
             rpcSetup.setRpcAddCompleted(true);
             setIsBrowserWalletModalOpen(false);
-          }}
-        />
-
-        {/* Email Dialog */}
-        <EmailDialog
-          open={emailCapture.isEmailDialogOpen}
-          onOpenChange={emailCapture.setIsEmailDialogOpen}
-          emailInput={emailCapture.emailInput}
-          emailError={emailCapture.emailError}
-          isLoading={emailCapture.isLoadingEmail}
-          onEmailChange={emailCapture.setEmailInput}
-          onEmailErrorChange={emailCapture.setEmailError}
-          onSubmit={handleEmailSubmit}
-          onCancel={() => {
-            // Mark email as completed in the community modal if it's open
-            if (communityModalRef.current) {
-              communityModalRef.current.markEmailCompleted();
-            }
-            updateStepStatus('email', true);
-            emailCapture.resetEmailForm();
-          }}
-        />
-
-        {/* Already Configured Wallet Modal */}
-        <AlreadyConfiguredWallet
-          open={isAlreadyConfiguredModalOpen}
-          onSelect={handleAlreadyConfiguredSelect}
-        />
-
-        {/* Community Steps Modal */}
-        <CommunityStepsModal
-          ref={communityModalRef}
-          open={isCommunityModalOpen}
-          onOpenChange={setIsCommunityModalOpen}
-          onAllStepsCompleted={handleCommunityStepsCompleted}
-          onEmailDialogOpen={() => emailCapture.setIsEmailDialogOpen(true)}
-        />
-
-        {/* Smart Account Modal */}
-        <SmartAccountModal
-          open={smartAccountDetection.isSmartAccountModalOpen}
-          onOpenChange={smartAccountDetection.setIsSmartAccountModalOpen}
-          onAcknowledged={() => {
-            // Mark as acknowledged (sets localStorage flag)
-            smartAccountDetection.markAsAcknowledged();
-            // Show Already Configured modal
-            setIsAlreadyConfiguredModalOpen(true);
           }}
         />
       </div>

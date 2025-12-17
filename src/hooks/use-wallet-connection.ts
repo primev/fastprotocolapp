@@ -32,21 +32,8 @@ export function useWalletConnection({
   rpcRequired,
   alreadyConfiguredWallet = false,
 }: UseWalletConnectionProps): UseWalletConnectionReturn {
-  const { disconnect } = useDisconnect();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
-
-  // Initialize: disconnect wallet on mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      disconnect();
-      if (connector) {
-        connector.disconnect?.();
-      }
-    }, 200);
-
-    return () => clearTimeout(timer);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update wallet step status when connection changes
   useEffect(() => {

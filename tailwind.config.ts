@@ -100,10 +100,21 @@ export default {
             height: "0",
           },
         },
+        "slide-in-bottom-left": {
+          "0%": {
+            transform: "translateY(20px) translateX(-20px)",
+            opacity: "0",
+          },
+          "100%": {
+            transform: "translateY(0) translateX(0)",
+            opacity: "1",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "slide-in-bottom-left": "slide-in-bottom-left 0.3s ease-out",
       },
     },
   },

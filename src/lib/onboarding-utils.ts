@@ -10,12 +10,12 @@ export const ONBOARDING_STORAGE_KEY = 'onboardingSteps';
 /**
  * Step IDs that are social-related and should be persisted to localStorage
  */
-export const SOCIAL_STEP_IDS = ['community', 'follow', 'discord', 'telegram', 'email'] as const;
+export const SOCIAL_STEP_IDS = ['follow'] as const;
 
 /**
  * Community step IDs that need to be completed
  */
-export const COMMUNITY_STEP_IDS = ['follow', 'discord', 'telegram', 'email'] as const;
+export const COMMUNITY_STEP_IDS = ['follow'] as const;
 
 /**
  * Type for onboarding steps storage

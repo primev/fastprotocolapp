@@ -60,7 +60,7 @@ function WalletDisconnectHandler() {
 
     const handleDisconnect = () => {
       clearWalletData();
-      refreshPage();
+      // refreshPage();
     };
 
     // Listen to window.ethereum events for manual disconnections
@@ -132,7 +132,7 @@ function WalletDisconnectHandler() {
 
 export const Providers = ({ children }: { children: React.ReactNode }) => {
   return (
-    <WagmiProvider config={config}>
+    <WagmiProvider config={config} reconnectOnMount>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider theme={darkTheme()} modalSize="compact" appInfo={{
           appName: 'Fast Protocol',

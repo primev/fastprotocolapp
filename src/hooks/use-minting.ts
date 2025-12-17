@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Address, PublicClient, TransactionReceipt } from 'viem';
-import { useWriteContract, useWaitForTransactionReceipt, } from 'wagmi';
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { toast } from 'sonner';
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from '@/lib/contract-config';
 import { parseTokenIdFromReceipt } from '@/lib/onboarding-utils';
+import { pollDatabaseForReceipt } from '@/lib/transaction-receipt-utils';
 
 export interface UseMintingProps {
   isConnected: boolean;
@@ -31,6 +32,8 @@ export function useMinting({
   const [isMinting, setIsMinting] = useState(false);
   const [alreadyMinted, setAlreadyMinted] = useState(false);
   const [existingTokenId, setExistingTokenId] = useState<string | null>(null);
+  const receiptProcessedRef = useRef(false);
+  const pollingAbortRef = useRef<AbortController | null>(null);
 
   const {
     writeContract,
@@ -84,18 +87,64 @@ export function useMinting({
     checkExistingToken();
   }, [address, publicClient]);
 
-  // Handle transaction receipt and parse token ID
+  // Race condition: Wait for txReceipt and poll DB simultaneously
   useEffect(() => {
-    if (!receipt) return;
-    console.log('receipt', receipt);
+    if (!hash || receiptProcessedRef.current) return;
 
-    const tokenId = parseTokenIdFromReceipt(receipt);
-    if (!tokenId) {
-      return;
-    }
+    receiptProcessedRef.current = false;
+    let isProcessing = false;
 
-    router.push(`/dashboard?tokenId=${tokenId.toString()}`);
-  }, [receipt]);
+    const abortController = new AbortController();
+    pollingAbortRef.current = abortController;
+
+    const processReceipt = (receipt: TransactionReceipt | null, source: string) => {
+      if (isProcessing || !receipt || abortController.signal.aborted) {
+        return;
+      }
+
+      isProcessing = true;
+      receiptProcessedRef.current = true;
+      console.log(`Receipt received from ${source}:`, receipt);
+
+      const tokenId = parseTokenIdFromReceipt(receipt);
+      if (tokenId) {
+        router.push(`/dashboard?tokenId=${tokenId.toString()}`);
+      }
+
+      abortController.abort();
+    };
+
+    // Start database polling
+    pollDatabaseForReceipt(hash, abortController.signal)
+      .then((dbReceipt) => {
+        if (!abortController.signal.aborted && dbReceipt) {
+          processReceipt(dbReceipt, 'db');
+        }
+      })
+      .catch((error) => {
+        if (!abortController.signal.aborted) {
+          console.error('Database polling error:', error);
+        }
+      });
+
+    // Watch for wagmi receipt
+    const checkWagmiReceipt = () => {
+      if (receipt && !abortController.signal.aborted) {
+        processReceipt(receipt as TransactionReceipt, 'wagmi');
+      }
+    };
+
+    checkWagmiReceipt();
+    const receiptCheckInterval = setInterval(checkWagmiReceipt, 100);
+
+    return () => {
+      clearInterval(receiptCheckInterval);
+      if (pollingAbortRef.current) {
+        pollingAbortRef.current.abort();
+        pollingAbortRef.current = null;
+      }
+    };
+  }, [hash, receipt, router]);
 
 
 
