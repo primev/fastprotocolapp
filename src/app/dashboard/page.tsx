@@ -241,7 +241,7 @@ const DashboardContent = () => {
   };
 
   useEffect(() => {setIsMounted(true);
-    setShowFeedbackModal(true);
+    // setShowFeedbackModal(true);
   }, []);
 
   // Memoize args to prevent unnecessary refetches
@@ -566,7 +566,7 @@ const DashboardContent = () => {
 
         {/* Announcement Banner */}
         <div
-          className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 cursor-pointer hover:from-primary/90 hover:to-primary/70 transition-all"
+          className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all"
           // onClick={() => handleTabChange('points')}
         >
           <div className="container mx-auto px-4 py-2 text-center">
