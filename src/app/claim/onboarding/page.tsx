@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect, usePublicClient } from 'wagmi';
+import { isAddress } from 'viem';
+import { Fuul } from '@fuul/sdk';
 
 // Extend Window interface for ethereum
 declare global {
@@ -36,6 +39,8 @@ import { MetaMaskToggleModal } from '@/components/onboarding/MetaMaskToggleModal
 import { AddRpcModal } from '@/components/onboarding/AddRpcModal';
 import { BrowserWalletStepsModal } from '@/components/onboarding/BrowserWalletStepsModal';
 
+import '@/lib/fuul';
+
 // Constants
 const baseSteps: BaseStep[] = [
   {
@@ -58,13 +63,15 @@ const baseSteps: BaseStep[] = [
   },
 ];
 
-const OnboardingPage = () => {
+const OnboardingPageContent = () => {
+  const searchParams = useSearchParams();
   const { openConnectModal } = useConnectModal();
   const { isConnected, address, connector } = useAccount();
   const publicClient = usePublicClient();
   const { disconnect } = useDisconnect();
   const rpcTest = useRPCTest();
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected);
+
 
   // Custom hooks
   const {
@@ -76,6 +83,72 @@ const OnboardingPage = () => {
     baseSteps,
     isConnected,
   });
+
+
+  const hasSentPageviewRef = useRef(false);
+  const hasSentConnectWalletRef = useRef(false);
+
+  // Referral tracking: send pageview if present and valid (address or affiliate code)
+  useEffect(() => {
+    const referralParam = searchParams.get('af');
+    if (referralParam && !hasSentPageviewRef.current) {
+      // Accept both addresses and affiliate codes
+      // Addresses are 0x followed by 40 hex characters
+      // Affiliate codes are alphanumeric with dashes
+      const isValidAddress = isAddress(referralParam);
+      const isValidCode = /^[a-zA-Z0-9-]+$/.test(referralParam) && referralParam.length <= 30;
+      
+      if (isValidAddress || isValidCode) {
+        Fuul.sendPageview('claim/onboarding');
+        hasSentPageviewRef.current = true;
+      }
+    }
+  }, [searchParams]);
+
+  // Send connect_wallet event when wallet connects (only once)
+  useEffect(() => {
+    if (!isConnected || !address || hasSentConnectWalletRef.current) {
+      return;
+    }
+
+    const sendConnectWalletEvent = async () => {
+      try {
+        // Get tracking_id
+        const trackingId = localStorage.getItem('fuul.tracking_id');
+        if (!trackingId) {
+          console.warn('Fuul tracking_id not found in localStorage');
+          return;
+        }
+
+        // Call identify-user API which sends connect_wallet event
+        const response = await fetch('/api/fuul/identify-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            identifier: address,
+            identifierType: 'evm_address',
+            trackingId: trackingId,
+            accountChainId: 1,
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          console.error('Failed to send connect_wallet event:', error);
+          return;
+        }
+
+        hasSentConnectWalletRef.current = true;
+        console.log('connect_wallet event sent successfully');
+      } catch (error) {
+        console.error('Error sending connect_wallet event:', error);
+      }
+    };
+
+    sendConnectWalletEvent();
+  }, [isConnected, address]);
 
   // Check if follow step is completed on mount
   useEffect(() => {
@@ -110,7 +183,7 @@ const OnboardingPage = () => {
     alreadyConfiguredWallet,
   });
 
- 
+
 
 
   useWalletConnection({
@@ -131,7 +204,7 @@ const OnboardingPage = () => {
   const minting = useMinting({
     isConnected,
     address,
-    publicClient,
+    publicClient
   });
 
   // Modal states
@@ -321,6 +394,20 @@ const OnboardingPage = () => {
       </div>
 
     </div>
+  );
+};
+
+const OnboardingPage = () => {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="animate-pulse text-muted-foreground">Loading...</div>
+        </div>
+      }
+    >
+      <OnboardingPageContent />
+    </Suspense>
   );
 };
 

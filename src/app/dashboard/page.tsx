@@ -31,7 +31,11 @@ import {
   Wallet,
   Settings,
   ChevronRight,
+  MoreVertical,
+  Loader2,
+  PlusIcon,
 } from 'lucide-react';
+import { FaXTwitter } from 'react-icons/fa6';
 import { toast } from 'sonner';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PointsHUD } from '@/components/dashboard/PointsHUD';
@@ -42,9 +46,11 @@ import { OneTimeTasksSection, type Task } from '@/components/dashboard/OneTimeTa
 import { LeaderboardTable } from '@/components/dashboard/LeaderboardTable';
 import { SBTGatingModal } from '@/components/modals/SBTGatingModal';
 import { TransactionFeedbackModal } from '@/components/modals/TransactionFeedbackModal';
+import { ReferralModal } from '@/components/modals/ReferralModal';
 
 
 import { useAccount } from 'wagmi';
+import { useAffiliateCode } from '@/hooks/use-affiliate-code';
 import { ConnectButton, useAccountModal, useConnectModal } from '@rainbow-me/rainbowkit';
 import { CONTRACT_ABI, CONTRACT_ADDRESS, NFT_NAME, NFT_DESCRIPTION, NFT_ASSET } from '@/lib/contract-config';
 import { useReadOnlyContractCall } from '@/hooks/use-read-only-contract-call';
@@ -62,7 +68,6 @@ import { AddRpcModal } from '@/components/onboarding/AddRpcModal';
 import { BrowserWalletStepsModal } from '@/components/onboarding/BrowserWalletStepsModal';
 import { NETWORK_CONFIG } from '@/lib/network-config';
 import { Accordion, AccordionTrigger, AccordionItem, AccordionContent } from '@/components/ui/accordion';
-
 interface DeFiProtocol {
   name: string;
   swapUrl: string;
@@ -106,7 +111,6 @@ const TOP_DEFI_PROTOCOLS: DeFiProtocol[] = [
 const DashboardContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [referralCode] = useState('FAST-GEN-ABC123');
   const [points] = useState(0); // Start with 0 points for new users
   const [activeTab, setActiveTab] = useState('genesis');
   const [hasGenesisSBT, setHasGenesisSBT] = useState(() => {
@@ -143,6 +147,16 @@ const DashboardContent = () => {
   const [isMetaMaskModalOpen, setIsMetaMaskModalOpen] = useState(false);
   const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false);
   const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false);
+  const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
+
+  // Use affiliate code hook
+  const {
+    affiliateCode,
+    referralLink,
+    isLoadingCode,
+    refreshAffiliateCode,
+    refreshReferralLink,
+  } = useAffiliateCode();
 
   // Handle tab from URL query parameter
   useEffect(() => {
@@ -347,10 +361,11 @@ const DashboardContent = () => {
     }
   }, [tokenIdFromQuery, tokenId, completedTasks]);
 
+
   const hasNotMinted = isMounted && !hasGenesisSBT;
 
   const copyReferralLink = () => {
-    navigator.clipboard.writeText(`https://fast.xyz/claim?ref=${referralCode}`);
+    navigator.clipboard.writeText(referralLink);
     toast.success('Referral link copied to clipboard!');
   };
 
@@ -712,31 +727,94 @@ const DashboardContent = () => {
                   {/* Referrals Card */}
                   <Card className="p-6 bg-card/50 border-border/50">
                     <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-primary" />
-                        <h3 className="text-xl font-semibold">Referrals</h3>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Earn points when users perform a Fast RPC transaction using your referral link.
-                      </p>
-                      <div className="bg-secondary/50 rounded-lg p-3 flex items-center justify-between">
-                        <code className="text-xs">{referralCode}</code>
+                      <div className="flex items-center justify-between min-h-[32px]">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-5 h-5 text-primary" />
+                          <h3 className="text-xl font-semibold">Referrals</h3>
+                        </div>
                         <Button
-                          size="sm"
                           variant="ghost"
-                          onClick={copyReferralLink}
+                          size="icon"
+                          className="flex-shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsReferralModalOpen(true);
+                          }}
+                          style={{ 
+                            width: '32px', 
+                            height: '32px', 
+                            minWidth: '32px', 
+                            minHeight: '32px',
+                            padding: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          aria-label={affiliateCode ? 'Update affiliate code' : 'Create affiliate code'}
                         >
-                          <Copy className="w-4 h-4" />
+                          <PlusIcon className="h-4 w-4 flex-shrink-0" />
                         </Button>
                       </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">
-                            This week
-                          </span>
-                          <span className="font-semibold">3 / 100</span>
+                      <div className={!isConnected ? 'blur-sm pointer-events-none' : ''}>
+                        <p className="text-sm text-muted-foreground">
+                          Earn points when users perform a Fast RPC transaction using your referral link.
+                        </p>
+                        <div className="bg-secondary/50 rounded-lg p-3 flex items-center gap-2 justify-between  my-4">
+                          <div className="flex-1 min-w-0">
+                            <code
+                              className="text-xs break-all block text-ellipsis whitespace-nowrap overflow-hidden"
+                              style={{
+                                display: 'block',
+                                maxWidth: '15rem',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                              title={referralLink}
+                            >
+                              {referralLink || <span className="text-muted-foreground">Generating link...</span>}
+                            </code>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyReferralLink();
+                            }}
+                            disabled={!isConnected}
+                            aria-label="Copy referral link"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Progress value={3} className="h-2" />
+                        {affiliateCode && (
+                          <p className="text-xs text-muted-foreground mt-2 mb-4">
+                            Using affiliate code: <span className="font-mono font-semibold">{affiliateCode}</span>
+                          </p>
+                        )}
+                        {referralLink ? (
+                          <Button
+                            onClick={() => {
+                              const text = encodeURIComponent(
+                                `@Fast_Protocol turns efficient swap execution into points.\n\nI'm using it for my trades.\n\n👇\n${referralLink}\n\n#MEV #DeFi`
+                              );
+                              const shareUrl = `https://twitter.com/intent/tweet?text=${text}`;
+                              window.open(shareUrl, '_blank');
+                            }}
+                            className="w-full bg-black hover:bg-gray-900 text-white font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-black/20 dark:bg-white dark:hover:bg-gray-100 dark:text-black"
+                            disabled={!referralLink || isLoadingCode}
+                          >
+                            <FaXTwitter className="w-4 h-4 mr-2" />
+                            Share on X
+                          </Button>
+                        ) : (
+                          <div className="w-full bg-muted/50 rounded-lg p-3 text-center">
+                            <p className="text-xs text-muted-foreground">
+                              {isLoadingCode ? 'Generating link...' : 'Connect wallet to share'}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </Card>
@@ -993,7 +1071,7 @@ const DashboardContent = () => {
               <WeeklyTasksSection transactions={0} volume={0} />
 
               <ReferralsSection
-                referralCode={referralCode}
+                referralLink={referralLink}
                 successfulReferrals={0}
                 weeklyLimit={100}
               />
@@ -1020,6 +1098,7 @@ const DashboardContent = () => {
       </div>
 
 
+      {/* Email Dialog */}
       <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
         <DialogContent className="sm:max-w-md border-primary/50">
           <DialogHeader>
@@ -1077,6 +1156,7 @@ const DashboardContent = () => {
         </DialogContent>
       </Dialog>
 
+      {/* RPC Test Modal */}
       <RPCTestModal
         open={isTestModalOpen}
         onOpenChange={setIsTestModalOpen}
@@ -1125,6 +1205,23 @@ const DashboardContent = () => {
         walletAddress={address}
         onClose={() => setShowFeedbackModal(false)}
       />
+
+      {/* Referral Modal */}
+      <ReferralModal
+        open={isReferralModalOpen}
+        onOpenChange={(open) => {
+          setIsReferralModalOpen(open);
+          // Refresh affiliate code and link when modal closes
+          // Add a small delay to ensure API update has completed
+          if (!open) {
+            setTimeout(() => {
+              refreshAffiliateCode();
+              refreshReferralLink();
+            }, 500);
+          }
+        }}
+      />
+
     </div>
   );
 };

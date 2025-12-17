@@ -14,18 +14,18 @@ import {
 } from "@/components/ui/tooltip";
 
 interface ReferralsSectionProps {
-  referralCode: string;
+  referralLink: string;
   successfulReferrals: number;
   weeklyLimit: number;
 }
 
 export const ReferralsSection = ({
-  referralCode,
+  referralLink,
   successfulReferrals,
   weeklyLimit,
 }: ReferralsSectionProps) => {
   const copyReferralLink = () => {
-    navigator.clipboard.writeText(`https://fast.xyz/claim?ref=${referralCode}`);
+      navigator.clipboard.writeText(referralLink);
     toast.success("Referral link copied ✓");
   };
 
@@ -62,7 +62,7 @@ export const ReferralsSection = ({
           <div className="flex items-center gap-2">
             <div className="flex-1 bg-secondary rounded-lg p-3 border border-border/50">
               <code className="text-xs font-mono text-foreground break-all">
-                https://fast.xyz/claim?ref={referralCode}
+                {referralLink}
               </code>
             </div>
             <Button size="sm" variant="outline" onClick={copyReferralLink}>

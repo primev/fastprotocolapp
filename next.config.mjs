@@ -16,6 +16,23 @@ const nextConfig = {
   //   // config.resolve.alias['@'] = require('path').resolve(__dirname, 'src');
   //   return config;
   // },
+  env: {
+    NEXT_PUBLIC_BASE_URL: (() => {
+      // If explicitly set in .env, use that (for local development)
+      if (process.env.NEXT_PUBLIC_BASE_URL) {
+        return process.env.NEXT_PUBLIC_BASE_URL;
+      }
+      
+      // In Vercel (any environment), use VERCEL_URL
+      // VERCEL_URL is always available
+      if (process.env.VERCEL_URL) {
+        return `https://${process.env.VERCEL_URL}`;
+      }
+      
+      // Fallback to localhost for local development
+      return 'http://localhost:3000';
+    })(),
+  },
   images: {
     remotePatterns: [
       {
