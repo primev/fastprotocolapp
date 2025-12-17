@@ -24,14 +24,14 @@ const FEEDBACK_OPTIONS: FeedbackOption[] = [
   {
     status: 'slow',
     label: 'Slow',
-    color: 'text-red-600 dark:text-red-400',
-    hoverColor: 'hover:bg-red-500/10 hover:border-red-500/30',
+    color: 'text-yellow-600 dark:text-yellow-400',
+    hoverColor: 'hover:bg-yellow-500/10 hover:border-yellow-500/30',
   },
   {
     status: 'normal',
     label: 'Normal',
-    color: 'text-yellow-600 dark:text-yellow-400',
-    hoverColor: 'hover:bg-yellow-500/10 hover:border-yellow-500/30',
+    color: 'text-stone-200 dark:text-stone-300',
+    hoverColor: 'hover:bg-stone-100/20 hover:border-stone-200/30',
   },
   {
     status: 'fast',
@@ -74,7 +74,6 @@ export function TransactionFeedbackModal({
       console.error('Failed to submit feedback:', error);
     });
 
-    // Smooth fade-out animation before closing
     setTimeout(() => {
       onClose();
       // Reset state after closing for next time
