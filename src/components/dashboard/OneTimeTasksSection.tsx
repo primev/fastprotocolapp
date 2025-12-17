@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Check, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
-interface Task {
+export interface Task {
   name: string;
-  points: number;
+  points?: number;
   completed: boolean;
   action?: string;
 }
@@ -44,9 +44,11 @@ export const OneTimeTasksSection = ({ tasks }: OneTimeTasksSectionProps) => {
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <Badge variant="outline" className="text-xs">
-                +{task.points}
-              </Badge>
+              {task.points !== undefined && (
+                <Badge variant="outline" className="text-xs">
+                  +{task.points}
+                </Badge>
+              )}
               {!task.completed && task.action && (
                 <Button
                   size="sm"

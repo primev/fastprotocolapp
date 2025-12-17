@@ -381,7 +381,7 @@ const DashboardContent = () => {
               src="/assets/fast-protocol-logo-icon.png"
               alt="Fast Protocol"
               width={150}
-              height={150}
+              height={75}
               className="hidden sm:block"
             />
           </div>

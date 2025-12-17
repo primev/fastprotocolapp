@@ -38,9 +38,10 @@ import { PointsHUD } from '@/components/dashboard/PointsHUD';
 import { WeeklyTasksSection } from '@/components/dashboard/WeeklyTasksSection';
 import { ReferralsSection } from '@/components/dashboard/ReferralsSection';
 import { PartnerQuestsSection } from '@/components/dashboard/PartnerQuestsSection';
-import { OneTimeTasksSection } from '@/components/dashboard/OneTimeTasksSection';
+import { OneTimeTasksSection, type Task } from '@/components/dashboard/OneTimeTasksSection';
 import { LeaderboardTable } from '@/components/dashboard/LeaderboardTable';
 import { SBTGatingModal } from '@/components/modals/SBTGatingModal';
+import { TransactionFeedbackModal } from '@/components/modals/TransactionFeedbackModal';
 
 
 import { useAccount } from 'wagmi';
@@ -118,6 +119,7 @@ const DashboardContent = () => {
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [completedTasks, setCompletedTasks] = useState<string[]>(() => {
     if (typeof window === 'undefined') return [];
     const saved = localStorage.getItem('completedTasks');
@@ -130,6 +132,7 @@ const DashboardContent = () => {
   const { openConnectModal } = useConnectModal();
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected);
   const [isMounted, setIsMounted] = useState(false);
+  const hasProcessedMintFeedback = useRef(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [isDeFiModalOpen, setIsDeFiModalOpen] = useState(false);
@@ -234,7 +237,9 @@ const DashboardContent = () => {
     }
   };
 
-  useEffect(() => setIsMounted(true), []);
+  useEffect(() => {setIsMounted(true);
+    // setShowFeedbackModal(true);
+  }, []);
 
   // Memoize args to prevent unnecessary refetches
   const contractArgs = useMemo(() => (address ? [address] : []), [address]);
@@ -320,6 +325,25 @@ const DashboardContent = () => {
     }
   }, [tokenId]);
 
+  // Show feedback modal when routing from onboarding after successful mint
+  useEffect(() => {
+    // Check if we have a tokenId from query params (fresh mint from onboarding)
+    // tokenIdFromQuery is set when the param is detected, before it's removed from URL
+    if (tokenIdFromQuery && tokenId !== undefined && tokenId !== BigInt(0)) {
+      // If "Mint Genesis SBT" is not in completedTasks, add it and show feedback modal
+      if (!completedTasks.includes('Mint Genesis SBT') && !hasProcessedMintFeedback.current) {
+        hasProcessedMintFeedback.current = true;
+        const newCompletedTasks = [...completedTasks, 'Mint Genesis SBT'];
+        setCompletedTasks(newCompletedTasks);
+        localStorage.setItem('completedTasks', JSON.stringify(newCompletedTasks));
+        localStorage.setItem('hasGenesisSBT', 'true');
+        // toast.success('Genesis SBT minted! Points and Leaderboard unlocked!');
+        // Show feedback modal
+        setShowFeedbackModal(true);
+      }
+    }
+  }, [tokenIdFromQuery, tokenId, completedTasks]);
+
   const hasNotMinted = isMounted && !hasGenesisSBT;
 
   const copyReferralLink = () => {
@@ -364,52 +388,49 @@ const DashboardContent = () => {
       setHasGenesisSBT(true);
       localStorage.setItem('hasGenesisSBT', 'true');
       toast.success('Genesis SBT minted! Points and Leaderboard unlocked!');
+      // Show feedback modal
+      setShowFeedbackModal(true);
     } else {
       toast.success(`${taskName} completed!`);
     }
   };
 
   const oneTimeTasks = [
+    // {
+    //   name: 'Connect X',
+    //   points: 1,
+    //   completed: completedTasks.includes('Connect X'),
+    
     {
-      name: 'Connect X',
-      points: 1,
-      completed: completedTasks.includes('Connect X'),
+      name: 'Connect Wallet',
+      completed: completedTasks.includes('Connect Wallet'),
+    },
+    {
+      name: 'Fast RPC Setup',
+      completed: completedTasks.includes('Fast RPC Setup'),
+    },
+    {
+      name: 'Mint Genesis SBT',
+      completed: completedTasks.includes('Mint Genesis SBT'),
     },
     {
       name: 'Follow @fast_protocol',
       points: 1,
       completed: completedTasks.includes('Follow @fast_protocol'),
-    },
-    {
-      name: 'Connect Wallet',
-      points: 1,
-      completed: completedTasks.includes('Connect Wallet'),
-    },
-    {
-      name: 'Mint Genesis SBT',
-      points: 10,
-      completed: completedTasks.includes('Mint Genesis SBT'),
-    },
-    {
-      name: 'Fast RPC Setup',
-      points: 2,
-      completed: completedTasks.includes('Fast RPC Setup'),
+      action: 'https://x.com/fast_protocol',
     },
     {
       name: 'Join Discord',
-      points: 1,
       completed: completedTasks.includes('Join Discord'),
       action: 'https://discord.gg/fast',
     },
     {
       name: 'Join Telegram',
-      points: 1,
       completed: completedTasks.includes('Join Telegram'),
       action: 'https://t.me/fast',
     },
     {
       name: 'Enter Email',
-      points: 1,
       completed: completedTasks.includes('Enter Email'),
       action: 'email',
     },
@@ -436,7 +457,7 @@ const DashboardContent = () => {
                 src="/assets/fast-protocol-logo-icon.png"
                 alt="Fast Protocol"
                 width={150}
-                height={150}
+                height={75}
                 className="hidden sm:block"
               />
             </div>
@@ -548,9 +569,9 @@ const DashboardContent = () => {
         {/* Announcement Banner */}
         <div
           className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 cursor-pointer hover:from-primary/90 hover:to-primary/70 transition-all"
-          onClick={() => handleTabChange('points')}
+          // onClick={() => handleTabChange('points')}
         >
-          <div className="container mx-auto px-4 py-3 text-center">
+          <div className="container mx-auto px-4 py-2 text-center">
           <p className="text-primary-foreground font-semibold">
               🎉 You're all set for the points program kickoff! In the meantime, make your first Fast swap on these top DeFi protocols.
             </p>
@@ -563,7 +584,7 @@ const DashboardContent = () => {
             onValueChange={handleTabChange}
             className="space-y-8"
           >
-            <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-2">
+            <TabsList className="grid w-full max-w-3xl mx-auto grid-cols-3">
               <TabsTrigger value="genesis" className="text-base">
                 Genesis SBT
               </TabsTrigger>
@@ -573,9 +594,12 @@ const DashboardContent = () => {
                   Coming Soon
                 </span>
               </TabsTrigger>
-              {/* <TabsTrigger value="leaderboard" className="text-base">
+              <TabsTrigger value="leaderboard" className="text-base" disabled>
                 Leaderboard
-              </TabsTrigger> */}
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-muted/80 text-muted-foreground text-xs font-semibold border border-border">
+                  Coming Soon
+                </span>
+              </TabsTrigger>
             </TabsList>
 
             {/* Genesis SBT Tab */}
@@ -695,7 +719,7 @@ const DashboardContent = () => {
                         <h3 className="text-xl font-semibold">Referrals</h3>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Earn +1 point per successful referral (max 100/week)
+                        Earn points when users perform a Fast RPC transaction using your referral link.
                       </p>
                       <div className="bg-secondary/50 rounded-lg p-3 flex items-center justify-between">
                         <code className="text-xs">{referralCode}</code>
@@ -739,19 +763,6 @@ const DashboardContent = () => {
                         <div className="flex items-center gap-2">
                           <h3 className="text-xl font-semibold m-0">One-Time Tasks</h3>
                         </div>
-                        <div className="flex-1 flex justify-end">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground select-none no-underline pr-4">
-                            {(() => {
-                              const earned = oneTimeTasks.reduce((acc, t) => acc + (t.completed ? t.points : 0), 0);
-                              const total = oneTimeTasks.reduce((acc, t) => acc + t.points, 0);
-                              return (
-                                <span className="no-underline">
-                                  {earned} / {total} points earned
-                                </span>
-                              );
-                            })()}
-                          </div>
-                        </div>
                       </AccordionTrigger>
 
                       <AccordionContent className="px-6 pb-6">
@@ -786,9 +797,6 @@ const DashboardContent = () => {
                                 </span>
                               </div>
                               <div className="flex items-center gap-3">
-                                <Badge variant="outline" className="text-xs">
-                                  +{task.points}
-                                </Badge>
                                 {!task.completed && (
                                   <Button
                                     size="sm"
@@ -809,7 +817,7 @@ const DashboardContent = () => {
                                     }}
                                   >
                                     Complete
-                                    {task.action && task.action !== 'email' && (
+                                    {task.action && (
                                       <ExternalLink className="w-3 h-3 ml-2" />
                                     )}
                                   </Button>
@@ -959,22 +967,16 @@ const DashboardContent = () => {
                             <div className="text-sm text-muted-foreground">
                               $100
                             </div>
-                            <div className="font-semibold text-primary">+1</div>
+                       
                           </div>
                           <div className="text-center">
                             <div className="text-sm text-muted-foreground">
                               $1,000
                             </div>
-                            <div className="font-semibold text-primary">
-                              +10
-                            </div>
                           </div>
                           <div className="text-center">
                             <div className="text-sm text-muted-foreground">
                               $10,000
-                            </div>
-                            <div className="font-semibold text-primary">
-                              +100
                             </div>
                           </div>
                         </div>
@@ -1026,10 +1028,6 @@ const DashboardContent = () => {
         </main>
       </div>
 
-      <SBTGatingModal
-        open={showSBTGatingModal && !hasGenesisSBT}
-      // onClose={() => setShowSBTGatingModal(false)}
-      />
 
       <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
         <DialogContent className="sm:max-w-md border-primary/50">
@@ -1128,6 +1126,13 @@ const DashboardContent = () => {
         onComplete={() => {
           setIsBrowserWalletModalOpen(false);
         }}
+      />
+
+      {/* Transaction Feedback Modal */}
+      <TransactionFeedbackModal
+        isOpen={showFeedbackModal}
+        walletAddress={address}
+        onClose={() => setShowFeedbackModal(false)}
       />
     </div>
   );
