@@ -28,7 +28,7 @@ export const ReferralsCard = ({
 
   const handleShare = () => {
     const text = encodeURIComponent(
-      `@Fast_Protocol turns efficient swap execution into points.\n\nI'm using it for my trades.\n\n👇\n${referralLink}\n\n#MEV #DeFi`
+      `@Fast_Protocol turns efficient swap execution into tokenized rewards.\n\nI'm using it for my trades.\n\n👇\n${referralLink}\n\n#MEV #DeFi`
     );
     const shareUrl = `https://twitter.com/intent/tweet?text=${text}`;
     window.open(shareUrl, '_blank');
@@ -67,8 +67,8 @@ export const ReferralsCard = ({
           </Button>
         </div>
         <div className={!isConnected ? 'blur-sm pointer-events-none' : ''}>
-          <p className="text-sm text-muted-foreground">
-            Earn points when users perform a Fast RPC transaction using your referral link.
+          <p className="text-xs text-muted-foreground">
+          Earn miles from Fast RPC swap transactions via your referral link.
           </p>
           <div className="bg-secondary/50 rounded-lg p-3 flex items-center gap-2 justify-between my-4">
             <div className="flex-1 min-w-0">
@@ -99,11 +99,11 @@ export const ReferralsCard = ({
               <Copy className="w-4 h-4" />
             </Button>
           </div>
-          {affiliateCode && (
+          {/* {affiliateCode && (
             <p className="text-xs text-muted-foreground mt-2 mb-4">
-              Using affiliate code: <span className="font-mono font-semibold">{affiliateCode}</span>
+              Code: <span className="font-mono font-semibold">{affiliateCode}</span>
             </p>
-          )}
+          )} */}
           {referralLink ? (
             <Button
               onClick={handleShare}

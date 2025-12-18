@@ -60,7 +60,7 @@ export const PartnerQuestsSection = () => {
       <div>
         <h2 className="text-2xl font-semibold mb-2">Partner Quests</h2>
         <p className="text-muted-foreground text-sm">
-          Complete tasks with our protocol partners to earn bonus points
+          Complete tasks with our protocol partners to earn bonus miles
         </p>
       </div>
 

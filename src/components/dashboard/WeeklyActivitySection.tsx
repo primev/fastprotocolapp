@@ -21,7 +21,7 @@ export const WeeklyActivitySection = ({
         </h2>
         <p className="text-muted-foreground">
           Track your weekly transactions and volume to earn bonus
-          points
+          miles
         </p>
       </div>
 

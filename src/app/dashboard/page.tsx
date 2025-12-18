@@ -205,10 +205,7 @@ const DashboardContent = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Background effects */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10" />
-
+    <div className="min-h-screen bg-background relative overflow-hidden px-2 sm:px-0">
       <div className="relative z-10">
         <DashboardHeader
           points={points}
@@ -223,26 +220,26 @@ const DashboardContent = () => {
 
         {/* Announcement Banner */}
         <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all">
-          <div className="container mx-auto px-4 py-2 text-center">
+          <div className="container mx-auto px-4 py-1 text-center">
             <p className="text-primary-foreground font-semibold">
-              🎉 You're all set for the points program kickoff! In the meantime, make your first Fast swap on these top DeFi protocols.
+              🎉 You're all set for the miles program kickoff! In the meantime, make your first Fast swap on these top DeFi protocols.
             </p>
           </div>
         </div>
 
         {/* Tabs */}
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-0 sm:px-4 py-4">
           <Tabs
             value={activeTab}
             onValueChange={handleTabChange}
-            className="space-y-8"
+            className="space-y-4"
           >
-            <TabsList className="hidden md:grid w-full max-w-3xl mx-auto grid-cols-3">
+            <TabsList className="hidden md:grid w-full max-w-2xl mx-auto grid-cols-3">
               <TabsTrigger value="genesis" className="text-base">
                 Genesis SBT
               </TabsTrigger>
               <TabsTrigger value="points" className="text-base" disabled>
-                Points
+                Miles
                 <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-muted/80 text-muted-foreground text-xs font-semibold border border-border">
                   Coming Soon
                 </span>
@@ -257,9 +254,9 @@ const DashboardContent = () => {
 
             {/* Genesis SBT Tab */}
             <TabsContent value="genesis">
-              <div className="grid lg:grid-cols-3 gap-8">
+              <div className="grid lg:grid-cols-12 gap-8">
                 {/* Left Panel - SBT Display */}
-                <div className="lg:col-span-1 space-y-6">
+                <div className="lg:col-span-3 space-y-6">
                   <SBTDisplayCard
                     hasGenesisSBT={genesisSBT.hasGenesisSBT}
                     tokenId={genesisSBT.tokenId}
@@ -277,14 +274,14 @@ const DashboardContent = () => {
                 </div>
 
                 {/* Right Panel - Tasks */}
-                <div className="lg:col-span-2 space-y-6">
+                <div className="lg:col-span-9 space-y-6">
                   <div>
                     <h1 className="text-3xl font-bold mb-2">
-                      Fast Points Dashboard
+                      Fast Miles
                     </h1>
                     <p className="text-muted-foreground">
-                      Complete tasks to earn points. Your points will carry into
-                      the official Fast Point System.
+                      Complete tasks to earn miles. Your miles will carry into
+                      the official Fast Miles System.
                     </p>
                   </div>
 

@@ -58,7 +58,7 @@ export const DashboardHeader = ({
             className="h-10 px-3 lg:px-2.5 text-sm lg:text-sm border-primary/50 flex items-center"
           >
             <Award className="w-4 h-4 lg:w-3.5 lg:h-3.5 mr-2 lg:mr-1.5 text-primary" />
-            {points} Points
+            {points} Miles
           </Badge>
           {/* Wallet icon button for mobile (when connected) */}
           {isConnected && (

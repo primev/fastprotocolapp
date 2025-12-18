@@ -24,16 +24,16 @@ export const SBTDisplayCard = ({
   const hasNotMinted = isMounted && !hasGenesisSBT;
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30">
-      <div className="space-y-4">
+    <Card className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30 max-w-md mx-auto">
+      <div className="space-y-3 pb-0">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl sm:text-2xl lg:text-base font-bold">
+          <h2 className="text-lg sm:text-xl lg:text-base font-bold">
             {NFT_NAME}
           </h2>
           {hasGenesisSBT ? (
             <Badge className="bg-primary text-primary-foreground">
               <Check className="w-3 h-3 mr-1" />
-              Minted
+              #{String(tokenId)}
             </Badge>
           ) : (
             <Badge variant="outline" className="border-muted-foreground/50">
@@ -43,11 +43,10 @@ export const SBTDisplayCard = ({
         </div>
 
         {/* SBT Visual */}
-        <div className="w-full aspect-square rounded-xl bg-gradient-to-br from-primary via-primary/50 to-primary/20 border border-primary/50 overflow-hidden relative">
           <img
             src={NFT_ASSET}
             alt={NFT_NAME}
-            className="w-full h-full object-cover"
+            className="w-3/4 mx-auto mt-0"
             onError={(e) => {
               const target = e.currentTarget;
               target.style.display = 'none';
@@ -57,11 +56,11 @@ export const SBTDisplayCard = ({
           />
           <div className="w-full h-full flex items-center justify-center hidden absolute inset-0">
             <div className="text-center space-y-2">
-              <Zap className="w-20 h-20 mx-auto text-primary-foreground" />
-              <div className="text-primary-foreground font-bold text-xl">
+              <Zap className="w-16 h-16 mx-auto text-primary-foreground" />
+              <div className="text-primary-foreground font-bold text-lg">
                 FAST
               </div>
-              <div className="text-primary-foreground/80 text-sm">
+              <div className="text-primary-foreground/80 text-xs">
                 Genesis
               </div>
             </div>
@@ -83,9 +82,8 @@ export const SBTDisplayCard = ({
               </Button>
             </div>
           )}
-        </div>
 
-        <div className="space-y-2 text-sm">
+        {/* <div className="space-y-2 pb-0 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">SBT ID</span>
             {hasGenesisSBT ? (
@@ -116,10 +114,10 @@ export const SBTDisplayCard = ({
               On-chain via Fast RPC
             </Badge>
           </div>
-        </div>
+        </div>  */}
 
-        <div className="pt-3 border-t border-border/50">
-          <p className="text-xs sm:text-sm text-muted-foreground">
+        <div className="pt-2 border-t border-border/50">
+          <p className="text-xs text-muted-foreground">
             {NFT_DESCRIPTION}
           </p>
         </div>
