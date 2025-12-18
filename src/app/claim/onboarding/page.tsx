@@ -304,15 +304,12 @@ const OnboardingPageContent = () => {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Background effects */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10" />
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="relative z-10 flex flex-col min-h-screen">
         <OnboardingHeader />
 
-        <main className="w-full px-4 lg:container lg:mx-auto xl:w-full xl:max-w-none 2xl:container 2xl:mx-auto flex-1 flex items-center justify-center">
-          <div className="w-full lg:max-w-3xl xl:max-w-none 2xl:max-w-3xl mx-auto space-y-6 sm:space-y-8 lg:space-y-5">
+        <main className="w-full px-4 lg:container lg:mx-auto xl:container xl:mx-auto 2xl:container 2xl:mx-auto flex-1 flex items-center justify-center">
+          <div className="w-full lg:max-w-3xl xl:max-w-3xl 2xl:max-w-3xl mx-auto space-y-6 sm:space-y-8 lg:space-y-5">
             <OnboardingStepsList
               steps={steps}
               isWalletStepWithWarning={isWalletStepWithWarning}

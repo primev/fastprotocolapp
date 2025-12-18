@@ -21,7 +21,8 @@ export const SBTDisplayCard = ({
   isMounted,
 }: SBTDisplayCardProps) => {
   const router = useRouter();
-  const hasNotMinted = isMounted && !hasGenesisSBT;
+  const isMinted = hasGenesisSBT && tokenId !== undefined;
+  const hasNotMinted = address && !isMinted;
 
   return (
     <Card className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30 max-w-md mx-auto">
@@ -30,7 +31,7 @@ export const SBTDisplayCard = ({
           <h2 className="text-lg sm:text-xl lg:text-base font-bold">
             {NFT_NAME}
           </h2>
-          {hasGenesisSBT ? (
+          {isMinted ? (
             <Badge className="bg-primary text-primary-foreground">
               <Check className="w-3 h-3 mr-1" />
               #{String(tokenId)}
@@ -43,45 +44,49 @@ export const SBTDisplayCard = ({
         </div>
 
         {/* SBT Visual */}
-          <img
-            src={NFT_ASSET}
-            alt={NFT_NAME}
-            className="w-3/4 mx-auto mt-0"
-            onError={(e) => {
-              const target = e.currentTarget;
-              target.style.display = 'none';
-              const placeholder = target.nextElementSibling as HTMLElement;
-              if (placeholder) placeholder.classList.remove('hidden');
-            }}
-          />
-          <div className="w-full h-full flex items-center justify-center hidden absolute inset-0">
-            <div className="text-center space-y-2">
-              <Zap className="w-16 h-16 mx-auto text-primary-foreground" />
-              <div className="text-primary-foreground font-bold text-lg">
-                FAST
-              </div>
-              <div className="text-primary-foreground/80 text-xs">
-                Genesis
+        <div className="w-3/4 mx-auto">
+          <div className="relative inline-block w-full">
+            <img
+              src={NFT_ASSET}
+              alt={NFT_NAME}
+              className="w-full h-auto block"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = 'none';
+                const placeholder = target.nextElementSibling as HTMLElement;
+                if (placeholder) placeholder.classList.remove('hidden');
+              }}
+            />
+            <div className="w-full h-full flex items-center justify-center hidden absolute inset-0">
+              <div className="text-center space-y-2">
+                <Zap className="w-16 h-16 mx-auto text-primary-foreground" />
+                <div className="text-primary-foreground font-bold text-lg">
+                  FAST
+                </div>
+                <div className="text-primary-foreground/80 text-xs">
+                  Genesis
+                </div>
               </div>
             </div>
+            {hasNotMinted && (
+              <div className="absolute inset-0 bg-background/40 backdrop-blur-sm flex items-center justify-center z-10 pointer-events-none rounded-lg">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.push('/claim/onboarding');
+                  }}
+                  className="bg-background/90 hover:bg-background border-primary/50 hover:border-primary hover:scale-105 transition-all duration-200 hover:shadow-lg hover:shadow-primary/20 group pointer-events-auto lg:text-sm lg:h-10 lg:px-6"
+                >
+                  Mint Genesis SBT
+                  <ChevronRight className="w-4 h-4 lg:w-3.5 lg:h-3.5 ml-2 lg:ml-1.5 transition-transform duration-200 group-hover:translate-x-1" />
+                </Button>
+              </div>
+            )}
           </div>
-          {hasNotMinted && (
-            <div className="absolute inset-0 bg-background/40 backdrop-blur-sm flex items-center justify-center z-10 pointer-events-none">
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  router.push('/claim/onboarding');
-                }}
-                className="bg-background/90 hover:bg-background border-primary/50 hover:border-primary hover:scale-105 transition-all duration-200 hover:shadow-lg hover:shadow-primary/20 group pointer-events-auto lg:text-sm lg:h-10 lg:px-6"
-              >
-                Mint Genesis SBT
-                <ChevronRight className="w-4 h-4 lg:w-3.5 lg:h-3.5 ml-2 lg:ml-1.5 transition-transform duration-200 group-hover:translate-x-1" />
-              </Button>
-            </div>
-          )}
+        </div>
 
         {/* <div className="space-y-2 pb-0 text-sm">
           <div className="flex justify-between">
