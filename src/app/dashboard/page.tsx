@@ -740,6 +740,7 @@ const DashboardContent = () => {
                             e.stopPropagation();
                             setIsReferralModalOpen(true);
                           }}
+                          disabled={!isConnected}
                           style={{ 
                             width: '32px', 
                             height: '32px', 
