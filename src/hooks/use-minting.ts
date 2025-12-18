@@ -108,6 +108,10 @@ export function useMinting({
 
       const tokenId = parseTokenIdFromReceipt(receipt);
       if (tokenId) {
+        // Save transaction hash to localStorage for feedback submission
+        if (hash) {
+          localStorage.setItem('claimTxHash', hash);
+        }
         router.push(`/dashboard?tokenId=${tokenId.toString()}`);
       }
 

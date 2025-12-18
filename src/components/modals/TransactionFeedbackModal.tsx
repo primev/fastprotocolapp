@@ -56,6 +56,8 @@ export function TransactionFeedbackModal({
 
     setSelectedStatus(status);
     setIsClosing(true);
+    
+    const txhash = localStorage.getItem('claimTxHash');
 
     // Submit feedback in the background (fire and forget)
     fetch('/api/feedback', {
@@ -68,11 +70,19 @@ export function TransactionFeedbackModal({
         wallet_address: walletAddress,
         tx_type: 'mint',
         status: status,
+        txhash: txhash || undefined,
       }),
-    }).catch((error) => {
-      // Silently handle errors - user doesn't need to see them
-      console.error('Failed to submit feedback:', error);
-    });
+    })
+      .catch((error) => {
+        // Silently handle errors - user doesn't need to see them
+        console.error('Failed to submit feedback:', error);
+      })
+      .finally(() => {
+        // Remove txhash from localStorage after submission (success or failure)
+        if (txhash) {
+          localStorage.removeItem('claimTxHash');
+        }
+      });
 
     setTimeout(() => {
       onClose();
