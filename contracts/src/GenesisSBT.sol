@@ -166,6 +166,16 @@ contract GenesisSBT is
         revert SoulBoundToken_TransferNotAllowed();
     }
 
+    /// @notice Approvals are disabled for soul-bound tokens
+    function approve(address to, uint256 tokenId) public override(ERC721Upgradeable, IERC721) {
+        revert SoulBoundToken_ApprovalNotAllowed();
+    }
+
+    /// @notice Approvals are disabled for soul-bound tokens
+    function setApprovalForAll(address operator, bool approved) public override(ERC721Upgradeable, IERC721) {
+        revert SoulBoundToken_ApprovalNotAllowed();
+    }
+
     // =============================================================
     //                          UUPS UPGRADE
     // =============================================================

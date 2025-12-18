@@ -19,6 +19,9 @@ interface IGenesisSBT is IERC721, IERC4906 {
     /// @dev Triggered when trying to transfer a soul-bound token.
     error SoulBoundToken_TransferNotAllowed();
 
+    /// @dev Triggered when trying to approve a soul-bound token.
+    error SoulBoundToken_ApprovalNotAllowed();
+
     /// @dev Triggered when invalid recipients are provided.
     error InvalidRecipients();
 

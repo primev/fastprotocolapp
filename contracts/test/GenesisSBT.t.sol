@@ -266,16 +266,22 @@ contract GenesisSBTTest is Test {
         sbt.safeTransferFrom(user1, user2, 1);
     }
 
-    function test_Transfer_RevertIf_ApprovedTransferAttempted() public {
+    function test_Approve_RevertIf_ApprovalAttempted() public {
         vm.prank(user1);
         sbt.mint();
 
+        vm.expectRevert(IGenesisSBT.SoulBoundToken_ApprovalNotAllowed.selector);
         vm.prank(user1);
         sbt.approve(user2, 1);
+    }
 
-        vm.expectRevert(IGenesisSBT.SoulBoundToken_TransferNotAllowed.selector);
-        vm.prank(user2);
-        sbt.transferFrom(user1, user3, 1);
+    function test_SetApprovalForAll_RevertIf_ApprovalAttempted() public {
+        vm.prank(user1);
+        sbt.mint();
+
+        vm.expectRevert(IGenesisSBT.SoulBoundToken_ApprovalNotAllowed.selector);
+        vm.prank(user1);
+        sbt.setApprovalForAll(user2, true);
     }
 
     // =============================================================
