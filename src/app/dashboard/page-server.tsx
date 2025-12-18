@@ -5,11 +5,11 @@ import { pool } from '@/lib/fast-db';
 async function fetchUsers() {
   try {
     const { rows } = await pool.query(
-      'SELECT * FROM user_onboarding ORDER BY wallet_address LIMIT 10'
+      'SELECT * FROM users ORDER BY created_at DESC LIMIT 10'
     );
-    console.log('User onboarding data (server):', { users: rows });
+    console.log('Users data (server):', { users: rows });
   } catch (error) {
-    console.error('Error fetching user onboarding (server):', error);
+    console.error('Error fetching users (server):', error);
   }
 }
 
