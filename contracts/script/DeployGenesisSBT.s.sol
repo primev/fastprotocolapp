@@ -61,9 +61,9 @@ contract DeployScript is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
-        address initialOwner = vm.envOr("INITIAL_OWNER", deployer);
-        string memory assetURI = vm.envString("ASSET_URI");
-        string memory description = vm.envString("DESCRIPTION");
+        address initialOwner = deployer;
+        string memory assetURI = "";
+        string memory description = unicode"Your Genesis SBT proves you were early to Fast Protocol. Your progress will carry into the main Fast ecosystem at launch.";
 
         _validateParams(deployer, initialOwner, assetURI, description);
 
@@ -85,7 +85,7 @@ contract DeployScript is Script {
     ) internal pure {
         require(deployer != address(0), "DeployScript: deployer cannot be zero address");
         require(initialOwner != address(0), "DeployScript: initialOwner cannot be zero address");
-        require(bytes(assetURI).length > 0, "DeployScript: assetURI cannot be empty");
+        // require(bytes(assetURI).length > 0, "DeployScript: assetURI cannot be empty");
         require(bytes(description).length > 0, "DeployScript: description cannot be empty");
     }
 

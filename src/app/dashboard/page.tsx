@@ -444,7 +444,7 @@ const DashboardContent = () => {
     },
     {
       name: 'Enter Email',
-      completed: true, // Todo --> set back to false after testing
+      completed: false, // Todo --> set back to false after testing
       action: 'email',
     },
   ];

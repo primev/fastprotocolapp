@@ -71,7 +71,7 @@ export function useMinting({
 
         // Check if tokenId is valid (not zero)
         if (tokenId && tokenId > BigInt(0)) {
-          setAlreadyMinted(false); // Todo: Change to true
+          setAlreadyMinted(true); // Todo: Change to true for production
           setExistingTokenId(tokenId.toString());
         } else {
           setAlreadyMinted(false);
