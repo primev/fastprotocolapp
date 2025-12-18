@@ -39,6 +39,14 @@ contract GenesisSBTMock is
         _nftName = "Fast Protocol Genesis SBT";
     }
 
+    receive() external payable {
+        revert InvalidReceive();
+    }
+
+    fallback() external payable {
+        revert InvalidFallback();
+    }
+
     // =============================================================
     //                          MINTING
     // =============================================================

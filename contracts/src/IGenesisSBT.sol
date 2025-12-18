@@ -25,6 +25,12 @@ interface IGenesisSBT is IERC721, IERC4906 {
     /// @dev Triggered when invalid recipients are provided.
     error InvalidRecipients();
 
+    /// @dev prevent unintended contract interactions.
+    error InvalidReceive();
+    
+    /// @dev prevent unintended contract interactions.
+    error InvalidFallback();
+
     // =============================================================
     //                          FUNCTIONS
     // =============================================================

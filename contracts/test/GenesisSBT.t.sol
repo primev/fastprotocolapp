@@ -864,4 +864,31 @@ contract GenesisSBTTest is Test {
         }
         return true;
     }
+
+    // =============================================================
+    //              RECEIVE / FALLBACK REVERT TESTS
+    // =============================================================
+
+    function test_Receive_RevertsOnETHSend() public {
+        // Fund a sender so it can send ETH
+        vm.deal(user1, 1 ether);
+
+        // Plain ETH transfer with empty calldata triggers `receive()`
+        vm.expectRevert(IGenesisSBT.InvalidReceive.selector);
+        vm.prank(user1);
+        (bool ok, ) = address(sbt).call{value: 0.1 ether}("");
+        ok; // silence unused var warning
+    }
+
+    function test_Fallback_RevertsOnCallWithData() public {
+        vm.deal(user1, 1 ether);
+
+        // Non-empty calldata triggers `fallback()`
+        bytes memory data = hex"deadbeef";
+
+        vm.expectRevert(IGenesisSBT.InvalidFallback.selector);
+        vm.prank(user1);
+        (bool ok, ) = address(sbt).call{value: 0.1 ether}(data);
+        ok;
+    }
 }
