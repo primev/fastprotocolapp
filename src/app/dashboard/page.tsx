@@ -966,7 +966,7 @@ const DashboardContent = () => {
                           Weekly Fast RPC Transactions
                         </h3>
                       </div>
-                      <div className="space-y-4">
+                      <div className="space-y-4 blur-sm">
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">
@@ -1019,7 +1019,7 @@ const DashboardContent = () => {
                           Weekly Fast RPC Volume
                         </h3>
                       </div>
-                      <div className="space-y-4">
+                      <div className="space-y-4 blur-sm">
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">
