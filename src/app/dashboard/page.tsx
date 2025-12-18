@@ -597,7 +597,7 @@ const DashboardContent = () => {
             onValueChange={handleTabChange}
             className="space-y-8"
           >
-            <TabsList className="grid w-full max-w-3xl mx-auto grid-cols-3">
+            <TabsList className="hidden md:grid w-full max-w-3xl mx-auto grid-cols-3">
               <TabsTrigger value="genesis" className="text-base">
                 Genesis SBT
               </TabsTrigger>
