@@ -47,7 +47,7 @@ export const LeaderboardTable = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full max-w-2xl grid-cols-4">
+        <TabsList className="grid w-full max-w-xl grid-cols-4">
           <TabsTrigger value="global">Global</TabsTrigger>
           <TabsTrigger value="referral">Referrals</TabsTrigger>
           <TabsTrigger value="volume">Volume</TabsTrigger>

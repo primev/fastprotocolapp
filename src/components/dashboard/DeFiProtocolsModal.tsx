@@ -67,11 +67,11 @@ export function DeFiProtocolsModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="sm:max-w-2xl max-h-[80vh] overflow-y-auto border-primary/50"
+        className="sm:max-w-xl max-h-[80vh] overflow-y-auto border-primary/50"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+          <DialogTitle className="text-xl font-bold flex items-center gap-2">
             <TrendingUp className="w-6 h-6 text-primary" />
             Top DeFi Swap Protocols
           </DialogTitle>

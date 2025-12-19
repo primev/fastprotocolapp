@@ -116,7 +116,7 @@ export function TransactionFeedbackModal({
         transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
       }}
     >
-      <Card className="p-4 bg-card/95 backdrop-blur-sm border-primary/30 glow-border shadow-2xl">
+      <Card className="p-4 bg-card/95 backdrop-blur-sm border-primary/30 glow-border shadow-xl">
         <div className="flex justify-center">
           <Image src="/assets/fast-protocol-logo-icon.png" alt="Fast Protocol" width={100} height={100} />
         </div>

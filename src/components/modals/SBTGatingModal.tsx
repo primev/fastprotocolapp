@@ -33,7 +33,7 @@ export const SBTGatingModal = ({ open }: SBTGatingModalProps) => {
               <Award className="w-8 h-8 text-primary" />
             </div>
           </div>
-          <DialogTitle className="text-center text-2xl">Fast Genesis SBT Required</DialogTitle>
+          <DialogTitle className="text-center text-xl">Fast Genesis SBT Required</DialogTitle>
           <DialogDescription className="text-center text-base pt-2">
             You must mint your Genesis SBT to access the Fast Points System and Season 1 leaderboard.
           </DialogDescription>

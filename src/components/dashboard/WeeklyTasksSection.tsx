@@ -75,7 +75,7 @@ export const WeeklyTasksSection = ({ transactions, volume }: WeeklyTasksSectionP
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold mb-2">Weekly Fast RPC Tasks</h2>
+        <h2 className="text-xl font-semibold mb-2">Weekly Fast RPC Tasks</h2>
         <p className="text-muted-foreground text-sm">
           Complete milestones to earn points. Resets every Monday.
         </p>

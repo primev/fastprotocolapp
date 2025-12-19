@@ -110,12 +110,12 @@ const IndexPage = () => {
 
           {/* Tagline, Email & Social */}
           <section className="flex-1 flex flex-col justify-center space-y-3 xs:space-y-4 sm:space-y-5 tablet:space-y-8 lg:space-y-6">
-            <div className="text-sm xs:text-base sm:text-lg tablet:text-2xl lg:text-base xl:text-xl text-muted-foreground px-3 xs:px-4 sm:px-6 tablet:px-8 lg:px-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+            <div className="text-sm xs:text-base sm:text-lg tablet:text-xl lg:text-base xl:text-xl text-muted-foreground px-3 xs:px-4 sm:px-6 tablet:px-8 lg:px-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
               <span>Lightning-fast transactions on L1.</span>
               <span>Tokenized mev rewards.</span>
             </div>
 
-            <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-xl sm:rounded-2xl p-2.5 xs:p-3 sm:p-3.5 tablet:p-6 lg:p-3.5 shadow-xl w-full max-w-xs xs:max-w-sm sm:max-w-md tablet:max-w-xl lg:max-w-xl xl:max-w-3xl mx-auto">
+            <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-xl sm:rounded-xl p-2.5 xs:p-3 sm:p-3.5 tablet:p-6 lg:p-3.5 shadow-xl w-full max-w-xs xs:max-w-sm sm:max-w-md tablet:max-w-xl lg:max-w-xl xl:max-w-3xl mx-auto">
               <form onSubmit={handleSubmit} className="space-y-3 xs:space-y-4 tablet:space-y-5 lg:space-y-4">
                 <div className="flex flex-col sm:flex-row gap-2 xs:gap-3 tablet:gap-4">
                   <Input
@@ -205,7 +205,7 @@ const IndexPage = () => {
           </section>
 
           <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
-            <DialogContent className="w-full h-full max-w-none max-h-none rounded-none translate-x-0 translate-y-0 left-0 top-0 sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:w-full sm:max-w-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-lg">
+            <DialogContent className="w-full h-full max-w-none max-h-none rounded-none translate-x-0 translate-y-0 left-0 top-0 sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:w-full sm:max-w-xl sm:h-auto sm:max-h-[90vh] sm:rounded-lg">
               <DialogHeader>
                 <DialogTitle>Adding Fast RPC to MetaMask</DialogTitle>
                 <DialogDescription className="pt-4 space-y-3">

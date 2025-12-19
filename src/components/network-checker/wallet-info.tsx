@@ -22,7 +22,7 @@ export function WalletInfo({
 
   const buttonHeight = size === 'sm' ? 'h-[36px]' : 'h-[44px]';
   const iconSize = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
-  const titleSize = size === 'sm' ? 'text-lg' : 'text-2xl';
+  const titleSize = size === 'sm' ? 'text-lg' : 'text-xl';
   const alignClass = align === 'start' ? 'justify-start' : 'justify-center';
 
   return (

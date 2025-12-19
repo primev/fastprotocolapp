@@ -41,7 +41,7 @@ const ClaimPage = () => {
                 <span className="gradient-text">Genesis SBT Claim</span>
               </h1>
               
-              <p className="text-lg sm:text-xl lg:text-base xl:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
+              <p className="text-lg sm:text-xl lg:text-base xl:text-lg text-muted-foreground max-w-xl mx-auto px-4">
                 Mint your Genesis SBT, earn Fast Points, and prove you were early to the execution UX layer that makes Ethereum feel instant.
               </p>
             </div>

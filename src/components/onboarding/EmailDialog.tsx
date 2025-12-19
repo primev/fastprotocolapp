@@ -44,7 +44,7 @@ export const EmailDialog = ({
               <Mail className="w-8 h-8 text-primary" />
             </div>
           </div>
-          <DialogTitle className="text-center text-2xl">Enter Your Email</DialogTitle>
+          <DialogTitle className="text-center text-xl">Enter Your Email</DialogTitle>
           <DialogDescription className="text-center text-base pt-2">
             Stay updated with Fast Protocol news and announcements
           </DialogDescription>

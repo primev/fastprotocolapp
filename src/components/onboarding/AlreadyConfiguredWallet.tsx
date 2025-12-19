@@ -38,7 +38,7 @@ export const AlreadyConfiguredWallet = ({
                             className="hidden sm:block"
                         />
                     </div>
-                    <DialogTitle className="text-xl sm:text-2xl text-center">
+                    <DialogTitle className="text-xl sm:text-xl text-center">
                         Is your wallet already configured?
                     </DialogTitle>
                 </DialogHeader>

@@ -234,7 +234,7 @@ const DashboardContent = () => {
             onValueChange={handleTabChange}
             className="space-y-4"
           >
-            <TabsList className="hidden md:grid w-full max-w-2xl mx-auto grid-cols-3">
+            <TabsList className="hidden md:grid w-full max-w-xl mx-auto grid-cols-3">
               <TabsTrigger value="genesis" className="text-base">
                 Genesis SBT
               </TabsTrigger>
@@ -354,7 +354,7 @@ const DashboardContent = () => {
                 <Mail className="w-8 h-8 text-primary" />
               </div>
             </div>
-            <DialogTitle className="text-center text-2xl">
+            <DialogTitle className="text-center text-xl">
               Enter Your Email
             </DialogTitle>
             <DialogDescription className="text-center text-base pt-2">
