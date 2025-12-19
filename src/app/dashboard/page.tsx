@@ -221,8 +221,15 @@ const DashboardContent = () => {
         {/* Announcement Banner */}
         <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all">
           <div className="container mx-auto px-4 py-1 text-center">
-            <p className="text-primary-foreground font-semibold">
-              🎉 You're all set for the miles program kickoff! In the meantime, make your first Fast swap on these top DeFi protocols.
+            <p className="text-primary-foreground text-sm">
+              🎉 You're all set for the miles program kickoff! In the meantime, make your first Fast swap on these{' '}
+              <a
+                href="#defi-protocols"
+                className="underline underline-offset-4 font-medium hover:text-primary-foreground/80 transition-colors"
+              >
+                top DeFi protocols
+              </a>
+              .
             </p>
           </div>
         </div>

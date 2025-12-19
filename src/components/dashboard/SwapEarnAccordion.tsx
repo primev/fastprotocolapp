@@ -45,7 +45,7 @@ const TOP_DEFI_PROTOCOLS: DeFiProtocol[] = [
 
 export const SwapEarnAccordion = () => {
   return (
-    <Accordion type="single" collapsible defaultValue="swap-earn" className="mb-6 bg-card/50 border border-border/50 rounded-lg overflow-hidden">
+    <Accordion type="single" collapsible defaultValue="swap-earn" id="defi-protocols"  className="mb-6 bg-card/50 border border-border/50 rounded-lg overflow-hidden">
       <AccordionItem value="swap-earn">
         <AccordionTrigger className="flex justify-between items-center px-6 py-4 no-underline hover:no-underline focus:no-underline">
           <div className="flex items-center gap-2">
