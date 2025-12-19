@@ -28,11 +28,11 @@ export const MintButtonSection = ({
         {/* NFT Image and Details */}
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 w-full">
           {/* SBT Visual */}
-          <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-xl bg-gradient-to-br from-primary via-primary/50 to-primary/20 border border-primary/50 overflow-hidden glow-border relative flex-shrink-0" style={{ minHeight: '192px' }}>
+          <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-xl  overflow-hidden  relative flex-shrink-0" style={{ minHeight: '192px' }}>
             <img
               src={NFT_ASSET}
               alt={NFT_NAME}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
               onError={(e) => {
                 const target = e.currentTarget;
                 target.style.display = 'none';
