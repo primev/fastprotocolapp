@@ -81,19 +81,6 @@ const IndexPage = () => {
       {/* Animated Background */}
       <AnimatedBackground />
 
-      {/* Header */}
-      <header className="relative z-20 w-full border-b border-primary/20 backdrop-blur-sm bg-background/60 sticky top-0 p-3">
-        <div className="flex items-center justify-end">
-          <Button
-            variant="glass"
-            size="sm"
-            onClick={() => window.open('https://paragraph.com/@0xfa0b0f5d298d28efe4d35641724141ef19c05684/introducing-fast-protocol-a-coordinated-rewards-layer', '_blank')}
-          > 
-              Learn More
-          </Button>
-        </div>
-      </header>
-
       <div className="relative z-10 w-full px-4 flex-1 flex flex-col justify-between py-4 sm:py-6 tablet:py-8 lg:py-6">
         <div className="max-w-6xl mx-auto w-full text-center flex-1 flex flex-col justify-between">
           {/* Logo */}
@@ -195,12 +182,21 @@ const IndexPage = () => {
                   </>
                 )}
               </Button>
-              <button
-                onClick={() => setIsHelpDialogOpen(true)}
-                className="text-xs xs:text-sm sm:text-sm tablet:text-lg lg:text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 underline underline-offset-4"
-              >
-                Need Help?
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsHelpDialogOpen(true)}
+                  className="text-xs xs:text-sm sm:text-sm tablet:text-lg lg:text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Help
+                </button>
+                <span className="text-xs xs:text-sm sm:text-sm tablet:text-lg lg:text-sm text-muted-foreground">•</span>
+                <button
+                  onClick={() => window.open('https://paragraph.com/@0xfa0b0f5d298d28efe4d35641724141ef19c05684/introducing-fast-protocol-a-coordinated-rewards-layer', '_blank')}
+                  className="text-xs xs:text-sm sm:text-sm tablet:text-lg lg:text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Learn
+                </button>
+              </div>
             </div>
           </section>
 
