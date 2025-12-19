@@ -1,23 +1,30 @@
-'use client';
+"use client"
 
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Award, Wallet, Settings } from 'lucide-react';
-import { ConnectButton, useAccountModal, useConnectModal } from '@rainbow-me/rainbowkit';
-import { toast } from 'sonner';
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Award, Wallet, Settings } from "lucide-react"
+import { ConnectButton, useAccountModal, useConnectModal } from "@rainbow-me/rainbowkit"
+import { toast } from "sonner"
 
 interface DashboardHeaderProps {
-  points: number;
-  isConnected: boolean;
-  status: 'connected' | 'disconnected' | 'connecting' | 'reconnecting';
-  isMounted: boolean;
-  isMetaMask: boolean;
-  onAddNetwork: () => void;
-  onRpcSetup: () => void;
-  onTestRpc: () => void;
+  points: number
+  isConnected: boolean
+  status: "connected" | "disconnected" | "connecting" | "reconnecting"
+  isMounted: boolean
+  isMetaMask: boolean
+  onAddNetwork: () => void
+  onRpcSetup: () => void
+  onTestRpc: () => void
 }
 
 export const DashboardHeader = ({
@@ -30,8 +37,8 @@ export const DashboardHeader = ({
   onRpcSetup,
   onTestRpc,
 }: DashboardHeaderProps) => {
-  const { openAccountModal } = useAccountModal();
-  const { openConnectModal } = useConnectModal();
+  const { openAccountModal } = useAccountModal()
+  const { openConnectModal } = useConnectModal()
 
   return (
     <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 bg-background/80 z-50">
@@ -62,12 +69,7 @@ export const DashboardHeader = ({
           </Badge>
           {/* Wallet icon button for mobile (when connected) */}
           {isConnected && (
-            <Button
-              variant="outline"
-              size="icon"
-              className="sm:hidden"
-              onClick={openAccountModal}
-            >
+            <Button variant="outline" size="icon" className="sm:hidden" onClick={openAccountModal}>
               <Wallet className="w-4 h-4" />
             </Button>
           )}
@@ -78,14 +80,11 @@ export const DashboardHeader = ({
             </div>
           ) : (
             <>
-              {!isMounted || status === 'connecting' || status === 'reconnecting' ? (
+              {!isMounted || status === "connecting" || status === "reconnecting" ? (
                 <Skeleton className="h-10 w-32 rounded-full" />
               ) : (
                 <>
-                  <Button
-                    onClick={openConnectModal}
-                    className="h-10 sm:hidden px-4"
-                  >
+                  <Button onClick={openConnectModal} className="h-10 sm:hidden px-4">
                     Connect
                   </Button>
                   <div className="hidden sm:block">
@@ -108,7 +107,10 @@ export const DashboardHeader = ({
                     <Settings className="w-5 h-5 text-primary" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[220px] rounded-lg shadow-lg border border-border p-2 bg-background">
+                <DropdownMenuContent
+                  align="end"
+                  className="min-w-[220px] rounded-lg shadow-lg border border-border p-2 bg-background"
+                >
                   <DropdownMenuLabel className="text-[13px] text-foreground/80 font-semibold pb-1">
                     Fast Protocol Network
                   </DropdownMenuLabel>
@@ -116,9 +118,9 @@ export const DashboardHeader = ({
                   {isMetaMask && (
                     <DropdownMenuItem
                       className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-accent/60 rounded"
-                      onSelect={e => {
-                        e.preventDefault();
-                        onAddNetwork();
+                      onSelect={(e) => {
+                        e.preventDefault()
+                        onAddNetwork()
                       }}
                     >
                       <span className="inline-block w-2 h-2 rounded-full bg-primary mr-2" />
@@ -127,23 +129,23 @@ export const DashboardHeader = ({
                   )}
                   <DropdownMenuItem
                     className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-accent/60 rounded"
-                    onSelect={e => {
-                      e.preventDefault();
-                      onRpcSetup();
+                    onSelect={(e) => {
+                      e.preventDefault()
+                      onRpcSetup()
                     }}
                   >
                     <span className="inline-block w-2 h-2 rounded-full bg-muted-foreground mr-2" />
-                    {isMetaMask ? 'Toggle Network' : 'Setup RPC'}
+                    {isMetaMask ? "Toggle Network" : "Setup RPC"}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-accent/60 rounded"
-                    onSelect={e => {
-                      e.preventDefault();
+                    onSelect={(e) => {
+                      e.preventDefault()
                       if (!isConnected) {
-                        toast.error('Please connect your wallet first');
-                        return;
+                        toast.error("Please connect your wallet first")
+                        return
                       }
-                      onTestRpc();
+                      onTestRpc()
                     }}
                   >
                     <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-2" />
@@ -156,5 +158,5 @@ export const DashboardHeader = ({
         </div>
       </div>
     </header>
-  );
-};
+  )
+}

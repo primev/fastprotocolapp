@@ -1,17 +1,17 @@
-'use client';
+"use client"
 
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Zap, Check, ChevronRight } from 'lucide-react';
-import { NFT_NAME, NFT_DESCRIPTION, NFT_ASSET } from '@/lib/contract-config';
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Zap, Check, ChevronRight } from "lucide-react"
+import { NFT_NAME, NFT_DESCRIPTION, NFT_ASSET } from "@/lib/contract-config"
 
 interface SBTDisplayCardProps {
-  hasGenesisSBT: boolean;
-  tokenId: bigint | undefined;
-  address: string | undefined;
-  isMounted: boolean;
+  hasGenesisSBT: boolean
+  tokenId: bigint | undefined
+  address: string | undefined
+  isMounted: boolean
 }
 
 export const SBTDisplayCard = ({
@@ -20,21 +20,18 @@ export const SBTDisplayCard = ({
   address,
   isMounted,
 }: SBTDisplayCardProps) => {
-  const router = useRouter();
-  const isMinted = hasGenesisSBT && tokenId !== undefined;
-  const hasNotMinted = address && !isMinted;
+  const router = useRouter()
+  const isMinted = hasGenesisSBT && tokenId !== undefined
+  const hasNotMinted = address && !isMinted
 
   return (
     <Card className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30 max-w-md mx-auto">
       <div className="space-y-3 pb-0">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg sm:text-xl lg:text-base font-bold">
-            {NFT_NAME}
-          </h2>
+          <h2 className="text-lg sm:text-xl lg:text-base font-bold">{NFT_NAME}</h2>
           {isMinted ? (
             <Badge className="bg-primary text-primary-foreground">
-              <Check className="w-3 h-3 mr-1" />
-              #{String(tokenId)}
+              <Check className="w-3 h-3 mr-1" />#{String(tokenId)}
             </Badge>
           ) : (
             <Badge variant="outline" className="border-muted-foreground/50">
@@ -51,21 +48,17 @@ export const SBTDisplayCard = ({
               alt={NFT_NAME}
               className="w-full h-auto block"
               onError={(e) => {
-                const target = e.currentTarget;
-                target.style.display = 'none';
-                const placeholder = target.nextElementSibling as HTMLElement;
-                if (placeholder) placeholder.classList.remove('hidden');
+                const target = e.currentTarget
+                target.style.display = "none"
+                const placeholder = target.nextElementSibling as HTMLElement
+                if (placeholder) placeholder.classList.remove("hidden")
               }}
             />
             <div className="w-full h-full flex items-center justify-center hidden absolute inset-0">
               <div className="text-center space-y-2">
                 <Zap className="w-16 h-16 mx-auto text-primary-foreground" />
-                <div className="text-primary-foreground font-bold text-lg">
-                  FAST
-                </div>
-                <div className="text-primary-foreground/80 text-xs">
-                  Genesis
-                </div>
+                <div className="text-primary-foreground font-bold text-lg">FAST</div>
+                <div className="text-primary-foreground/80 text-xs">Genesis</div>
               </div>
             </div>
             {hasNotMinted && (
@@ -74,9 +67,9 @@ export const SBTDisplayCard = ({
                   variant="outline"
                   size="lg"
                   onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    router.push('/claim/onboarding');
+                    e.preventDefault()
+                    e.stopPropagation()
+                    router.push("/claim/onboarding")
                   }}
                   className="bg-background/90 hover:bg-background border-primary/50 hover:border-primary hover:scale-105 transition-all duration-200 hover:shadow-lg hover:shadow-primary/20 group pointer-events-auto lg:text-sm lg:h-10 lg:px-6"
                 >
@@ -122,11 +115,9 @@ export const SBTDisplayCard = ({
         </div>  */}
 
         <div className="pt-2 border-t border-border/50">
-          <p className="text-xs text-muted-foreground">
-            {NFT_DESCRIPTION}
-          </p>
+          <p className="text-xs text-muted-foreground">{NFT_DESCRIPTION}</p>
         </div>
       </div>
     </Card>
-  );
-};
+  )
+}

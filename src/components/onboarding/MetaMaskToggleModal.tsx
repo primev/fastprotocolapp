@@ -1,19 +1,14 @@
-'use client';
+"use client"
 
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-} from '@/components/ui/dialog';
-import { Check } from 'lucide-react';
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader } from "@/components/ui/dialog"
+import { Check } from "lucide-react"
 
 interface MetaMaskToggleModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onComplete: () => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onComplete: () => void
 }
 
 export const MetaMaskToggleModal = ({
@@ -35,7 +30,8 @@ export const MetaMaskToggleModal = ({
         {/* Modal Header */}
         <DialogHeader className="flex-shrink-0">
           <DialogDescription className="text-center text-base sm:text-lg pt-2">
-            Switch to <span className="font-semibold text-primary">FastRPC</span> under <span className="font-semibold">Ethereum</span> in MetaMask network settings
+            Switch to <span className="font-semibold text-primary">FastRPC</span> under{" "}
+            <span className="font-semibold">Ethereum</span> in MetaMask network settings
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 min-h-0 overflow-y-auto -mx-4 sm:mx-0 px-0 sm:px-0 pt-4 flex items-center justify-center">
@@ -49,10 +45,10 @@ export const MetaMaskToggleModal = ({
                 className="rounded-lg object-contain w-full max-w-[400px] h-auto"
                 unoptimized
                 style={{
-                  maxHeight: '60vh',
-                  width: '100%',
-                  objectFit: 'contain',
-                  display: 'block',
+                  maxHeight: "60vh",
+                  width: "100%",
+                  objectFit: "contain",
+                  display: "block",
                 }}
               />
             </div>
@@ -67,5 +63,5 @@ export const MetaMaskToggleModal = ({
         </div>
       </DialogContent>
     </Dialog>
-  );
-};
+  )
+}

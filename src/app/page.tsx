@@ -1,139 +1,129 @@
-'use client';
+"use client"
 
-import { useState, Fragment } from 'react';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useState, Fragment } from "react"
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { toast } from 'sonner';
-import { captureEmailAction } from '@/actions/capture-email';
-import { Check, MessageCircle, Send } from 'lucide-react';
-import { FaXTwitter } from 'react-icons/fa6';
-import { AnimatedBackground } from '@/components/AnimatedBackground';
-import type { CaptureEmailResult } from '@/lib/email';
-import { useAddFastToMetamask } from '@/hooks/use-add-fast-to-metamask';
-import Marquee from 'react-fast-marquee';
+} from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { captureEmailAction } from "@/actions/capture-email"
+import { Check, MessageCircle, Send } from "lucide-react"
+import { FaXTwitter } from "react-icons/fa6"
+import { AnimatedBackground } from "@/components/AnimatedBackground"
+import type { CaptureEmailResult } from "@/lib/email"
+import { useAddFastToMetamask } from "@/hooks/use-add-fast-to-metamask"
+import Marquee from "react-fast-marquee"
 
 const socialLinks = [
   {
-    name: 'Discord',
+    name: "Discord",
     icon: MessageCircle,
-    url: 'https://discord.gg/fastprotocol',
+    url: "https://discord.gg/fastprotocol",
   },
-  { name: 'Telegram', icon: Send, url: 'https://t.me/Fast_Protocol' },
-  { name: 'Twitter', icon: FaXTwitter, url: 'https://x.com/Fast_Protocol' },
-];
+  { name: "Telegram", icon: Send, url: "https://t.me/Fast_Protocol" },
+  { name: "Twitter", icon: FaXTwitter, url: "https://x.com/Fast_Protocol" },
+]
 
 const footerLogos = [
   {
-    src: '/assets/primev-logo.png',
-    alt: 'Primev',
+    src: "/assets/primev-logo.png",
+    alt: "Primev",
     width: 100,
     height: 24,
-    className: 'h-6 tablet:h-8 w-auto opacity-80',
+    className: "h-6 tablet:h-8 w-auto opacity-80",
   },
   {
-    src: '/assets/a16z-logo.webp',
-    alt: 'a16z',
+    src: "/assets/a16z-logo.webp",
+    alt: "a16z",
     width: 177,
     height: 24,
-    className:
-      'h-6 tablet:h-8 w-auto opacity-60 hover:opacity-100 transition-opacity',
+    className: "h-6 tablet:h-8 w-auto opacity-60 hover:opacity-100 transition-opacity",
   },
   {
-    src: '/assets/bodhi-logo.webp',
-    alt: 'Bodhi Ventures',
+    src: "/assets/bodhi-logo.webp",
+    alt: "Bodhi Ventures",
     width: 170,
     height: 16,
-    className:
-      'h-4 tablet:h-5 w-auto opacity-60 hover:opacity-100 transition-opacity',
+    className: "h-4 tablet:h-5 w-auto opacity-60 hover:opacity-100 transition-opacity",
   },
   {
-    src: '/assets/figment-logo.webp',
-    alt: 'Figment',
+    src: "/assets/figment-logo.webp",
+    alt: "Figment",
     width: 96,
     height: 36,
-    className:
-      'h-9 tablet:h-12 w-auto opacity-60 hover:opacity-100 transition-opacity',
+    className: "h-9 tablet:h-12 w-auto opacity-60 hover:opacity-100 transition-opacity",
   },
   {
-    src: '/assets/hashkey-logo.svg',
-    alt: 'HashKey',
+    src: "/assets/hashkey-logo.svg",
+    alt: "HashKey",
     width: 73,
     height: 24,
-    className:
-      'h-6 tablet:h-8 w-auto opacity-60 hover:opacity-100 transition-opacity',
+    className: "h-6 tablet:h-8 w-auto opacity-60 hover:opacity-100 transition-opacity",
   },
   {
-    src: '/assets/longhash-logo.png',
-    alt: 'LongHash Ventures',
+    src: "/assets/longhash-logo.png",
+    alt: "LongHash Ventures",
     width: 96,
     height: 32,
-    className:
-      'h-8 tablet:h-10 w-auto opacity-60 hover:opacity-100 transition-opacity',
+    className: "h-8 tablet:h-10 w-auto opacity-60 hover:opacity-100 transition-opacity",
   },
-];
+]
 
 const IndexPage = () => {
-  const [email, setEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [rpcAdded, setRpcAdded] = useState(false);
-  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
-  const { isProcessing, addFastToMetamask } = useAddFastToMetamask();
+  const [email, setEmail] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
+  const [rpcAdded, setRpcAdded] = useState(false)
+  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false)
+  const { isProcessing, addFastToMetamask } = useAddFastToMetamask()
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email?.includes('@')) {
-      toast.error('Invalid email', {
-        description: 'Please enter a valid email address',
-      });
-      return;
+    e.preventDefault()
+    if (!email?.includes("@")) {
+      toast.error("Invalid email", {
+        description: "Please enter a valid email address",
+      })
+      return
     }
 
-    setIsLoading(true);
+    setIsLoading(true)
     try {
-      const result: CaptureEmailResult = await captureEmailAction({ email });
-      toast.success(
-        result.alreadySubscribed ? "You're already subscribed!" : 'Success!',
-        {
-          description: result.alreadySubscribed
-            ? undefined
-            : "You've been added to the waitlist",
-        }
-      );
+      const result: CaptureEmailResult = await captureEmailAction({ email })
+      toast.success(result.alreadySubscribed ? "You're already subscribed!" : "Success!", {
+        description: result.alreadySubscribed ? undefined : "You've been added to the waitlist",
+      })
       if (!result.alreadySubscribed) {
-        setIsSuccess(true);
+        setIsSuccess(true)
         setTimeout(() => {
-          setEmail('');
-          setIsSuccess(false);
-        }, 2000);
+          setEmail("")
+          setIsSuccess(false)
+        }, 2000)
       }
     } catch (err) {
-      console.error('Failed to capture email', err);
-      toast.error('Something went wrong', {
-        description: 'We could not add your email right now. Please try again.',
-      });
+      console.error("Failed to capture email", err)
+      toast.error("Something went wrong", {
+        description: "We could not add your email right now. Please try again.",
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   const handleAddRPC = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const success = await addFastToMetamask();
+    e.preventDefault()
+    e.stopPropagation()
+    const success = await addFastToMetamask()
     if (success) {
-      setRpcAdded(true);
-      setTimeout(() => setRpcAdded(false), 3000);
+      setRpcAdded(true)
+      setTimeout(() => setRpcAdded(false), 3000)
     }
-  };
+  }
 
   return (
     <div className="relative h-screen flex flex-col overflow-hidden bg-background">
@@ -148,8 +138,8 @@ const IndexPage = () => {
             size="sm"
             onClick={() =>
               window.open(
-                'https://paragraph.com/@0xfa0b0f5d298d28efe4d35641724141ef19c05684/introducing-fast-protocol-a-coordinated-rewards-layer',
-                '_blank'
+                "https://paragraph.com/@0xfa0b0f5d298d28efe4d35641724141ef19c05684/introducing-fast-protocol-a-coordinated-rewards-layer",
+                "_blank"
               )
             }
           >
@@ -203,9 +193,9 @@ const IndexPage = () => {
                     {isSuccess ? (
                       <Check className="w-5 h-5 xs:w-6 xs:h-6 tablet:w-7 tablet:h-7 lg:w-5 lg:h-5 text-green-500 animate-scale-in" />
                     ) : isLoading ? (
-                      'Joining...'
+                      "Joining..."
                     ) : (
-                      'Join Waitlist'
+                      "Join Waitlist"
                     )}
                   </Button>
                 </div>
@@ -224,12 +214,8 @@ const IndexPage = () => {
                   >
                     <a
                       href={url}
-                      target={url.startsWith('mailto:') ? undefined : '_blank'}
-                      rel={
-                        url.startsWith('mailto:')
-                          ? undefined
-                          : 'noopener noreferrer'
-                      }
+                      target={url.startsWith("mailto:") ? undefined : "_blank"}
+                      rel={url.startsWith("mailto:") ? undefined : "noopener noreferrer"}
                       aria-label={name}
                     >
                       <Icon className="w-6 h-6 xs:w-7 xs:h-7 tablet:w-8 tablet:h-8" />
@@ -243,12 +229,8 @@ const IndexPage = () => {
                   >
                     <a
                       href={url}
-                      target={url.startsWith('mailto:') ? undefined : '_blank'}
-                      rel={
-                        url.startsWith('mailto:')
-                          ? undefined
-                          : 'noopener noreferrer'
-                      }
+                      target={url.startsWith("mailto:") ? undefined : "_blank"}
+                      rel={url.startsWith("mailto:") ? undefined : "noopener noreferrer"}
                       aria-label={name}
                     >
                       <Icon className="w-5 h-5 lg:w-4 lg:h-4 mr-2" />
@@ -263,12 +245,8 @@ const IndexPage = () => {
                   >
                     <a
                       href={url}
-                      target={url.startsWith('mailto:') ? undefined : '_blank'}
-                      rel={
-                        url.startsWith('mailto:')
-                          ? undefined
-                          : 'noopener noreferrer'
-                      }
+                      target={url.startsWith("mailto:") ? undefined : "_blank"}
+                      rel={url.startsWith("mailto:") ? undefined : "noopener noreferrer"}
                       aria-label={name}
                     >
                       <Icon className="w-4 h-4 mr-2" />
@@ -296,7 +274,7 @@ const IndexPage = () => {
                     <span>Added Successfully!</span>
                   </>
                 ) : isProcessing ? (
-                  'Processing...'
+                  "Processing..."
                 ) : (
                   <>
                     <Image
@@ -324,30 +302,27 @@ const IndexPage = () => {
               <DialogHeader>
                 <DialogTitle>Adding Fast RPC to MetaMask</DialogTitle>
                 <DialogDescription className="pt-4">
-                  To properly add the Fast RPC network to MetaMask, you need to
-                  manually disconnect all other wallet extensions first.
+                  To properly add the Fast RPC network to MetaMask, you need to manually disconnect
+                  all other wallet extensions first.
                 </DialogDescription>
                 <div className="space-y-3 pt-2 text-sm text-muted-foreground">
                   <div className="space-y-2">
-                    <p className="font-medium text-foreground">
-                      Steps to follow:
-                    </p>
+                    <p className="font-medium text-foreground">Steps to follow:</p>
                     <ol className="list-decimal list-inside space-y-1.5 text-left pl-2">
                       <li>
-                        Open your browser extensions (click the puzzle icon in
-                        your browser toolbar)
+                        Open your browser extensions (click the puzzle icon in your browser toolbar)
                       </li>
                       <li>
-                        Disconnect or disable any other wallet extensions
-                        (Rabby, Coinbase Wallet, etc.)
+                        Disconnect or disable any other wallet extensions (Rabby, Coinbase Wallet,
+                        etc.)
                       </li>
                       <li>Make sure only MetaMask is active</li>
                       <li>Return to this page and click "Add Fast RPC"</li>
                     </ol>
                   </div>
                   <p className="pt-2 text-xs text-muted-foreground">
-                    This is necessary because multiple wallet extensions can
-                    interfere with the network addition process.
+                    This is necessary because multiple wallet extensions can interfere with the
+                    network addition process.
                   </p>
                 </div>
               </DialogHeader>
@@ -368,7 +343,7 @@ const IndexPage = () => {
                   alt={footerLogos[0].alt}
                   width={footerLogos[0].width}
                   height={footerLogos[0].height}
-                  className={footerLogos[0].className.replace('md:', 'tablet:')}
+                  className={footerLogos[0].className.replace("md:", "tablet:")}
                 />
               </div>
               <span className="mx-2 tablet:mx-3">•</span>
@@ -380,7 +355,7 @@ const IndexPage = () => {
                   alt={logo.alt}
                   width={logo.width}
                   height={logo.height}
-                  className={logo.className.replace('md:', 'tablet:')}
+                  className={logo.className.replace("md:", "tablet:")}
                 />
               ))}
             </div>
@@ -408,16 +383,16 @@ const IndexPage = () => {
               width={logo.width}
               height={logo.height}
               className={logo.className
-                .replace('tablet:h-8', 'h-6')
-                .replace('tablet:h-5', 'h-4')
-                .replace('tablet:h-12', 'h-9')
-                .replace('tablet:h-10', 'h-8')}
+                .replace("tablet:h-8", "h-6")
+                .replace("tablet:h-5", "h-4")
+                .replace("tablet:h-12", "h-9")
+                .replace("tablet:h-10", "h-8")}
             />
           ))}
         </div>
       </footer>
     </div>
-  );
-};
+  )
+}
 
-export default IndexPage;
+export default IndexPage

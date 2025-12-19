@@ -1,9 +1,9 @@
-import { TransactionReceipt } from 'viem';
+import { TransactionReceipt } from "viem"
 
-const RPC_URL = 'https://fastrpc.mev-commit.xyz';
-const REQUEST_TIMEOUT_MS = 5000;
-const DEFAULT_MAX_ATTEMPTS = 30;
-const DEFAULT_INTERVAL_MS = 1000;
+const RPC_URL = "https://fastrpc.mev-commit.xyz"
+const REQUEST_TIMEOUT_MS = 5000
+const DEFAULT_MAX_ATTEMPTS = 30
+const DEFAULT_INTERVAL_MS = 1000
 
 /**
  * Converts RPC response to viem TransactionReceipt format
@@ -24,19 +24,20 @@ function convertRpcResponseToReceipt(data: any): TransactionReceipt {
       topics: log.topics as readonly `0x${string}`[],
       data: log.data as `0x${string}`,
       blockNumber: BigInt(log.blockNumber || data.result.blockNumber),
-      blockHash: log.blockHash as `0x${string}` || data.result.blockHash as `0x${string}`,
-      transactionHash: log.transactionHash as `0x${string}` || data.result.transactionHash as `0x${string}`,
+      blockHash: (log.blockHash as `0x${string}`) || (data.result.blockHash as `0x${string}`),
+      transactionHash:
+        (log.transactionHash as `0x${string}`) || (data.result.transactionHash as `0x${string}`),
       transactionIndex: Number(log.transactionIndex || data.result.transactionIndex),
       logIndex: Number(log.logIndex || 0),
       removed: log.removed || false,
     })),
     logsBloom: data.result.logsBloom as `0x${string}`,
-    status: data.result.status === '0x1' ? 'success' : 'reverted',
-    type: data.result.type || '0x2',
-    effectiveGasPrice: data.result.effectiveGasPrice 
-      ? BigInt(data.result.effectiveGasPrice) 
+    status: data.result.status === "0x1" ? "success" : "reverted",
+    type: data.result.type || "0x2",
+    effectiveGasPrice: data.result.effectiveGasPrice
+      ? BigInt(data.result.effectiveGasPrice)
       : undefined,
-  };
+  }
 }
 
 /**
@@ -46,60 +47,57 @@ async function fetchTransactionReceipt(
   txHash: string,
   abortSignal?: AbortSignal
 ): Promise<TransactionReceipt | null> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
   try {
     const response = await fetch(RPC_URL, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getTransactionReceipt',
+        jsonrpc: "2.0",
+        method: "eth_getTransactionReceipt",
         params: [txHash],
         id: 1,
       }),
       signal: controller.signal,
-    });
+    })
 
-    clearTimeout(timeoutId);
+    clearTimeout(timeoutId)
 
     if (abortSignal?.aborted) {
-      return null;
+      return null
     }
 
-    const data = await response.json();
-    
+    const data = await response.json()
+
     if (data.result && data.result.status) {
-      return convertRpcResponseToReceipt(data);
+      return convertRpcResponseToReceipt(data)
     }
 
-    return null;
+    return null
   } catch (error) {
-    clearTimeout(timeoutId);
-    if (abortSignal?.aborted || (error as Error).name === 'AbortError') {
-      return null;
+    clearTimeout(timeoutId)
+    if (abortSignal?.aborted || (error as Error).name === "AbortError") {
+      return null
     }
-    throw error;
+    throw error
   }
 }
 
 /**
  * Waits for a specified interval, respecting abort signal
  */
-async function waitWithAbort(
-  intervalMs: number,
-  abortSignal?: AbortSignal
-): Promise<void> {
+async function waitWithAbort(intervalMs: number, abortSignal?: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
-    const timeout = setTimeout(resolve, intervalMs);
-    abortSignal?.addEventListener('abort', () => {
-      clearTimeout(timeout);
-      resolve(undefined);
-    });
-  });
+    const timeout = setTimeout(resolve, intervalMs)
+    abortSignal?.addEventListener("abort", () => {
+      clearTimeout(timeout)
+      resolve(undefined)
+    })
+  })
 }
 
 /**
@@ -113,31 +111,31 @@ export async function pollDatabaseForReceipt(
 ): Promise<TransactionReceipt | null> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (abortSignal?.aborted) {
-      return null;
+      return null
     }
 
     try {
-      const receipt = await fetchTransactionReceipt(txHash, abortSignal);
+      const receipt = await fetchTransactionReceipt(txHash, abortSignal)
       if (receipt) {
-        return receipt;
+        return receipt
       }
     } catch (error) {
-      if (abortSignal?.aborted || (error as Error).name === 'AbortError') {
-        return null;
+      if (abortSignal?.aborted || (error as Error).name === "AbortError") {
+        return null
       }
-      console.error(`Poll attempt ${attempt + 1} failed:`, error);
+      console.error(`Poll attempt ${attempt + 1} failed:`, error)
     }
 
     // Wait before next attempt
     if (attempt < maxAttempts - 1) {
-      await waitWithAbort(intervalMs, abortSignal);
+      await waitWithAbort(intervalMs, abortSignal)
       if (abortSignal?.aborted) {
-        return null;
+        return null
       }
     }
   }
 
-  return null;
+  return null
 }
 
 /**
@@ -148,13 +146,13 @@ export async function checkTransactionReceiptExists(
   abortSignal?: AbortSignal
 ): Promise<boolean> {
   try {
-    const receipt = await fetchTransactionReceipt(txHash, abortSignal);
-    return receipt !== null;
+    const receipt = await fetchTransactionReceipt(txHash, abortSignal)
+    return receipt !== null
   } catch (error) {
-    if (abortSignal?.aborted || (error as Error).name === 'AbortError') {
-      return false;
+    if (abortSignal?.aborted || (error as Error).name === "AbortError") {
+      return false
     }
-    throw error;
+    throw error
   }
 }
 
@@ -169,32 +167,32 @@ export async function pollDatabaseForStatus(
 ): Promise<{ success: boolean; hash: string } | null> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (abortSignal?.aborted) {
-      return null;
+      return null
     }
 
     try {
-      const exists = await checkTransactionReceiptExists(hash, abortSignal);
+      const exists = await checkTransactionReceiptExists(hash, abortSignal)
       if (exists) {
-        return { success: true, hash };
+        return { success: true, hash }
       }
     } catch (error) {
-      if (abortSignal?.aborted || (error as Error).name === 'AbortError') {
-        return null;
+      if (abortSignal?.aborted || (error as Error).name === "AbortError") {
+        return null
       }
       // Don't log errors for early attempts, only after a few tries
       if (attempt >= 3) {
-        console.error(`Status poll attempt ${attempt + 1} failed:`, error);
+        console.error(`Status poll attempt ${attempt + 1} failed:`, error)
       }
     }
 
     // Wait before next attempt
     if (attempt < maxAttempts - 1) {
-      await waitWithAbort(intervalMs, abortSignal);
+      await waitWithAbort(intervalMs, abortSignal)
       if (abortSignal?.aborted) {
-        return null;
+        return null
       }
     }
   }
 
-  return null;
+  return null
 }

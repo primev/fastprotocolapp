@@ -1,41 +1,84 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Trophy } from "lucide-react";
+import { useState } from "react"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Trophy } from "lucide-react"
 
 interface LeaderboardEntry {
-  rank: number;
-  wallet: string;
-  points: number;
-  volume: number;
-  transactions: number;
-  referrals: number;
-  isCurrentUser?: boolean;
+  rank: number
+  wallet: string
+  points: number
+  volume: number
+  transactions: number
+  referrals: number
+  isCurrentUser?: boolean
 }
 
 const mockLeaderboardData: LeaderboardEntry[] = [
-  { rank: 1, wallet: "0x742d...3f4a", points: 45230, volume: 1250000, transactions: 3420, referrals: 100 },
-  { rank: 2, wallet: "vitalik.eth", points: 42180, volume: 980000, transactions: 2890, referrals: 95 },
-  { rank: 3, wallet: "0x9c3b...7e21", points: 38950, volume: 875000, transactions: 2456, referrals: 88 },
-  { rank: 4, wallet: "0x1f5a...4d89", points: 35420, volume: 720000, transactions: 2103, referrals: 76 },
-  { rank: 5, wallet: "0x8e2c...9b34", points: 32180, volume: 650000, transactions: 1987, referrals: 71 },
-  { rank: 418, wallet: "0x7a23...f9c2", points: 12430, volume: 23120, transactions: 117, referrals: 32, isCurrentUser: true },
-];
+  {
+    rank: 1,
+    wallet: "0x742d...3f4a",
+    points: 45230,
+    volume: 1250000,
+    transactions: 3420,
+    referrals: 100,
+  },
+  {
+    rank: 2,
+    wallet: "vitalik.eth",
+    points: 42180,
+    volume: 980000,
+    transactions: 2890,
+    referrals: 95,
+  },
+  {
+    rank: 3,
+    wallet: "0x9c3b...7e21",
+    points: 38950,
+    volume: 875000,
+    transactions: 2456,
+    referrals: 88,
+  },
+  {
+    rank: 4,
+    wallet: "0x1f5a...4d89",
+    points: 35420,
+    volume: 720000,
+    transactions: 2103,
+    referrals: 76,
+  },
+  {
+    rank: 5,
+    wallet: "0x8e2c...9b34",
+    points: 32180,
+    volume: 650000,
+    transactions: 1987,
+    referrals: 71,
+  },
+  {
+    rank: 418,
+    wallet: "0x7a23...f9c2",
+    points: 12430,
+    volume: 23120,
+    transactions: 117,
+    referrals: 32,
+    isCurrentUser: true,
+  },
+]
 
 export const LeaderboardTable = () => {
-  const [activeTab, setActiveTab] = useState("global");
+  const [activeTab, setActiveTab] = useState("global")
 
-  const currentUser = mockLeaderboardData.find(entry => entry.isCurrentUser);
+  const currentUser = mockLeaderboardData.find((entry) => entry.isCurrentUser)
 
   const getRankBadge = (rank: number) => {
-    if (rank === 1) return <Trophy className="w-5 h-5 text-yellow-500" />;
-    if (rank === 2) return <Trophy className="w-5 h-5 text-gray-400" />;
-    if (rank === 3) return <Trophy className="w-5 h-5 text-amber-600" />;
-    return <span className="font-mono text-sm text-muted-foreground">#{rank}</span>;
-  };
+    if (rank === 1) return <Trophy className="w-5 h-5 text-yellow-500" />
+    if (rank === 2) return <Trophy className="w-5 h-5 text-gray-400" />
+    if (rank === 3) return <Trophy className="w-5 h-5 text-amber-600" />
+    return <span className="font-mono text-sm text-muted-foreground">#{rank}</span>
+  }
 
   return (
     <div className="space-y-6">
@@ -62,11 +105,21 @@ export const LeaderboardTable = () => {
                 <thead>
                   <tr className="border-b border-border/50">
                     <th className="text-left py-3 px-4 text-sm font-semibold text-primary">Rank</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-primary">Wallet</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-primary">Points</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-primary">Volume</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-primary">Transactions</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-primary">Referrals</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-primary">
+                      Wallet
+                    </th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-primary">
+                      Points
+                    </th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-primary">
+                      Volume
+                    </th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-primary">
+                      Transactions
+                    </th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-primary">
+                      Referrals
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -80,9 +133,7 @@ export const LeaderboardTable = () => {
                       }`}
                     >
                       <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          {getRankBadge(entry.rank)}
-                        </div>
+                        <div className="flex items-center gap-2">{getRankBadge(entry.rank)}</div>
                       </td>
                       <td className="py-4 px-4">
                         <span className="font-mono text-sm">
@@ -103,9 +154,7 @@ export const LeaderboardTable = () => {
                       <td className="py-4 px-4 text-right font-mono">
                         {entry.transactions.toLocaleString()}
                       </td>
-                      <td className="py-4 px-4 text-right font-mono">
-                        {entry.referrals}
-                      </td>
+                      <td className="py-4 px-4 text-right font-mono">{entry.referrals}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -143,9 +192,7 @@ export const LeaderboardTable = () => {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Volume:</span>
-                      <span className="ml-2 font-mono">
-                        ${entry.volume.toLocaleString()}
-                      </span>
+                      <span className="ml-2 font-mono">${entry.volume.toLocaleString()}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Txs:</span>
@@ -174,18 +221,12 @@ export const LeaderboardTable = () => {
             <span className="font-mono">
               <span className="font-bold">{currentUser.points.toLocaleString()}</span> Points
             </span>
-            <span className="font-mono">
-              ${currentUser.volume.toLocaleString()} Volume
-            </span>
-            <span className="font-mono">
-              {currentUser.transactions} Txs
-            </span>
-            <span className="font-mono">
-              {currentUser.referrals} Refs
-            </span>
+            <span className="font-mono">${currentUser.volume.toLocaleString()} Volume</span>
+            <span className="font-mono">{currentUser.transactions} Txs</span>
+            <span className="font-mono">{currentUser.referrals} Refs</span>
           </div>
         </Card>
       )}
     </div>
-  );
-};
+  )
+}

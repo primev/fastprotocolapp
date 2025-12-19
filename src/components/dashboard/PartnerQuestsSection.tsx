@@ -1,18 +1,18 @@
-"use client";
+"use client"
 
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Check } from "lucide-react";
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { ExternalLink, Check } from "lucide-react"
 
 interface PartnerQuest {
-  partner: string;
-  logo: string;
-  title: string;
-  description: string;
-  points: number;
-  url: string;
-  completed: boolean;
+  partner: string
+  logo: string
+  title: string
+  description: string
+  points: number
+  url: string
+  completed: boolean
 }
 
 const partnerQuests: PartnerQuest[] = [
@@ -52,7 +52,7 @@ const partnerQuests: PartnerQuest[] = [
     url: "https://opensea.io",
     completed: false,
   },
-];
+]
 
 export const PartnerQuestsSection = () => {
   return (
@@ -80,17 +80,14 @@ export const PartnerQuestsSection = () => {
                   <div className="text-3xl">{quest.logo}</div>
                   <div>
                     <h3 className="font-semibold">{quest.title}</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {quest.partner}
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{quest.partner}</p>
                   </div>
                 </div>
                 <Badge
                   variant={quest.completed ? "default" : "outline"}
                   className={quest.completed ? "bg-success text-success-foreground" : ""}
                 >
-                  {quest.completed && <Check className="w-3 h-3 mr-1" />}
-                  +{quest.points}
+                  {quest.completed && <Check className="w-3 h-3 mr-1" />}+{quest.points}
                 </Badge>
               </div>
 
@@ -102,10 +99,7 @@ export const PartnerQuestsSection = () => {
                   Completed
                 </Button>
               ) : (
-                <Button
-                  className="w-full"
-                  onClick={() => window.open(quest.url, "_blank")}
-                >
+                <Button className="w-full" onClick={() => window.open(quest.url, "_blank")}>
                   Go to {quest.partner}
                   <ExternalLink className="w-4 h-4 ml-2" />
                 </Button>
@@ -115,5 +109,5 @@ export const PartnerQuestsSection = () => {
         ))}
       </div>
     </div>
-  );
-};
+  )
+}

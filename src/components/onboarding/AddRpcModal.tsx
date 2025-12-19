@@ -1,25 +1,25 @@
-'use client';
+"use client"
 
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Check } from 'lucide-react';
-import { NetworkDetailsTab } from './NetworkDetailsTab';
+} from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Check } from "lucide-react"
+import { NetworkDetailsTab } from "./NetworkDetailsTab"
 
 interface AddRpcModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  walletName: string;
-  walletIcon?: string;
-  isMetaMask: boolean;
-  onComplete: () => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  walletName: string
+  walletIcon?: string
+  isMetaMask: boolean
+  onComplete: () => void
 }
 
 export const AddRpcModal = ({
@@ -41,7 +41,7 @@ export const AddRpcModal = ({
                 alt={walletName}
                 className="w-8 h-8 rounded object-contain"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
+                  ;(e.target as HTMLImageElement).style.display = "none"
                 }}
               />
             )}
@@ -55,7 +55,10 @@ export const AddRpcModal = ({
                 <TabsTrigger value="network">Network Details</TabsTrigger>
                 <TabsTrigger value="video">Toggle Video</TabsTrigger>
               </TabsList>
-              <TabsContent value="network" className="mt-4 flex-1 min-h-0 overflow-y-auto flex flex-col justify-center sm:justify-start">
+              <TabsContent
+                value="network"
+                className="mt-4 flex-1 min-h-0 overflow-y-auto flex flex-col justify-center sm:justify-start"
+              >
                 <NetworkDetailsTab />
               </TabsContent>
               <TabsContent
@@ -84,6 +87,5 @@ export const AddRpcModal = ({
         </div>
       </DialogContent>
     </Dialog>
-  );
-};
-
+  )
+}
