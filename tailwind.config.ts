@@ -2,34 +2,52 @@ import type { Config } from "tailwindcss";
 
 export default {
   darkMode: ["class"],
-  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  content: [
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+  ],
   prefix: "",
   theme: {
     screens: {
-      // Extra small phones
-      xs: '475px',
-      // Tailwind defaults
-      sm: '640px',
-      md: '768px',
-      // Tablet range (clear separation from md)
-      // Covers iPad Mini → iPad Pro logical widths
-      tablet: '834px',
-      // Laptops / small desktops (13" MacBook)
-      lg: '1024px',
-      // True desktop breakpoint (14–15"+)
-      xl: '1366px',
-      // Large desktop / external monitors
-      '2xl': '1440px',
+      // Content-based breakpoints (rem-based, DPR-safe)
+
+      // Very narrow content
+      xs: "20rem", // 320px
+
+      // Narrow content
+      sm: "30rem", // 480px
+
+      // Compact content
+      md: "40rem", // 640px
+
+      // Tablet / small laptop
+      tablet: "48rem", // 768px
+
+      // Laptop / scaled MacBook desktop
+      lg: "64rem", // 1024px
+
+      // Primary desktop breakpoint (covers 1440×900 Retina Macs)
+      xl: "80rem", // 1280px
     },
+
     container: {
       center: true,
-      padding: '1rem',
+
+      // Responsive padding to avoid cramped layouts on scaled displays
+      padding: {
+        DEFAULT: "1rem",
+        lg: "1.5rem",
+        xl: "2rem",
+      },
+
+      // Single max-width — avoids hard desktop cutoff
       screens: {
-        // Container settles earlier so 13" Macs don't feel unfinished
-        xl: '1280px',
-        '2xl': '1440px',
+        xl: "80rem", // 1280px
       },
     },
+
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -37,6 +55,7 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -74,31 +93,26 @@ export default {
           foreground: "hsl(var(--warning-foreground))",
         },
       },
+
       backgroundImage: {
-        'gradient-primary': 'var(--gradient-primary)',
-        'gradient-secondary': 'var(--gradient-secondary)',
+        "gradient-primary": "var(--gradient-primary)",
+        "gradient-secondary": "var(--gradient-secondary)",
       },
+
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
         "slide-in-bottom-left": {
           "0%": {
@@ -111,6 +125,7 @@ export default {
           },
         },
       },
+
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
@@ -118,5 +133,6 @@ export default {
       },
     },
   },
+
   plugins: [require("tailwindcss-animate")],
 } satisfies Config;
