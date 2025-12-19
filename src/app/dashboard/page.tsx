@@ -220,7 +220,7 @@ const DashboardContent = () => {
 
         {/* Announcement Banner */}
         <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all">
-          <div className="container mx-auto px-4 py-1 text-center">
+          <div className="container mx-auto px-4 py-1 text-center text-xs">
             <p className="text-primary-foreground font-semibold">
               🎉 You're all set for the miles program kickoff! In the meantime, make your first Fast swap on these top DeFi protocols.
             </p>
@@ -234,22 +234,22 @@ const DashboardContent = () => {
             onValueChange={handleTabChange}
             className="space-y-4"
           >
-            <TabsList className="hidden md:grid w-full max-w-2xl mx-auto grid-cols-3">
-              <TabsTrigger value="genesis" className="text-base">
+            <TabsList className="hidden md:grid w-full max-w-md mx-auto grid-cols-2 ">
+              <TabsTrigger value="genesis" className="text-base text-xs">
                 Genesis SBT
               </TabsTrigger>
-              <TabsTrigger value="points" className="text-base" disabled>
+              <TabsTrigger value="points" className="text-base text-xs" disabled>
                 Miles
                 <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-muted/80 text-muted-foreground text-xs font-semibold border border-border">
                   Coming Soon
                 </span>
               </TabsTrigger>
-              <TabsTrigger value="leaderboard" className="text-base" disabled>
+              {/* <TabsTrigger value="leaderboard" className="text-base" disabled>
                 Leaderboard
                 <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-muted/80 text-muted-foreground text-xs font-semibold border border-border">
                   Coming Soon
                 </span>
-              </TabsTrigger>
+              </TabsTrigger> */}
             </TabsList>
 
             {/* Genesis SBT Tab */}
