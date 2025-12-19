@@ -91,7 +91,7 @@ const IndexPage = () => {
               width={512}
               height={512}
               priority
-              className="h-32 xs:h-40 sm:h-48 tablet:h-72 lg:h-56 xl:h-60 w-auto"
+              className="h-32 xs:h-40 sm:h-48 lg:h-56 xl:h-48 w-auto"
             />
           </section>
 
