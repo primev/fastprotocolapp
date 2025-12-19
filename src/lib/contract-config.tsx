@@ -3,7 +3,7 @@ export const CONTRACT_ABI = [
     { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getTokenIdByAddress", "outputs": [{ "internalType": "uint256", "name": "tokenId", "type": "uint256" }], "stateMutability": "view", "type": "function" },
 ] as const;
 
-export const CONTRACT_ADDRESS = "0xAf495aBD6B17B624Ea684E1f37cd1e3F471363B4";
+export const CONTRACT_ADDRESS = "0xd0E132C73C9425072AAB9256d63aa14D798D063A";
 
 // Default data for the SBT
 export const NFT_NAME = 'Genesis SBT';
