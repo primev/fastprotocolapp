@@ -5,7 +5,7 @@
  */
 export const FAST_PROTOCOL_NETWORK = {
   chainId: 1,
-  chainName: 'Ethereum',
+  chainName: 'Ethereum Mainnet',
   nativeCurrency: {
     name: 'Ether',
     symbol: 'ETH',
