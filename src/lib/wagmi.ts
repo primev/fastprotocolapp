@@ -1,15 +1,15 @@
 import { connectorsForWallets } from '@rainbow-me/rainbowkit';
-import { metaMaskWallet, rabbyWallet, injectedWallet } from '@rainbow-me/rainbowkit/wallets';
-import { createConfig, http, unstable_connector, fallback } from 'wagmi';
-import { injected } from 'wagmi/connectors';
+import { injectedWallet } from '@rainbow-me/rainbowkit/wallets';
+import { createConfig, http, fallback } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
+import { RPC_ENDPOINT } from '@/lib/network-config';
 
 
 const connectors = connectorsForWallets(
   [
     {
       groupName: 'Recommended',
-      wallets: [metaMaskWallet, rabbyWallet, injectedWallet],
+      wallets: [injectedWallet],
     },
   ],
   {
@@ -18,13 +18,14 @@ const connectors = connectorsForWallets(
   }
 );
 
+
 export const config = createConfig({
   chains: [mainnet],
   connectors,
   transports: {
     [mainnet.id]: fallback([
-      unstable_connector(injected), // This will use the custom RPC endpoint for the wallet
-      http(), // This will use the default RPC endpoint
+      http(RPC_ENDPOINT), // Fast RPC
+      http(), // public fallback
     ]),
   },
   ssr: true,

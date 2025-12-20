@@ -6,6 +6,10 @@ export const env = createEnv({
     EMAILOCTOPUS_API_KEY: z.string().min(1),
     EMAILOCTOPUS_LIST_ID: z.string().uuid(),
     FAST_RPC_API_TOKEN: z.string().min(1).optional(),
+    GOOGLE_SHEETS_ID: z.string().min(1).optional(),
+    GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().email().optional(),
+    GOOGLE_PRIVATE_KEY: z.string().min(1).optional(),
+    FUUL_API_KEY: z.string().min(1).optional(), // For TRACKING_EVENT API calls
   },
   // For Next.js >= 13.4.4, we can reference process.env directly
   experimental__runtimeEnv: process.env,

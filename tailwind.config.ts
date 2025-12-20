@@ -2,28 +2,60 @@ import type { Config } from "tailwindcss";
 
 export default {
   darkMode: ["class"],
-  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  content: [
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+  ],
   prefix: "",
   theme: {
+    screens: {
+      // Content-based breakpoints (rem-based, DPR-safe)
+
+      // Very narrow content
+      xs: "20rem", // 320px
+
+      // Narrow content
+      sm: "30rem", // 480px
+
+      // Compact content
+      md: "40rem", // 640px
+
+      // Tablet / small laptop
+      tablet: "48rem", // 768px
+
+      // Laptop / scaled MacBook desktop
+      lg: "64rem", // 1024px
+
+      // Primary desktop breakpoint (covers 1440×900 Retina Macs)
+      xl: "80rem", // 1280px
+    },
+
     container: {
       center: true,
-      padding: "2rem",
+
+      // Responsive padding to avoid cramped layouts on scaled displays
+      padding: {
+        DEFAULT: "1rem",
+        lg: "1.5rem",
+        xl: "2rem",
+      },
+
+      // Single max-width — avoids hard desktop cutoff
       screens: {
-        "2xl": "1400px",
+        xl: "80rem", // 1280px
       },
     },
+
     extend: {
-      screens: {
-        'xs': '475px',
-        'tablet': '800px', // Tablets starting from 800x480
-        // lg: 1024px is default for desktop (1024x600+)
-      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -61,38 +93,46 @@ export default {
           foreground: "hsl(var(--warning-foreground))",
         },
       },
+
       backgroundImage: {
-        'gradient-primary': 'var(--gradient-primary)',
-        'gradient-secondary': 'var(--gradient-secondary)',
+        "gradient-primary": "var(--gradient-primary)",
+        "gradient-secondary": "var(--gradient-secondary)",
       },
+
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "slide-in-bottom-left": {
+          "0%": {
+            transform: "translateY(20px) translateX(-20px)",
+            opacity: "0",
           },
-          to: {
-            height: "0",
+          "100%": {
+            transform: "translateY(0) translateX(0)",
+            opacity: "1",
           },
         },
       },
+
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "slide-in-bottom-left": "slide-in-bottom-left 0.3s ease-out",
       },
     },
   },
+
   plugins: [require("tailwindcss-animate")],
 } satisfies Config;

@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
-import { parseEther } from 'viem';
+import { useState, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
+import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
+import { getWalletClient } from 'wagmi/actions';
+import { type Address } from 'viem';
+import { config } from '@/lib/wagmi';
+import { pollDatabaseForStatus, checkTransactionReceiptExists } from '@/lib/transaction-receipt-utils';
 
 export interface TestResult {
     success: boolean;
@@ -15,31 +18,6 @@ export interface UseRPCTestReturn {
     reset: () => void;
 }
 
-// Query transaction status from Fast RPC API
-async function queryTransactionHash(hash: string): Promise<{ success: boolean; hash: string }> {
-    try {
-        const response = await fetch(`/api/transaction-status/${hash}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Failed to query transaction status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        return {
-            success: result.success,
-            hash: result.hash || hash,
-        };
-    } catch (error) {
-        console.error('Error querying transaction hash:', error);
-        throw error;
-    }
-}
 
 // Helper function to check if error is a user rejection
 function isUserRejection(error: any): boolean {
@@ -59,76 +37,140 @@ function getRejectionMessage(): string {
 }
 
 export function useRPCTest(): UseRPCTestReturn {
-    const { toast } = useToast();
     const { isConnected, address } = useAccount();
     const [isTesting, setIsTesting] = useState(false);
     const [testResult, setTestResult] = useState<TestResult | null>(null);
     const [isQueryingAPI, setIsQueryingAPI] = useState(false);
+    const [hash, setHash] = useState<`0x${string}` | undefined>(undefined);
+    const [isSending, setIsSending] = useState(false);
+    const [isSendError, setIsSendError] = useState(false);
+    const [sendError, setSendError] = useState<Error | null>(null);
+    const statusProcessedRef = useRef(false);
+    const pollingAbortRef = useRef<AbortController | null>(null);
 
-    const {
-        data: hash,
-        isPending: isSending,
-        isError: isSendError,
-        error: sendError,
-        sendTransaction,
-        reset: resetSend,
-    } = useSendTransaction();
+    const { data: receipt, isLoading: isConfirming, isSuccess: isConfirmed, isError: isConfirmError, error: confirmError } =
+        useWaitForTransactionReceipt({ hash });
 
-    const {
-        isLoading: isConfirming,
-        isSuccess: isConfirmed,
-        isError: isConfirmError,
-        error: confirmError,
-    } = useWaitForTransactionReceipt({
-        hash,
-    });
+    // Log receipt when available
+    useEffect(() => {
+        if (receipt) {
+            console.log('Transaction receipt:', receipt);
+        }
+    }, [receipt]);
 
     // Update testing state based on transaction status and API query
     useEffect(() => {
-        if (isSending || isConfirming || isQueryingAPI) {
-            setIsTesting(true);
-        } else if (isConfirmed || isSendError || isConfirmError) {
-            if (!isQueryingAPI) {
-                setIsTesting(false);
-            }
+        if (isSending || isConfirming || isQueryingAPI) setIsTesting(true);
+        else if (isConfirmed || isSendError || isConfirmError) {
+            if (!isQueryingAPI) setIsTesting(false);
         }
     }, [isSending, isConfirming, isConfirmed, isSendError, isConfirmError, isQueryingAPI]);
 
-    // Handle transaction success and query database
+    const resetSend = () => {
+        setHash(undefined);
+        setIsSending(false);
+        setIsSendError(false);
+        setSendError(null);
+    };
+
+    // Race condition: Wait for txReceipt and poll DB simultaneously
     useEffect(() => {
-        if (isConfirmed && hash) {
-            setIsQueryingAPI(true);
-            // Query database with transaction hash
-            queryTransactionHash(hash)
-                .then((result) => {
-                    setTestResult({
-                        success: result.success,
-                        hash: result.hash,
-                    });
+        if (!hash || statusProcessedRef.current) return;
+
+        statusProcessedRef.current = false;
+        let isProcessing = false;
+
+        const abortController = new AbortController();
+        pollingAbortRef.current = abortController;
+
+        const processStatusResult = (result: { success: boolean; hash: string } | null, source: string) => {
+            if (isProcessing || !result || abortController.signal.aborted) {
+                return;
+            }
+
+            isProcessing = true;
+            statusProcessedRef.current = true;
+            setIsQueryingAPI(false);
+            setIsTesting(false);
+            console.log(`Status received from ${source}:`, result);
+
+            setTestResult({
+                success: result.success,
+                hash: result.hash,
+            });
+
+            if (result.success) {
+                toast.success("Test Successful", {
+                    description: "Fast Protocol RPC connection was successful. Transaction confirmed.",
+                });
+            } else {
+                toast.error("Test Failed", {
+                    description: "RPC connection test failed.",
+                });
+            }
+
+            abortController.abort();
+        };
+
+        // Start database polling immediately
+        setIsQueryingAPI(true);
+        pollDatabaseForStatus(hash, abortController.signal)
+            .then((dbResult) => {
+                if (!abortController.signal.aborted && dbResult) {
+                    processStatusResult(dbResult, 'db');
+                }
+            })
+            .catch((error) => {
+                if (!abortController.signal.aborted) {
+                    console.error('Database polling error:', error);
                     setIsQueryingAPI(false);
                     setIsTesting(false);
-                    toast({
-                        title: "Test Successful",
-                        description: "Fast Protocol RPC connection was successful. Transaction confirmed.",
-                        variant: "default",
-                    });
-                })
-                .catch((error) => {
-                    console.error('Database query failed:', error);
                     setTestResult({
                         success: false,
                         hash: hash,
                     });
-                    setIsQueryingAPI(false);
-                    setIsTesting(false);
-                    toast({
-                        title: "Test Completed",
-                        description: "Transaction confirmed but database query failed.",
-                        variant: "default",
+                    toast.error("Test Failed", {
+                        description: "RPC connection test failed.",
                     });
-                });
-        }
-    }, [isConfirmed, hash, toast]);
+                }
+            });
+
+        // Watch for wagmi receipt and query database when available
+        const checkWagmiReceipt = async () => {
+            if (receipt && !abortController.signal.aborted) {
+                try {
+                    const exists = await checkTransactionReceiptExists(hash, abortController.signal);
+                    if (exists && !abortController.signal.aborted) {
+                        processStatusResult({ success: true, hash }, 'wagmi');
+                    }
+                } catch (error) {
+                    if (!abortController.signal.aborted) {
+                        console.error('Database query failed:', error);
+                        setIsQueryingAPI(false);
+                        setIsTesting(false);
+                        setTestResult({
+                            success: false,
+                            hash: hash,
+                        });
+                        toast.error("Test Failed", {
+                            description: "RPC connection test failed.",
+                        });
+                    }
+                }
+            }
+        };
+
+        checkWagmiReceipt();
+        const receiptCheckInterval = setInterval(checkWagmiReceipt, 100);
+
+        return () => {
+            clearInterval(receiptCheckInterval);
+            if (pollingAbortRef.current) {
+                pollingAbortRef.current.abort();
+                pollingAbortRef.current = null;
+            }
+        };
+    }, [hash, receipt]);
 
     // Handle transaction errors
     useEffect(() => {
@@ -143,10 +185,8 @@ export function useRPCTest(): UseRPCTestReturn {
                 hash: null,
             });
 
-            toast({
-                title: isRejection ? "Transaction Rejected" : "Test Failed",
+            toast.error(isRejection ? "Transaction Rejected" : "Test Failed", {
                 description: errorMessage,
-                variant: "destructive",
             });
             resetSend();
         }
@@ -159,62 +199,76 @@ export function useRPCTest(): UseRPCTestReturn {
                 success: false,
                 hash: hash || null,
             });
-            toast({
-                title: "Test Failed",
+            toast.error("Test Failed", {
                 description: `RPC connection test failed: ${errorMessage}`,
-                variant: "destructive",
             });
             resetSend();
         }
     }, [isConfirmError, confirmError, hash, toast, resetSend]);
 
-    const test = () => {
+    const test = async () => {
+        // Prevent starting a new test if actively sending or confirming
+        if (isSending || isConfirming) {
+            console.log('Test already in progress, please wait...');
+            return;
+        }
+
+        // Reset all state first
         setTestResult(null);
+        setIsQueryingAPI(false);
+        statusProcessedRef.current = false;
+        if (pollingAbortRef.current) {
+            pollingAbortRef.current.abort();
+            pollingAbortRef.current = null;
+        }
+        resetSend();
 
-        if (!isConnected) {
-            toast({
-                title: "Wallet not connected",
+        // Small delay to ensure cleanup completes and RPC is ready for next transaction
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        if (!isConnected || !address) {
+            toast.error("Wallet not connected", {
                 description: "Please connect your wallet first.",
-                variant: "destructive",
             });
             return;
         }
 
-        if (!address) {
-            toast({
-                title: "Address not available",
-                description: "Please ensure your wallet is properly connected.",
-                variant: "destructive",
-            });
-            return;
-        }
+        setIsSending(true);
+        setIsSendError(false);
+        setSendError(null);
 
-        // This is a zero-value self-transfer to verify RPC connectivity
         try {
-            const transactionPayload = {
-                to: address as `0x${string}`, // Send to self (zero-value transfer)
-                value: parseEther('0'), // Zero ETH - no funds transferred
-                data: '0x' as `0x${string}`, // No data - simple transfer
-                maxPriorityFeePerGas: BigInt(0), // Set priority fee to zero
-            };
-            sendTransaction(transactionPayload);
+            // Get wallet client from wagmi config
+            const walletClient = await getWalletClient(config);
+
+            if (!walletClient) {
+                throw new Error('Wallet client not available');
+            }
+
+            // Send transaction using the wallet client
+            const txHash = await walletClient.sendTransaction({
+                to: address as Address,
+                value: BigInt(0),
+                maxPriorityFeePerGas: BigInt(0),
+            } as any);
+            setHash(txHash);
+            setIsSending(false);
         } catch (error: any) {
+            setIsSending(false);
+            setIsSendError(true);
+            setSendError(error);
+
             const isRejection = isUserRejection(error);
-            const errorMessage = isRejection
-                ? getRejectionMessage()
-                : error?.message || "Failed to initiate transaction";
+            const errorMessage = isRejection ? getRejectionMessage() : error?.message || "Failed to initiate transaction";
 
-            setTestResult({
-                success: false,
-                hash: null,
-            });
-
-            toast({
-                title: isRejection ? "Transaction Rejected" : "Test Failed",
-                description: errorMessage,
-                variant: "destructive",
-            });
+            console.error('Transaction error:', errorMessage, error);
+            setTestResult({ success: false, hash: null });
             setIsTesting(false);
+            
+            // Reset state on error to allow retry
+            setTimeout(() => {
+                resetSend();
+            }, 1000);
         }
     };
 
@@ -223,13 +277,13 @@ export function useRPCTest(): UseRPCTestReturn {
         setIsTesting(false);
         setIsQueryingAPI(false);
         resetSend();
+        setHash(undefined);
+        statusProcessedRef.current = false;
+        if (pollingAbortRef.current) {
+            pollingAbortRef.current.abort();
+            pollingAbortRef.current = null;
+        }
     };
 
-    return {
-        isTesting,
-        testResult,
-        test,
-        reset,
-    };
+    return { isTesting, testResult, test, reset };
 }
-
