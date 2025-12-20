@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Award, Wallet, Settings } from 'lucide-react';
 import { ConnectButton, useAccountModal, useConnectModal } from '@rainbow-me/rainbowkit';
 import { toast } from 'sonner';
+import { SocialIcon } from 'react-social-icons';
 
 interface DashboardHeaderProps {
   points: number;
@@ -18,6 +20,8 @@ interface DashboardHeaderProps {
   onAddNetwork: () => void;
   onRpcSetup: () => void;
   onTestRpc: () => void;
+  activeTab: string;
+  onTabChange: (value: string) => void;
 }
 
 export const DashboardHeader = ({
@@ -29,12 +33,14 @@ export const DashboardHeader = ({
   onAddNetwork,
   onRpcSetup,
   onTestRpc,
+  activeTab,
+  onTabChange,
 }: DashboardHeaderProps) => {
   const { openAccountModal } = useAccountModal();
   const { openConnectModal } = useConnectModal();
 
   return (
-    <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 bg-background/80 z-50">
+    <header className="border-b border-border/50 backdrop-blur-sm bg-background/80">
       <div className="container mx-auto px-4 py-4 lg:py-2.5 flex items-center justify-between">
         <div className="relative">
           <Image
@@ -52,6 +58,28 @@ export const DashboardHeader = ({
             className="hidden sm:block"
           />
         </div>
+
+        {/* Tabs - Centered */}
+        <div className="flex-1 flex justify-center">
+          <Tabs
+            value={activeTab}
+            onValueChange={onTabChange}
+            className="w-auto"
+          >
+            <TabsList className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
+              <TabsTrigger value="genesis" className="text-sm rounded-full data-[state=active]:bg-background">
+                Genesis SBT
+              </TabsTrigger>
+              <TabsTrigger value="points" className="text-sm rounded-full data-[state=active]:bg-background" disabled>
+                Miles
+              </TabsTrigger>
+              <TabsTrigger value="leaderboard" className="text-sm rounded-full data-[state=active]:bg-background" disabled>
+                Leaderboard
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
         <div className="flex items-center gap-2 sm:gap-4">
           <Badge
             variant="outline"
@@ -96,18 +124,29 @@ export const DashboardHeader = ({
             </>
           )}
           {isConnected && (
-            <div className="relative">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Account Settings"
-                    className="w-10 h-10 rounded-full border border-border shadow-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary/50 transition"
-                  >
-                    <Settings className="w-5 h-5 text-primary" />
-                  </Button>
-                </DropdownMenuTrigger>
+            <>
+              <div 
+                onClick={() => window.open('https://discord.gg', '_blank')}
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+                aria-label="Discord"
+              >
+                <SocialIcon
+                  network="discord"
+                  style={{ height: 35, width: 35 }}
+                />
+              </div>
+              <div className="relative">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Account Settings"
+                      className="w-10 h-10 rounded-full border border-border shadow-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary/50 transition"
+                    >
+                      <Settings className="w-5 h-5 text-primary" />
+                    </Button>
+                  </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-[220px] rounded-lg shadow-lg border border-border p-2 bg-background">
                   <DropdownMenuLabel className="text-[13px] text-foreground/80 font-semibold pb-1">
                     Fast Protocol Network
@@ -152,6 +191,7 @@ export const DashboardHeader = ({
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+            </>
           )}
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
@@ -67,6 +67,34 @@ const DashboardContent = () => {
   const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false);
   const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false);
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(75);
+  const [announcementHeight, setAnnouncementHeight] = useState(32);
+  const [titleSectionHeight, setTitleSectionHeight] = useState(100);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const announcementRef = useRef<HTMLDivElement>(null);
+  const titleSectionRef = useRef<HTMLDivElement>(null);
+
+  // Callback refs to measure immediately when elements mount
+  const setHeaderRef = useCallback((node: HTMLDivElement | null) => {
+    headerRef.current = node;
+    if (node) {
+      setHeaderHeight(node.offsetHeight);
+    }
+  }, []);
+
+  const setAnnouncementRef = useCallback((node: HTMLDivElement | null) => {
+    announcementRef.current = node;
+    if (node) {
+      setAnnouncementHeight(node.offsetHeight);
+    }
+  }, []);
+
+  const setTitleSectionRef = useCallback((node: HTMLDivElement | null) => {
+    titleSectionRef.current = node;
+    if (node) {
+      setTitleSectionHeight(node.offsetHeight);
+    }
+  }, []);
 
   const { isConnected, address, status, connector } = useAccount();
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected);
@@ -134,6 +162,40 @@ const DashboardContent = () => {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Measure header and announcement heights - use layout effect to run synchronously before paint
+  useLayoutEffect(() => {
+    const updateHeights = () => {
+      if (headerRef.current) {
+        setHeaderHeight(headerRef.current.offsetHeight);
+      }
+      if (announcementRef.current) {
+        setAnnouncementHeight(announcementRef.current.offsetHeight);
+      }
+      if (titleSectionRef.current) {
+        setTitleSectionHeight(titleSectionRef.current.offsetHeight);
+      }
+    };
+
+    // Update immediately - useLayoutEffect runs synchronously before paint
+    updateHeights();
+    
+    // Use ResizeObserver for real-time updates
+    const resizeObserver = new ResizeObserver(() => {
+      updateHeights();
+    });
+
+    if (headerRef.current) resizeObserver.observe(headerRef.current);
+    if (announcementRef.current) resizeObserver.observe(announcementRef.current);
+    if (titleSectionRef.current) resizeObserver.observe(titleSectionRef.current);
+
+    window.addEventListener('resize', updateHeights);
+    
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateHeights);
+    };
+  });
 
   // Handler for adding network (MetaMask wallet_addEthereumChain)
   const handleAddNetwork = async () => {
@@ -204,9 +266,14 @@ const DashboardContent = () => {
     });
   };
 
+  const titleSectionTop = headerHeight + announcementHeight;
+
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden px-2 sm:px-0">
-      <div className="relative z-10">
+    <div className="bg-background min-h-screen">
+      <div 
+        ref={setHeaderRef}
+        className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
+      >
         <DashboardHeader
           points={points}
           isConnected={isConnected}
@@ -216,49 +283,66 @@ const DashboardContent = () => {
           onAddNetwork={handleAddNetwork}
           onRpcSetup={handleRpcSetup}
           onTestRpc={() => setIsTestModalOpen(true)}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
         />
+      </div>
 
-        {/* Announcement Banner */}
-        <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all">
-          <div className="container mx-auto px-4 py-1 text-center">
-            <p className="text-primary-foreground text-sm">
-              🎉 You're all set for the miles program kickoff! In the meantime, make your first Fast swap on these{' '}
-              <a
-                href="#defi-protocols"
-                className="underline underline-offset-4 font-medium hover:text-primary-foreground/80 transition-colors"
-              >
-                top DeFi protocols
-              </a>
-              .
-            </p>
+      {/* Announcement Banner */}
+      <div 
+        ref={setAnnouncementRef}
+        className="fixed left-0 right-0 z-40 bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all backdrop-blur-sm"
+        style={{ top: `${headerHeight}px` }}
+      >
+        <div className="container mx-auto px-4 py-1 text-center">
+          <p className="text-primary-foreground text-sm">
+            🎉 You're all set for the miles program kickoff! In the meantime, make your first Fast swap on these{' '}
+            <a
+              href="#defi-protocols"
+              className="underline underline-offset-4 font-medium hover:text-primary-foreground/80 transition-colors"
+            >
+              top DeFi protocols
+            </a>
+            .
+          </p>
+        </div>
+      </div>
+
+      {/* Fixed Title Section */}
+      <div 
+        ref={setTitleSectionRef}
+        className="fixed left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50"
+        style={{ top: `${titleSectionTop}px` }}
+      >
+        <div className="container mx-auto py-4 px-0">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">
+                Fast Miles
+              </h1>
+              <p className="text-muted-foreground">
+                Complete tasks to earn miles. Your miles will carry into
+                the official Fast Miles System.
+              </p>
+            </div>
+            <ReferralsCard
+              referralLink={referralLink}
+              affiliateCode={affiliateCode}
+              isLoadingCode={isLoadingCode}
+              isConnected={isConnected}
+              onOpenModal={() => setIsReferralModalOpen(true)}
+            />
           </div>
         </div>
+      </div>
 
-        {/* Tabs */}
-        <main className="container mx-auto px-0 sm:px-4 py-4">
+      {/* Content Area - Add padding to account for fixed headers */}
+      <div className="container mx-auto px-0 py-4" style={{ paddingTop: '275px' }}>
           <Tabs
             value={activeTab}
             onValueChange={handleTabChange}
             className="space-y-4"
           >
-            <TabsList className="hidden md:grid w-full max-w-xl mx-auto grid-cols-3">
-              <TabsTrigger value="genesis" className="text-base">
-                Genesis SBT
-              </TabsTrigger>
-              <TabsTrigger value="points" className="text-base" disabled>
-                Miles
-                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-muted/80 text-muted-foreground text-xs font-semibold border border-border">
-                  Coming Soon
-                </span>
-              </TabsTrigger>
-              <TabsTrigger value="leaderboard" className="text-base" disabled>
-                Leaderboard
-                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-muted/80 text-muted-foreground text-xs font-semibold border border-border">
-                  Coming Soon
-                </span>
-              </TabsTrigger>
-            </TabsList>
-
             {/* Genesis SBT Tab */}
             <TabsContent value="genesis">
               <div className="grid lg:grid-cols-12 gap-8">
@@ -270,28 +354,12 @@ const DashboardContent = () => {
                     address={address}
                     isMounted={isMounted}
                   />
-
-                  <ReferralsCard
-                    referralLink={referralLink}
-                    affiliateCode={affiliateCode}
-                    isLoadingCode={isLoadingCode}
-                    isConnected={isConnected}
-                    onOpenModal={() => setIsReferralModalOpen(true)}
-                  />
+                 
                 </div>
 
                 {/* Right Panel - Tasks */}
                 <div className="lg:col-span-9 space-y-6">
-                  <div>
-                    <h1 className="text-3xl font-bold mb-2">
-                      Fast Miles
-                    </h1>
-                    <p className="text-muted-foreground">
-                      Complete tasks to earn miles. Your miles will carry into
-                      the official Fast Miles System.
-                    </p>
-                  </div>
-
+                  
                   <OneTimeTasksAccordion
                     tasks={dashboardTasks.oneTimeTasks}
                     hasInitialized={userOnboarding.hasInitialized}
@@ -349,8 +417,7 @@ const DashboardContent = () => {
               <LeaderboardTable />
             </TabsContent>
           </Tabs>
-        </main>
-      </div>
+        </div>
 
       {/* Email Dialog */}
       <Dialog open={emailDialog.showEmailDialog} onOpenChange={emailDialog.setShowEmailDialog}>

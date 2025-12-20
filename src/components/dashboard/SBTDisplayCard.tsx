@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Zap, Check, ChevronRight } from 'lucide-react';
+import { SocialIcon } from 'react-social-icons';
 import { NFT_NAME, NFT_DESCRIPTION, NFT_ASSET } from '@/lib/contract-config';
+import { ETHERSCAN_URL, OPENSEA_URL } from '@/lib/constants';
 
 interface SBTDisplayCardProps {
   hasGenesisSBT: boolean;
@@ -27,20 +29,42 @@ export const SBTDisplayCard = ({
   return (
     <Card className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30 max-w-md mx-auto">
       <div className="space-y-3 pb-0">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg sm:text-xl lg:text-base font-bold">
-            {NFT_NAME}
-          </h2>
-          {isMinted ? (
-            <Badge className="bg-primary text-primary-foreground">
-              <Check className="w-3 h-3 mr-1" />
-              #{String(tokenId)}
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="border-muted-foreground/50">
-              Not Minted
-            </Badge>
-          )}
+        <div className="flex items-center justify-between h-7">
+          <div className="flex items-center gap-2 h-7">
+            <div
+              onClick={() => window.open(OPENSEA_URL, '_blank')}
+              className="cursor-pointer hover:opacity-80 transition-opacity h-7 w-7 flex items-center justify-center"
+            >
+              <SocialIcon
+                network="opensea"
+                style={{ height: 28, width: 28 }}
+              />
+            </div>
+            <div
+              className="cursor-pointer hover:opacity-80 transition-opacity h-7 w-7 flex items-center justify-center"
+              onClick={() => window.open(ETHERSCAN_URL, '_blank')}
+            >
+              <img
+                src="/assets/etherscan-logo-circle-light.png"
+                alt="Etherscan"
+                width={28}
+                height={28}
+                className="h-7 w-7 object-contain"
+              />
+            </div>
+          </div>
+          <div className="h-7 flex items-center">
+            {isMinted ? (
+              <Badge className="bg-primary text-primary-foreground h-7 flex items-center">
+                <Check className="w-3 h-3 mr-1" />
+                #{String(tokenId)}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="border-muted-foreground/50 h-7 flex items-center">
+                Not Minted
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* SBT Visual */}

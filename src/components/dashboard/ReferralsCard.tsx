@@ -1,8 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Users, Copy, PlusIcon } from 'lucide-react';
+import { Copy, PlusIcon } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { toast } from 'sonner';
 
@@ -26,102 +25,78 @@ export const ReferralsCard = ({
     toast.success('Referral link copied to clipboard!');
   };
 
-  const handleShare = () => {
-    const text = encodeURIComponent(
-      `@Fast_Protocol turns efficient swap execution into tokenized rewards.\n\nI'm using it for my trades.\n\n👇\n${referralLink}\n\n#MEV #DeFi`
-    );
-    const shareUrl = `https://twitter.com/intent/tweet?text=${text}`;
-    window.open(shareUrl, '_blank');
+  const handleShareOnX = () => {
+    const text = `@Fast_Protocol turns efficient swap execution into tokenized rewards.\n\nI'm using it for my trades.\n\n👇\n${referralLink}\n\n#MEV #DeFi`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
   };
 
   return (
-    <Card className="p-6 bg-card/50 border-border/50">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between min-h-[32px]">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            <h3 className="text-xl font-semibold">Referrals</h3>
+    <div className="border border-border rounded-xl bg-card/50 backdrop-blur-sm p-4 min-w-[320px] max-w-[420px]">
+      {/* Header */}
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground mb-1">
+            Refer Friends & Earn
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Earn Miles when your referrals swap
+          </p>
+        </div>
+        {/* Share on X button */}
+        <button
+          onClick={handleShareOnX}
+          disabled={!isConnected || !referralLink}
+          aria-label="Share on X"
+          className="flex items-center gap-2 px-2 py-2 border border-white/30 rounded-md hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 h-auto"
+        >
+          <span className="text-xs text-muted-foreground font-bold">Share on</span>
+          <FaXTwitter className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Referral Link Section */}
+      <div className="space-y-2.5">
+        {/* Link Input with Actions */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 flex items-center gap-2 bg-secondary/50 rounded-lg px-3 py-2 min-w-0 border border-border/50">
+            <code
+              className="text-xs truncate flex-1 text-foreground"
+              title={referralLink}
+            >
+              {referralLink || <span className="text-muted-foreground">Generating...</span>}
+            </code>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 rounded-md flex-shrink-0 hover:bg-secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+                copyReferralLink();
+              }}
+              disabled={!isConnected || !referralLink}
+              aria-label="Copy referral link"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
           </div>
+
+          {/* Plus icon to open modal */}
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon"
-            className="flex-shrink-0"
+            className="h-9 w-9 rounded-lg flex-shrink-0 border-border"
             onClick={(e) => {
               e.stopPropagation();
               onOpenModal();
             }}
             disabled={!isConnected}
-            style={{ 
-              width: '32px', 
-              height: '32px', 
-              minWidth: '32px', 
-              minHeight: '32px',
-              padding: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
             aria-label={affiliateCode ? 'Update affiliate code' : 'Create affiliate code'}
           >
-            <PlusIcon className="h-4 w-4 flex-shrink-0" />
+            <PlusIcon className="h-4 w-4" />
           </Button>
         </div>
-        <div className={!isConnected ? 'blur-sm pointer-events-none' : ''}>
-          <p className="text-xs text-muted-foreground">
-          Earn miles from Fast RPC swap transactions via your referral link.
-          </p>
-          <div className="bg-secondary/50 rounded-lg p-3 flex items-center gap-2 justify-between my-4">
-            <div className="flex-1 min-w-0">
-              <code
-                className="text-xs break-all block text-ellipsis whitespace-nowrap overflow-hidden"
-                style={{
-                  display: 'block',
-                  maxWidth: '15rem',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-                title={referralLink}
-              >
-                {referralLink || <span className="text-muted-foreground">Generating link...</span>}
-              </code>
-            </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                copyReferralLink();
-              }}
-              disabled={!isConnected}
-              aria-label="Copy referral link"
-            >
-              <Copy className="w-4 h-4" />
-            </Button>
-          </div>
-          {/* {affiliateCode && (
-            <p className="text-xs text-muted-foreground mt-2 mb-4">
-              Code: <span className="font-mono font-semibold">{affiliateCode}</span>
-            </p>
-          )} */}
-          {referralLink ? (
-            <Button
-              onClick={handleShare}
-              className="w-full bg-black hover:bg-gray-900 text-white font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-black/20 dark:bg-white dark:hover:bg-gray-100 dark:text-black"
-              disabled={!referralLink || isLoadingCode}
-            >
-              <FaXTwitter className="w-4 h-4 mr-2" />
-              Share on X
-            </Button>
-          ) : (
-            <div className="w-full bg-muted/50 rounded-lg p-3 text-center">
-              <p className="text-xs text-muted-foreground">
-                {isLoadingCode ? 'Generating link...' : 'Connect wallet to share'}
-              </p>
-            </div>
-          )}
-        </div>
       </div>
-    </Card>
+    </div>
   );
 };
