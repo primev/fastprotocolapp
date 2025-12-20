@@ -241,7 +241,7 @@ const DashboardContent = () => {
             onValueChange={handleTabChange}
             className="space-y-4"
           >
-            <TabsList className="hidden md:grid w-full max-w-xl mx-auto grid-cols-3">
+            <TabsList className="hidden md:grid w-full max-w-xl mx-auto grid-cols-2">
               <TabsTrigger value="genesis" className="text-base">
                 Genesis SBT
               </TabsTrigger>
@@ -251,12 +251,12 @@ const DashboardContent = () => {
                   Coming Soon
                 </span>
               </TabsTrigger>
-              <TabsTrigger value="leaderboard" className="text-base" disabled>
+              {/* <TabsTrigger value="leaderboard" className="text-base" disabled>
                 Leaderboard
                 <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-muted/80 text-muted-foreground text-xs font-semibold border border-border">
                   Coming Soon
                 </span>
-              </TabsTrigger>
+              </TabsTrigger> */}
             </TabsList>
 
             {/* Genesis SBT Tab */}
