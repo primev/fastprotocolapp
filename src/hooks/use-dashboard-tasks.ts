@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { toast } from 'sonner';
 import type { UserOnboardingData } from './use-user-onboarding';
+import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL } from '@/lib/constants';
 
 export type TaskName = 
   | 'Connect Wallet'
@@ -199,12 +200,12 @@ export function useDashboardTasks({
     {
       name: 'Join Discord' as TaskName,
       completed: getTaskCompleted('Join Discord'),
-      action: 'https://discord.gg/fast',
+      action: DISCORD_INVITE_URL,
     },
     {
       name: 'Join Telegram' as TaskName,
       completed: getTaskCompleted('Join Telegram'),
-      action: 'https://t.me/fast',
+      action: TELEGRAM_INVITE_URL,
     },
     {
       name: 'Enter Email' as TaskName,

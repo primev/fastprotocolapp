@@ -19,11 +19,12 @@ import { AnimatedBackground } from '@/components/AnimatedBackground';
 import type { CaptureEmailResult } from '@/lib/email';
 import { useAddFastToMetamask } from '@/hooks/use-add-fast-to-metamask';
 import Marquee from 'react-fast-marquee';
+import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL, TWITTER_INVITE_URL } from '@/lib/constants';
 
 const socialLinks = [
-  { name: 'Discord', icon: MessageCircle, url: 'https://discord.gg/fastprotocol' },
-  { name: 'Telegram', icon: Send, url: 'https://t.me/Fast_Protocol' },
-  { name: 'Twitter', icon: FaXTwitter, url: 'https://x.com/Fast_Protocol' },
+  { name: 'Discord', icon: MessageCircle, url: DISCORD_INVITE_URL },
+  { name: 'Telegram', icon: Send, url: TELEGRAM_INVITE_URL },
+  { name: 'Twitter', icon: FaXTwitter, url: TWITTER_INVITE_URL },
 ];
 
 const footerLogos = [
