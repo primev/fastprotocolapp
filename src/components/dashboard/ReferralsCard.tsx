@@ -27,7 +27,9 @@ export const ReferralsCard = ({
 
   const handleShareOnX = () => {
     const text = `@Fast_Protocol turns efficient swap execution into tokenized rewards.\n\nI'm using it for my trades.\n\n👇\n${referralLink}\n\n#MEV #DeFi`;
-    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+      text
+    )}`;
     window.open(url, '_blank');
   };
 
@@ -44,32 +46,35 @@ export const ReferralsCard = ({
           </p>
         </div>
         {/* Share on X button */}
-        <button
+        <Button
+          variant="outline"
           onClick={handleShareOnX}
           disabled={!isConnected || !referralLink}
           aria-label="Share on X"
-          className="flex items-center gap-2 px-2 py-2 border border-white/30 rounded-md hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 h-auto"
+          className="flex items-center gap-2 px-2 py-2 rounded-md  flex-shrink-0 h-auto"
         >
-          <span className="text-xs text-muted-foreground font-bold">Share on</span>
+          <span className="text-xs font-bold">Share on</span>
           <FaXTwitter className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
 
       {/* Referral Link Section */}
       <div className="space-y-2.5">
         {/* Link Input with Actions */}
         <div className="flex items-center gap-2">
-          <div className="flex-1 flex items-center gap-2 bg-secondary/50 rounded-lg px-3 py-2 min-w-0 border border-border/50">
+          <div className="flex-1 flex items-center gap-2 bg-secondary/10 rounded-lg px-3 py-2 min-w-0 border border-border/50">
             <code
               className="text-xs truncate flex-1 text-foreground"
               title={referralLink}
             >
-              {referralLink || <span className="text-muted-foreground">Generating...</span>}
+              {referralLink || (
+                <span className="text-muted-foreground">Generating...</span>
+              )}
             </code>
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 rounded-md flex-shrink-0 hover:bg-secondary"
+              className="group h-6 w-6 rounded-md flex-shrink-0 hover:bg-transparent p-1"
               onClick={(e) => {
                 e.stopPropagation();
                 copyReferralLink();
@@ -77,7 +82,7 @@ export const ReferralsCard = ({
               disabled={!isConnected || !referralLink}
               aria-label="Copy referral link"
             >
-              <Copy className="h-3.5 w-3.5" />
+              <Copy className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
             </Button>
           </div>
 
@@ -91,7 +96,9 @@ export const ReferralsCard = ({
               onOpenModal();
             }}
             disabled={!isConnected}
-            aria-label={affiliateCode ? 'Update affiliate code' : 'Create affiliate code'}
+            aria-label={
+              affiliateCode ? 'Update affiliate code' : 'Create affiliate code'
+            }
           >
             <PlusIcon className="h-4 w-4" />
           </Button>

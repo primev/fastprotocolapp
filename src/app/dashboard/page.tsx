@@ -1,6 +1,13 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useRef, Suspense, useCallback } from 'react';
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  Suspense,
+  useCallback,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
@@ -60,12 +67,15 @@ const DashboardContent = () => {
   const [activeTab, setActiveTab] = useState('genesis');
   const [showSBTGatingModal, setShowSBTGatingModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [oneTimeTasksAccordionValue, setOneTimeTasksAccordionValue] = useState<string | undefined>("one-time-tasks");
+  const [oneTimeTasksAccordionValue, setOneTimeTasksAccordionValue] = useState<
+    string | undefined
+  >('one-time-tasks');
   const [isMounted, setIsMounted] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [isMetaMaskModalOpen, setIsMetaMaskModalOpen] = useState(false);
   const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false);
-  const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false);
+  const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] =
+    useState(false);
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(75);
   const [announcementHeight, setAnnouncementHeight] = useState(32);
@@ -133,7 +143,10 @@ const DashboardContent = () => {
     const tab = searchParams.get('tab');
     if (tab && ['genesis', 'points', 'leaderboard'].includes(tab)) {
       // Block access to Points and Leaderboard if no Genesis SBT
-      if (!genesisSBT.hasGenesisSBT && (tab === 'points' || tab === 'leaderboard')) {
+      if (
+        !genesisSBT.hasGenesisSBT &&
+        (tab === 'points' || tab === 'leaderboard')
+      ) {
         setActiveTab('genesis');
         return;
       }
@@ -143,7 +156,10 @@ const DashboardContent = () => {
 
   const handleTabChange = (value: string) => {
     // Block access to Points and Leaderboard if no Genesis SBT
-    if (!genesisSBT.hasGenesisSBT && (value === 'points' || value === 'leaderboard')) {
+    if (
+      !genesisSBT.hasGenesisSBT &&
+      (value === 'points' || value === 'leaderboard')
+    ) {
       setShowSBTGatingModal(true);
       return;
     }
@@ -179,18 +195,20 @@ const DashboardContent = () => {
 
     // Update immediately - useLayoutEffect runs synchronously before paint
     updateHeights();
-    
+
     // Use ResizeObserver for real-time updates
     const resizeObserver = new ResizeObserver(() => {
       updateHeights();
     });
 
     if (headerRef.current) resizeObserver.observe(headerRef.current);
-    if (announcementRef.current) resizeObserver.observe(announcementRef.current);
-    if (titleSectionRef.current) resizeObserver.observe(titleSectionRef.current);
+    if (announcementRef.current)
+      resizeObserver.observe(announcementRef.current);
+    if (titleSectionRef.current)
+      resizeObserver.observe(titleSectionRef.current);
 
     window.addEventListener('resize', updateHeights);
-    
+
     return () => {
       resizeObserver.disconnect();
       window.removeEventListener('resize', updateHeights);
@@ -213,7 +231,11 @@ const DashboardContent = () => {
       }
 
       // Fallback to window.ethereum
-      if (!provider && typeof window !== 'undefined' && (window as any).ethereum) {
+      if (
+        !provider &&
+        typeof window !== 'undefined' &&
+        (window as any).ethereum
+      ) {
         const ethereum = (window as any).ethereum;
         provider = Array.isArray(ethereum) ? ethereum[0] : ethereum;
       }
@@ -270,7 +292,7 @@ const DashboardContent = () => {
 
   return (
     <div className="bg-background min-h-screen">
-      <div 
+      <div
         ref={setHeaderRef}
         className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
       >
@@ -289,14 +311,15 @@ const DashboardContent = () => {
       </div>
 
       {/* Announcement Banner */}
-      <div 
+      <div
         ref={setAnnouncementRef}
         className="fixed left-0 right-0 z-40 bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all backdrop-blur-sm"
         style={{ top: `${headerHeight}px` }}
       >
         <div className="container mx-auto px-4 py-1 text-center">
           <p className="text-primary-foreground text-sm">
-            🎉 You're all set for the miles program kickoff! In the meantime, make your first Fast swap on these{' '}
+            🎉 You're all set for the miles program kickoff! In the meantime,
+            make your first Fast swap on these{' '}
             <a
               href="#defi-protocols"
               className="underline underline-offset-4 font-medium hover:text-primary-foreground/80 transition-colors"
@@ -308,119 +331,118 @@ const DashboardContent = () => {
         </div>
       </div>
 
-      {/* Fixed Title Section */}
-      <div 
-        ref={setTitleSectionRef}
-        className="fixed left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50"
-        style={{ top: `${titleSectionTop}px` }}
-      >
-        <div className="container mx-auto py-4 px-0">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">
-                Fast Miles
-              </h1>
-              <p className="text-muted-foreground">
-                Complete tasks to earn miles. Your miles will carry into
-                the official Fast Miles System.
+      {/* Content Area - Add padding to account for fixed headers */}
+      <div className="container mx-auto px-0 py-4 pt-32">
+        <Tabs
+          value={activeTab}
+          onValueChange={handleTabChange}
+          className="space-y-4"
+        >
+          {/* Genesis SBT Tab */}
+          <TabsContent value="genesis">
+            <div className="grid lg:grid-cols-12 gap-8">
+              {/* Left Panel - SBT Display */}
+              <div className="lg:col-span-3 space-y-6">
+                <SBTDisplayCard
+                  hasGenesisSBT={genesisSBT.hasGenesisSBT}
+                  tokenId={genesisSBT.tokenId}
+                  address={address}
+                  isMounted={isMounted}
+                />
+              </div>
+
+              {/* Right Panel - Tasks */}
+              <div className="lg:col-span-9 space-y-6">
+                {/* Fixed Title Section */}
+                {/* <div
+                  ref={setTitleSectionRef}
+                  className="fixed left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50"
+                  style={{ top: `${titleSectionTop}px` }}
+                > */}
+                <div className="container mx-auto py-4 px-0">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h1 className="text-3xl font-bold mb-2">Fast Miles</h1>
+                      <p className="text-muted-foreground">
+                        Complete tasks to earn miles. Your miles will carry into
+                        the official Fast Miles System.
+                      </p>
+                    </div>
+                    <ReferralsCard
+                      referralLink={referralLink}
+                      affiliateCode={affiliateCode}
+                      isLoadingCode={isLoadingCode}
+                      isConnected={isConnected}
+                      onOpenModal={() => setIsReferralModalOpen(true)}
+                    />
+                  </div>
+                </div>
+                {/* </div> */}
+
+                <OneTimeTasksAccordion
+                  tasks={dashboardTasks.oneTimeTasks}
+                  hasInitialized={userOnboarding.hasInitialized}
+                  userOnboarding={userOnboarding.userOnboarding}
+                  isConnected={isConnected}
+                  address={address}
+                  accordionValue={oneTimeTasksAccordionValue}
+                  onAccordionChange={setOneTimeTasksAccordionValue}
+                  onTaskComplete={dashboardTasks.handleTaskComplete}
+                  onEmailTaskClick={() => emailDialog.setShowEmailDialog(true)}
+                />
+
+                <SwapEarnAccordion />
+
+                <WeeklyActivitySection />
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Points Tab */}
+          <TabsContent value="points" className="space-y-8">
+            <PointsHUD
+              season="Season 1"
+              points={0}
+              rank={0}
+              referrals={0}
+              volume={0}
+              hasGenesisSBT={false}
+              hasFastRPC={false}
+            />
+
+            <WeeklyTasksSection transactions={0} volume={0} />
+
+            <ReferralsSection
+              referralLink={referralLink}
+              successfulReferrals={0}
+              weeklyLimit={100}
+            />
+
+            <PartnerQuestsSection />
+
+            <OneTimeTasksSection tasks={dashboardTasks.oneTimeTasks} />
+
+            {/* Bottom Banner */}
+            <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 text-center">
+              <p className="text-sm font-medium">
+                ⚡ Fast Points earned in Season 1 will carry into the official
+                Fast Points System.
               </p>
             </div>
-            <ReferralsCard
-              referralLink={referralLink}
-              affiliateCode={affiliateCode}
-              isLoadingCode={isLoadingCode}
-              isConnected={isConnected}
-              onOpenModal={() => setIsReferralModalOpen(true)}
-            />
-          </div>
-        </div>
+          </TabsContent>
+
+          {/* Leaderboard Tab */}
+          <TabsContent value="leaderboard">
+            <LeaderboardTable />
+          </TabsContent>
+        </Tabs>
       </div>
 
-      {/* Content Area - Add padding to account for fixed headers */}
-      <div className="container mx-auto px-0 py-4" style={{ paddingTop: '275px' }}>
-          <Tabs
-            value={activeTab}
-            onValueChange={handleTabChange}
-            className="space-y-4"
-          >
-            {/* Genesis SBT Tab */}
-            <TabsContent value="genesis">
-              <div className="grid lg:grid-cols-12 gap-8">
-                {/* Left Panel - SBT Display */}
-                <div className="lg:col-span-3 space-y-6">
-                  <SBTDisplayCard
-                    hasGenesisSBT={genesisSBT.hasGenesisSBT}
-                    tokenId={genesisSBT.tokenId}
-                    address={address}
-                    isMounted={isMounted}
-                  />
-                 
-                </div>
-
-                {/* Right Panel - Tasks */}
-                <div className="lg:col-span-9 space-y-6">
-                  
-                  <OneTimeTasksAccordion
-                    tasks={dashboardTasks.oneTimeTasks}
-                    hasInitialized={userOnboarding.hasInitialized}
-                    userOnboarding={userOnboarding.userOnboarding}
-                    isConnected={isConnected}
-                    address={address}
-                    accordionValue={oneTimeTasksAccordionValue}
-                    onAccordionChange={setOneTimeTasksAccordionValue}
-                    onTaskComplete={dashboardTasks.handleTaskComplete}
-                    onEmailTaskClick={() => emailDialog.setShowEmailDialog(true)}
-                  />
-
-                  <SwapEarnAccordion />
-
-                  <WeeklyActivitySection />
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* Points Tab */}
-            <TabsContent value="points" className="space-y-8">
-              <PointsHUD
-                season="Season 1"
-                points={0}
-                rank={0}
-                referrals={0}
-                volume={0}
-                hasGenesisSBT={false}
-                hasFastRPC={false}
-              />
-
-              <WeeklyTasksSection transactions={0} volume={0} />
-
-              <ReferralsSection
-                referralLink={referralLink}
-                successfulReferrals={0}
-                weeklyLimit={100}
-              />
-
-              <PartnerQuestsSection />
-
-              <OneTimeTasksSection tasks={dashboardTasks.oneTimeTasks} />
-
-              {/* Bottom Banner */}
-              <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 text-center">
-                <p className="text-sm font-medium">
-                  ⚡ Fast Points earned in Season 1 will carry into the official
-                  Fast Points System.
-                </p>
-              </div>
-            </TabsContent>
-
-            {/* Leaderboard Tab */}
-            <TabsContent value="leaderboard">
-              <LeaderboardTable />
-            </TabsContent>
-          </Tabs>
-        </div>
-
       {/* Email Dialog */}
-      <Dialog open={emailDialog.showEmailDialog} onOpenChange={emailDialog.setShowEmailDialog}>
+      <Dialog
+        open={emailDialog.showEmailDialog}
+        onOpenChange={emailDialog.setShowEmailDialog}
+      >
         <DialogContent className="sm:max-w-md border-primary/50">
           <DialogHeader>
             <div className="flex justify-center mb-4">
@@ -457,17 +479,16 @@ const DashboardContent = () => {
                 className={emailDialog.emailError ? 'border-destructive' : ''}
               />
               {emailDialog.emailError && (
-                <p className="text-sm text-destructive">{emailDialog.emailError}</p>
+                <p className="text-sm text-destructive">
+                  {emailDialog.emailError}
+                </p>
               )}
             </div>
             <div className="flex gap-3">
               <Button className="flex-1" onClick={handleEmailSubmit}>
                 Submit Email
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => emailDialog.reset()}
-              >
+              <Button variant="outline" onClick={() => emailDialog.reset()}>
                 Cancel
               </Button>
             </div>
@@ -541,9 +562,7 @@ const DashboardContent = () => {
       />
 
       {/* SBT Gating Modal */}
-      <SBTGatingModal
-        open={showSBTGatingModal}
-      />
+      <SBTGatingModal open={showSBTGatingModal} />
     </div>
   );
 };
