@@ -13,6 +13,7 @@ import { Twitter, MessageCircle, Send, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import type { BaseStep } from '@/hooks/use-onboarding-steps';
 import { getCompletedCommunitySteps, saveOnboardingStepToStorage } from '@/lib/onboarding-utils';
+import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL, TWITTER_INVITE_URL } from '@/lib/constants';
 
 interface CommunityStepsModalProps {
   open: boolean;
@@ -90,17 +91,17 @@ export const CommunityStepsModal = forwardRef<CommunityStepsModalRef, CommunityS
   const handleStepClick = (stepId: string) => {
     const actions: Record<string, () => void> = {
       follow: () => {
-        window.open('https://twitter.com/intent/follow?screen_name=fast_protocol', '_blank');
+        window.open(TWITTER_INVITE_URL, '_blank');
         toast.success('Please follow @fast_protocol to continue');
         setTimeout(() => updateStepStatus(stepId, true), 2000);
       },
       discord: () => {
-        window.open('https://discord.gg/fastprotocol', '_blank');
+        window.open(DISCORD_INVITE_URL, '_blank');
         toast.success('Opening Discord...');
         setTimeout(() => updateStepStatus(stepId, true), 1000);
       },
       telegram: () => {
-        window.open('https://t.me/Fast_Protocol', '_blank');
+        window.open(TELEGRAM_INVITE_URL, '_blank');
         toast.success('Opening Telegram...');
         setTimeout(() => updateStepStatus(stepId, true), 1000);
       },
