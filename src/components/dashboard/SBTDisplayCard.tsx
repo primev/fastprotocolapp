@@ -1,14 +1,15 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { CardContainer, CardBody, CardItem } from '@/components/ui/3d-card';
 import { Badge } from '@/components/ui/badge';
 import { Zap, Check, ChevronRight } from 'lucide-react';
 import { SocialIcon } from 'react-social-icons';
-import { NFT_NAME, NFT_DESCRIPTION, NFT_ASSET } from '@/lib/contract-config';
+import { NFT_NAME, NFT_DESCRIPTION } from '@/lib/contract-config';
 import { OPENSEA_URL } from '@/lib/constants';
+
+const SBT_VIDEO_ASSET = '/assets/SBT-token-animated.mp4';
 
 interface SBTDisplayCardProps {
   hasGenesisSBT: boolean;
@@ -67,11 +68,13 @@ export const SBTDisplayCard = ({
           {/* SBT Visual */}
           <CardItem translateZ={80} className="w-3/4 mx-auto">
             <div className="relative w-full aspect-[5/7]">
-              <Image
-                src={NFT_ASSET}
-                alt={NFT_NAME}
-                fill
-                className="object-contain rounded-lg group-hover/card:shadow-xl"
+              <video
+                src={SBT_VIDEO_ASSET}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-contain rounded-lg group-hover/card:shadow-xl"
                 onError={(e) => {
                   const target = e.currentTarget;
                   target.style.display = 'none';
@@ -79,6 +82,7 @@ export const SBTDisplayCard = ({
                   if (placeholder) placeholder.classList.remove('hidden');
                 }}
               />
+              {/* Fallback placeholder if video fails to load */}
               <div className="w-full h-full flex items-center justify-center hidden absolute inset-0">
                 <div className="text-center space-y-2">
                   <Zap className="w-16 h-16 mx-auto text-primary-foreground" />
