@@ -9,4 +9,5 @@ export const CONTRACT_ADDRESS = "0xd0E132C73C9425072AAB9256d63aa14D798D063A";
 export const NFT_NAME = 'Genesis SBT';
 export const NFT_DESCRIPTION = 'Marks you as early to Fast Protocol. Your progress carries into launch.';
 export const NFT_ASSET = '/assets/sbt-asset.png';
-
+export const ETHERSCAN_URL = 'https://etherscan.io/address/0xd0E132C73C9425072AAB9256d63aa14D798D063A';
+export const OPENSEA_URL = 'https://opensea.io/collection/fast-protocol-genesis-sbt';

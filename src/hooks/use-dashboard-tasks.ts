@@ -3,10 +3,11 @@ import { toast } from 'sonner';
 import type { UserOnboardingData } from './use-user-onboarding';
 import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL } from '@/lib/constants';
 
-export type TaskName = 
+export type TaskName =
   | 'Connect Wallet'
   | 'Fast RPC Setup'
   | 'Mint Genesis SBT'
+  | 'Make your first swap'
   | 'Follow @fast_protocol'
   | 'Join Discord'
   | 'Join Telegram'
@@ -35,6 +36,11 @@ const TASK_CONFIG: Record<TaskName, TaskConfig> = {
     requiresWallet: true,
     requiresConnection: false,
     requiresSBT: true,
+  },
+  'Make your first swap': {
+    fieldName: 'make_first_swap_completed',
+    requiresWallet: true,
+    requiresConnection: false,
   },
   'Follow @fast_protocol': {
     fieldName: 'x_completed',
@@ -91,11 +97,12 @@ export function useDashboardTasks({
   updateUserOnboarding,
   onMintComplete,
 }: UseDashboardTasksProps): UseDashboardTasksReturn {
-
   // Validate task completion prerequisites
-  const validateTaskCompletion = (taskName: TaskName): { valid: boolean; error?: string } => {
+  const validateTaskCompletion = (
+    taskName: TaskName
+  ): { valid: boolean; error?: string } => {
     const config = TASK_CONFIG[taskName];
-    
+
     if (!config) {
       return { valid: false, error: 'Unknown task' };
     }
@@ -124,7 +131,9 @@ export function useDashboardTasks({
     if (taskName === 'Mint Genesis SBT') {
       // Verify SBT is actually minted on-chain
       if (!hasGenesisSBT) {
-        toast.error('Please mint your Genesis SBT first. You can mint it by clicking "Mint Genesis SBT" button.');
+        toast.error(
+          'Please mint your Genesis SBT first. You can mint it by clicking "Mint Genesis SBT" button.'
+        );
         return;
       }
     }
@@ -161,7 +170,8 @@ export function useDashboardTasks({
         toast.error('Failed to save task completion');
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to complete task';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to complete task';
       toast.error(errorMessage);
     }
   };
@@ -178,41 +188,48 @@ export function useDashboardTasks({
     return userOnboarding[config.fieldName] || false;
   };
 
-  const oneTimeTasks = useMemo(() => [
-    {
-      name: 'Connect Wallet' as TaskName,
-      completed: getTaskCompleted('Connect Wallet'),
-    },
-    {
-      name: 'Fast RPC Setup' as TaskName,
-      completed: getTaskCompleted('Fast RPC Setup'),
-    },
-    {
-      name: 'Mint Genesis SBT' as TaskName,
-      completed: getTaskCompleted('Mint Genesis SBT'),
-    },
-    {
-      name: 'Follow @fast_protocol' as TaskName,
-      points: 1,
-      completed: getTaskCompleted('Follow @fast_protocol'),
-      action: 'https://x.com/fast_protocol',
-    },
-    {
-      name: 'Join Discord' as TaskName,
-      completed: getTaskCompleted('Join Discord'),
-      action: DISCORD_INVITE_URL,
-    },
-    {
-      name: 'Join Telegram' as TaskName,
-      completed: getTaskCompleted('Join Telegram'),
-      action: TELEGRAM_INVITE_URL,
-    },
-    {
-      name: 'Enter Email' as TaskName,
-      completed: getTaskCompleted('Enter Email'),
-      action: 'email',
-    },
-  ], [userOnboarding, hasGenesisSBT]);
+  const oneTimeTasks = useMemo(
+    () => [
+      {
+        name: 'Connect Wallet' as TaskName,
+        completed: getTaskCompleted('Connect Wallet'),
+      },
+      {
+        name: 'Fast RPC Setup' as TaskName,
+        completed: getTaskCompleted('Fast RPC Setup'),
+      },
+      {
+        name: 'Mint Genesis SBT' as TaskName,
+        completed: getTaskCompleted('Mint Genesis SBT'),
+      },
+      {
+        name: 'Make your first swap' as TaskName,
+        completed: getTaskCompleted('Make your first swap'),
+      },
+      {
+        name: 'Follow @fast_protocol' as TaskName,
+        points: 1,
+        completed: getTaskCompleted('Follow @fast_protocol'),
+        action: 'https://x.com/fast_protocol',
+      },
+      {
+        name: 'Join Discord' as TaskName,
+        completed: getTaskCompleted('Join Discord'),
+        action: DISCORD_INVITE_URL,
+      },
+      {
+        name: 'Join Telegram' as TaskName,
+        completed: getTaskCompleted('Join Telegram'),
+        action: TELEGRAM_INVITE_URL,
+      },
+      {
+        name: 'Enter Email' as TaskName,
+        completed: getTaskCompleted('Enter Email'),
+        action: 'email',
+      },
+    ],
+    [userOnboarding, hasGenesisSBT]
+  );
 
   return {
     oneTimeTasks,

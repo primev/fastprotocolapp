@@ -4,6 +4,7 @@ export type UserOnboardingData = {
   connect_wallet_completed: boolean;
   setup_rpc_completed: boolean;
   mint_sbt_completed: boolean;
+  make_first_swap_completed: boolean;
   x_completed: boolean;
   telegram_completed: boolean;
   discord_completed: boolean;
@@ -24,7 +25,8 @@ export function useUserOnboarding(
   isConnected: boolean,
   address: string | undefined
 ): UseUserOnboardingReturn {
-  const [userOnboarding, setUserOnboarding] = useState<UserOnboardingData | null>(null);
+  const [userOnboarding, setUserOnboarding] =
+    useState<UserOnboardingData | null>(null);
   const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
 
@@ -34,7 +36,7 @@ export function useUserOnboarding(
       setHasInitialized(true);
       return;
     }
-    
+
     setIsLoadingOnboarding(true);
     try {
       const response = await fetch(`/api/user-onboarding/${walletAddress}`);
@@ -45,7 +47,10 @@ export function useUserOnboarding(
         // User doesn't exist yet, that's okay
         setUserOnboarding(null);
       } else {
-        console.error('Failed to fetch user onboarding:', await response.text());
+        console.error(
+          'Failed to fetch user onboarding:',
+          await response.text()
+        );
       }
     } catch (error) {
       console.error('Error fetching user onboarding:', error);
@@ -56,7 +61,9 @@ export function useUserOnboarding(
   };
 
   // Update user onboarding in database
-  const updateUserOnboarding = async (updates: Record<string, boolean>): Promise<boolean> => {
+  const updateUserOnboarding = async (
+    updates: Record<string, boolean>
+  ): Promise<boolean> => {
     if (!address) return false;
 
     try {
