@@ -41,7 +41,7 @@ export const ReferralsCard = ({
   };
 
   return (
-    <div className="border border-border rounded-xl bg-card/50 backdrop-blur-sm p-4 min-w-[320px] max-w-[420px]">
+    <div className="border border-border rounded-xl bg-card/50 backdrop-blur-sm p-4 w-full min-w-[320px] max-w-[420px]">
       {/* Header */}
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>

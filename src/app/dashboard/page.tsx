@@ -318,8 +318,7 @@ const DashboardContent = () => {
       >
         <div className="container mx-auto px-4 py-1 text-center">
           <p className="text-primary-foreground text-sm">
-            🎉 You're all set for the miles program kickoff! In the meantime,
-            make your first Fast swap on these{' '}
+            🎉 You're all set. Make your first Fast swap on these{' '}
             <a
               href="#defi-protocols"
               className="underline underline-offset-4 font-medium hover:text-primary-foreground/80 transition-colors"
@@ -332,7 +331,7 @@ const DashboardContent = () => {
       </div>
 
       {/* Content Area - Add padding to account for fixed headers */}
-      <div className="container mx-auto px-0 py-4 pt-32">
+      <div className="container mx-auto px-4 sm:px-0 py-4  pt-56 sm:pt-32">
         <Tabs
           value={activeTab}
           onValueChange={handleTabChange}
@@ -340,7 +339,7 @@ const DashboardContent = () => {
         >
           {/* Genesis SBT Tab */}
           <TabsContent value="genesis">
-            <div className="grid lg:grid-cols-12 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               {/* Left Panel - SBT Display */}
               <div className="lg:col-span-3 space-y-6">
                 <SBTDisplayCard
@@ -360,7 +359,7 @@ const DashboardContent = () => {
                   style={{ top: `${titleSectionTop}px` }}
                 > */}
                 <div className="container mx-auto py-4 px-0">
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center justify-between gap-4 flex-col sm:flex-row">
                     <div>
                       <h1 className="text-3xl font-bold mb-2">Fast Miles</h1>
                       <p className="text-muted-foreground">
