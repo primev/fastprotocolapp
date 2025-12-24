@@ -7,7 +7,6 @@ const ONBOARDING_FIELDS = [
   'connect_wallet_completed',
   'setup_rpc_completed',
   'mint_sbt_completed',
-  'make_first_swap_completed',
   'x_completed',
   'telegram_completed',
   'discord_completed',

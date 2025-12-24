@@ -7,7 +7,6 @@ export type TaskName =
   | 'Connect Wallet'
   | 'Fast RPC Setup'
   | 'Mint Genesis SBT'
-  | 'Make your first swap'
   | 'Follow @fast_protocol'
   | 'Join Discord'
   | 'Join Telegram'
@@ -36,11 +35,6 @@ const TASK_CONFIG: Record<TaskName, TaskConfig> = {
     requiresWallet: true,
     requiresConnection: false,
     requiresSBT: true,
-  },
-  'Make your first swap': {
-    fieldName: 'make_first_swap_completed',
-    requiresWallet: true,
-    requiresConnection: false,
   },
   'Follow @fast_protocol': {
     fieldName: 'x_completed',
@@ -201,10 +195,6 @@ export function useDashboardTasks({
       {
         name: 'Mint Genesis SBT' as TaskName,
         completed: getTaskCompleted('Mint Genesis SBT'),
-      },
-      {
-        name: 'Make your first swap' as TaskName,
-        completed: getTaskCompleted('Make your first swap'),
       },
       {
         name: 'Follow @fast_protocol' as TaskName,

@@ -4,7 +4,6 @@ export type UserOnboardingData = {
   connect_wallet_completed: boolean;
   setup_rpc_completed: boolean;
   mint_sbt_completed: boolean;
-  make_first_swap_completed: boolean;
   x_completed: boolean;
   telegram_completed: boolean;
   discord_completed: boolean;

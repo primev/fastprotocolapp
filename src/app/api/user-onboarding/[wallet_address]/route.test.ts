@@ -31,7 +31,6 @@ const mockUserData = {
   connect_wallet_completed: true,
   setup_rpc_completed: false,
   mint_sbt_completed: false,
-  make_first_swap_completed: false,
   x_completed: false,
   telegram_completed: false,
   discord_completed: false,
@@ -166,7 +165,6 @@ describe('user-onboarding API route', () => {
         connect_wallet_completed: true,
         setup_rpc_completed: true,
         mint_sbt_completed: true,
-        make_first_swap_completed: false,
         x_completed: true,
         telegram_completed: false,
         discord_completed: true,
@@ -318,7 +316,6 @@ describe('user-onboarding API route', () => {
         connect_wallet_completed: true,
         setup_rpc_completed: true,
         mint_sbt_completed: false,
-        make_first_swap_completed: false,
         x_completed: false,
         telegram_completed: false,
         discord_completed: false,
@@ -360,9 +357,9 @@ describe('user-onboarding API route', () => {
 
       expect(response.status).toBe(200);
 
-      // Verify all 8 field values are passed (wallet + 8 fields = 9 params)
+      // Verify all 7 field values are passed (wallet + 7 fields = 8 params)
       const upsertCall = mockQuery.mock.calls[0];
-      expect(upsertCall[1].length).toBe(9);
+      expect(upsertCall[1].length).toBe(8);
       expect(upsertCall[1][0]).toBe(VALID_WALLET.toLowerCase());
       expect(upsertCall[1][1]).toBe(true); // connect_wallet_completed
       expect(upsertCall[1][2]).toBe(false); // setup_rpc_completed (defaulted)
