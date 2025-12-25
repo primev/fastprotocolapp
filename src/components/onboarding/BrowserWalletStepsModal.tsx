@@ -1,23 +1,23 @@
-'use client';
+"use client"
 
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Check, AlertCircle } from 'lucide-react';
-import { NetworkDetailsTab } from './NetworkDetailsTab';
+} from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Check, AlertCircle } from "lucide-react"
+import { NetworkDetailsTab } from "./NetworkDetailsTab"
 
 interface BrowserWalletStepsModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  walletName: string;
-  walletIcon?: string;
-  onComplete: () => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  walletName: string
+  walletIcon?: string
+  onComplete: () => void
 }
 
 export const BrowserWalletStepsModal = ({
@@ -38,7 +38,7 @@ export const BrowserWalletStepsModal = ({
                 alt={walletName}
                 className="w-8 h-8 rounded object-contain"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
+                  ;(e.target as HTMLImageElement).style.display = "none"
                 }}
               />
             )}
@@ -55,7 +55,10 @@ export const BrowserWalletStepsModal = ({
                 <TabsTrigger value="steps">Steps</TabsTrigger>
                 <TabsTrigger value="network">Network Details</TabsTrigger>
               </TabsList>
-              <TabsContent value="steps" className="mt-4 flex-1 min-h-0 overflow-y-auto flex flex-col justify-center sm:justify-start">
+              <TabsContent
+                value="steps"
+                className="mt-4 flex-1 min-h-0 overflow-y-auto flex flex-col justify-center sm:justify-start"
+              >
                 <div className="space-y-6">
                   <div className="space-y-3">
                     <div className="flex gap-3">
@@ -63,7 +66,7 @@ export const BrowserWalletStepsModal = ({
                         1
                       </div>
                       <p className="text-sm text-muted-foreground flex-1">
-                        Open your {walletName || 'wallet'} wallet settings
+                        Open your {walletName || "wallet"} wallet settings
                       </p>
                     </div>
 
@@ -111,7 +114,10 @@ export const BrowserWalletStepsModal = ({
                   </div>
                 </div>
               </TabsContent>
-              <TabsContent value="network" className="mt-4 flex-1 min-h-0 overflow-y-auto flex flex-col justify-center sm:justify-start">
+              <TabsContent
+                value="network"
+                className="mt-4 flex-1 min-h-0 overflow-y-auto flex flex-col justify-center sm:justify-start"
+              >
                 <NetworkDetailsTab />
               </TabsContent>
             </Tabs>
@@ -125,6 +131,5 @@ export const BrowserWalletStepsModal = ({
         </div>
       </DialogContent>
     </Dialog>
-  );
-};
-
+  )
+}

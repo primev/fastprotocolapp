@@ -1,19 +1,18 @@
-
-import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { TrendingUp, DollarSign, Check, Lock } from "lucide-react";
+import { Card } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { Badge } from "@/components/ui/badge"
+import { TrendingUp, DollarSign, Check, Lock } from "lucide-react"
 
 interface Milestone {
-  threshold: number;
-  points: number;
-  completed: boolean;
-  locked?: boolean;
+  threshold: number
+  points: number
+  completed: boolean
+  locked?: boolean
 }
 
 interface WeeklyTasksSectionProps {
-  transactions: number;
-  volume: number;
+  transactions: number
+  volume: number
 }
 
 export const WeeklyTasksSection = ({ transactions, volume }: WeeklyTasksSectionProps) => {
@@ -22,14 +21,14 @@ export const WeeklyTasksSection = ({ transactions, volume }: WeeklyTasksSectionP
     { threshold: 10, points: 10, completed: transactions >= 10 },
     { threshold: 100, points: 100, completed: transactions >= 100 },
     { threshold: 1000, points: 500, completed: transactions >= 1000, locked: transactions < 100 },
-  ];
+  ]
 
   const volumeMilestones: Milestone[] = [
     { threshold: 100, points: 1, completed: volume >= 100 },
     { threshold: 1000, points: 10, completed: volume >= 1000 },
     { threshold: 10000, points: 100, completed: volume >= 10000 },
     { threshold: 100000, points: 1000, completed: volume >= 100000, locked: volume < 10000 },
-  ];
+  ]
 
   const renderMilestones = (milestones: Milestone[], prefix: string = "") => {
     return milestones.map((milestone, idx) => (
@@ -39,18 +38,14 @@ export const WeeklyTasksSection = ({ transactions, volume }: WeeklyTasksSectionP
           milestone.completed
             ? "bg-success/10 border border-success/30"
             : milestone.locked
-            ? "bg-muted/30 border border-border/30 opacity-60"
-            : "bg-secondary/30 border border-border/50"
+              ? "bg-muted/30 border border-border/30 opacity-60"
+              : "bg-secondary/30 border border-border/50"
         }`}
       >
         <div className="flex items-center gap-3">
           <div
             className={`w-5 h-5 rounded-full flex items-center justify-center ${
-              milestone.completed
-                ? "bg-success"
-                : milestone.locked
-                ? "bg-muted"
-                : "bg-secondary"
+              milestone.completed ? "bg-success" : milestone.locked ? "bg-muted" : "bg-secondary"
             }`}
           >
             {milestone.completed ? (
@@ -62,15 +57,16 @@ export const WeeklyTasksSection = ({ transactions, volume }: WeeklyTasksSectionP
             )}
           </div>
           <span className="text-sm">
-            {prefix}{milestone.threshold.toLocaleString()} {prefix ? "" : "Transactions"}
+            {prefix}
+            {milestone.threshold.toLocaleString()} {prefix ? "" : "Transactions"}
           </span>
         </div>
         <Badge variant="outline" className="text-xs">
           +{milestone.points}
         </Badge>
       </div>
-    ));
-  };
+    ))
+  }
 
   return (
     <div className="space-y-6">
@@ -98,9 +94,7 @@ export const WeeklyTasksSection = ({ transactions, volume }: WeeklyTasksSectionP
               <Progress value={Math.min((transactions / 100) * 100, 100)} className="h-2" />
             </div>
 
-            <div className="space-y-2 pt-2">
-              {renderMilestones(txMilestones)}
-            </div>
+            <div className="space-y-2 pt-2">{renderMilestones(txMilestones)}</div>
           </div>
         </Card>
 
@@ -122,12 +116,10 @@ export const WeeklyTasksSection = ({ transactions, volume }: WeeklyTasksSectionP
               <Progress value={Math.min((volume / 10000) * 100, 100)} className="h-2" />
             </div>
 
-            <div className="space-y-2 pt-2">
-              {renderMilestones(volumeMilestones, "$")}
-            </div>
+            <div className="space-y-2 pt-2">{renderMilestones(volumeMilestones, "$")}</div>
           </div>
         </Card>
       </div>
     </div>
-  );
-};
+  )
+}

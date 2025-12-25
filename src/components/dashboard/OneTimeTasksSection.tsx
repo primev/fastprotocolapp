@@ -1,20 +1,20 @@
-"use client";
+"use client"
 
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Check, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Check, ExternalLink } from "lucide-react"
+import { toast } from "sonner"
 
 export interface Task {
-  name: string;
-  points?: number;
-  completed: boolean;
-  action?: string;
+  name: string
+  points?: number
+  completed: boolean
+  action?: string
 }
 
 interface OneTimeTasksSectionProps {
-  tasks: Task[];
+  tasks: Task[]
 }
 
 export const OneTimeTasksSection = ({ tasks }: OneTimeTasksSectionProps) => {
@@ -54,9 +54,9 @@ export const OneTimeTasksSection = ({ tasks }: OneTimeTasksSectionProps) => {
                   size="sm"
                   onClick={() => {
                     if (task.action === "email") {
-                      toast.success("Email submission coming soon!");
+                      toast.success("Email submission coming soon!")
                     } else {
-                      window.open(task.action, "_blank");
+                      window.open(task.action, "_blank")
                     }
                   }}
                 >
@@ -69,5 +69,5 @@ export const OneTimeTasksSection = ({ tasks }: OneTimeTasksSectionProps) => {
         ))}
       </div>
     </Card>
-  );
-};
+  )
+}

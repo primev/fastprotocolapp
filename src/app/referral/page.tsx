@@ -1,47 +1,47 @@
-'use client';
+"use client"
 
-import { useState, useEffect, useRef, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowRight } from 'lucide-react';
-import { Fuul } from '@fuul/sdk';
-import { isAddress } from 'viem';
-import '@/lib/fuul';
+import { useState, useEffect, useRef, Suspense } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowRight } from "lucide-react"
+import { Fuul } from "@fuul/sdk"
+import { isAddress } from "viem"
+import "@/lib/fuul"
 
 function ReferralPageContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [referrerId, setReferrerId] = useState<string | null>(null);
-  const [hasAccepted, setHasAccepted] = useState(false);
-  const hasSentPageviewRef = useRef(false);
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [referrerId, setReferrerId] = useState<string | null>(null)
+  const [hasAccepted, setHasAccepted] = useState(false)
+  const hasSentPageviewRef = useRef(false)
 
   // Referral tracking: send pageview if present and valid (address or affiliate code)
   useEffect(() => {
-    const referralParam = searchParams.get('af');
+    const referralParam = searchParams.get("af")
     if (referralParam && !hasSentPageviewRef.current) {
       // Accept both addresses and affiliate codes
       // Addresses are 0x followed by 40 hex characters
       // Affiliate codes are alphanumeric with dashes
-      const isValidAddress = isAddress(referralParam);
-      const isValidCode = /^[a-zA-Z0-9-]+$/.test(referralParam) && referralParam.length <= 30;
-      
+      const isValidAddress = isAddress(referralParam)
+      const isValidCode = /^[a-zA-Z0-9-]+$/.test(referralParam) && referralParam.length <= 30
+
       if (isValidAddress || isValidCode) {
-        setReferrerId(referralParam);
-        Fuul.sendPageview('referral');
-        hasSentPageviewRef.current = true;
+        setReferrerId(referralParam)
+        Fuul.sendPageview("referral")
+        hasSentPageviewRef.current = true
       }
     }
-  }, [searchParams]);
+  }, [searchParams])
 
   const handleClaim = () => {
     if (referrerId) {
-      router.push(`/claim/onboarding?af=${encodeURIComponent(referrerId)}`);
+      router.push(`/claim/onboarding?af=${encodeURIComponent(referrerId)}`)
     } else {
-      router.push('/claim/onboarding');
+      router.push("/claim/onboarding")
     }
-  };
+  }
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -60,7 +60,7 @@ function ReferralPageContent() {
                 width={40}
                 height={40}
                 className="sm:hidden cursor-pointer"
-                onClick={() => router.push('/')}
+                onClick={() => router.push("/")}
               />
               <Image
                 src="/assets/fast-protocol-logo-icon.png"
@@ -68,7 +68,7 @@ function ReferralPageContent() {
                 width={150}
                 height={75}
                 className="hidden sm:block cursor-pointer"
-                onClick={() => router.push('/')}
+                onClick={() => router.push("/")}
               />
             </div>
             <h1 className="text-muted-foreground font-bold">Referral</h1>
@@ -118,12 +118,16 @@ function ReferralPageContent() {
                       <li className="flex items-start gap-3">
                         <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
                         <span>
-                          <strong>Your referrer earns 2% of points generated from your MEV-related swaps</strong>
+                          <strong>
+                            Your referrer earns 2% of points generated from your MEV-related swaps
+                          </strong>
                         </span>
                       </li>
                       <li className="flex items-start gap-3">
                         <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
-                        <span>You keep <strong>100% of your own rewards</strong></span>
+                        <span>
+                          You keep <strong>100% of your own rewards</strong>
+                        </span>
                       </li>
                       <li className="flex items-start gap-3">
                         <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
@@ -133,7 +137,9 @@ function ReferralPageContent() {
                     <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                       <p className="text-xs font-medium text-foreground">About MEV-related swaps</p>
                       <p className="text-xs text-muted-foreground">
-                        MEV-related swaps refer to eligible trades where value is derived from market execution efficiency. Referral rewards are calculated from internal points, not taken from your trade.
+                        MEV-related swaps refer to eligible trades where value is derived from
+                        market execution efficiency. Referral rewards are calculated from internal
+                        points, not taken from your trade.
                       </p>
                     </div>
                   </CardContent>
@@ -155,7 +161,7 @@ function ReferralPageContent() {
         </main>
       </div>
     </div>
-  );
+  )
 }
 
 export default function ReferralPage() {
@@ -169,5 +175,5 @@ export default function ReferralPage() {
     >
       <ReferralPageContent />
     </Suspense>
-  );
+  )
 }

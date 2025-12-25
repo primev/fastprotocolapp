@@ -1,27 +1,27 @@
-'use client';
+"use client"
 
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Mail } from 'lucide-react';
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Mail } from "lucide-react"
 
 interface EmailDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  emailInput: string;
-  emailError: string;
-  isLoading: boolean;
-  onEmailChange: (email: string) => void;
-  onEmailErrorChange: (error: string) => void;
-  onSubmit: () => void;
-  onCancel: () => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  emailInput: string
+  emailError: string
+  isLoading: boolean
+  onEmailChange: (email: string) => void
+  onEmailErrorChange: (error: string) => void
+  onSubmit: () => void
+  onCancel: () => void
 }
 
 export const EmailDialog = ({
@@ -58,24 +58,24 @@ export const EmailDialog = ({
               placeholder="you@example.com"
               value={emailInput}
               onChange={(e) => {
-                onEmailChange(e.target.value);
+                onEmailChange(e.target.value)
                 if (emailError) {
-                  onEmailErrorChange('');
+                  onEmailErrorChange("")
                 }
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  onSubmit();
+                if (e.key === "Enter") {
+                  onSubmit()
                 }
               }}
-              className={emailError ? 'border-destructive' : ''}
+              className={emailError ? "border-destructive" : ""}
               disabled={isLoading}
             />
             {emailError && <p className="text-sm text-destructive">{emailError}</p>}
           </div>
           <div className="flex gap-3">
             <Button className="flex-1" onClick={onSubmit} disabled={isLoading}>
-              {isLoading ? 'Submitting...' : 'Submit Email'}
+              {isLoading ? "Submitting..." : "Submit Email"}
             </Button>
             <Button variant="outline" onClick={onCancel} disabled={isLoading}>
               Cancel
@@ -84,6 +84,5 @@ export const EmailDialog = ({
         </div>
       </DialogContent>
     </Dialog>
-  );
-};
-
+  )
+}

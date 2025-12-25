@@ -1,19 +1,19 @@
 /**
  * Fast Protocol Network Configuration
- * 
+ *
  * Network details for Ethereum Mainnet with Fast Protocol RPC
  */
 export const FAST_PROTOCOL_NETWORK = {
   chainId: 1,
-  chainName: 'Ethereum Mainnet',
+  chainName: "Ethereum Mainnet",
   nativeCurrency: {
-    name: 'Ether',
-    symbol: 'ETH',
+    name: "Ether",
+    symbol: "ETH",
     decimals: 18,
   },
-  rpcUrls: ['https://fastrpc.mev-commit.xyz'],
-  blockExplorerUrls: ['https://www.etherscan.io/'],
-} as const;
+  rpcUrls: ["https://fastrpc.mev-commit.xyz"],
+  blockExplorerUrls: ["https://www.etherscan.io/"],
+} as const
 
 /**
  * Network configuration for wallet_addEthereumChain
@@ -24,10 +24,10 @@ export const NETWORK_CONFIG = {
   nativeCurrency: FAST_PROTOCOL_NETWORK.nativeCurrency,
   rpcUrls: FAST_PROTOCOL_NETWORK.rpcUrls,
   blockExplorerUrls: FAST_PROTOCOL_NETWORK.blockExplorerUrls,
-} as const;
+} as const
 
 /**
  * RPC endpoint for testing
  */
-export const RPC_ENDPOINT = 'https://fastrpc.mev-commit.xyz';
-export const FALLBACK_RPC_ENDPOINT = 'https://eth.llamarpc.com';
+export const RPC_ENDPOINT = "https://fastrpc.mev-commit.xyz"
+export const FALLBACK_RPC_ENDPOINT = "https://eth.llamarpc.com"

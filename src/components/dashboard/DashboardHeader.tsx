@@ -1,9 +1,9 @@
-'use client';
+"use client"
 
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,28 +11,24 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Award, Wallet, Settings } from 'lucide-react';
-import {
-  ConnectButton,
-  useAccountModal,
-  useConnectModal,
-} from '@rainbow-me/rainbowkit';
-import { toast } from 'sonner';
-import { SocialIcon } from 'react-social-icons';
+} from "@/components/ui/dropdown-menu"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Award, Wallet, Settings } from "lucide-react"
+import { ConnectButton, useAccountModal, useConnectModal } from "@rainbow-me/rainbowkit"
+import { toast } from "sonner"
+import { SocialIcon } from "react-social-icons"
 
 interface DashboardHeaderProps {
-  points: number;
-  isConnected: boolean;
-  status: 'connected' | 'disconnected' | 'connecting' | 'reconnecting';
-  isMounted: boolean;
-  isMetaMask: boolean;
-  onAddNetwork: () => void;
-  onRpcSetup: () => void;
-  onTestRpc: () => void;
-  activeTab: string;
-  onTabChange: (value: string) => void;
+  points: number
+  isConnected: boolean
+  status: "connected" | "disconnected" | "connecting" | "reconnecting"
+  isMounted: boolean
+  isMetaMask: boolean
+  onAddNetwork: () => void
+  onRpcSetup: () => void
+  onTestRpc: () => void
+  activeTab: string
+  onTabChange: (value: string) => void
 }
 
 export const DashboardHeader = ({
@@ -47,8 +43,8 @@ export const DashboardHeader = ({
   activeTab,
   onTabChange,
 }: DashboardHeaderProps) => {
-  const { openAccountModal } = useAccountModal();
-  const { openConnectModal } = useConnectModal();
+  const { openAccountModal } = useAccountModal()
+  const { openConnectModal } = useConnectModal()
 
   return (
     <>
@@ -73,11 +69,7 @@ export const DashboardHeader = ({
 
           {/* Tabs - Centered - Desktop only */}
           <div className="flex-1  justify-center hidden sm:flex">
-            <Tabs
-              value={activeTab}
-              onValueChange={onTabChange}
-              className="w-auto"
-            >
+            <Tabs value={activeTab} onValueChange={onTabChange} className="w-auto">
               <TabsList className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
                 <TabsTrigger
                   value="genesis"
@@ -129,23 +121,15 @@ export const DashboardHeader = ({
               </div>
             ) : (
               <>
-                {!isMounted ||
-                status === 'connecting' ||
-                status === 'reconnecting' ? (
+                {!isMounted || status === "connecting" || status === "reconnecting" ? (
                   <Skeleton className="h-10 w-32 rounded-full" />
                 ) : (
                   <>
-                    <Button
-                      onClick={openConnectModal}
-                      className="h-10 sm:hidden px-4"
-                    >
+                    <Button onClick={openConnectModal} className="h-10 sm:hidden px-4">
                       Connect
                     </Button>
                     <div className="hidden sm:block">
-                      <ConnectButton
-                        showBalance={false}
-                        accountStatus="address"
-                      />
+                      <ConnectButton showBalance={false} accountStatus="address" />
                     </div>
                   </>
                 )}
@@ -154,14 +138,11 @@ export const DashboardHeader = ({
             {isConnected && (
               <>
                 <div
-                  onClick={() => window.open('https://discord.gg', '_blank')}
+                  onClick={() => window.open("https://discord.gg", "_blank")}
                   className="cursor-pointer hover:opacity-80 transition-opacity"
                   aria-label="Discord"
                 >
-                  <SocialIcon
-                    network="discord"
-                    style={{ height: 35, width: 35 }}
-                  />
+                  <SocialIcon network="discord" style={{ height: 35, width: 35 }} />
                 </div>
                 <div className="relative">
                   <DropdownMenu>
@@ -187,8 +168,8 @@ export const DashboardHeader = ({
                         <DropdownMenuItem
                           className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-accent/60 rounded"
                           onSelect={(e) => {
-                            e.preventDefault();
-                            onAddNetwork();
+                            e.preventDefault()
+                            onAddNetwork()
                           }}
                         >
                           <span className="inline-block w-2 h-2 rounded-full bg-primary mr-2" />
@@ -198,22 +179,22 @@ export const DashboardHeader = ({
                       <DropdownMenuItem
                         className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-accent/60 rounded"
                         onSelect={(e) => {
-                          e.preventDefault();
-                          onRpcSetup();
+                          e.preventDefault()
+                          onRpcSetup()
                         }}
                       >
                         <span className="inline-block w-2 h-2 rounded-full bg-muted-foreground mr-2" />
-                        {isMetaMask ? 'Toggle Network' : 'Setup RPC'}
+                        {isMetaMask ? "Toggle Network" : "Setup RPC"}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-accent/60 rounded"
                         onSelect={(e) => {
-                          e.preventDefault();
+                          e.preventDefault()
                           if (!isConnected) {
-                            toast.error('Please connect your wallet first');
-                            return;
+                            toast.error("Please connect your wallet first")
+                            return
                           }
-                          onTestRpc();
+                          onTestRpc()
                         }}
                       >
                         <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-2" />
@@ -256,5 +237,5 @@ export const DashboardHeader = ({
         </Tabs>
       </div>
     </>
-  );
-};
+  )
+}

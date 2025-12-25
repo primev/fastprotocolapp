@@ -1,21 +1,21 @@
-'use client';
+"use client"
 
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { CardContainer, CardBody, CardItem } from '@/components/ui/3d-card';
-import { Badge } from '@/components/ui/badge';
-import { Check, ChevronRight } from 'lucide-react';
-import { SocialIcon } from 'react-social-icons';
-import { NFT_NAME, NFT_DESCRIPTION } from '@/lib/contract-config';
-import { OPENSEA_URL } from '@/lib/constants';
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { CardContainer, CardBody, CardItem } from "@/components/ui/3d-card"
+import { Badge } from "@/components/ui/badge"
+import { Check, ChevronRight } from "lucide-react"
+import { SocialIcon } from "react-social-icons"
+import { NFT_NAME, NFT_DESCRIPTION } from "@/lib/contract-config"
+import { OPENSEA_URL } from "@/lib/constants"
 
-const SBT_VIDEO_ASSET = '/assets/SBT-token-animated.mp4';
+const SBT_VIDEO_ASSET = "/assets/SBT-token-animated.mp4"
 
 interface SBTDisplayCardProps {
-  hasGenesisSBT: boolean;
-  tokenId: bigint | undefined;
-  address: string | undefined;
-  isMounted: boolean;
+  hasGenesisSBT: boolean
+  tokenId: bigint | undefined
+  address: string | undefined
+  isMounted: boolean
 }
 
 export const SBTDisplayCard = ({
@@ -24,9 +24,9 @@ export const SBTDisplayCard = ({
   address,
   isMounted,
 }: SBTDisplayCardProps) => {
-  const router = useRouter();
-  const isMinted = hasGenesisSBT && tokenId !== undefined;
-  const hasNotMinted = address && !isMinted;
+  const router = useRouter()
+  const isMinted = hasGenesisSBT && tokenId !== undefined
+  const hasNotMinted = address && !isMinted
 
   return (
     <CardContainer containerClassName="py-0">
@@ -40,8 +40,8 @@ export const SBTDisplayCard = ({
           playsInline
           className="absolute inset-0 w-full h-full object-cover"
           onError={(e) => {
-            const target = e.currentTarget;
-            target.style.display = 'none';
+            const target = e.currentTarget
+            target.style.display = "none"
           }}
         />
 
@@ -53,9 +53,7 @@ export const SBTDisplayCard = ({
           {/* Header */}
           <CardItem translateZ={30} className="w-full">
             <div className="flex items-center justify-between">
-              <div className="text-lg font-bold text-foreground drop-shadow-md">
-                Genesis SBT
-              </div>
+              <div className="text-lg font-bold text-foreground drop-shadow-md">Genesis SBT</div>
 
               <div className="flex items-center gap-2">
                 {isMinted ? (
@@ -64,13 +62,10 @@ export const SBTDisplayCard = ({
                       <Check className="w-3 h-3 mr-1" />#{String(tokenId)}
                     </Badge>
                     <div
-                      onClick={() => window.open(OPENSEA_URL, '_blank')}
+                      onClick={() => window.open(OPENSEA_URL, "_blank")}
                       className="cursor-pointer hover:opacity-80 transition-opacity h-7 w-7 flex items-center justify-center"
                     >
-                      <SocialIcon
-                        network="opensea"
-                        style={{ height: 28, width: 28 }}
-                      />
+                      <SocialIcon network="opensea" style={{ height: 28, width: 28 }} />
                     </div>
                   </>
                 ) : (
@@ -93,9 +88,9 @@ export const SBTDisplayCard = ({
                   variant="outline"
                   size="lg"
                   onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    router.push('/claim/onboarding');
+                    e.preventDefault()
+                    e.stopPropagation()
+                    router.push("/claim/onboarding")
                   }}
                   className="bg-background/90 hover:bg-background border-primary/50 hover:border-primary hover:scale-105 transition-all duration-200 hover:shadow-lg hover:shadow-primary/20 group lg:text-sm lg:h-10 lg:px-6"
                 >
@@ -117,5 +112,5 @@ export const SBTDisplayCard = ({
         </div>
       </CardBody>
     </CardContainer>
-  );
-};
+  )
+}

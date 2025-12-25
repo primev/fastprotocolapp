@@ -1,17 +1,16 @@
-"use client";
+"use client"
 
-import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Zap, TrendingUp, Users, Shield } from "lucide-react";
-import { useRouter } from "next/navigation";
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Zap, TrendingUp, Users, Shield } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 const ClaimPage = () => {
-  const router = useRouter();
+  const router = useRouter()
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-
       <div className="relative z-10">
         {/* Header */}
         <header className="border-b border-border/50 backdrop-blur-sm">
@@ -32,24 +31,27 @@ const ClaimPage = () => {
             <div className="space-y-4 sm:space-y-5 lg:space-y-4">
               <div className="inline-flex items-center gap-2 px-4 py-2 lg:px-3 lg:py-1.5 rounded-full bg-primary/10 border border-primary/30">
                 <Zap className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-primary" />
-                <span className="text-sm lg:text-xs font-semibold text-primary">Season 1 is coming soon</span>
+                <span className="text-sm lg:text-xs font-semibold text-primary">
+                  Season 1 is coming soon
+                </span>
               </div>
-              
+
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl font-bold leading-tight">
                 Fast Protocol
                 <br />
                 <span className="gradient-text">Genesis SBT Claim</span>
               </h1>
-              
+
               <p className="text-lg sm:text-xl lg:text-base xl:text-lg text-muted-foreground max-w-xl mx-auto px-4">
-                Mint your Genesis SBT, earn Fast Points, and prove you were early to the execution UX layer that makes Ethereum feel instant.
+                Mint your Genesis SBT, earn Fast Points, and prove you were early to the execution
+                UX layer that makes Ethereum feel instant.
               </p>
             </div>
 
             {/* CTA Buttons */}
             <div className="flex justify-center items-center pt-2 lg:pt-3">
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 className="text-lg lg:text-base px-8 lg:px-7 py-6 lg:py-4"
                 onClick={() => router.push("/claim/onboarding")}
               >
@@ -67,7 +69,8 @@ const ClaimPage = () => {
                   </div>
                   <h3 className="text-xl lg:text-lg font-semibold">Genesis SBT</h3>
                   <p className="text-muted-foreground text-md lg:text-sm">
-                    Mint your proof of early adoption. Your Genesis SBT unlocks access to the Fast Points ecosystem.
+                    Mint your proof of early adoption. Your Genesis SBT unlocks access to the Fast
+                    Points ecosystem.
                   </p>
                 </div>
               </Card>
@@ -79,19 +82,21 @@ const ClaimPage = () => {
                   </div>
                   <h3 className="text-xl lg:text-lg font-semibold">Earn Points</h3>
                   <p className="text-muted-foreground text-md lg:text-sm">
-                    Complete tasks, make transactions, and refer friends to earn Fast Points that carry into mainnet.
+                    Complete tasks, make transactions, and refer friends to earn Fast Points that
+                    carry into mainnet.
                   </p>
                 </div>
               </Card>
 
               <Card className="p-6 lg:p-5 bg-card/50 border-border/50 hover:border-primary/30 transition-all">
-                <div className="space-y-3 lg:space-y-2.5">  
+                <div className="space-y-3 lg:space-y-2.5">
                   <div className="w-12 h-12 lg:w-11 lg:h-11 rounded-xl bg-primary/10 flex items-center justify-center">
                     <Users className="w-6 h-6 lg:w-5 lg:h-5 text-primary" />
                   </div>
                   <h3 className="text-xl lg:text-lg font-semibold">Compete</h3>
                   <p className="text-muted-foreground text-md lg:text-sm">
-                    Track your ranking on the leaderboard and compete with other early adopters for top positions.
+                    Track your ranking on the leaderboard and compete with other early adopters for
+                    top positions.
                   </p>
                 </div>
               </Card>
@@ -135,7 +140,7 @@ const ClaimPage = () => {
         </footer> */}
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default ClaimPage;
+export default ClaimPage
