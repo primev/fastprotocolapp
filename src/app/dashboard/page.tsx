@@ -1,88 +1,85 @@
-'use client';
+"use client"
 
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useAccount } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { toast } from 'sonner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useAccount } from "wagmi"
+import { ConnectButton } from "@rainbow-me/rainbowkit"
+import { toast } from "sonner"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Mail } from 'lucide-react';
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import { Mail } from "lucide-react"
 
 // Hooks
-import { useUserOnboarding } from '@/hooks/use-user-onboarding';
-import { useGenesisSBT } from '@/hooks/use-genesis-sbt';
-import { useDashboardTasks } from '@/hooks/use-dashboard-tasks';
-import { useEmailDialog } from '@/hooks/use-email-dialog';
-import { useAffiliateCode } from '@/hooks/use-affiliate-code';
-import { useRPCTest } from '@/hooks/use-rpc-test';
-import { useWalletInfo } from '@/hooks/use-wallet-info';
+import { useUserOnboarding } from "@/hooks/use-user-onboarding"
+import { useGenesisSBT } from "@/hooks/use-genesis-sbt"
+import { useDashboardTasks } from "@/hooks/use-dashboard-tasks"
+import { useEmailDialog } from "@/hooks/use-email-dialog"
+import { useAffiliateCode } from "@/hooks/use-affiliate-code"
+import { useRPCTest } from "@/hooks/use-rpc-test"
+import { useWalletInfo } from "@/hooks/use-wallet-info"
 
 // Components
-import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { SBTDisplayCard } from '@/components/dashboard/SBTDisplayCard';
-import { ReferralsCard } from '@/components/dashboard/ReferralsCard';
-import { OneTimeTasksAccordion } from '@/components/dashboard/OneTimeTasksAccordion';
-import { SwapEarnAccordion } from '@/components/dashboard/SwapEarnAccordion';
-import { WeeklyActivitySection } from '@/components/dashboard/WeeklyActivitySection';
-import { PointsHUD } from '@/components/dashboard/PointsHUD';
-import { WeeklyTasksSection } from '@/components/dashboard/WeeklyTasksSection';
-import { ReferralsSection } from '@/components/dashboard/ReferralsSection';
-import { PartnerQuestsSection } from '@/components/dashboard/PartnerQuestsSection';
-import { OneTimeTasksSection } from '@/components/dashboard/OneTimeTasksSection';
-import { LeaderboardTable } from '@/components/dashboard/LeaderboardTable';
-import { SBTGatingModal } from '@/components/modals/SBTGatingModal';
-import { TransactionFeedbackModal } from '@/components/modals/TransactionFeedbackModal';
-import { ReferralModal } from '@/components/modals/ReferralModal';
-import { RPCTestModal } from '@/components/network-checker';
-import { MetaMaskToggleModal } from '@/components/onboarding/MetaMaskToggleModal';
-import { AddRpcModal } from '@/components/onboarding/AddRpcModal';
-import { BrowserWalletStepsModal } from '@/components/onboarding/BrowserWalletStepsModal';
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
+import { SBTDisplayCard } from "@/components/dashboard/SBTDisplayCard"
+import { ReferralsCard } from "@/components/dashboard/ReferralsCard"
+import { OneTimeTasksAccordion } from "@/components/dashboard/OneTimeTasksAccordion"
+import { SwapEarnAccordion } from "@/components/dashboard/SwapEarnAccordion"
+import { WeeklyActivitySection } from "@/components/dashboard/WeeklyActivitySection"
+import { PointsHUD } from "@/components/dashboard/PointsHUD"
+import { WeeklyTasksSection } from "@/components/dashboard/WeeklyTasksSection"
+import { ReferralsSection } from "@/components/dashboard/ReferralsSection"
+import { PartnerQuestsSection } from "@/components/dashboard/PartnerQuestsSection"
+import { OneTimeTasksSection } from "@/components/dashboard/OneTimeTasksSection"
+import { LeaderboardTable } from "@/components/dashboard/LeaderboardTable"
+import { SBTGatingModal } from "@/components/modals/SBTGatingModal"
+import { TransactionFeedbackModal } from "@/components/modals/TransactionFeedbackModal"
+import { ReferralModal } from "@/components/modals/ReferralModal"
+import { RPCTestModal } from "@/components/network-checker"
+import { MetaMaskToggleModal } from "@/components/onboarding/MetaMaskToggleModal"
+import { AddRpcModal } from "@/components/onboarding/AddRpcModal"
+import { BrowserWalletStepsModal } from "@/components/onboarding/BrowserWalletStepsModal"
 
 // Utils
-import { isMetaMaskWallet, isRabbyWallet } from '@/lib/onboarding-utils';
-import { NETWORK_CONFIG } from '@/lib/network-config';
-import type { TaskName } from '@/hooks/use-dashboard-tasks';
+import { isMetaMaskWallet, isRabbyWallet } from "@/lib/onboarding-utils"
+import { NETWORK_CONFIG } from "@/lib/network-config"
+import type { TaskName } from "@/hooks/use-dashboard-tasks"
 
 const DashboardContent = () => {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [points] = useState(0);
-  const [activeTab, setActiveTab] = useState('genesis');
-  const [showSBTGatingModal, setShowSBTGatingModal] = useState(false);
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [oneTimeTasksAccordionValue, setOneTimeTasksAccordionValue] = useState<string | undefined>("one-time-tasks");
-  const [isMounted, setIsMounted] = useState(false);
-  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
-  const [isMetaMaskModalOpen, setIsMetaMaskModalOpen] = useState(false);
-  const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false);
-  const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false);
-  const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [points] = useState(0)
+  const [activeTab, setActiveTab] = useState("genesis")
+  const [showSBTGatingModal, setShowSBTGatingModal] = useState(false)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  const [oneTimeTasksAccordionValue, setOneTimeTasksAccordionValue] = useState<string | undefined>(
+    "one-time-tasks"
+  )
+  const [isMounted, setIsMounted] = useState(false)
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false)
+  const [isMetaMaskModalOpen, setIsMetaMaskModalOpen] = useState(false)
+  const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false)
+  const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false)
+  const [isReferralModalOpen, setIsReferralModalOpen] = useState(false)
 
-  const { isConnected, address, status, connector } = useAccount();
-  const { walletName, walletIcon } = useWalletInfo(connector, isConnected);
-  const rpcTest = useRPCTest();
+  const { isConnected, address, status, connector } = useAccount()
+  const { walletName, walletIcon } = useWalletInfo(connector, isConnected)
+  const rpcTest = useRPCTest()
 
   // Custom hooks
-  const userOnboarding = useUserOnboarding(isConnected, address);
-  const genesisSBT = useGenesisSBT(isConnected, address);
-  const emailDialog = useEmailDialog();
-  const {
-    affiliateCode,
-    referralLink,
-    isLoadingCode,
-    refreshAffiliateCode,
-    refreshReferralLink,
-  } = useAffiliateCode();
+  const userOnboarding = useUserOnboarding(isConnected, address)
+  const genesisSBT = useGenesisSBT(isConnected, address)
+  const emailDialog = useEmailDialog()
+  const { affiliateCode, referralLink, isLoadingCode, refreshAffiliateCode, refreshReferralLink } =
+    useAffiliateCode()
 
   // Dashboard tasks hook
   const dashboardTasks = useDashboardTasks({
@@ -92,117 +89,117 @@ const DashboardContent = () => {
     address,
     updateUserOnboarding: userOnboarding.updateUserOnboarding,
     onMintComplete: () => {
-      setShowFeedbackModal(true);
+      setShowFeedbackModal(true)
     },
-  });
+  })
 
   // Wallet detection
-  const isMetaMask = isMetaMaskWallet(connector);
-  const isRabby = isRabbyWallet(connector);
+  const isMetaMask = isMetaMaskWallet(connector)
+  const isRabby = isRabbyWallet(connector)
 
   // Handle tab from URL query parameter
   useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab && ['genesis', 'points', 'leaderboard'].includes(tab)) {
+    const tab = searchParams.get("tab")
+    if (tab && ["genesis", "points", "leaderboard"].includes(tab)) {
       // Block access to Points and Leaderboard if no Genesis SBT
-      if (!genesisSBT.hasGenesisSBT && (tab === 'points' || tab === 'leaderboard')) {
-        setActiveTab('genesis');
-        return;
+      if (!genesisSBT.hasGenesisSBT && (tab === "points" || tab === "leaderboard")) {
+        setActiveTab("genesis")
+        return
       }
-      setActiveTab(tab);
+      setActiveTab(tab)
     }
-  }, [searchParams, genesisSBT.hasGenesisSBT]);
+  }, [searchParams, genesisSBT.hasGenesisSBT])
 
   const handleTabChange = (value: string) => {
     // Block access to Points and Leaderboard if no Genesis SBT
-    if (!genesisSBT.hasGenesisSBT && (value === 'points' || value === 'leaderboard')) {
-      setShowSBTGatingModal(true);
-      return;
+    if (!genesisSBT.hasGenesisSBT && (value === "points" || value === "leaderboard")) {
+      setShowSBTGatingModal(true)
+      return
     }
-    setActiveTab(value);
-    router.push(`/dashboard?tab=${value}`);
-  };
+    setActiveTab(value)
+    router.push(`/dashboard?tab=${value}`)
+  }
 
   // Handle feedback modal from genesis SBT hook
   useEffect(() => {
     if (genesisSBT.shouldShowFeedbackModal) {
-      setShowFeedbackModal(true);
-      genesisSBT.markFeedbackShown();
+      setShowFeedbackModal(true)
+      genesisSBT.markFeedbackShown()
     }
-  }, [genesisSBT.shouldShowFeedbackModal]);
+  }, [genesisSBT.shouldShowFeedbackModal])
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
+    setIsMounted(true)
+  }, [])
 
   // Handler for adding network (MetaMask wallet_addEthereumChain)
   const handleAddNetwork = async () => {
     if (!isConnected || !connector) {
-      toast.error('Please connect your wallet first');
-      return;
+      toast.error("Please connect your wallet first")
+      return
     }
 
     try {
-      let provider = null;
+      let provider = null
       try {
-        provider = await connector.getProvider();
+        provider = await connector.getProvider()
       } catch (error) {
-        console.error('Error getting provider from connector:', error);
+        console.error("Error getting provider from connector:", error)
       }
 
       // Fallback to window.ethereum
-      if (!provider && typeof window !== 'undefined' && (window as any).ethereum) {
-        const ethereum = (window as any).ethereum;
-        provider = Array.isArray(ethereum) ? ethereum[0] : ethereum;
+      if (!provider && typeof window !== "undefined" && (window as any).ethereum) {
+        const ethereum = (window as any).ethereum
+        provider = Array.isArray(ethereum) ? ethereum[0] : ethereum
       }
 
       if (!provider || !provider.request) {
-        toast.error('Provider not available', {
-          description: 'Unable to access wallet provider.',
-        });
-        return;
+        toast.error("Provider not available", {
+          description: "Unable to access wallet provider.",
+        })
+        return
       }
 
       await provider.request({
-        method: 'wallet_addEthereumChain',
+        method: "wallet_addEthereumChain",
         params: [NETWORK_CONFIG],
-      });
+      })
 
-      toast.success('Network added successfully', {
-        description: 'Fast Protocol network has been added to your wallet.',
-      });
+      toast.success("Network added successfully", {
+        description: "Fast Protocol network has been added to your wallet.",
+      })
     } catch (error: any) {
       if (error?.code === 4001) {
         // User rejected
-        return;
+        return
       }
-      toast.error('Failed to add network', {
-        description: error?.message || 'Failed to add Fast Protocol network.',
-      });
+      toast.error("Failed to add network", {
+        description: error?.message || "Failed to add Fast Protocol network.",
+      })
     }
-  };
+  }
 
   // Handler for RPC setup based on wallet type
   const handleRpcSetup = () => {
     if (!isConnected) {
-      toast.error('Please connect your wallet first');
-      return;
+      toast.error("Please connect your wallet first")
+      return
     }
     if (isMetaMask) {
-      setIsMetaMaskModalOpen(true);
+      setIsMetaMaskModalOpen(true)
     } else if (isRabby) {
-      setIsAddRpcModalOpen(true);
+      setIsAddRpcModalOpen(true)
     } else {
-      setIsBrowserWalletModalOpen(true);
+      setIsBrowserWalletModalOpen(true)
     }
-  };
+  }
 
   // Handle email submission
   const handleEmailSubmit = () => {
     emailDialog.handleEmailSubmit(() => {
-      dashboardTasks.handleTaskComplete('Enter Email' as TaskName);
-    });
-  };
+      dashboardTasks.handleTaskComplete("Enter Email" as TaskName)
+    })
+  }
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden px-2 sm:px-0">
@@ -222,7 +219,8 @@ const DashboardContent = () => {
         <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all">
           <div className="container mx-auto px-4 py-1 text-center">
             <p className="text-primary-foreground text-sm">
-              🎉 You're all set for the miles program kickoff! In the meantime, make your first Fast swap on these{' '}
+              🎉 You're all set for the miles program kickoff! In the meantime, make your first Fast
+              swap on these{" "}
               <a
                 href="#defi-protocols"
                 className="underline underline-offset-4 font-medium hover:text-primary-foreground/80 transition-colors"
@@ -236,11 +234,7 @@ const DashboardContent = () => {
 
         {/* Tabs */}
         <main className="container mx-auto px-0 sm:px-4 py-4">
-          <Tabs
-            value={activeTab}
-            onValueChange={handleTabChange}
-            className="space-y-4"
-          >
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
             <TabsList className="hidden md:grid w-full max-w-xl mx-auto grid-cols-2">
               <TabsTrigger value="genesis" className="text-base">
                 Genesis SBT
@@ -283,12 +277,10 @@ const DashboardContent = () => {
                 {/* Right Panel - Tasks */}
                 <div className="lg:col-span-9 space-y-6">
                   <div>
-                    <h1 className="text-3xl font-bold mb-2">
-                      Fast Miles
-                    </h1>
+                    <h1 className="text-3xl font-bold mb-2">Fast Miles</h1>
                     <p className="text-muted-foreground">
-                      Complete tasks to earn miles. Your miles will carry into
-                      the official Fast Miles System.
+                      Complete tasks to earn miles. Your miles will carry into the official Fast
+                      Miles System.
                     </p>
                   </div>
 
@@ -338,8 +330,7 @@ const DashboardContent = () => {
               {/* Bottom Banner */}
               <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 text-center">
                 <p className="text-sm font-medium">
-                  ⚡ Fast Points earned in Season 1 will carry into the official
-                  Fast Points System.
+                  ⚡ Fast Points earned in Season 1 will carry into the official Fast Points System.
                 </p>
               </div>
             </TabsContent>
@@ -361,9 +352,7 @@ const DashboardContent = () => {
                 <Mail className="w-8 h-8 text-primary" />
               </div>
             </div>
-            <DialogTitle className="text-center text-xl">
-              Enter Your Email
-            </DialogTitle>
+            <DialogTitle className="text-center text-xl">Enter Your Email</DialogTitle>
             <DialogDescription className="text-center text-base pt-2">
               Stay updated with Fast Protocol news and announcements
             </DialogDescription>
@@ -377,17 +366,17 @@ const DashboardContent = () => {
                 placeholder="you@example.com"
                 value={emailDialog.emailInput}
                 onChange={(e) => {
-                  emailDialog.setEmailInput(e.target.value);
+                  emailDialog.setEmailInput(e.target.value)
                   if (emailDialog.emailError) {
-                    emailDialog.clearError();
+                    emailDialog.clearError()
                   }
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleEmailSubmit();
+                  if (e.key === "Enter") {
+                    handleEmailSubmit()
                   }
                 }}
-                className={emailDialog.emailError ? 'border-destructive' : ''}
+                className={emailDialog.emailError ? "border-destructive" : ""}
               />
               {emailDialog.emailError && (
                 <p className="text-sm text-destructive">{emailDialog.emailError}</p>
@@ -397,10 +386,7 @@ const DashboardContent = () => {
               <Button className="flex-1" onClick={handleEmailSubmit}>
                 Submit Email
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => emailDialog.reset()}
-              >
+              <Button variant="outline" onClick={() => emailDialog.reset()}>
                 Cancel
               </Button>
             </div>
@@ -414,8 +400,8 @@ const DashboardContent = () => {
         onOpenChange={setIsTestModalOpen}
         onConfirm={() => {}}
         onClose={() => {
-          setIsTestModalOpen(false);
-          rpcTest.reset();
+          setIsTestModalOpen(false)
+          rpcTest.reset()
         }}
       />
 
@@ -424,7 +410,7 @@ const DashboardContent = () => {
         open={isMetaMaskModalOpen}
         onOpenChange={setIsMetaMaskModalOpen}
         onComplete={() => {
-          setIsMetaMaskModalOpen(false);
+          setIsMetaMaskModalOpen(false)
         }}
       />
 
@@ -436,7 +422,7 @@ const DashboardContent = () => {
         walletIcon={walletIcon}
         isMetaMask={isMetaMask}
         onComplete={() => {
-          setIsAddRpcModalOpen(false);
+          setIsAddRpcModalOpen(false)
         }}
       />
 
@@ -447,7 +433,7 @@ const DashboardContent = () => {
         walletName={walletName}
         walletIcon={walletIcon}
         onComplete={() => {
-          setIsBrowserWalletModalOpen(false);
+          setIsBrowserWalletModalOpen(false)
         }}
       />
 
@@ -462,24 +448,22 @@ const DashboardContent = () => {
       <ReferralModal
         open={isReferralModalOpen}
         onOpenChange={(open) => {
-          setIsReferralModalOpen(open);
+          setIsReferralModalOpen(open)
           // Refresh affiliate code and link when modal closes
           if (!open) {
             setTimeout(() => {
-              refreshAffiliateCode();
-              refreshReferralLink();
-            }, 500);
+              refreshAffiliateCode()
+              refreshReferralLink()
+            }, 500)
           }
         }}
       />
 
       {/* SBT Gating Modal */}
-      <SBTGatingModal
-        open={showSBTGatingModal}
-      />
+      <SBTGatingModal open={showSBTGatingModal} />
     </div>
-  );
-};
+  )
+}
 
 const DashboardPage = () => {
   return (
@@ -492,7 +476,7 @@ const DashboardPage = () => {
     >
       <DashboardContent />
     </Suspense>
-  );
-};
+  )
+}
 
-export default DashboardPage;
+export default DashboardPage

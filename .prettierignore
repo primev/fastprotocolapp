@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+.next/
+out/
+dist/
+build/
+
+# Package manager
+package-lock.json
+bun.lockb
+pnpm-lock.yaml
+yarn.lock
+
+# Generated files
+*.min.js
+*.min.css
+
+# IDE
+.idea/
+.vscode/
+
+# Misc
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Public assets
+public/assets/
+branding/

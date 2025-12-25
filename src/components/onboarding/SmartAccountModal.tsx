@@ -1,39 +1,30 @@
-'use client';
+"use client"
 
-import { useState } from 'react';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, ArrowRight } from 'lucide-react';
+import { useState } from "react"
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { AlertTriangle, ArrowRight } from "lucide-react"
 
 interface SmartAccountModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onAcknowledged: () => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onAcknowledged: () => void
 }
 
 /* ----------------------------- Shared Blocks ----------------------------- */
 
 const WhatIsSmartAccount = () => (
   <div className="bg-muted/50 rounded-lg p-3 sm:p-4 space-y-2">
-    <p className="text-sm font-medium text-foreground">
-      What&apos;s a smart account?
-    </p>
+    <p className="text-sm font-medium text-foreground">What&apos;s a smart account?</p>
     <p className="text-sm text-muted-foreground leading-relaxed">
-      A smart account is a wallet address upgraded to a smart contract, enabling
-      advanced features like batching and permissions. Some of these features
-      are not fully compatible with Fast RPC.
+      A smart account is a wallet address upgraded to a smart contract, enabling advanced features
+      like batching and permissions. Some of these features are not fully compatible with Fast RPC.
     </p>
   </div>
-);
-
+)
 
 /* ----------------------------- Main Component ----------------------------- */
 
@@ -42,24 +33,24 @@ export const SmartAccountModal = ({
   onOpenChange,
   onAcknowledged,
 }: SmartAccountModalProps) => {
-  const [activeTab, setActiveTab] = useState('warning');
+  const [activeTab, setActiveTab] = useState("warning")
 
   const getTabMessage = () => {
-    if (activeTab === 'check') {
-      return 'Requires MetaMask.';
+    if (activeTab === "check") {
+      return "Requires MetaMask."
     }
-    if (activeTab === 'video') {
-      return 'Requires MetaMask and Fast RPC disabled.';
+    if (activeTab === "video") {
+      return "Requires MetaMask and Fast RPC disabled."
     }
-    return null;
-  };
+    return null
+  }
 
   return (
     <Dialog
       open={open}
       onOpenChange={(open) => {
         // Prevent closing - user must click "Acknowledged"
-        if (!open) return;
+        if (!open) return
       }}
     >
       <DialogContent
@@ -81,7 +72,9 @@ export const SmartAccountModal = ({
 
             {/* 2. Text Column */}
             <div className="flex flex-col flex-1 min-w-0">
-              <DialogTitle className="text-base sm:text-xl leading-tight text-left sm:text-left">Smart Account Information</DialogTitle>
+              <DialogTitle className="text-base sm:text-xl leading-tight text-left sm:text-left">
+                Smart Account Information
+              </DialogTitle>
               {getTabMessage() && (
                 <div className="flex items-center sm:justify-start gap-1 mt-1.5 sm:mt-2">
                   <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
@@ -95,11 +88,22 @@ export const SmartAccountModal = ({
         </DialogHeader>
 
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden pt-0 sm:pt-4">
-          <Tabs defaultValue="warning" value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+          <Tabs
+            defaultValue="warning"
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="h-full flex flex-col"
+          >
             <TabsList className="grid grid-cols-3 flex-shrink-0 gap-1 sm:gap-2 mb-0 sm:mb-2">
-              <TabsTrigger value="warning" className="text-xs sm:text-sm px-2 sm:px-3">Info</TabsTrigger>
-              <TabsTrigger value="check" className="text-xs sm:text-sm px-2 sm:px-3">Check</TabsTrigger>
-              <TabsTrigger value="video" className="text-xs sm:text-sm px-2 sm:px-3">Disable</TabsTrigger>
+              <TabsTrigger value="warning" className="text-xs sm:text-sm px-2 sm:px-3">
+                Info
+              </TabsTrigger>
+              <TabsTrigger value="check" className="text-xs sm:text-sm px-2 sm:px-3">
+                Check
+              </TabsTrigger>
+              <TabsTrigger value="video" className="text-xs sm:text-sm px-2 sm:px-3">
+                Disable
+              </TabsTrigger>
             </TabsList>
 
             {/* Warning Tab */}
@@ -158,5 +162,5 @@ export const SmartAccountModal = ({
         </div>
       </DialogContent>
     </Dialog>
-  );
-};
+  )
+}

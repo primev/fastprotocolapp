@@ -1,17 +1,17 @@
-'use client';
+"use client"
 
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Users, Copy, PlusIcon } from 'lucide-react';
-import { FaXTwitter } from 'react-icons/fa6';
-import { toast } from 'sonner';
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Users, Copy, PlusIcon } from "lucide-react"
+import { FaXTwitter } from "react-icons/fa6"
+import { toast } from "sonner"
 
 interface ReferralsCardProps {
-  referralLink: string;
-  affiliateCode: string | null;
-  isLoadingCode: boolean;
-  isConnected: boolean;
-  onOpenModal: () => void;
+  referralLink: string
+  affiliateCode: string | null
+  isLoadingCode: boolean
+  isConnected: boolean
+  onOpenModal: () => void
 }
 
 export const ReferralsCard = ({
@@ -22,17 +22,17 @@ export const ReferralsCard = ({
   onOpenModal,
 }: ReferralsCardProps) => {
   const copyReferralLink = () => {
-    navigator.clipboard.writeText(referralLink);
-    toast.success('Referral link copied to clipboard!');
-  };
+    navigator.clipboard.writeText(referralLink)
+    toast.success("Referral link copied to clipboard!")
+  }
 
   const handleShare = () => {
     const text = encodeURIComponent(
       `@Fast_Protocol turns efficient swap execution into tokenized rewards.\n\nI'm using it for my trades.\n\n👇\n${referralLink}\n\n#MEV #DeFi`
-    );
-    const shareUrl = `https://twitter.com/intent/tweet?text=${text}`;
-    window.open(shareUrl, '_blank');
-  };
+    )
+    const shareUrl = `https://twitter.com/intent/tweet?text=${text}`
+    window.open(shareUrl, "_blank")
+  }
 
   return (
     <Card className="p-6 bg-card/50 border-border/50">
@@ -47,39 +47,39 @@ export const ReferralsCard = ({
             size="icon"
             className="flex-shrink-0"
             onClick={(e) => {
-              e.stopPropagation();
-              onOpenModal();
+              e.stopPropagation()
+              onOpenModal()
             }}
             disabled={!isConnected}
-            style={{ 
-              width: '32px', 
-              height: '32px', 
-              minWidth: '32px', 
-              minHeight: '32px',
+            style={{
+              width: "32px",
+              height: "32px",
+              minWidth: "32px",
+              minHeight: "32px",
               padding: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
-            aria-label={affiliateCode ? 'Update affiliate code' : 'Create affiliate code'}
+            aria-label={affiliateCode ? "Update affiliate code" : "Create affiliate code"}
           >
             <PlusIcon className="h-4 w-4 flex-shrink-0" />
           </Button>
         </div>
-        <div className={!isConnected ? 'blur-sm pointer-events-none' : ''}>
+        <div className={!isConnected ? "blur-sm pointer-events-none" : ""}>
           <p className="text-xs text-muted-foreground">
-          Earn miles from Fast RPC swap transactions via your referral link.
+            Earn miles from Fast RPC swap transactions via your referral link.
           </p>
           <div className="bg-secondary/50 rounded-lg p-3 flex items-center gap-2 justify-between my-4">
             <div className="flex-1 min-w-0">
               <code
                 className="text-xs break-all block text-ellipsis whitespace-nowrap overflow-hidden"
                 style={{
-                  display: 'block',
-                  maxWidth: '15rem',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
+                  display: "block",
+                  maxWidth: "15rem",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
                 }}
                 title={referralLink}
               >
@@ -90,8 +90,8 @@ export const ReferralsCard = ({
               size="sm"
               variant="ghost"
               onClick={(e) => {
-                e.stopPropagation();
-                copyReferralLink();
+                e.stopPropagation()
+                copyReferralLink()
               }}
               disabled={!isConnected}
               aria-label="Copy referral link"
@@ -116,12 +116,12 @@ export const ReferralsCard = ({
           ) : (
             <div className="w-full bg-muted/50 rounded-lg p-3 text-center">
               <p className="text-xs text-muted-foreground">
-                {isLoadingCode ? 'Generating link...' : 'Connect wallet to share'}
+                {isLoadingCode ? "Generating link..." : "Connect wallet to share"}
               </p>
             </div>
           )}
         </div>
       </div>
     </Card>
-  );
-};
+  )
+}

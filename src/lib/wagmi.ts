@@ -1,23 +1,21 @@
-import { connectorsForWallets } from '@rainbow-me/rainbowkit';
-import { injectedWallet } from '@rainbow-me/rainbowkit/wallets';
-import { createConfig, http, fallback } from 'wagmi';
-import { mainnet } from 'wagmi/chains';
-import { RPC_ENDPOINT } from '@/lib/network-config';
-
+import { connectorsForWallets } from "@rainbow-me/rainbowkit"
+import { injectedWallet } from "@rainbow-me/rainbowkit/wallets"
+import { createConfig, http, fallback } from "wagmi"
+import { mainnet } from "wagmi/chains"
+import { RPC_ENDPOINT } from "@/lib/network-config"
 
 const connectors = connectorsForWallets(
   [
     {
-      groupName: 'Recommended',
+      groupName: "Recommended",
       wallets: [injectedWallet],
     },
   ],
   {
-    appName: 'Fast Protocol',
-    projectId: '00000000000000000000000000000000',
+    appName: "Fast Protocol",
+    projectId: "00000000000000000000000000000000",
   }
-);
-
+)
 
 export const config = createConfig({
   chains: [mainnet],
@@ -29,4 +27,4 @@ export const config = createConfig({
     ]),
   },
   ssr: true,
-});
+})
