@@ -1,5 +1,5 @@
-import { createEnv } from '@t3-oss/env-nextjs';
-import { z } from 'zod';
+import { createEnv } from "@t3-oss/env-nextjs"
+import { z } from "zod"
 
 export const env = createEnv({
   server: {
@@ -13,4 +13,4 @@ export const env = createEnv({
   },
   // For Next.js >= 13.4.4, we can reference process.env directly
   experimental__runtimeEnv: process.env,
-});
+})

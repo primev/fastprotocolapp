@@ -1,41 +1,31 @@
-'use client';
+"use client"
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { forwardRef } from 'react';
-import { cn } from '@/lib/utils';
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { forwardRef } from "react"
+import { cn } from "@/lib/utils"
 
-interface NavLinkCompatProps
-  extends Omit<
-    React.AnchorHTMLAttributes<HTMLAnchorElement>,
-    'href' | 'className'
-  > {
-  to: string;
-  className?: string;
-  activeClassName?: string;
-  pendingClassName?: string; // Not used in Next.js; kept for API compatibility
+interface NavLinkCompatProps extends Omit<
+  React.AnchorHTMLAttributes<HTMLAnchorElement>,
+  "href" | "className"
+> {
+  to: string
+  className?: string
+  activeClassName?: string
+  pendingClassName?: string // Not used in Next.js; kept for API compatibility
 }
 
 const NavLink = forwardRef<HTMLAnchorElement, NavLinkCompatProps>(
-  (
-    { className, activeClassName, pendingClassName: _pending, to, ...props },
-    ref
-  ) => {
-    const pathname = usePathname();
-    const isActive = pathname === to;
+  ({ className, activeClassName, pendingClassName: _pending, to, ...props }, ref) => {
+    const pathname = usePathname()
+    const isActive = pathname === to
     // Keep compatibility props without passing unknown DOM attributes
-    void _pending;
-    void ref;
-    return (
-      <Link
-        href={to}
-        className={cn(className, isActive && activeClassName)}
-        {...props}
-      />
-    );
+    void _pending
+    void ref
+    return <Link href={to} className={cn(className, isActive && activeClassName)} {...props} />
   }
-);
+)
 
-NavLink.displayName = 'NavLink';
+NavLink.displayName = "NavLink"
 
-export { NavLink };
+export { NavLink }

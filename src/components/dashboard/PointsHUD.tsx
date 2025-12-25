@@ -1,15 +1,14 @@
-
-import { Badge } from "@/components/ui/badge";
-import { Check } from "lucide-react";
+import { Badge } from "@/components/ui/badge"
+import { Check } from "lucide-react"
 
 interface PointsHUDProps {
-  season: string;
-  points: number;
-  rank: number;
-  referrals: number;
-  volume: number;
-  hasGenesisSBT: boolean;
-  hasFastRPC: boolean;
+  season: string
+  points: number
+  rank: number
+  referrals: number
+  volume: number
+  hasGenesisSBT: boolean
+  hasFastRPC: boolean
 }
 
 export const PointsHUD = ({
@@ -27,12 +26,12 @@ export const PointsHUD = ({
     { label: "Rank", value: `#${rank.toLocaleString()}`, mono: true },
     { label: "Successful Referrals", value: referrals.toLocaleString(), mono: true },
     { label: "Fast RPC Volume", value: `$${volume.toLocaleString()}`, mono: true },
-  ];
+  ]
 
   const statusItems = [
     { label: "Genesis SBT", completed: hasGenesisSBT },
     { label: "Fast RPC", completed: hasFastRPC },
-  ];
+  ]
 
   return (
     <div className="bg-card/50 border border-border/50 rounded-xl p-4 mb-8">
@@ -40,9 +39,7 @@ export const PointsHUD = ({
         {statItems.map((item) => (
           <div key={item.label} className="space-y-1">
             <p className="text-xs text-muted-foreground">{item.label}</p>
-            <p className={`text-lg font-semibold ${item.mono ? "font-mono" : ""}`}>
-              {item.value}
-            </p>
+            <p className={`text-lg font-semibold ${item.mono ? "font-mono" : ""}`}>{item.value}</p>
           </div>
         ))}
       </div>
@@ -59,5 +56,5 @@ export const PointsHUD = ({
         ))}
       </div>
     </div>
-  );
-};
+  )
+}

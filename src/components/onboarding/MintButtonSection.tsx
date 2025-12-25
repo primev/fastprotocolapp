@@ -1,16 +1,16 @@
-'use client';
+"use client"
 
-import { Button } from '@/components/ui/button';
-import { Check, Loader2, Zap } from 'lucide-react';
-import { NFT_ASSET, NFT_NAME } from '@/lib/contract-config';
-import { Card } from '../ui/card';
+import { Button } from "@/components/ui/button"
+import { Check, Loader2, Zap } from "lucide-react"
+import { NFT_ASSET, NFT_NAME } from "@/lib/contract-config"
+import { Card } from "../ui/card"
 
 interface MintButtonSectionProps {
-  allStepsCompleted: boolean;
-  isMinting: boolean;
-  alreadyMinted: boolean;
-  existingTokenId?: string;
-  onMint: () => void;
+  allStepsCompleted: boolean
+  isMinting: boolean
+  alreadyMinted: boolean
+  existingTokenId?: string
+  onMint: () => void
 }
 
 export const MintButtonSection = ({
@@ -19,54 +19,50 @@ export const MintButtonSection = ({
   alreadyMinted,
   onMint,
 }: MintButtonSectionProps) => {
-
   return (
     <Card className="p-6 sm:p-8 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30">
       <div className="flex flex-col items-center space-y-6">
-
-
         {/* NFT Image and Details */}
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 w-full">
           {/* SBT Visual */}
-          <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-xl  overflow-hidden  relative flex-shrink-0" style={{ minHeight: '192px' }}>
+          <div
+            className="w-48 h-48 sm:w-56 sm:h-56 rounded-xl  overflow-hidden  relative flex-shrink-0"
+            style={{ minHeight: "192px" }}
+          >
             <img
               src={NFT_ASSET}
               alt={NFT_NAME}
               className="w-full h-full object-contain"
               onError={(e) => {
-                const target = e.currentTarget;
-                target.style.display = 'none';
-                const placeholder = target.nextElementSibling as HTMLElement;
+                const target = e.currentTarget
+                target.style.display = "none"
+                const placeholder = target.nextElementSibling as HTMLElement
                 if (placeholder) {
-                  placeholder.classList.remove('hidden');
+                  placeholder.classList.remove("hidden")
                 }
               }}
             />
             <div className="w-full h-full flex items-center justify-center hidden absolute inset-0">
               <div className="text-center space-y-2">
                 <Zap className="w-20 h-20 mx-auto text-primary-foreground" />
-                <div className="text-primary-foreground font-bold text-xl">
-                  FAST
-                </div>
-                <div className="text-primary-foreground/80 text-sm">
-                  Genesis
-                </div>
+                <div className="text-primary-foreground font-bold text-xl">FAST</div>
+                <div className="text-primary-foreground/80 text-sm">Genesis</div>
               </div>
             </div>
           </div>
 
           {/* Details and Description */}
           <div className="flex-1 space-y-4 w-full sm:w-auto">
-
-
             <div className="pt-3 border-t border-border/50 flex flex-col justify-between min-h-[200px] sm:h-56">
-            {/* Description */}
+              {/* Description */}
               <div className="flex-shrink-0">
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Mint your Genesis SBT, earn Fast Points, and prove you were early to the execution UX layer that makes Ethereum feel instant.
+                  Mint your Genesis SBT, earn Fast Points, and prove you were early to the execution
+                  UX layer that makes Ethereum feel instant.
                 </p>
                 <p className="text-sm text-muted-foreground leading-relaxed mt-3">
-                  Your Genesis SBT unlocks access to the Fast Points ecosystem. Complete tasks, make transactions, and refer friends to earn Fast Points that carry into mainnet.
+                  Your Genesis SBT unlocks access to the Fast Points ecosystem. Complete tasks, make
+                  transactions, and refer friends to earn Fast Points that carry into mainnet.
                 </p>
               </div>
               {/* Mint Button */}
@@ -83,19 +79,13 @@ export const MintButtonSection = ({
                   ) : (
                     <></>
                   )}
-                  {isMinting
-                    ? 'Claiming...'
-                    : alreadyMinted
-                      ? 'Already Claimed'
-                      : 'Claim Now'}
+                  {isMinting ? "Claiming..." : alreadyMinted ? "Already Claimed" : "Claim Now"}
                 </Button>
-              
               </div>
             </div>
           </div>
         </div>
       </div>
     </Card>
-  );
-};
-
+  )
+}

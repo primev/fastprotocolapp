@@ -1,16 +1,16 @@
-'use client';
+"use client"
 
-import { useAccount } from 'wagmi';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { AlertCircle } from 'lucide-react';
-import { useRPCTest } from '@/hooks/use-rpc-test';
+import { useAccount } from "wagmi"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { AlertCircle } from "lucide-react"
+import { useRPCTest } from "@/hooks/use-rpc-test"
 
 interface RPCConfigurationProps {
-  onSetupClick: () => void;
-  onTestClick: () => void;
-  showTitle?: boolean;
-  additionalContent?: React.ReactNode;
+  onSetupClick: () => void
+  onTestClick: () => void
+  showTitle?: boolean
+  additionalContent?: React.ReactNode
 }
 
 export function RPCConfiguration({
@@ -19,8 +19,8 @@ export function RPCConfiguration({
   showTitle = true,
   additionalContent,
 }: RPCConfigurationProps) {
-  const { chain } = useAccount();
-  const rpcTest = useRPCTest();
+  const { chain } = useAccount()
+  const rpcTest = useRPCTest()
 
   if (chain?.id !== 1) {
     return (
@@ -32,7 +32,7 @@ export function RPCConfiguration({
           </p>
         </div>
       </Card>
-    );
+    )
   }
 
   return (
@@ -69,12 +69,12 @@ export function RPCConfiguration({
             2
           </div>
           <span className="font-semibold text-sm">
-            {rpcTest.isTesting ? 'Testing...' : 'Test Connection'}
+            {rpcTest.isTesting ? "Testing..." : "Test Connection"}
           </span>
           <span className="text-xs text-muted-foreground">Verify RPC setup</span>
         </Button>
       </div>
       {additionalContent}
     </div>
-  );
+  )
 }

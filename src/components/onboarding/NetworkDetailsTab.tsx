@@ -1,39 +1,47 @@
-'use client';
+"use client"
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Check, Copy } from 'lucide-react';
-import { FAST_PROTOCOL_NETWORK } from '@/lib/network-config';
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Check, Copy } from "lucide-react"
+import { FAST_PROTOCOL_NETWORK } from "@/lib/network-config"
 
 interface NetworkDetail {
-  label: string;
-  value: string;
-  field: string;
+  label: string
+  value: string
+  field: string
 }
 
 /**
  * Component to display network details with copy-to-clipboard functionality
  */
 export function NetworkDetailsTab() {
-  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null)
 
   const networkDetails: NetworkDetail[] = [
-    { label: 'Network Name', value: FAST_PROTOCOL_NETWORK.chainName, field: 'name' },
-    { label: 'RPC URL', value: FAST_PROTOCOL_NETWORK.rpcUrls[0], field: 'rpc' },
-    { label: 'Chain ID', value: FAST_PROTOCOL_NETWORK.chainId.toString(), field: 'chainId' },
-    { label: 'Currency Symbol', value: FAST_PROTOCOL_NETWORK.nativeCurrency.symbol, field: 'symbol' },
-    { label: 'Block Explorer', value: FAST_PROTOCOL_NETWORK.blockExplorerUrls[0], field: 'explorer' },
-  ];
+    { label: "Network Name", value: FAST_PROTOCOL_NETWORK.chainName, field: "name" },
+    { label: "RPC URL", value: FAST_PROTOCOL_NETWORK.rpcUrls[0], field: "rpc" },
+    { label: "Chain ID", value: FAST_PROTOCOL_NETWORK.chainId.toString(), field: "chainId" },
+    {
+      label: "Currency Symbol",
+      value: FAST_PROTOCOL_NETWORK.nativeCurrency.symbol,
+      field: "symbol",
+    },
+    {
+      label: "Block Explorer",
+      value: FAST_PROTOCOL_NETWORK.blockExplorerUrls[0],
+      field: "explorer",
+    },
+  ]
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
-      await navigator.clipboard.writeText(text);
-      setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 2000);
+      await navigator.clipboard.writeText(text)
+      setCopiedField(field)
+      setTimeout(() => setCopiedField(null), 2000)
     } catch (err) {
-      console.error('Failed to copy:', err);
+      console.error("Failed to copy:", err)
     }
-  };
+  }
 
   return (
     <div className="space-y-2">
@@ -62,5 +70,5 @@ export function NetworkDetailsTab() {
         </div>
       ))}
     </div>
-  );
+  )
 }

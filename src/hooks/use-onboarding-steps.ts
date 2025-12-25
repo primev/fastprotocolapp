@@ -1,31 +1,31 @@
-import { useState, useEffect, useRef } from 'react';
-import { 
-  ONBOARDING_STORAGE_KEY, 
+import { useState, useEffect, useRef } from "react"
+import {
+  ONBOARDING_STORAGE_KEY,
   SOCIAL_STEP_IDS,
   getOnboardingStepsFromStorage,
   saveOnboardingStepsToStorage,
-} from '@/lib/onboarding-utils';
+} from "@/lib/onboarding-utils"
 
 export type Step = {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  completed: boolean;
-};
+  id: string
+  title: string
+  description: string
+  icon: React.ComponentType<{ className?: string }>
+  completed: boolean
+}
 
-export type BaseStep = Omit<Step, 'completed'>;
+export type BaseStep = Omit<Step, "completed">
 
 export interface UseOnboardingStepsProps {
-  baseSteps: BaseStep[];
-  isConnected: boolean;
+  baseSteps: BaseStep[]
+  isConnected: boolean
 }
 
 export interface UseOnboardingStepsReturn {
-  steps: Step[];
-  updateStepStatus: (stepId: string, completed: boolean) => void;
-  allStepsCompleted: boolean;
-  hasInitialized: boolean;
+  steps: Step[]
+  updateStepStatus: (stepId: string, completed: boolean) => void
+  allStepsCompleted: boolean
+  hasInitialized: boolean
 }
 
 /**
@@ -36,111 +36,112 @@ export function useOnboardingSteps({
   isConnected,
 }: UseOnboardingStepsProps): UseOnboardingStepsReturn {
   const [steps, setSteps] = useState<Step[]>(() =>
-    baseSteps.map(step => ({ ...step, completed: false }))
-  );
-  const hasInitialized = useRef(false);
+    baseSteps.map((step) => ({ ...step, completed: false }))
+  )
+  const hasInitialized = useRef(false)
 
   /**
    * Load steps from localStorage and merge with current state
    */
   const loadStepsFromStorage = () => {
-    const saved = getOnboardingStepsFromStorage();
+    const saved = getOnboardingStepsFromStorage()
     setSteps((prevSteps) => {
-      return baseSteps.map(step => {
+      return baseSteps.map((step) => {
         // For social steps, load from localStorage
-        if (SOCIAL_STEP_IDS.includes(step.id as typeof SOCIAL_STEP_IDS[number])) {
-          return { ...step, completed: saved[step.id] === true };
+        if (SOCIAL_STEP_IDS.includes(step.id as (typeof SOCIAL_STEP_IDS)[number])) {
+          return { ...step, completed: saved[step.id] === true }
         }
         // For wallet step, preserve current state if connected, otherwise use saved or false
-        if (step.id === 'wallet') {
-          return { ...step, completed: isConnected || (saved[step.id] === true) };
+        if (step.id === "wallet") {
+          return { ...step, completed: isConnected || saved[step.id] === true }
         }
         // For RPC step, preserve current state
-        if (step.id === 'rpc') {
-          const currentRpcStep = prevSteps.find(s => s.id === 'rpc');
-          return { ...step, completed: currentRpcStep?.completed || false };
+        if (step.id === "rpc") {
+          const currentRpcStep = prevSteps.find((s) => s.id === "rpc")
+          return { ...step, completed: currentRpcStep?.completed || false }
         }
-        return { ...step, completed: false };
-      });
-    });
-  };
+        return { ...step, completed: false }
+      })
+    })
+  }
 
   /**
    * Update step status and persist social steps to localStorage
    */
   const updateStepStatus = (stepId: string, completed: boolean) => {
     setSteps((prev) => {
-      const updated = prev.map((step) =>
-        step.id === stepId ? { ...step, completed } : step
-      );
+      const updated = prev.map((step) => (step.id === stepId ? { ...step, completed } : step))
 
       // Save social steps to localStorage
-      if (SOCIAL_STEP_IDS.includes(stepId as typeof SOCIAL_STEP_IDS[number])) {
-        const saved = updated.reduce((acc, step) => {
-          if (SOCIAL_STEP_IDS.includes(step.id as typeof SOCIAL_STEP_IDS[number])) {
-            acc[step.id] = step.completed;
-          }
-          return acc;
-        }, {} as Record<string, boolean>);
-        saveOnboardingStepsToStorage(saved);
+      if (SOCIAL_STEP_IDS.includes(stepId as (typeof SOCIAL_STEP_IDS)[number])) {
+        const saved = updated.reduce(
+          (acc, step) => {
+            if (SOCIAL_STEP_IDS.includes(step.id as (typeof SOCIAL_STEP_IDS)[number])) {
+              acc[step.id] = step.completed
+            }
+            return acc
+          },
+          {} as Record<string, boolean>
+        )
+        saveOnboardingStepsToStorage(saved)
       }
 
-      return updated;
-    });
-  };
+      return updated
+    })
+  }
 
   // Initialize: load steps from localStorage on mount
   useEffect(() => {
-    loadStepsFromStorage();
-    hasInitialized.current = true;
-  }, []);
+    loadStepsFromStorage()
+    hasInitialized.current = true
+  }, [])
 
   // Listen for wallet disconnection and reload steps
   useEffect(() => {
-    if (!hasInitialized.current) return;
+    if (!hasInitialized.current) return
     if (!isConnected) {
-      loadStepsFromStorage();
+      loadStepsFromStorage()
     }
-  }, [isConnected]);
+  }, [isConnected])
 
   // Listen for localStorage changes (when cleared externally)
   useEffect(() => {
-    if (!hasInitialized.current) return;
+    if (!hasInitialized.current) return
 
     const handleStorageChange = (e: StorageEvent) => {
-      if ((e.key === ONBOARDING_STORAGE_KEY || e.key === 'completedTasks') && !isConnected) {
+      if ((e.key === ONBOARDING_STORAGE_KEY || e.key === "completedTasks") && !isConnected) {
         if (e.newValue === null || e.key === ONBOARDING_STORAGE_KEY) {
-          loadStepsFromStorage();
+          loadStepsFromStorage()
         }
       }
-    };
+    }
 
     const handleFocus = () => {
       if (!isConnected) {
         // Check if storage exists by trying to read it
-        const saved = getOnboardingStepsFromStorage();
+        const saved = getOnboardingStepsFromStorage()
         // If storage is empty, reload steps
         if (Object.keys(saved).length === 0) {
-          loadStepsFromStorage();
+          loadStepsFromStorage()
         }
       }
-    };
+    }
 
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('focus', handleFocus);
+    window.addEventListener("storage", handleStorageChange)
+    window.addEventListener("focus", handleFocus)
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [isConnected]);
+      window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [isConnected])
 
-  const allStepsCompleted = steps.every((step) => step.completed);
+  const allStepsCompleted = steps.every((step) => step.completed)
 
   return {
     steps,
     updateStepStatus,
     allStepsCompleted,
     hasInitialized: hasInitialized.current,
-  };
+  }
 }

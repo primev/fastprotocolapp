@@ -1,31 +1,23 @@
-'use client';
+"use client"
 
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle } from 'lucide-react';
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AlertTriangle } from "lucide-react"
 
 interface WalletWarningModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onAcknowledge: () => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onAcknowledge: () => void
 }
 
-export const WalletWarningModal = ({
-  open,
-  onAcknowledge,
-}: WalletWarningModalProps) => {
+export const WalletWarningModal = ({ open, onAcknowledge }: WalletWarningModalProps) => {
   return (
     <Dialog
       open={open}
       onOpenChange={(open) => {
         // Prevent closing - user must click "I Understand"
-        if (!open) return;
+        if (!open) return
       }}
     >
       <DialogContent
@@ -72,7 +64,9 @@ export const WalletWarningModal = ({
                   <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside ml-2">
                     <li>Click the puzzle icon in your browser toolbar</li>
                     <li>Find the wallet extensions you want to temporarily disable</li>
-                    <li>Toggle them off or click &quot;Remove&quot; (you can add them back later)</li>
+                    <li>
+                      Toggle them off or click &quot;Remove&quot; (you can add them back later)
+                    </li>
                     <li>Return here and proceed with connecting your wallet</li>
                   </ol>
                 </div>
@@ -87,6 +81,5 @@ export const WalletWarningModal = ({
         </div>
       </DialogContent>
     </Dialog>
-  );
-};
-
+  )
+}
