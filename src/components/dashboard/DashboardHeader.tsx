@@ -17,6 +17,7 @@ import { Award, Wallet, Settings } from "lucide-react"
 import { ConnectButton, useAccountModal, useConnectModal } from "@rainbow-me/rainbowkit"
 import { toast } from "sonner"
 import { SocialIcon } from "react-social-icons"
+import { DISCORD_INVITE_URL } from "@/lib/constants"
 
 interface DashboardHeaderProps {
   points: number
@@ -138,7 +139,7 @@ export const DashboardHeader = ({
             {isConnected && (
               <>
                 <div
-                  onClick={() => window.open("https://discord.gg", "_blank")}
+                  onClick={() => window.open(DISCORD_INVITE_URL, "_blank")}
                   className="cursor-pointer hover:opacity-80 transition-opacity"
                   aria-label="Discord"
                 >
