@@ -107,7 +107,7 @@ export const ClaimPageClient = ({ initialTotalSupply }: ClaimPageClientProps) =>
             </div>
 
             {/* Stats */}
-            <div className="pt-16 grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="pt-16 grid grid-cols-2 md:grid-cols-3 gap-8">
               <div className="space-y-2">
                 <p className="text-3xl font-bold font-mono text-primary">
                   {initialTotalSupply !== null
@@ -116,10 +116,10 @@ export const ClaimPageClient = ({ initialTotalSupply }: ClaimPageClientProps) =>
                 </p>
                 <p className="text-sm text-muted-foreground">Genesis SBTs Minted</p>
               </div>
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <p className="text-3xl font-bold font-mono text-primary">2.4M</p>
                 <p className="text-sm text-muted-foreground">Total Points Earned</p>
-              </div>
+              </div> */}
               <div className="space-y-2">
                 <p className="text-3xl font-bold font-mono text-primary">45.2K</p>
                 <p className="text-sm text-muted-foreground">Transactions</p>
