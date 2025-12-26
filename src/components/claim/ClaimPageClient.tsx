@@ -8,9 +8,13 @@ import { useRouter } from "next/navigation"
 
 interface ClaimPageClientProps {
   initialTotalSupply: string | null
+  initialTransactions: string | null
 }
 
-export const ClaimPageClient = ({ initialTotalSupply }: ClaimPageClientProps) => {
+export const ClaimPageClient = ({
+  initialTotalSupply,
+  initialTransactions,
+}: ClaimPageClientProps) => {
   const router = useRouter()
 
   return (
@@ -121,7 +125,11 @@ export const ClaimPageClient = ({ initialTotalSupply }: ClaimPageClientProps) =>
                 <p className="text-sm text-muted-foreground">Total Points Earned</p>
               </div> */}
               <div className="space-y-2">
-                <p className="text-3xl font-bold font-mono text-primary">45.2K</p>
+                <p className="text-3xl font-bold font-mono text-primary">
+                  {initialTransactions !== null
+                    ? Number(initialTransactions).toLocaleString()
+                    : "0"}
+                </p>
                 <p className="text-sm text-muted-foreground">Transactions</p>
               </div>
               <div className="space-y-2">
