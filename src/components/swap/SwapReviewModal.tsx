@@ -48,7 +48,12 @@ const USDC_ICON = (
   </svg>
 )
 
-type TokenType = "ETH" | "FAST" | "USDC"
+const DEFAULT_ICON = (
+  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
+    <circle cx="16" cy="16" r="16" fill="#6B7280" />
+    <text x="16" y="20" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">?</text>
+  </svg>
+)
 
 interface Token {
   symbol: string
@@ -56,17 +61,21 @@ interface Token {
   icon: React.ReactNode
 }
 
-const TOKENS: Record<TokenType, Token> = {
+const TOKENS: Record<string, Token> = {
   ETH: { symbol: "ETH", name: "Ethereum", icon: ETH_ICON },
   FAST: { symbol: "FAST", name: "Fast Token", icon: FAST_ICON },
   USDC: { symbol: "USDC", name: "USD Coin", icon: USDC_ICON },
 }
 
+function getTokenData(token: string): Token {
+  return TOKENS[token] || { symbol: token, name: "Custom Token", icon: DEFAULT_ICON }
+}
+
 interface SwapReviewModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  fromToken: TokenType
-  toToken: TokenType
+  fromToken: string
+  toToken: string
   fromAmount: string
   toAmount: string
   fromUsdValue: string
@@ -121,8 +130,8 @@ export function SwapReviewModal({
 }: SwapReviewModalProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const fromTokenData = TOKENS[fromToken]
-  const toTokenData = TOKENS[toToken]
+  const fromTokenData = getTokenData(fromToken)
+  const toTokenData = getTokenData(toToken)
 
   // Mock values - in production these would come from actual calculations
   const fee = "Free"
