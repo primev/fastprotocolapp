@@ -527,175 +527,178 @@ export function SwapForm() {
         </p>
       </div>
 
-      {/* Swap Card */}
-      <div className="relative z-10 w-full max-w-[520px] px-4 sm:px-0">
-        <div className="rounded-[24px] bg-[#0d1117] border border-white/5 shadow-2xl p-6">
-          {/* Card Header */}
-          <div className="flex items-center justify-between mb-6">
-            <span className="text-xl font-semibold text-white">Swap</span>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button className="p-2 rounded-lg hover:bg-white/5 transition-colors">
-                    <Settings className="h-5 w-5 text-gray-400" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Slippage: {slippage}%</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+      {/* Swap Interface - No outer card wrapper */}
+      <div className="relative z-10 w-full max-w-[480px] px-4 sm:px-0">
+        {/* Header - Above both cards */}
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xl font-semibold text-white">Swap</span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="p-2 rounded-lg hover:bg-white/5 transition-colors">
+                  <Settings className="h-5 w-5 text-gray-400" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Slippage: {slippage}%</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
 
-          {/* Swap Body */}
-          <div className="space-y-3">
-            {/* Sell Section */}
-            <div className="rounded-2xl bg-[#161b22] p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-gray-500">Sell</span>
-                {sellToken && allTokens[sellToken] && (
-                  <span className="text-xs text-gray-500">
-                    Balance: {allTokens[sellToken].balance}
-                  </span>
+        {/* Stacked Sell/Buy cards */}
+        <div className="relative flex flex-col">
+          {/* Sell Card */}
+          <div className="rounded-[16px] bg-[#161b22] border border-white/5 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-500 font-medium">Sell</span>
+              {sellToken && allTokens[sellToken] && (
+                <span className="text-xs text-gray-500">
+                  Balance: {allTokens[sellToken].balance}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <Input
+                  ref={sellInputRef}
+                  type="number"
+                  value={sellAmount}
+                  onChange={(e) => setSellAmount(e.target.value)}
+                  placeholder="0"
+                  className="border-0 bg-transparent p-0 text-[26px] font-medium text-white h-auto focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+                {sellAmount && sellToken && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    ≈ ${sellToken === "ETH" ? (parseFloat(sellAmount) * 2300).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (parseFloat(sellAmount) * 0.01).toFixed(2)}
+                  </div>
                 )}
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <Input
-                    ref={sellInputRef}
-                    type="number"
-                    value={sellAmount}
-                    onChange={(e) => setSellAmount(e.target.value)}
-                    placeholder="0"
-                    className="border-0 bg-transparent p-0 text-[26px] font-medium text-white h-auto focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  />
-                  {sellAmount && sellToken && (
-                    <div className="mt-2 text-xs text-gray-500">
-                      ≈ ${sellToken === "ETH" ? (parseFloat(sellAmount) * 2300).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (parseFloat(sellAmount) * 0.01).toFixed(2)}
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => setShowSellTokenSelector(true)}
-                  className="flex items-center gap-2 bg-primary hover:bg-primary/90 rounded-[10px] px-3 py-2 font-semibold text-sm text-white transition-colors shrink-0"
-                >
-                  {sellToken && allTokens[sellToken] ? (
-                    <>
-                      <div className="h-5 w-5">{allTokens[sellToken].icon}</div>
-                      {allTokens[sellToken].symbol}
-                    </>
-                  ) : (
-                    "Select"
-                  )}
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Swap Arrow Button */}
-            <div className="flex justify-center -my-5 relative z-10">
               <button
-                onClick={handleSwapTokens}
-                className="h-11 w-11 rounded-full bg-[#0d1117] border-4 border-[#161b22] flex items-center justify-center hover:bg-[#1c2128] transition-all active:scale-90 group"
+                onClick={() => setShowSellTokenSelector(true)}
+                className={cn(
+                  "flex items-center gap-2 rounded-[10px] px-3 py-2 font-semibold text-sm transition-colors shrink-0",
+                  sellToken && allTokens[sellToken]
+                    ? "bg-white/10 hover:bg-white/15 text-white"
+                    : "bg-primary hover:bg-primary/90 text-white"
+                )}
               >
-                <ArrowDown className="h-5 w-5 text-gray-400 group-hover:text-primary transition-colors group-hover:rotate-180 duration-300" />
+                {sellToken && allTokens[sellToken] ? (
+                  <>
+                    <div className="h-5 w-5">{allTokens[sellToken].icon}</div>
+                    {allTokens[sellToken].symbol}
+                  </>
+                ) : (
+                  "Select token"
+                )}
+                <ChevronDown className="h-4 w-4" />
               </button>
             </div>
+          </div>
 
-            {/* Buy Section */}
-            <div className="rounded-2xl bg-[#161b22] p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-gray-500">Buy</span>
-                {buyToken && allTokens[buyToken] && (
-                  <span className="text-xs text-gray-500">
-                    Balance: {allTokens[buyToken].balance}
-                  </span>
+          {/* Swap Arrow Button - Between cards */}
+          <div className="flex justify-center -my-2 relative z-20">
+            <button
+              onClick={handleSwapTokens}
+              className="h-10 w-10 rounded-full bg-[#0d1117] border-4 border-[#161b22] flex items-center justify-center hover:bg-[#1c2128] transition-all active:scale-90 group shadow-lg"
+            >
+              <ArrowDown className="h-4 w-4 text-gray-400 group-hover:text-primary transition-colors group-hover:rotate-180 duration-300" />
+            </button>
+          </div>
+
+          {/* Buy Card */}
+          <div className="rounded-[16px] bg-[#161b22] border border-white/5 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-500 font-medium">Buy</span>
+              {buyToken && allTokens[buyToken] && (
+                <span className="text-xs text-gray-500">
+                  Balance: {allTokens[buyToken].balance}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <Input
+                  type="text"
+                  value={buyAmount}
+                  readOnly
+                  placeholder="0"
+                  className="border-0 bg-transparent p-0 text-[26px] font-medium text-gray-400 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                {buyAmount && buyToken && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    ≈ ${buyToken === "ETH" ? (parseFloat(buyAmount) * 2300).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (parseFloat(buyAmount) * 0.01).toFixed(2)}
+                  </div>
                 )}
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <Input
-                    type="text"
-                    value={buyAmount}
-                    readOnly
-                    placeholder="0"
-                    className="border-0 bg-transparent p-0 text-[26px] font-medium text-gray-400 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
-                  {buyAmount && buyToken && (
-                    <div className="mt-2 text-xs text-gray-500">
-                      ≈ ${buyToken === "ETH" ? (parseFloat(buyAmount) * 2300).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (parseFloat(buyAmount) * 0.01).toFixed(2)}
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => setShowBuyTokenSelector(true)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-[10px] px-3 py-2 font-semibold text-sm transition-colors shrink-0",
-                    buyToken
-                      ? "bg-primary hover:bg-primary/90 text-white"
-                      : "bg-pink-500 hover:bg-pink-600 text-white"
-                  )}
+              <button
+                onClick={() => setShowBuyTokenSelector(true)}
+                className={cn(
+                  "flex items-center gap-2 rounded-[10px] px-3 py-2 font-semibold text-sm transition-colors shrink-0",
+                  buyToken && allTokens[buyToken]
+                    ? "bg-white/10 hover:bg-white/15 text-white"
+                    : "bg-primary hover:bg-primary/90 text-white"
+                )}
+              >
+                {buyToken && allTokens[buyToken] ? (
+                  <>
+                    <div className="h-5 w-5">{allTokens[buyToken].icon}</div>
+                    {allTokens[buyToken].symbol}
+                  </>
+                ) : (
+                  "Select token"
+                )}
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Exchange Rate Info - Below both cards */}
+        {sellToken && buyToken && (
+          <div className="mt-4 rounded-xl bg-white/5 border border-white/5 px-4 py-3">
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              <span>1 {sellToken} = {exchangeRate.toLocaleString()} {buyToken}</span>
+              <span>Price Impact: {priceImpact}</span>
+            </div>
+          </div>
+        )}
+
+        {/* CTA Button - Full width spanning both cards */}
+        <div className="mt-4">
+          {!isConnected ? (
+            <ConnectButton.Custom>
+              {({ openConnectModal }) => (
+                <Button
+                  onClick={openConnectModal}
+                  className="w-full h-[54px] rounded-2xl font-bold text-lg bg-gradient-to-r from-pink-500 to-primary hover:opacity-90 transition-all active:scale-[0.98]"
                 >
-                  {buyToken && allTokens[buyToken] ? (
-                    <>
-                      <div className="h-5 w-5">{allTokens[buyToken].icon}</div>
-                      {allTokens[buyToken].symbol}
-                    </>
-                  ) : (
-                    "Select token"
-                  )}
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Exchange Rate Info */}
-          {sellToken && buyToken && (
-            <div className="mt-3 rounded-xl bg-white/5 px-4 py-3">
-              <div className="flex items-center justify-between text-xs text-gray-400">
-                <span>1 {sellToken} = {exchangeRate.toLocaleString()} {buyToken}</span>
-                <span>Price Impact: {priceImpact}</span>
-              </div>
-            </div>
+                  Connect Wallet
+                </Button>
+              )}
+            </ConnectButton.Custom>
+          ) : !buyToken ? (
+            <Button
+              disabled
+              className="w-full h-[54px] rounded-2xl font-bold text-lg bg-white/10 text-gray-500 cursor-not-allowed"
+            >
+              Select a token
+            </Button>
+          ) : !sellAmount ? (
+            <Button
+              disabled
+              className="w-full h-[54px] rounded-2xl font-bold text-lg bg-white/10 text-gray-500 cursor-not-allowed"
+            >
+              Enter an amount
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSwapClick}
+              className="w-full h-[54px] rounded-2xl font-bold text-lg bg-gradient-to-r from-pink-500 to-primary hover:opacity-90 transition-all active:scale-[0.98]"
+            >
+              Swap
+            </Button>
           )}
-
-          {/* CTA Button */}
-          <div className="mt-4">
-            {!isConnected ? (
-              <ConnectButton.Custom>
-                {({ openConnectModal }) => (
-                  <Button
-                    onClick={openConnectModal}
-                    className="w-full h-[54px] rounded-2xl font-bold text-lg bg-gradient-to-r from-pink-500 to-primary hover:opacity-90 transition-all active:scale-[0.98]"
-                  >
-                    Connect Wallet
-                  </Button>
-                )}
-              </ConnectButton.Custom>
-            ) : !buyToken ? (
-              <Button
-                disabled
-                className="w-full h-[54px] rounded-2xl font-bold text-lg bg-white/10 text-gray-500 cursor-not-allowed"
-              >
-                Select a token
-              </Button>
-            ) : !sellAmount ? (
-              <Button
-                disabled
-                className="w-full h-[54px] rounded-2xl font-bold text-lg bg-white/10 text-gray-500 cursor-not-allowed"
-              >
-                Enter an amount
-              </Button>
-            ) : (
-              <Button
-                onClick={handleSwapClick}
-                className="w-full h-[54px] rounded-2xl font-bold text-lg bg-gradient-to-r from-pink-500 to-primary hover:opacity-90 transition-all active:scale-[0.98]"
-              >
-                Swap
-              </Button>
-            )}
-          </div>
         </div>
 
         {/* Network Badge */}
