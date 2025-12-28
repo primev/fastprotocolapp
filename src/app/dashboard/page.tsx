@@ -49,6 +49,7 @@ import { BrowserWalletStepsModal } from "@/components/onboarding/BrowserWalletSt
 import { SwapForm } from "@/components/swap/SwapForm"
 
 // Utils
+import { cn } from "@/lib/utils"
 import { isMetaMaskWallet, isRabbyWallet } from "@/lib/onboarding-utils"
 import { NETWORK_CONFIG } from "@/lib/network-config"
 import type { TaskName } from "@/hooks/use-dashboard-tasks"
@@ -285,28 +286,33 @@ const DashboardContent = () => {
         />
       </div>
 
-      {/* Announcement Banner */}
-      <div
-        ref={setAnnouncementRef}
-        className="fixed left-0 right-0 z-40 bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all backdrop-blur-sm"
-        style={{ top: `${headerHeight}px` }}
-      >
-        <div className="container mx-auto px-4 py-1 text-center">
-          <p className="text-primary-foreground text-sm">
-            🎉 You're all set. Make your first Fast swap on these{" "}
-            <a
-              href="#defi-protocols"
-              className="underline underline-offset-4 font-medium hover:text-primary-foreground/80 transition-colors"
-            >
-              top DeFi protocols
-            </a>
-            .
-          </p>
+      {/* Announcement Banner - Hidden on swap tab */}
+      {activeTab !== "swap" && (
+        <div
+          ref={setAnnouncementRef}
+          className="fixed left-0 right-0 z-40 bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all backdrop-blur-sm"
+          style={{ top: `${headerHeight}px` }}
+        >
+          <div className="container mx-auto px-4 py-1 text-center">
+            <p className="text-primary-foreground text-sm">
+              Make your first Fast swap on these{" "}
+              <a
+                href="#defi-protocols"
+                className="underline underline-offset-4 font-medium hover:text-primary-foreground/80 transition-colors"
+              >
+                top DeFi protocols
+              </a>
+              .
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Content Area - Add padding to account for fixed headers */}
-      <div className="container mx-auto px-4 sm:px-0 py-4  pt-56 sm:pt-32">
+      <div className={cn(
+        "container mx-auto py-4",
+        activeTab === "swap" ? "px-0 pt-24 sm:pt-20" : "px-4 sm:px-0 pt-56 sm:pt-32"
+      )}>
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           {/* Genesis SBT Tab */}
           <TabsContent value="genesis">
@@ -401,10 +407,8 @@ const DashboardContent = () => {
           </TabsContent>
 
           {/* Swap Tab */}
-          <TabsContent value="swap">
-            <div className="py-8">
-              <SwapForm />
-            </div>
+          <TabsContent value="swap" className="mt-0">
+            <SwapForm />
           </TabsContent>
         </Tabs>
       </div>

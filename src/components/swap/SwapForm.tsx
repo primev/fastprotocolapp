@@ -1,32 +1,29 @@
 "use client"
 
-import { useState } from "react"
-import { ArrowDownUp, Loader2, Wallet } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { ArrowDown, ChevronDown, Loader2, Settings, Info } from "lucide-react"
 import { useAccount } from "wagmi"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
+// Token Icons
 const ETH_ICON = (
-  <svg
-    className="h-5 w-5 sm:h-5 sm:w-5 fill-current"
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 320 512"
-  >
+  <svg className="h-6 w-6 fill-current" viewBox="0 0 320 512">
     <path d="M311.9 260.8L160 353.6 8 260.8 160 0l151.9 260.8zM160 383.4L8 290.6 160 512l152-221.4-152 92.8z" />
   </svg>
 )
 
 const FAST_ICON = (
-  <svg
-    className="h-5 w-5 sm:h-5 sm:w-5"
-    viewBox="0 0 98 95"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
+  <svg className="h-6 w-6" viewBox="0 0 98 95" fill="none">
     <path
       d="M0.344727 0.226562L36.7147 94.6165H59.9647L26.0747 0.226562H0.344727Z"
       className="fill-primary"
@@ -38,27 +35,82 @@ const FAST_ICON = (
   </svg>
 )
 
-interface TokenSelectorProps {
-  token: "ETH" | "FAST"
+const USDC_ICON = (
+  <svg className="h-6 w-6" viewBox="0 0 32 32" fill="none">
+    <circle cx="16" cy="16" r="16" fill="#2775CA" />
+    <path
+      d="M20.5 18.5c0-2-1.5-2.75-4.5-3.25-2-.5-2.5-1-2.5-2s1-1.75 2.5-1.75c1.5 0 2.25.5 2.5 1.5h2c-.25-1.75-1.5-3-3.5-3.25V8h-2v1.75c-2 .25-3.5 1.5-3.5 3.5 0 2 1.5 2.75 4.5 3.25 2 .5 2.5 1 2.5 2s-1 1.75-2.5 1.75c-1.75 0-2.5-.75-2.75-1.75h-2c.25 2 1.75 3.25 3.75 3.5V24h2v-1.75c2-.25 3.5-1.5 3.5-3.75z"
+      fill="white"
+    />
+  </svg>
+)
+
+type TokenType = "ETH" | "FAST" | "USDC" | null
+
+interface Token {
+  symbol: string
+  name: string
+  icon: React.ReactNode
   balance: string
-  className?: string
 }
 
-function TokenSelector({ token, balance, className }: TokenSelectorProps) {
+const TOKENS: Record<string, Token> = {
+  ETH: { symbol: "ETH", name: "Ethereum", icon: ETH_ICON, balance: "0.00" },
+  FAST: { symbol: "FAST", name: "Fast Token", icon: FAST_ICON, balance: "0.00" },
+  USDC: { symbol: "USDC", name: "USD Coin", icon: USDC_ICON, balance: "0.00" },
+}
+
+interface TokenButtonProps {
+  token: TokenType
+  onClick: () => void
+  showBalance?: boolean
+}
+
+function TokenButton({ token, onClick, showBalance }: TokenButtonProps) {
+  if (!token) {
+    return (
+      <button
+        onClick={onClick}
+        className="flex items-center gap-1.5 rounded-full bg-pink-500 hover:bg-pink-600 px-3 sm:px-4 py-1.5 sm:py-2 text-white font-semibold text-sm sm:text-base transition-colors active:scale-95"
+      >
+        Select token
+        <ChevronDown className="h-4 w-4" />
+      </button>
+    )
+  }
+
+  const tokenData = TOKENS[token]
   return (
-    <div
-      className={cn(
-        "flex items-center justify-between rounded-lg bg-muted/50 p-2.5 sm:p-3",
-        className
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-background">
-          {token === "ETH" ? ETH_ICON : FAST_ICON}
+    <div className="flex flex-col items-end gap-1">
+      <button
+        onClick={onClick}
+        className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-primary/20 hover:bg-primary/30 border border-primary/30 px-2.5 sm:px-3 py-1.5 sm:py-2 font-semibold text-sm sm:text-base transition-colors active:scale-95"
+      >
+        <div className="h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center">
+          {tokenData.icon}
         </div>
-        <span className="font-semibold text-sm sm:text-base">{token}</span>
-      </div>
-      <span className="text-xs sm:text-sm text-muted-foreground">Balance: {balance}</span>
+        {tokenData.symbol}
+        <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+      </button>
+      {showBalance && (
+        <span className="text-[10px] sm:text-xs text-muted-foreground pr-1">
+          Balance: {tokenData.balance}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// Animated Background Orbs
+function AnimatedBackground() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {/* Primary orb */}
+      <div className="absolute top-1/4 -left-20 w-64 h-64 sm:w-96 sm:h-96 rounded-full bg-primary/20 blur-3xl animate-pulse" />
+      {/* Secondary orb */}
+      <div className="absolute bottom-1/4 -right-20 w-64 h-64 sm:w-96 sm:h-96 rounded-full bg-pink-500/15 blur-3xl animate-pulse [animation-delay:1s]" />
+      {/* Accent orb */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 sm:w-72 sm:h-72 rounded-full bg-accent/10 blur-3xl animate-pulse [animation-delay:2s]" />
     </div>
   )
 }
@@ -70,177 +122,249 @@ function truncateAddress(address: string): string {
 
 export function SwapForm() {
   const { address, isConnected } = useAccount()
-  const [fromAmount, setFromAmount] = useState("")
+  const [sellAmount, setSellAmount] = useState("")
+  const [buyAmount, setBuyAmount] = useState("")
   const [isSwapping, setIsSwapping] = useState(false)
-  const [fromToken, setFromToken] = useState<"ETH" | "FAST">("ETH")
-  const toToken = fromToken === "ETH" ? "FAST" : "ETH"
+  const [sellToken, setSellToken] = useState<TokenType>("ETH")
+  const [buyToken, setBuyToken] = useState<TokenType>(null)
+  const [slippage, setSlippage] = useState("0.5")
+  const sellInputRef = useRef<HTMLInputElement>(null)
 
-  // Mock exchange rate
-  const exchangeRate = fromToken === "ETH" ? 1000 : 0.001
-  const toAmount = fromAmount ? (parseFloat(fromAmount) * exchangeRate).toFixed(6) : "0"
+  // Mock exchange rate calculation
+  const exchangeRate = sellToken === "ETH" && buyToken === "FAST" ? 1000 :
+                       sellToken === "FAST" && buyToken === "ETH" ? 0.001 :
+                       sellToken === "ETH" && buyToken === "USDC" ? 2300 :
+                       sellToken === "USDC" && buyToken === "ETH" ? 0.000435 : 1
+
+  // Update buy amount when sell amount changes
+  useEffect(() => {
+    if (sellAmount && sellToken && buyToken) {
+      const calculated = (parseFloat(sellAmount) * exchangeRate).toFixed(6)
+      setBuyAmount(calculated)
+    } else {
+      setBuyAmount("")
+    }
+  }, [sellAmount, sellToken, buyToken, exchangeRate])
 
   const handleSwapTokens = () => {
-    setFromToken(fromToken === "ETH" ? "FAST" : "ETH")
-    setFromAmount("")
+    const tempToken = sellToken
+    const tempAmount = sellAmount
+    setSellToken(buyToken)
+    setBuyToken(tempToken)
+    setSellAmount(buyAmount)
+    setBuyAmount(tempAmount)
   }
 
   const handleSwap = async () => {
-    if (!fromAmount || !isConnected) return
+    if (!sellAmount || !isConnected || !buyToken) return
     setIsSwapping(true)
-    // Simulated swap delay
     await new Promise((resolve) => setTimeout(resolve, 2000))
     setIsSwapping(false)
-    setFromAmount("")
+    setSellAmount("")
+    setBuyAmount("")
   }
 
+  const handleTokenSelect = (type: "sell" | "buy", token: TokenType) => {
+    if (type === "sell") {
+      if (token === buyToken) setBuyToken(sellToken)
+      setSellToken(token)
+    } else {
+      if (token === sellToken) setSellToken(buyToken)
+      setBuyToken(token)
+    }
+  }
+
+  const isSwapReady = sellAmount && sellToken && buyToken && isConnected
+  const priceImpact = sellAmount ? "< 0.01%" : "-"
+
   return (
-    <div className="w-full max-w-md mx-auto px-4 sm:px-0">
-      {/* Gradient Card Container */}
-      <div className="rounded-2xl bg-gradient-to-tr from-primary/20 via-primary/10 to-accent/20 p-[1px] shadow-xl">
-        <div className="rounded-2xl bg-card/95 backdrop-blur-xl">
-          {/* Header Section */}
-          <div className="space-y-3 sm:space-y-4 p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-0">
-              <div className="space-y-1">
-                <h2 className="text-lg sm:text-xl font-semibold">Fast Swap</h2>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Lightning-fast token swaps
-                </p>
-              </div>
+    <div className="relative min-h-[70vh] sm:min-h-[60vh] flex flex-col items-center justify-center px-4">
+      {/* Animated Background */}
+      <AnimatedBackground />
 
-              {isConnected && address ? (
-                <div className="flex items-center sm:flex-col sm:items-end gap-2 sm:gap-2">
-                  <div className="flex items-center gap-2 rounded-full bg-muted/50 px-2.5 sm:px-3 py-1 sm:py-1.5">
-                    <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-                    <span className="text-xs sm:text-sm">{truncateAddress(address)}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-green-500" />
-                    <span className="text-[10px] sm:text-xs text-muted-foreground">Connected</span>
-                  </div>
-                </div>
-              ) : (
-                <ConnectButton.Custom>
-                  {({ openConnectModal }) => (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={openConnectModal}
-                      className="rounded-full text-xs sm:text-sm h-8 sm:h-9 w-full sm:w-auto"
-                    >
-                      Connect Wallet
-                    </Button>
-                  )}
-                </ConnectButton.Custom>
-              )}
-            </div>
-          </div>
-
-          {/* Swap Form Section */}
-          <div className="space-y-3 sm:space-y-4 rounded-b-2xl bg-background/50 p-4 sm:p-6">
-            {/* From Token */}
-            <div className="space-y-2">
-              <label className="text-xs sm:text-sm text-muted-foreground">From</label>
-              <TokenSelector
-                token={fromToken}
-                balance={fromToken === "ETH" ? "0.00" : "0.00"}
-              />
-              <div className="relative">
-                <Input
-                  type="number"
-                  value={fromAmount}
-                  onChange={(e) => setFromAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="h-12 sm:h-14 border-border/50 bg-muted/30 pl-3 sm:pl-4 pr-14 sm:pr-16 text-base sm:text-lg font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1.5 sm:right-2 top-1/2 h-7 sm:h-8 -translate-y-1/2 text-xs text-primary hover:text-primary px-2 sm:px-3"
-                  onClick={() => setFromAmount("0")}
-                >
-                  MAX
-                </Button>
-              </div>
-            </div>
-
-            {/* Swap Direction Button */}
-            <div className="flex justify-center -my-1 sm:my-0">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 sm:h-10 sm:w-10 rounded-full border-primary/30 bg-card hover:bg-primary/10 active:scale-95 transition-transform"
-                onClick={handleSwapTokens}
-              >
-                <ArrowDownUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-              </Button>
-            </div>
-
-            {/* To Token */}
-            <div className="space-y-2">
-              <label className="text-xs sm:text-sm text-muted-foreground">To</label>
-              <TokenSelector
-                token={toToken}
-                balance={toToken === "ETH" ? "0.00" : "0.00"}
-              />
-              <div className="relative">
-                <Input
-                  type="text"
-                  value={toAmount}
-                  readOnly
-                  placeholder="0.00"
-                  className="h-12 sm:h-14 border-border/50 bg-muted/30 pl-3 sm:pl-4 text-base sm:text-lg font-medium text-muted-foreground"
-                />
-              </div>
-            </div>
-
-            {/* Swap Button */}
-            <Button
-              className="w-full h-11 sm:h-12 rounded-xl font-semibold text-sm sm:text-base active:scale-[0.98] transition-transform"
-              disabled={!fromAmount || !isConnected || isSwapping}
-              onClick={handleSwap}
-            >
-              {!isConnected ? (
-                "Connect Wallet"
-              ) : isSwapping ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Swapping...
-                </>
-              ) : (
-                "Swap"
-              )}
-            </Button>
-
-            {/* Details Section */}
-            <div className="space-y-2.5 sm:space-y-3 pt-1 sm:pt-2 text-xs sm:text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Exchange Rate</span>
-                <span className="text-right">
-                  1 {fromToken} = {exchangeRate.toLocaleString()} {toToken}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Network Fee</span>
-                <span className="text-muted-foreground">~$0.00</span>
-              </div>
-              <Separator className="bg-border/50" />
-              <div className="flex justify-between font-medium">
-                <span className="text-muted-foreground">You Receive</span>
-                <span className="text-right">
-                  {toAmount} <span className="text-muted-foreground">{toToken}</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Hero Section */}
+      <div className="relative z-10 text-center mb-6 sm:mb-8 max-w-xl">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4 bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent">
+          Lightning-fast swaps
+        </h1>
+        <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto">
+          Buy and sell crypto on Fast Protocol with the fastest execution and lowest fees.
+        </p>
       </div>
 
-      {/* Coming Soon Notice */}
-      <div className="mt-3 sm:mt-4 rounded-xl border border-primary/30 bg-primary/5 p-3 sm:p-4 text-center">
-        <p className="text-xs sm:text-sm text-muted-foreground">
-          Swap functionality coming soon. Connect your wallet to be ready for launch.
-        </p>
+      {/* Swap Card */}
+      <div className="relative z-10 w-full max-w-[480px]">
+        <div className="rounded-3xl bg-card/80 backdrop-blur-xl border border-border/50 shadow-2xl overflow-hidden">
+          {/* Card Header */}
+          <div className="flex items-center justify-between p-4 sm:p-5 border-b border-border/30">
+            <span className="font-semibold text-base sm:text-lg">Swap</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                    <Settings className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Slippage: {slippage}%</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          {/* Swap Body */}
+          <div className="p-4 sm:p-5 space-y-1">
+            {/* Sell Section */}
+            <div className="rounded-2xl bg-muted/30 border border-border/30 p-3 sm:p-4 transition-all focus-within:border-primary/50 focus-within:bg-muted/40">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs sm:text-sm text-muted-foreground font-medium">Sell</span>
+                {sellToken && (
+                  <span className="text-[10px] sm:text-xs text-muted-foreground">
+                    Balance: {TOKENS[sellToken].balance}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Input
+                  ref={sellInputRef}
+                  type="number"
+                  value={sellAmount}
+                  onChange={(e) => setSellAmount(e.target.value)}
+                  placeholder="0"
+                  className="border-0 bg-transparent p-0 text-2xl sm:text-3xl md:text-4xl font-medium h-auto focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none flex-1 min-w-0"
+                />
+                <TokenButton
+                  token={sellToken}
+                  onClick={() => handleTokenSelect("sell", sellToken === "ETH" ? "FAST" : "ETH")}
+                  showBalance={false}
+                />
+              </div>
+              {sellAmount && sellToken && (
+                <div className="mt-2 text-xs sm:text-sm text-muted-foreground">
+                  ≈ ${sellToken === "ETH" ? (parseFloat(sellAmount) * 2300).toFixed(2) : (parseFloat(sellAmount) * 0.01).toFixed(2)}
+                </div>
+              )}
+            </div>
+
+            {/* Swap Arrow Button */}
+            <div className="flex justify-center -my-3 sm:-my-4 relative z-10">
+              <button
+                onClick={handleSwapTokens}
+                className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-card border-4 border-background flex items-center justify-center hover:bg-muted transition-all active:scale-90 group shadow-lg"
+              >
+                <ArrowDown className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground group-hover:text-primary transition-colors group-hover:rotate-180 duration-300" />
+              </button>
+            </div>
+
+            {/* Buy Section */}
+            <div className="rounded-2xl bg-muted/30 border border-border/30 p-3 sm:p-4 transition-all focus-within:border-primary/50 focus-within:bg-muted/40">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs sm:text-sm text-muted-foreground font-medium">Buy</span>
+                {buyToken && (
+                  <span className="text-[10px] sm:text-xs text-muted-foreground">
+                    Balance: {TOKENS[buyToken].balance}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Input
+                  type="text"
+                  value={buyAmount}
+                  readOnly
+                  placeholder="0"
+                  className="border-0 bg-transparent p-0 text-2xl sm:text-3xl md:text-4xl font-medium h-auto focus-visible:ring-0 focus-visible:ring-offset-0 flex-1 min-w-0 text-muted-foreground"
+                />
+                <TokenButton
+                  token={buyToken}
+                  onClick={() => handleTokenSelect("buy", buyToken === "FAST" ? "USDC" : "FAST")}
+                  showBalance={false}
+                />
+              </div>
+              {buyAmount && buyToken && (
+                <div className="mt-2 text-xs sm:text-sm text-muted-foreground">
+                  ≈ ${buyToken === "ETH" ? (parseFloat(buyAmount) * 2300).toFixed(2) : (parseFloat(buyAmount) * 0.01).toFixed(2)}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* CTA Button */}
+          <div className="p-4 sm:p-5 pt-0">
+            {!isConnected ? (
+              <ConnectButton.Custom>
+                {({ openConnectModal }) => (
+                  <Button
+                    onClick={openConnectModal}
+                    className="w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg bg-primary hover:bg-primary/90 transition-all active:scale-[0.98]"
+                  >
+                    Connect Wallet
+                  </Button>
+                )}
+              </ConnectButton.Custom>
+            ) : !buyToken ? (
+              <Button
+                disabled
+                className="w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg bg-muted text-muted-foreground"
+              >
+                Select a token
+              </Button>
+            ) : !sellAmount ? (
+              <Button
+                disabled
+                className="w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg bg-muted text-muted-foreground"
+              >
+                Enter an amount
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSwap}
+                disabled={isSwapping}
+                className="w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg bg-primary hover:bg-primary/90 transition-all active:scale-[0.98]"
+              >
+                {isSwapping ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Swapping...
+                  </>
+                ) : (
+                  "Swap"
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Exchange Rate Info */}
+        {sellToken && buyToken && (
+          <div className="mt-3 sm:mt-4 px-2">
+            <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <span>1 {sellToken} = {exchangeRate.toLocaleString()} {buyToken}</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="h-3.5 w-3.5" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Exchange rate may vary</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <div className="flex items-center gap-3">
+                <span>Price Impact: {priceImpact}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Network Badge */}
+        <div className="mt-4 sm:mt-6 flex justify-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/30 border border-border/30 text-xs sm:text-sm text-muted-foreground">
+            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            Fast Protocol Network
+          </div>
+        </div>
       </div>
     </div>
   )
