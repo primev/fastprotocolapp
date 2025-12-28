@@ -142,7 +142,13 @@ export const DashboardHeader = ({
                   className="cursor-pointer hover:opacity-80 transition-opacity"
                   aria-label="Discord"
                 >
-                  <SocialIcon network="discord" style={{ height: 35, width: 35 }} />
+                  <SocialIcon
+                    network="discord"
+                    style={{ height: 35, width: 35 }}
+                    bgColor="transparent"
+                    fgColor="currentColor"
+                    className="text-muted-foreground hover:text-foreground border border-border rounded-full"
+                  />
                 </div>
                 <div className="relative">
                   <DropdownMenu>
