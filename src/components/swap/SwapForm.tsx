@@ -513,22 +513,22 @@ export function SwapForm() {
   const priceImpact = sellAmount ? "< 0.01%" : "-"
 
   return (
-    <div className="relative min-h-[70vh] sm:min-h-[60vh] flex flex-col items-center justify-center px-4">
+    <div className="relative py-8 sm:py-12 flex flex-col items-center px-4">
       {/* Animated Background */}
       <AnimatedBackground />
 
       {/* Hero Section */}
-      <div className="relative z-10 text-center mb-4 sm:mb-6 max-w-2xl">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-2 sm:mb-3 bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent leading-tight pb-1">
+      <div className="relative z-10 text-center mb-6 sm:mb-8 max-w-2xl">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4 bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent leading-tight pb-1">
           Lightning-fast swaps
         </h1>
-        <p className="text-sm sm:text-base text-muted-foreground whitespace-nowrap">
+        <p className="text-sm sm:text-base text-muted-foreground">
           Trade crypto on Fast Protocol with fast execution and mev rewards
         </p>
       </div>
 
       {/* Swap Interface - No outer card wrapper */}
-      <div className="relative z-10 w-full max-w-[480px] px-4 sm:px-0">
+      <div className="relative z-10 w-full max-w-[500px] px-4 sm:px-0 mt-2">
         {/* Header - Above both cards */}
         <div className="flex items-center justify-between mb-4">
           <span className="text-xl font-semibold text-white">Swap</span>
@@ -566,7 +566,7 @@ export function SwapForm() {
                   value={sellAmount}
                   onChange={(e) => setSellAmount(e.target.value)}
                   placeholder="0"
-                  className="border-0 bg-transparent p-0 text-[26px] font-medium text-white h-auto focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  className="border-0 bg-transparent p-0 text-[36px] sm:text-[42px] font-bold text-white h-auto focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none tracking-tight drop-shadow-[0_0_12px_rgba(58,147,238,0.3)]"
                 />
                 {sellAmount && sellToken && (
                   <div className="mt-2 text-xs text-gray-500">
@@ -623,7 +623,7 @@ export function SwapForm() {
                   value={buyAmount}
                   readOnly
                   placeholder="0"
-                  className="border-0 bg-transparent p-0 text-[26px] font-medium text-gray-400 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="border-0 bg-transparent p-0 text-[36px] sm:text-[42px] font-bold text-gray-400 h-auto focus-visible:ring-0 focus-visible:ring-offset-0 tracking-tight"
                 />
                 {buyAmount && buyToken && (
                   <div className="mt-2 text-xs text-gray-500">
@@ -702,7 +702,7 @@ export function SwapForm() {
         </div>
 
         {/* Network Badge */}
-        <div className="mt-4 flex justify-center">
+        <div className="mt-6 mb-4 flex justify-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-gray-400">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
             Fast Protocol Network
