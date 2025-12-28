@@ -79,18 +79,17 @@ export const DashboardHeader = ({
                   Genesis SBT
                 </TabsTrigger>
                 <TabsTrigger
+                  value="swap"
+                  className="text-sm rounded-full data-[state=active]:bg-background"
+                >
+                  Swap
+                </TabsTrigger>
+                <TabsTrigger
                   value="points"
                   className="text-sm rounded-full data-[state=active]:bg-background"
                   disabled
                 >
                   Miles
-                </TabsTrigger>
-                <TabsTrigger
-                  value="leaderboard"
-                  className="text-sm rounded-full data-[state=active]:bg-background"
-                  disabled
-                >
-                  Leaderboard
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -221,18 +220,17 @@ export const DashboardHeader = ({
               Genesis SBT
             </TabsTrigger>
             <TabsTrigger
+              value="swap"
+              className="text-sm rounded-full data-[state=active]:bg-background"
+            >
+              Swap
+            </TabsTrigger>
+            <TabsTrigger
               value="points"
               className="text-sm rounded-full data-[state=active]:bg-background"
               disabled
             >
               Miles
-            </TabsTrigger>
-            <TabsTrigger
-              value="leaderboard"
-              className="text-sm rounded-full data-[state=active]:bg-background"
-              disabled
-            >
-              Leaderboard
             </TabsTrigger>
           </TabsList>
         </Tabs>

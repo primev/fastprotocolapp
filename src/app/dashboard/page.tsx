@@ -39,7 +39,6 @@ import { WeeklyTasksSection } from "@/components/dashboard/WeeklyTasksSection"
 import { ReferralsSection } from "@/components/dashboard/ReferralsSection"
 import { PartnerQuestsSection } from "@/components/dashboard/PartnerQuestsSection"
 import { OneTimeTasksSection } from "@/components/dashboard/OneTimeTasksSection"
-import { LeaderboardTable } from "@/components/dashboard/LeaderboardTable"
 import { SBTGatingModal } from "@/components/modals/SBTGatingModal"
 import { TransactionFeedbackModal } from "@/components/modals/TransactionFeedbackModal"
 import { ReferralModal } from "@/components/modals/ReferralModal"
@@ -47,6 +46,7 @@ import { RPCTestModal } from "@/components/network-checker"
 import { MetaMaskToggleModal } from "@/components/onboarding/MetaMaskToggleModal"
 import { AddRpcModal } from "@/components/onboarding/AddRpcModal"
 import { BrowserWalletStepsModal } from "@/components/onboarding/BrowserWalletStepsModal"
+import { SwapForm } from "@/components/swap/SwapForm"
 
 // Utils
 import { isMetaMaskWallet, isRabbyWallet } from "@/lib/onboarding-utils"
@@ -128,9 +128,9 @@ const DashboardContent = () => {
   // Handle tab from URL query parameter
   useEffect(() => {
     const tab = searchParams.get("tab")
-    if (tab && ["genesis", "points", "leaderboard"].includes(tab)) {
-      // Block access to Points and Leaderboard if no Genesis SBT
-      if (!genesisSBT.hasGenesisSBT && (tab === "points" || tab === "leaderboard")) {
+    if (tab && ["genesis", "swap", "points"].includes(tab)) {
+      // Block access to Points if no Genesis SBT
+      if (!genesisSBT.hasGenesisSBT && tab === "points") {
         setActiveTab("genesis")
         return
       }
@@ -139,8 +139,8 @@ const DashboardContent = () => {
   }, [searchParams, genesisSBT.hasGenesisSBT])
 
   const handleTabChange = (value: string) => {
-    // Block access to Points and Leaderboard if no Genesis SBT
-    if (!genesisSBT.hasGenesisSBT && (value === "points" || value === "leaderboard")) {
+    // Block access to Points if no Genesis SBT
+    if (!genesisSBT.hasGenesisSBT && value === "points") {
       setShowSBTGatingModal(true)
       return
     }
@@ -400,9 +400,11 @@ const DashboardContent = () => {
             </div>
           </TabsContent>
 
-          {/* Leaderboard Tab */}
-          <TabsContent value="leaderboard">
-            <LeaderboardTable />
+          {/* Swap Tab */}
+          <TabsContent value="swap">
+            <div className="py-8">
+              <SwapForm />
+            </div>
           </TabsContent>
         </Tabs>
       </div>
