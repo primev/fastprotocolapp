@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { SwapReviewModal } from "./SwapReviewModal"
 
 // Token Icons
 const ETH_ICON = (
@@ -128,6 +129,7 @@ export function SwapForm() {
   const [sellToken, setSellToken] = useState<TokenType>("ETH")
   const [buyToken, setBuyToken] = useState<TokenType>(null)
   const [slippage, setSlippage] = useState("0.5")
+  const [showReviewModal, setShowReviewModal] = useState(false)
   const sellInputRef = useRef<HTMLInputElement>(null)
 
   // Mock exchange rate calculation
@@ -155,11 +157,17 @@ export function SwapForm() {
     setBuyAmount(tempAmount)
   }
 
-  const handleSwap = async () => {
+  const handleSwapClick = () => {
+    if (!sellAmount || !isConnected || !buyToken) return
+    setShowReviewModal(true)
+  }
+
+  const handleConfirmSwap = async () => {
     if (!sellAmount || !isConnected || !buyToken) return
     setIsSwapping(true)
     await new Promise((resolve) => setTimeout(resolve, 2000))
     setIsSwapping(false)
+    setShowReviewModal(false)
     setSellAmount("")
     setBuyAmount("")
   }
@@ -317,18 +325,10 @@ export function SwapForm() {
               </Button>
             ) : (
               <Button
-                onClick={handleSwap}
-                disabled={isSwapping}
+                onClick={handleSwapClick}
                 className="w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg bg-primary hover:bg-primary/90 transition-all active:scale-[0.98]"
               >
-                {isSwapping ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Swapping...
-                  </>
-                ) : (
-                  "Swap"
-                )}
+                Swap
               </Button>
             )}
           </div>
@@ -366,6 +366,23 @@ export function SwapForm() {
           </div>
         </div>
       </div>
+
+      {/* Swap Review Modal */}
+      {sellToken && buyToken && (
+        <SwapReviewModal
+          open={showReviewModal}
+          onOpenChange={setShowReviewModal}
+          fromToken={sellToken}
+          toToken={buyToken}
+          fromAmount={sellAmount}
+          toAmount={buyAmount}
+          fromUsdValue={`$${sellToken === "ETH" ? (parseFloat(sellAmount || "0") * 2300).toFixed(2) : (parseFloat(sellAmount || "0") * 0.01).toFixed(2)}`}
+          toUsdValue={`$${buyToken === "ETH" ? (parseFloat(buyAmount || "0") * 2300).toFixed(2) : (parseFloat(buyAmount || "0") * 0.01).toFixed(2)}`}
+          exchangeRate={exchangeRate}
+          onConfirm={handleConfirmSwap}
+          isSwapping={isSwapping}
+        />
+      )}
     </div>
   )
 }
