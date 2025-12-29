@@ -119,9 +119,7 @@ export const ClaimPageClient = ({
             <div className="pt-16 grid grid-cols-2 md:grid-cols-3 gap-8">
               <div className="space-y-2">
                 <p className="text-3xl font-bold font-mono text-primary">
-                  {initialTotalSupply !== null
-                    ? Number(initialTotalSupply).toLocaleString()
-                    : "0"}
+                  {initialTotalSupply !== null ? Number(initialTotalSupply).toLocaleString() : "0"}
                 </p>
                 <p className="text-sm text-muted-foreground">Genesis SBTs Minted</p>
               </div>
@@ -144,9 +142,7 @@ export const ClaimPageClient = ({
                         const volume = Number(initialVolume)
                         // Use ETH price if available, otherwise fallback to default price
                         const price =
-                          initialEthPrice !== null
-                            ? Number(initialEthPrice)
-                            : DEFAULT_ETH_PRICE_USD
+                          initialEthPrice !== null ? Number(initialEthPrice) : DEFAULT_ETH_PRICE_USD
                         const totalUsd = volume * price
                         return `$${totalUsd.toLocaleString(undefined, {
                           maximumFractionDigits: 1,
@@ -158,7 +154,7 @@ export const ClaimPageClient = ({
                 </p>
                 <p className="text-sm text-muted-foreground">Total Volume</p>
               </div>
-          </div>
+            </div>
           </div>
         </main>
 
@@ -180,4 +176,3 @@ export const ClaimPageClient = ({
     </div>
   )
 }
-

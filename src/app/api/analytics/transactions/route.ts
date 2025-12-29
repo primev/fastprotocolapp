@@ -6,10 +6,7 @@ export async function GET() {
     const authToken = env.ANALYTICS_DB_AUTH_TOKEN
 
     if (!authToken) {
-      return NextResponse.json(
-        { error: "Analytics DB auth token not configured" },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: "Analytics DB auth token not configured" }, { status: 500 })
     }
 
     const sqlQuery = `WITH base AS (
@@ -82,7 +79,7 @@ export async function GET() {
 
     // Get the raw response text - it's NDJSON (newline-delimited JSON)
     const responseText = await response.text()
-    
+
     // Parse NDJSON format - each line is a separate JSON object
     const lines = responseText.trim().split("\n")
     const dataRows: any[] = []
@@ -90,10 +87,10 @@ export async function GET() {
     // Parse each line as JSON
     for (const line of lines) {
       if (!line.trim()) continue
-      
+
       try {
         const parsed = JSON.parse(line)
-        
+
         // Look for data rows (format: {"data":["2025-12-26",3043,1645,28058,8455,28058,8455]})
         if (parsed.data && Array.isArray(parsed.data)) {
           dataRows.push(parsed.data)
@@ -106,14 +103,14 @@ export async function GET() {
 
     if (dataRows.length > 0) {
       // Get the first row (most recent day)
-      // Format: [day_utc, successful_txs, unique_senders, cumulative_successful_txs, 
+      // Format: [day_utc, successful_txs, unique_senders, cumulative_successful_txs,
       //          cumulative_unique_senders, cumulative_successful_txs_chart, cumulative_unique_senders_chart]
       const latestRow = dataRows[0]
-      
+
       // Extract cumulative_successful_txs from index 3
       // Index 3 is cumulative_successful_txs (always has a value)
       // Index 5 is cumulative_successful_txs_chart (only if date >= 2025-11-20)
-      const cumulativeTxs = 
+      const cumulativeTxs =
         latestRow[3] !== null && latestRow[3] !== undefined
           ? Number(latestRow[3])
           : latestRow[5] !== null && latestRow[5] !== undefined
@@ -128,16 +125,9 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json(
-      { error: "No data returned from analytics API" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "No data returned from analytics API" }, { status: 500 })
   } catch (error) {
     console.error("Error fetching transaction analytics:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch transaction analytics" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Failed to fetch transaction analytics" }, { status: 500 })
   }
 }
-

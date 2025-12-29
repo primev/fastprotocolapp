@@ -79,9 +79,7 @@ export async function getEthPrice(): Promise<number | null> {
     if (data.data && Array.isArray(data.data) && data.data.length > 0) {
       const ethData = data.data.find((item: any) => item.symbol === "ETH")
       if (ethData && ethData.prices && Array.isArray(ethData.prices) && ethData.prices.length > 0) {
-        const usdPrice = ethData.prices.find(
-          (price: any) => price.currency === "usd"
-        )
+        const usdPrice = ethData.prices.find((price: any) => price.currency === "usd")
         if (usdPrice && usdPrice.value) {
           return Number(usdPrice.value)
         }
@@ -124,4 +122,3 @@ export async function getCumulativeVolume(): Promise<number | null> {
     return null
   }
 }
-

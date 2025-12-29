@@ -58,4 +58,3 @@ export async function getTotalSupply(): Promise<bigint | null> {
     return null
   }
 }
-
