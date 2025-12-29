@@ -94,31 +94,31 @@ export async function getEthPrice(): Promise<number | null> {
 }
 
 /**
- * Server-side function to fetch cumulative total transaction volume from analytics API
+ * Server-side function to fetch cumulative swap volume from analytics API
  * Calls the internal API route which handles the external API call
  */
-export async function getCumulativeVolume(): Promise<number | null> {
+export async function getCumulativeSwapVolume(): Promise<number | null> {
   try {
     // Call the internal API route
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-    const response = await fetch(`${baseUrl}/api/analytics/volume`, {
+    const response = await fetch(`${baseUrl}/api/analytics/volume/swap`, {
       cache: "no-store",
     })
 
     if (!response.ok) {
-      console.error("Failed to fetch volume:", response.statusText)
+      console.error("Failed to fetch swap volume:", response.statusText)
       return null
     }
 
     const data = await response.json()
 
-    if (data.success && data.cumulativeTotalTxVolEth !== null) {
-      return Number(data.cumulativeTotalTxVolEth)
+    if (data.success && data.cumulativeSwapVolEth !== null) {
+      return Number(data.cumulativeSwapVolEth)
     }
 
     return null
   } catch (error) {
-    console.error("Error fetching cumulative volume:", error)
+    console.error("Error fetching cumulative swap volume:", error)
     return null
   }
 }

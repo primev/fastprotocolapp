@@ -10,14 +10,14 @@ import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
 interface ClaimPageClientProps {
   initialTotalSupply: string | null
   initialTransactions: string | null
-  initialVolume: string | null
+  initialSwapVolume: string | null
   initialEthPrice: string | null
 }
 
 export const ClaimPageClient = ({
   initialTotalSupply,
   initialTransactions,
-  initialVolume,
+  initialSwapVolume,
   initialEthPrice,
 }: ClaimPageClientProps) => {
   const router = useRouter()
@@ -137,13 +137,13 @@ export const ClaimPageClient = ({
               </div>
               <div className="space-y-2">
                 <p className="text-3xl font-bold font-mono text-primary">
-                  {initialVolume !== null
+                  {initialSwapVolume !== null
                     ? (() => {
-                        const volume = Number(initialVolume)
+                        const swapVolume = Number(initialSwapVolume)
                         // Use ETH price if available, otherwise fallback to default price
                         const price =
                           initialEthPrice !== null ? Number(initialEthPrice) : DEFAULT_ETH_PRICE_USD
-                        const totalUsd = volume * price
+                        const totalUsd = swapVolume * price
                         return `$${totalUsd.toLocaleString(undefined, {
                           maximumFractionDigits: 1,
                           notation: "compact",

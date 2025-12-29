@@ -88,14 +88,14 @@ export async function GET() {
       // Format: [day, cumulative_total_tx_vol_eth, cumulative_total_swap_vol_eth]
       const latestRow = dataRows[0]
 
-      // Extract cumulative_total_tx_vol_eth from index 1
-      const cumulativeVolume =
-        latestRow[1] !== null && latestRow[1] !== undefined ? Number(latestRow[1]) : null
+      // Extract cumulative_total_swap_vol_eth from index 2 (swap volume)
+      const cumulativeSwapVolume =
+        latestRow[2] !== null && latestRow[2] !== undefined ? Number(latestRow[2]) : null
 
-      if (cumulativeVolume !== null && !isNaN(cumulativeVolume)) {
+      if (cumulativeSwapVolume !== null && !isNaN(cumulativeSwapVolume)) {
         return NextResponse.json({
           success: true,
-          cumulativeTotalTxVolEth: cumulativeVolume,
+          cumulativeSwapVolEth: cumulativeSwapVolume,
         })
       }
     }
