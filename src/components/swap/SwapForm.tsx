@@ -519,7 +519,7 @@ export function SwapForm() {
 
       {/* Hero Section */}
       <div className="relative z-10 text-center mb-2 sm:mb-5 max-w-3xl">
-        <h1 className="text-[22px] sm:text-5xl md:text-6xl font-bold mb-1 sm:mb-3 bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent leading-[1.3] sm:leading-[1.2]">
+        <h1 className="text-[22px] sm:text-5xl md:text-6xl font-bold pb-2 sm:pb-3 mb-1 sm:mb-2 bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent leading-none">
           Lightning-fast swaps
         </h1>
         <p className="text-xs sm:text-lg text-muted-foreground">
@@ -744,7 +744,7 @@ export function SwapForm() {
         <div className="mt-3 sm:mt-4 flex justify-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 sm:py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs text-gray-400">
             <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-green-500 animate-pulse" />
-            Fast Protocol Network
+            Fast Protocol
           </div>
         </div>
       </div>
