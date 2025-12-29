@@ -73,23 +73,16 @@ export const DashboardHeader = ({
             <Tabs value={activeTab} onValueChange={onTabChange} className="w-auto">
               <TabsList className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
                 <TabsTrigger
-                  value="genesis"
-                  className="text-sm rounded-full data-[state=active]:bg-background"
-                >
-                  Genesis SBT
-                </TabsTrigger>
-                <TabsTrigger
                   value="swap"
                   className="text-sm rounded-full data-[state=active]:bg-background"
                 >
                   Swap
                 </TabsTrigger>
                 <TabsTrigger
-                  value="points"
+                  value="genesis"
                   className="text-sm rounded-full data-[state=active]:bg-background"
-                  disabled
                 >
-                  Miles
+                  My Miles
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -220,23 +213,16 @@ export const DashboardHeader = ({
         <Tabs value={activeTab} onValueChange={onTabChange} className="w-auto">
           <TabsList className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
             <TabsTrigger
-              value="genesis"
-              className="text-sm rounded-full data-[state=active]:bg-background"
-            >
-              Genesis SBT
-            </TabsTrigger>
-            <TabsTrigger
               value="swap"
               className="text-sm rounded-full data-[state=active]:bg-background"
             >
               Swap
             </TabsTrigger>
             <TabsTrigger
-              value="points"
+              value="genesis"
               className="text-sm rounded-full data-[state=active]:bg-background"
-              disabled
             >
-              Miles
+              My Miles
             </TabsTrigger>
           </TabsList>
         </Tabs>

@@ -34,12 +34,6 @@ import { ReferralsCard } from "@/components/dashboard/ReferralsCard"
 import { OneTimeTasksAccordion } from "@/components/dashboard/OneTimeTasksAccordion"
 import { SwapEarnAccordion } from "@/components/dashboard/SwapEarnAccordion"
 import { WeeklyActivitySection } from "@/components/dashboard/WeeklyActivitySection"
-import { PointsHUD } from "@/components/dashboard/PointsHUD"
-import { WeeklyTasksSection } from "@/components/dashboard/WeeklyTasksSection"
-import { ReferralsSection } from "@/components/dashboard/ReferralsSection"
-import { PartnerQuestsSection } from "@/components/dashboard/PartnerQuestsSection"
-import { OneTimeTasksSection } from "@/components/dashboard/OneTimeTasksSection"
-import { SBTGatingModal } from "@/components/modals/SBTGatingModal"
 import { TransactionFeedbackModal } from "@/components/modals/TransactionFeedbackModal"
 import { ReferralModal } from "@/components/modals/ReferralModal"
 import { RPCTestModal } from "@/components/network-checker"
@@ -58,8 +52,7 @@ const DashboardContent = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [points] = useState(0)
-  const [activeTab, setActiveTab] = useState("genesis")
-  const [showSBTGatingModal, setShowSBTGatingModal] = useState(false)
+  const [activeTab, setActiveTab] = useState("swap")
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
   const [oneTimeTasksAccordionValue, setOneTimeTasksAccordionValue] = useState<string | undefined>(
     "one-time-tasks"
@@ -129,22 +122,12 @@ const DashboardContent = () => {
   // Handle tab from URL query parameter
   useEffect(() => {
     const tab = searchParams.get("tab")
-    if (tab && ["genesis", "swap", "points"].includes(tab)) {
-      // Block access to Points if no Genesis SBT
-      if (!genesisSBT.hasGenesisSBT && tab === "points") {
-        setActiveTab("genesis")
-        return
-      }
+    if (tab && ["genesis", "swap"].includes(tab)) {
       setActiveTab(tab)
     }
-  }, [searchParams, genesisSBT.hasGenesisSBT])
+  }, [searchParams])
 
   const handleTabChange = (value: string) => {
-    // Block access to Points if no Genesis SBT
-    if (!genesisSBT.hasGenesisSBT && value === "points") {
-      setShowSBTGatingModal(true)
-      return
-    }
     setActiveTab(value)
     router.push(`/dashboard?tab=${value}`)
   }
@@ -374,38 +357,6 @@ const DashboardContent = () => {
             </div>
           </TabsContent>
 
-          {/* Points Tab */}
-          <TabsContent value="points" className="space-y-8">
-            <PointsHUD
-              season="Season 1"
-              points={0}
-              rank={0}
-              referrals={0}
-              volume={0}
-              hasGenesisSBT={false}
-              hasFastRPC={false}
-            />
-
-            <WeeklyTasksSection transactions={0} volume={0} />
-
-            <ReferralsSection
-              referralLink={referralLink}
-              successfulReferrals={0}
-              weeklyLimit={100}
-            />
-
-            <PartnerQuestsSection />
-
-            <OneTimeTasksSection tasks={dashboardTasks.oneTimeTasks} />
-
-            {/* Bottom Banner */}
-            <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 text-center">
-              <p className="text-sm font-medium">
-                ⚡ Fast Points earned in Season 1 will carry into the official Fast Points System.
-              </p>
-            </div>
-          </TabsContent>
-
           {/* Swap Tab */}
           <TabsContent value="swap" className="mt-0">
             <SwapForm />
@@ -529,8 +480,6 @@ const DashboardContent = () => {
         }}
       />
 
-      {/* SBT Gating Modal */}
-      <SBTGatingModal open={showSBTGatingModal} />
     </div>
   )
 }
