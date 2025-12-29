@@ -513,16 +513,16 @@ export function SwapForm() {
   const priceImpact = sellAmount ? "< 0.01%" : "-"
 
   return (
-    <div className="relative py-8 sm:py-12 flex flex-col items-center px-4">
+    <div className="relative py-4 sm:py-6 flex flex-col items-center px-4">
       {/* Animated Background */}
       <AnimatedBackground />
 
       {/* Hero Section */}
-      <div className="relative z-10 text-center mb-6 sm:mb-8 max-w-2xl">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4 bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent leading-tight pb-1">
+      <div className="relative z-10 text-center mb-4 sm:mb-6 max-w-2xl">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-3 bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent leading-tight">
           Lightning-fast swaps
         </h1>
-        <p className="text-sm sm:text-base text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Trade crypto on Fast Protocol with fast execution and mev rewards
         </p>
       </div>
@@ -549,27 +549,28 @@ export function SwapForm() {
         {/* Stacked Sell/Buy cards */}
         <div className="relative flex flex-col">
           {/* Sell Card */}
-          <div className="rounded-[16px] bg-[#161b22] border border-white/5 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-500 font-medium">Sell</span>
+          <div className="rounded-[16px] bg-[#161b22] border border-white/5 px-4 py-4 sm:px-5 sm:py-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Sell</span>
               {sellToken && allTokens[sellToken] && (
                 <span className="text-xs text-gray-500">
                   Balance: {allTokens[sellToken].balance}
                 </span>
               )}
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <Input
+            <div className="flex items-center justify-between gap-3 min-h-[60px]">
+              <div className="flex-1 min-w-0 py-1">
+                <input
                   ref={sellInputRef}
                   type="number"
                   value={sellAmount}
                   onChange={(e) => setSellAmount(e.target.value)}
                   placeholder="0"
-                  className="border-0 bg-transparent p-0 text-[36px] sm:text-[42px] font-bold text-white h-auto focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none tracking-tight drop-shadow-[0_0_12px_rgba(58,147,238,0.3)]"
+                  style={{ fontSize: '36px', fontWeight: 600, lineHeight: '44px' }}
+                  className="w-full border-0 bg-transparent p-0 text-white h-auto focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none tracking-tight"
                 />
                 {sellAmount && sellToken && (
-                  <div className="mt-2 text-xs text-gray-500">
+                  <div className="mt-1 text-sm text-gray-500 font-medium">
                     ≈ ${sellToken === "ETH" ? (parseFloat(sellAmount) * 2300).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (parseFloat(sellAmount) * 0.01).toFixed(2)}
                   </div>
                 )}
@@ -577,7 +578,7 @@ export function SwapForm() {
               <button
                 onClick={() => setShowSellTokenSelector(true)}
                 className={cn(
-                  "flex items-center gap-2 rounded-[10px] px-3 py-2 font-semibold text-sm transition-colors shrink-0",
+                  "flex items-center gap-2 rounded-[10px] px-3 py-2.5 font-semibold text-sm transition-colors shrink-0",
                   sellToken && allTokens[sellToken]
                     ? "bg-white/10 hover:bg-white/15 text-white"
                     : "bg-primary hover:bg-primary/90 text-white"
@@ -585,7 +586,7 @@ export function SwapForm() {
               >
                 {sellToken && allTokens[sellToken] ? (
                   <>
-                    <div className="h-5 w-5">{allTokens[sellToken].icon}</div>
+                    <div className="h-6 w-6">{allTokens[sellToken].icon}</div>
                     {allTokens[sellToken].symbol}
                   </>
                 ) : (
@@ -607,26 +608,27 @@ export function SwapForm() {
           </div>
 
           {/* Buy Card */}
-          <div className="rounded-[16px] bg-[#161b22] border border-white/5 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-500 font-medium">Buy</span>
+          <div className="rounded-[16px] bg-[#161b22] border border-white/5 px-4 py-4 sm:px-5 sm:py-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Buy</span>
               {buyToken && allTokens[buyToken] && (
                 <span className="text-xs text-gray-500">
                   Balance: {allTokens[buyToken].balance}
                 </span>
               )}
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <Input
+            <div className="flex items-center justify-between gap-3 min-h-[60px]">
+              <div className="flex-1 min-w-0 py-1">
+                <input
                   type="text"
                   value={buyAmount}
                   readOnly
                   placeholder="0"
-                  className="border-0 bg-transparent p-0 text-[36px] sm:text-[42px] font-bold text-gray-400 h-auto focus-visible:ring-0 focus-visible:ring-offset-0 tracking-tight"
+                  style={{ fontSize: '36px', fontWeight: 600, lineHeight: '44px' }}
+                  className="w-full border-0 bg-transparent p-0 text-gray-400 h-auto focus:outline-none tracking-tight"
                 />
                 {buyAmount && buyToken && (
-                  <div className="mt-2 text-xs text-gray-500">
+                  <div className="mt-1 text-sm text-gray-500 font-medium">
                     ≈ ${buyToken === "ETH" ? (parseFloat(buyAmount) * 2300).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (parseFloat(buyAmount) * 0.01).toFixed(2)}
                   </div>
                 )}
@@ -634,7 +636,7 @@ export function SwapForm() {
               <button
                 onClick={() => setShowBuyTokenSelector(true)}
                 className={cn(
-                  "flex items-center gap-2 rounded-[10px] px-3 py-2 font-semibold text-sm transition-colors shrink-0",
+                  "flex items-center gap-2 rounded-[10px] px-3 py-2.5 font-semibold text-sm transition-colors shrink-0",
                   buyToken && allTokens[buyToken]
                     ? "bg-white/10 hover:bg-white/15 text-white"
                     : "bg-primary hover:bg-primary/90 text-white"
@@ -642,7 +644,7 @@ export function SwapForm() {
               >
                 {buyToken && allTokens[buyToken] ? (
                   <>
-                    <div className="h-5 w-5">{allTokens[buyToken].icon}</div>
+                    <div className="h-6 w-6">{allTokens[buyToken].icon}</div>
                     {allTokens[buyToken].symbol}
                   </>
                 ) : (
@@ -702,7 +704,7 @@ export function SwapForm() {
         </div>
 
         {/* Network Badge */}
-        <div className="mt-6 mb-4 flex justify-center">
+        <div className="mt-4 flex justify-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-gray-400">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
             Fast Protocol Network
