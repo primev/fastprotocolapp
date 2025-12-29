@@ -311,7 +311,7 @@ const DashboardContent = () => {
       {/* Content Area - Add padding to account for fixed headers */}
       <div className={cn(
         "container mx-auto py-4",
-        activeTab === "swap" ? "px-0 pt-24 sm:pt-20" : "px-4 sm:px-0 pt-56 sm:pt-32"
+        activeTab === "swap" ? "px-0 pt-32 sm:pt-20" : "px-4 sm:px-0 pt-56 sm:pt-32"
       )}>
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           {/* Genesis SBT Tab */}

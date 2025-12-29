@@ -513,24 +513,24 @@ export function SwapForm() {
   const priceImpactSeverity = getPriceImpactSeverity(priceImpact)
 
   return (
-    <div className="relative min-h-[calc(100vh-80px)] flex flex-col items-center justify-start pt-4 sm:justify-center sm:pt-0 px-4 py-4">
+    <div className="relative min-h-[calc(100vh-180px)] sm:min-h-[calc(100vh-120px)] flex flex-col items-center justify-start sm:justify-center px-4 py-2 sm:py-4">
       {/* Animated Background */}
       <AnimatedBackground />
 
       {/* Hero Section */}
-      <div className="relative z-10 text-center mb-3 sm:mb-4 max-w-2xl">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-2 bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent leading-tight">
+      <div className="relative z-10 text-center mb-2 sm:mb-4 max-w-2xl">
+        <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-1 sm:mb-2 bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent leading-normal pb-1">
           Lightning-fast swaps
         </h1>
-        <p className="text-base sm:text-lg text-muted-foreground">
+        <p className="text-sm sm:text-lg text-muted-foreground px-2">
           Trade crypto on Fast Protocol with fast execution and mev rewards
         </p>
       </div>
 
       {/* Swap Interface - No outer card wrapper */}
-      <div className="relative z-10 w-full max-w-[500px] px-4 sm:px-0">
+      <div className="relative z-10 w-full max-w-[500px] px-2 sm:px-0">
         {/* Header - Above both cards */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2 sm:mb-3">
           <span className="text-xl font-semibold text-white">Swap</span>
           <TooltipProvider>
             <Tooltip>
@@ -549,7 +549,7 @@ export function SwapForm() {
         {/* Stacked Sell/Buy cards */}
         <div className="relative flex flex-col">
           {/* Sell Card */}
-          <div className="rounded-[16px] bg-[#161b22] border border-white/5 px-4 py-3 sm:px-5 sm:py-4">
+          <div className="rounded-[14px] sm:rounded-[16px] bg-[#161b22] border border-white/5 px-3 py-2.5 sm:px-5 sm:py-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Sell</span>
               {sellToken && allTokens[sellToken] && (
@@ -566,8 +566,7 @@ export function SwapForm() {
                   value={sellAmount}
                   onChange={(e) => setSellAmount(e.target.value)}
                   placeholder="0"
-                  style={{ fontSize: '36px', fontWeight: 600, lineHeight: '42px' }}
-                  className="w-full border-0 bg-transparent p-0 text-white h-auto focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none tracking-tight"
+                  className="w-full border-0 bg-transparent p-0 text-white h-auto focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none tracking-tight text-[28px] sm:text-[36px] font-semibold leading-[34px] sm:leading-[42px]"
                 />
                 {sellAmount && sellToken && (
                   <div className="mt-1 text-sm text-gray-500 font-medium">
@@ -608,7 +607,7 @@ export function SwapForm() {
           </div>
 
           {/* Buy Card */}
-          <div className="rounded-[16px] bg-[#161b22] border border-white/5 px-4 py-3 sm:px-5 sm:py-4">
+          <div className="rounded-[14px] sm:rounded-[16px] bg-[#161b22] border border-white/5 px-3 py-2.5 sm:px-5 sm:py-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Buy</span>
               {buyToken && allTokens[buyToken] && (
@@ -620,9 +619,9 @@ export function SwapForm() {
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1 min-w-0">
                 {isQuoteLoading && sellAmount && sellToken && buyToken ? (
-                  <div className="flex items-center gap-2 h-[42px]">
-                    <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
-                    <span style={{ fontSize: '24px', fontWeight: 500 }} className="text-gray-500">
+                  <div className="flex items-center gap-2 h-[34px] sm:h-[42px]">
+                    <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 text-gray-400 animate-spin" />
+                    <span className="text-gray-500 text-xl sm:text-2xl font-medium">
                       Fetching...
                     </span>
                   </div>
@@ -632,8 +631,7 @@ export function SwapForm() {
                     value={buyAmount ? formatQuoteAmount(buyAmount) : ""}
                     readOnly
                     placeholder="0"
-                    style={{ fontSize: '36px', fontWeight: 600, lineHeight: '42px' }}
-                    className="w-full border-0 bg-transparent p-0 text-gray-400 h-auto focus:outline-none tracking-tight"
+                    className="w-full border-0 bg-transparent p-0 text-gray-400 h-auto focus:outline-none tracking-tight text-[28px] sm:text-[36px] font-semibold leading-[34px] sm:leading-[42px]"
                   />
                 )}
                 {buyAmount && buyToken && !isQuoteLoading && (
@@ -667,7 +665,7 @@ export function SwapForm() {
 
         {/* Exchange Rate Info - Below both cards */}
         {sellToken && buyToken && (
-          <div className="mt-4 rounded-xl bg-white/5 border border-white/5 px-4 py-3">
+          <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-xl bg-white/5 border border-white/5 px-3 py-2 sm:px-4 sm:py-3">
             <div className="flex items-center justify-between text-xs text-gray-400">
               <span>
                 {isQuoteLoading ? (
@@ -706,13 +704,13 @@ export function SwapForm() {
         )}
 
         {/* CTA Button - Full width spanning both cards */}
-        <div className="mt-4">
+        <div className="mt-3 sm:mt-4">
           {!isConnected ? (
             <ConnectButton.Custom>
               {({ openConnectModal }) => (
                 <Button
                   onClick={openConnectModal}
-                  className="w-full h-[54px] rounded-2xl font-bold text-lg bg-gradient-to-r from-pink-500 to-primary hover:opacity-90 transition-all active:scale-[0.98]"
+                  className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-gradient-to-r from-pink-500 to-primary hover:opacity-90 transition-all active:scale-[0.98]"
                 >
                   Connect Wallet
                 </Button>
@@ -721,21 +719,21 @@ export function SwapForm() {
           ) : !buyToken ? (
             <Button
               disabled
-              className="w-full h-[54px] rounded-2xl font-bold text-lg bg-white/10 text-gray-500 cursor-not-allowed"
+              className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-white/10 text-gray-500 cursor-not-allowed"
             >
               Select a token
             </Button>
           ) : !sellAmount ? (
             <Button
               disabled
-              className="w-full h-[54px] rounded-2xl font-bold text-lg bg-white/10 text-gray-500 cursor-not-allowed"
+              className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-white/10 text-gray-500 cursor-not-allowed"
             >
               Enter an amount
             </Button>
           ) : (
             <Button
               onClick={handleSwapClick}
-              className="w-full h-[54px] rounded-2xl font-bold text-lg bg-gradient-to-r from-pink-500 to-primary hover:opacity-90 transition-all active:scale-[0.98]"
+              className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-gradient-to-r from-pink-500 to-primary hover:opacity-90 transition-all active:scale-[0.98]"
             >
               Swap
             </Button>
@@ -743,9 +741,9 @@ export function SwapForm() {
         </div>
 
         {/* Network Badge */}
-        <div className="mt-4 flex justify-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-gray-400">
-            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+        <div className="mt-3 sm:mt-4 flex justify-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 sm:py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs text-gray-400">
+            <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-green-500 animate-pulse" />
             Fast Protocol Network
           </div>
         </div>
