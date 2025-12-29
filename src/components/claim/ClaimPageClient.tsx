@@ -5,15 +5,20 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Zap, TrendingUp, Users, Shield } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
 
 interface ClaimPageClientProps {
   initialTotalSupply: string | null
   initialTransactions: string | null
+  initialVolume: string | null
+  initialEthPrice: string | null
 }
 
 export const ClaimPageClient = ({
   initialTotalSupply,
   initialTransactions,
+  initialVolume,
+  initialEthPrice,
 }: ClaimPageClientProps) => {
   const router = useRouter()
 
@@ -133,7 +138,24 @@ export const ClaimPageClient = ({
                 <p className="text-sm text-muted-foreground">Transactions</p>
               </div>
               <div className="space-y-2">
-                <p className="text-3xl font-bold font-mono text-primary">$8.7M</p>
+                <p className="text-3xl font-bold font-mono text-primary">
+                  {initialVolume !== null
+                    ? (() => {
+                        const volume = Number(initialVolume)
+                        // Use ETH price if available, otherwise fallback to default price
+                        const price =
+                          initialEthPrice !== null
+                            ? Number(initialEthPrice)
+                            : DEFAULT_ETH_PRICE_USD
+                        const totalUsd = volume * price
+                        return `$${totalUsd.toLocaleString(undefined, {
+                          maximumFractionDigits: 1,
+                          notation: "compact",
+                          compactDisplay: "short",
+                        })}`
+                      })()
+                    : "$0"}
+                </p>
                 <p className="text-sm text-muted-foreground">Total Volume</p>
               </div>
           </div>
