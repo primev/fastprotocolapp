@@ -513,7 +513,7 @@ export function SwapForm() {
   const priceImpactSeverity = getPriceImpactSeverity(priceImpact)
 
   return (
-    <div className="relative min-h-[calc(100vh-80px)] flex flex-col items-center justify-center px-4 py-4">
+    <div className="relative min-h-[calc(100vh-80px)] flex flex-col items-center justify-start pt-4 sm:justify-center sm:pt-0 px-4 py-4">
       {/* Animated Background */}
       <AnimatedBackground />
 
@@ -623,7 +623,7 @@ export function SwapForm() {
                   <div className="flex items-center gap-2 h-[42px]">
                     <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
                     <span style={{ fontSize: '24px', fontWeight: 500 }} className="text-gray-500">
-                      Fetching quote...
+                      Fetching...
                     </span>
                   </div>
                 ) : (

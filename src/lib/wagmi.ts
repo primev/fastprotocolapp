@@ -1,19 +1,45 @@
 import { connectorsForWallets } from "@rainbow-me/rainbowkit"
-import { injectedWallet } from "@rainbow-me/rainbowkit/wallets"
+import {
+  injectedWallet,
+  metaMaskWallet,
+  coinbaseWallet,
+  walletConnectWallet,
+  rainbowWallet,
+  rabbyWallet,
+  trustWallet,
+  uniswapWallet,
+} from "@rainbow-me/rainbowkit/wallets"
 import { createConfig, http, fallback } from "wagmi"
 import { mainnet } from "wagmi/chains"
 import { RPC_ENDPOINT } from "@/lib/network-config"
 
+// WalletConnect project ID - get one at https://cloud.walletconnect.com
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "00000000000000000000000000000000"
+
 const connectors = connectorsForWallets(
   [
     {
-      groupName: "Recommended",
-      wallets: [injectedWallet],
+      groupName: "Popular",
+      wallets: [
+        metaMaskWallet,
+        coinbaseWallet,
+        walletConnectWallet,
+        rainbowWallet,
+      ],
+    },
+    {
+      groupName: "More",
+      wallets: [
+        rabbyWallet,
+        trustWallet,
+        uniswapWallet,
+        injectedWallet,
+      ],
     },
   ],
   {
     appName: "Fast Protocol",
-    projectId: "00000000000000000000000000000000",
+    projectId,
   }
 )
 
