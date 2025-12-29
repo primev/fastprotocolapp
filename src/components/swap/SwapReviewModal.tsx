@@ -166,7 +166,7 @@ export function SwapReviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] p-0 gap-0 bg-[#0d1117] border-white/10 overflow-hidden">
+      <DialogContent hideClose className="sm:max-w-[500px] p-0 gap-0 bg-[#0d1117] border-white/10 overflow-hidden">
         {/* Header */}
         <DialogHeader className="p-5 sm:p-6 pb-0 relative">
           <div className="flex items-center justify-between">

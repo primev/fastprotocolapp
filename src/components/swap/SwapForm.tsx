@@ -740,11 +740,20 @@ export function SwapForm() {
           )}
         </div>
 
-        {/* Network Badge */}
+        {/* Rewards Badge */}
         <div className="mt-3 sm:mt-4 flex justify-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 sm:py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs text-gray-400">
-            <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-green-500 animate-pulse" />
-            Fast Protocol
+          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gradient-to-r from-primary/20 to-primary/10 border border-primary/30 backdrop-blur-sm">
+            <div className="relative flex items-center justify-center">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <div className="absolute h-2 w-2 rounded-full bg-primary animate-ping opacity-75" />
+            </div>
+            <span className="text-[11px] sm:text-xs font-medium text-primary">
+              Earning Fast Rewards
+            </span>
+            <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" viewBox="0 0 98 95" fill="currentColor">
+              <path d="M0.344727 0.226562L36.7147 94.6165H59.9647L26.0747 0.226562H0.344727Z" />
+              <path d="M72.8246 0.226562L52.5447 56.5766H76.2947L97.8146 0.226562H72.8246Z" opacity="0.6" />
+            </svg>
           </div>
         </div>
       </div>
