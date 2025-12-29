@@ -513,16 +513,16 @@ export function SwapForm() {
   const priceImpactSeverity = getPriceImpactSeverity(priceImpact)
 
   return (
-    <div className="relative min-h-[calc(100vh-180px)] sm:min-h-[calc(100vh-120px)] flex flex-col items-center justify-start sm:justify-center px-4 py-2 sm:py-4">
+    <div className="relative flex flex-col items-center justify-start px-4 pt-2 sm:pt-6 pb-4">
       {/* Animated Background */}
       <AnimatedBackground />
 
       {/* Hero Section */}
-      <div className="relative z-10 text-center mb-2 sm:mb-4 max-w-2xl">
-        <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-1 sm:mb-2 bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent leading-normal pb-1">
+      <div className="relative z-10 text-center mb-2 sm:mb-5 max-w-3xl">
+        <h1 className="text-[22px] sm:text-5xl md:text-6xl font-bold mb-1 sm:mb-3 bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent leading-[1.3] sm:leading-[1.2]">
           Lightning-fast swaps
         </h1>
-        <p className="text-sm sm:text-lg text-muted-foreground px-2">
+        <p className="text-xs sm:text-lg text-muted-foreground">
           Trade crypto on Fast Protocol with fast execution and mev rewards
         </p>
       </div>
