@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { SwapReviewModal } from "./SwapReviewModal"
+import { useQuote, formatQuoteAmount, formatPriceImpact, getPriceImpactSeverity } from "@/hooks/use-quote"
 
 // Token Icons
 const ETH_ICON = (
@@ -433,7 +434,6 @@ function truncateAddress(address: string): string {
 export function SwapForm() {
   const { address, isConnected } = useAccount()
   const [sellAmount, setSellAmount] = useState("")
-  const [buyAmount, setBuyAmount] = useState("")
   const [isSwapping, setIsSwapping] = useState(false)
   const [sellToken, setSellToken] = useState<TokenType>("ETH")
   const [buyToken, setBuyToken] = useState<TokenType>(null)
@@ -444,29 +444,29 @@ export function SwapForm() {
   const [customTokens, setCustomTokens] = useState<Record<string, Token>>({})
   const sellInputRef = useRef<HTMLInputElement>(null)
 
-  // Mock exchange rate calculation
-  const exchangeRate = sellToken === "ETH" && buyToken === "FAST" ? 1000 :
-                       sellToken === "FAST" && buyToken === "ETH" ? 0.001 :
-                       sellToken === "ETH" && buyToken === "USDC" ? 2300 :
-                       sellToken === "USDC" && buyToken === "ETH" ? 0.000435 : 1
+  // Real quote fetching from Uniswap V3
+  const { quote, isLoading: isQuoteLoading, error: quoteError } = useQuote({
+    tokenIn: sellToken || "",
+    tokenOut: buyToken || "",
+    amountIn: sellAmount,
+    slippage,
+    enabled: !!(sellToken && buyToken && sellAmount && parseFloat(sellAmount) > 0),
+  })
 
-  // Update buy amount when sell amount changes
-  useEffect(() => {
-    if (sellAmount && sellToken && buyToken) {
-      const calculated = (parseFloat(sellAmount) * exchangeRate).toFixed(6)
-      setBuyAmount(calculated)
-    } else {
-      setBuyAmount("")
-    }
-  }, [sellAmount, sellToken, buyToken, exchangeRate])
+  // Derive buyAmount and exchangeRate from quote
+  const buyAmount = quote?.amountOutFormatted || ""
+  const exchangeRate = quote?.exchangeRate || 0
+  const priceImpact = quote?.priceImpact ?? 0
+  const minOut = quote?.minOutFormatted || ""
 
   const handleSwapTokens = () => {
     const tempToken = sellToken
-    const tempAmount = sellAmount
     setSellToken(buyToken)
     setBuyToken(tempToken)
-    setSellAmount(buyAmount)
-    setBuyAmount(tempAmount)
+    // When swapping, use the current quote output as the new input
+    if (buyAmount) {
+      setSellAmount(buyAmount)
+    }
   }
 
   const handleSwapClick = () => {
@@ -481,7 +481,6 @@ export function SwapForm() {
     setIsSwapping(false)
     setShowReviewModal(false)
     setSellAmount("")
-    setBuyAmount("")
   }
 
   const handleTokenSelect = (type: "sell" | "buy", token: string) => {
@@ -509,8 +508,9 @@ export function SwapForm() {
 
   const allTokens = { ...TOKENS, ...customTokens }
 
-  const isSwapReady = sellAmount && sellToken && buyToken && isConnected
-  const priceImpact = sellAmount ? "< 0.01%" : "-"
+  const isSwapReady = sellAmount && sellToken && buyToken && isConnected && !isQuoteLoading
+  const priceImpactDisplay = quote ? formatPriceImpact(priceImpact) : "-"
+  const priceImpactSeverity = getPriceImpactSeverity(priceImpact)
 
   return (
     <div className="relative min-h-[calc(100vh-80px)] flex flex-col items-center justify-center px-4 py-4">
@@ -619,15 +619,24 @@ export function SwapForm() {
             </div>
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <input
-                  type="text"
-                  value={buyAmount}
-                  readOnly
-                  placeholder="0"
-                  style={{ fontSize: '36px', fontWeight: 600, lineHeight: '42px' }}
-                  className="w-full border-0 bg-transparent p-0 text-gray-400 h-auto focus:outline-none tracking-tight"
-                />
-                {buyAmount && buyToken && (
+                {isQuoteLoading && sellAmount && sellToken && buyToken ? (
+                  <div className="flex items-center gap-2 h-[42px]">
+                    <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
+                    <span style={{ fontSize: '24px', fontWeight: 500 }} className="text-gray-500">
+                      Fetching quote...
+                    </span>
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={buyAmount ? formatQuoteAmount(buyAmount) : ""}
+                    readOnly
+                    placeholder="0"
+                    style={{ fontSize: '36px', fontWeight: 600, lineHeight: '42px' }}
+                    className="w-full border-0 bg-transparent p-0 text-gray-400 h-auto focus:outline-none tracking-tight"
+                  />
+                )}
+                {buyAmount && buyToken && !isQuoteLoading && (
                   <div className="mt-1 text-sm text-gray-500 font-medium">
                     ≈ ${buyToken === "ETH" ? (parseFloat(buyAmount) * 2300).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (parseFloat(buyAmount) * 0.01).toFixed(2)}
                   </div>
@@ -660,8 +669,38 @@ export function SwapForm() {
         {sellToken && buyToken && (
           <div className="mt-4 rounded-xl bg-white/5 border border-white/5 px-4 py-3">
             <div className="flex items-center justify-between text-xs text-gray-400">
-              <span>1 {sellToken} = {exchangeRate.toLocaleString()} {buyToken}</span>
-              <span>Price Impact: {priceImpact}</span>
+              <span>
+                {isQuoteLoading ? (
+                  <span className="flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Fetching rate...
+                  </span>
+                ) : exchangeRate > 0 ? (
+                  `1 ${sellToken} = ${formatQuoteAmount(exchangeRate.toString())} ${buyToken}`
+                ) : (
+                  "Select tokens to see rate"
+                )}
+              </span>
+              <span className={cn(
+                "flex items-center gap-1",
+                priceImpactSeverity === "low" && "text-green-400",
+                priceImpactSeverity === "medium" && "text-yellow-400",
+                priceImpactSeverity === "high" && "text-red-400"
+              )}>
+                Price Impact: {priceImpactDisplay}
+                {priceImpactSeverity === "high" && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3 w-3" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>High price impact - consider reducing trade size</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </span>
             </div>
           </div>
         )}
@@ -726,6 +765,9 @@ export function SwapForm() {
           exchangeRate={exchangeRate}
           onConfirm={handleConfirmSwap}
           isSwapping={isSwapping}
+          minOut={minOut}
+          priceImpact={priceImpact}
+          slippage={slippage}
         />
       )}
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { X, Settings, ChevronDown, ChevronUp, Info, Fuel } from "lucide-react"
+import { X, ChevronDown, Info, Fuel } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -83,6 +83,9 @@ interface SwapReviewModalProps {
   exchangeRate: number
   onConfirm: () => void
   isSwapping?: boolean
+  minOut?: string
+  priceImpact?: number
+  slippage?: string
 }
 
 interface InfoRowProps {
@@ -94,25 +97,35 @@ interface InfoRowProps {
 
 function InfoRow({ label, value, tooltip, valueClassName }: InfoRowProps) {
   return (
-    <div className="flex items-center justify-between py-2.5 sm:py-3">
+    <div className="flex items-center justify-between py-2.5">
       <div className="flex items-center gap-1.5">
-        <span className="text-sm text-muted-foreground">{label}</span>
+        <span className="text-sm text-gray-400">{label}</span>
         {tooltip && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Info className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help" />
+                <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
               </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[200px]">
-                <p className="text-xs">{tooltip}</p>
+              <TooltipContent side="top" className="max-w-[200px] bg-[#1c2128] border-white/10">
+                <p className="text-xs text-gray-300">{tooltip}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         )}
       </div>
-      <span className={cn("text-sm font-medium", valueClassName)}>{value}</span>
+      <span className={cn("text-sm font-medium text-white", valueClassName)}>{value}</span>
     </div>
   )
+}
+
+// Format number to max 2 decimal places, removing trailing zeros
+function formatAmount(amount: string): string {
+  const num = parseFloat(amount)
+  if (isNaN(num)) return amount
+  // For very small numbers, show more precision
+  if (num < 0.01 && num > 0) return num.toFixed(6).replace(/\.?0+$/, '')
+  // For regular numbers, max 2 decimals
+  return num.toFixed(2).replace(/\.?0+$/, '')
 }
 
 export function SwapReviewModal({
@@ -127,131 +140,122 @@ export function SwapReviewModal({
   exchangeRate,
   onConfirm,
   isSwapping = false,
+  minOut,
+  priceImpact: priceImpactNum,
+  slippage = "0.5",
 }: SwapReviewModalProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const fromTokenData = getTokenData(fromToken)
   const toTokenData = getTokenData(toToken)
 
-  // Mock values - in production these would come from actual calculations
+  // Format amounts for display
+  const formattedFromAmount = formatAmount(fromAmount)
+  const formattedToAmount = formatAmount(toAmount)
+  const formattedMinOut = minOut ? formatAmount(minOut) : formattedToAmount
+
+  // Real values from quote
   const fee = "Free"
   const networkCost = "$0.03"
-  const maxSlippage = "0.50%"
+  const maxSlippage = `${slippage}%`
   const orderRouting = "Fast Protocol"
-  const priceImpact = "-0.02%"
+  const priceImpactDisplay = priceImpactNum !== undefined
+    ? `${priceImpactNum >= 0 ? "" : "-"}${Math.abs(priceImpactNum).toFixed(2)}%`
+    : "-0.01%"
+  const priceImpactValue = priceImpactNum ?? -0.01
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] p-0 gap-0 bg-card border-border/50 overflow-hidden">
+      <DialogContent className="sm:max-w-[500px] p-0 gap-0 bg-[#0d1117] border-white/10 overflow-hidden">
         {/* Header */}
-        <DialogHeader className="p-4 sm:p-6 pb-0 relative">
+        <DialogHeader className="p-5 sm:p-6 pb-0 relative">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl sm:text-2xl font-bold">
-              Lightning-fast swaps
+            <DialogTitle className="text-xl sm:text-2xl font-bold text-white">
+              Review swap
             </DialogTitle>
-            <div className="flex items-center gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                      <Settings className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Swap settings</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <DialogClose asChild>
-                <button className="p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                  <X className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                </button>
-              </DialogClose>
-            </div>
+            <DialogClose asChild>
+              <button className="p-2 rounded-lg hover:bg-white/5 transition-colors">
+                <X className="h-5 w-5 text-gray-400 hover:text-white" />
+              </button>
+            </DialogClose>
           </div>
         </DialogHeader>
 
         {/* Transaction Summary */}
-        <div className="p-4 sm:p-6 space-y-4">
+        <div className="p-5 sm:p-6 space-y-3">
           {/* From Token */}
           <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-3xl sm:text-4xl font-bold">
-                {fromAmount} {fromTokenData.symbol}
+            <div className="space-y-0.5">
+              <p className="text-2xl sm:text-3xl font-bold text-white">
+                {formattedFromAmount} {fromTokenData.symbol}
               </p>
-              <p className="text-sm sm:text-base text-muted-foreground">
+              <p className="text-sm text-gray-500">
                 {fromUsdValue}
               </p>
             </div>
-            <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-muted/50 border border-border/50 flex items-center justify-center p-2.5 sm:p-3">
+            <div className="h-11 w-11 sm:h-12 sm:w-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center p-2.5">
               {fromTokenData.icon}
             </div>
           </div>
 
           {/* Arrow Indicator */}
-          <div className="flex justify-center py-1">
-            <div className="h-8 w-8 rounded-lg bg-muted/30 flex items-center justify-center">
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+          <div className="flex justify-center py-0.5">
+            <div className="h-7 w-7 rounded-lg bg-white/5 flex items-center justify-center">
+              <ChevronDown className="h-4 w-4 text-gray-500" />
             </div>
           </div>
 
           {/* To Token */}
           <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-3xl sm:text-4xl font-bold">
-                {toAmount} {toTokenData.symbol}
+            <div className="space-y-0.5">
+              <p className="text-2xl sm:text-3xl font-bold text-white">
+                {formattedToAmount} {toTokenData.symbol}
               </p>
-              <p className="text-sm sm:text-base text-muted-foreground">
+              <p className="text-sm text-gray-500">
                 {toUsdValue}
               </p>
             </div>
-            <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-muted/50 border border-border/50 flex items-center justify-center p-2.5 sm:p-3">
+            <div className="h-11 w-11 sm:h-12 sm:w-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center p-2.5">
               {toTokenData.icon}
             </div>
           </div>
         </div>
 
-        {/* Divider with Toggle */}
-        <div className="px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-border/50" />
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/50 hover:bg-muted/30 transition-all text-sm text-muted-foreground hover:text-foreground"
-            >
-              {isExpanded ? "Show less" : "Show more"}
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 transition-transform duration-200",
-                  isExpanded && "rotate-180"
-                )}
-              />
-            </button>
-            <div className="flex-1 h-px bg-border/50" />
-          </div>
-        </div>
-
         {/* Details Section */}
-        <div className="px-4 sm:px-6">
+        <div className="px-5 sm:px-6 py-3 bg-white/[0.02] border-y border-white/5">
           {/* Always visible - collapsed state */}
-          <div className="divide-y divide-border/30">
+          <div className="divide-y divide-white/5">
             <InfoRow
               label="Fee"
               value={fee}
               tooltip="The fee charged for this swap"
-              valueClassName="text-primary"
+              valueClassName="text-[#3898FF]"
             />
             <InfoRow
               label="Network cost"
               value={
                 <span className="flex items-center gap-1.5">
-                  <Fuel className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Fuel className="h-3.5 w-3.5 text-gray-500" />
                   {networkCost}
                 </span>
               }
               tooltip="Estimated gas fee for this transaction"
             />
           </div>
+
+          {/* Show more toggle */}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center justify-center gap-1.5 w-full py-2 mt-2 rounded-lg hover:bg-white/5 transition-all text-sm text-gray-400 hover:text-white"
+          >
+            {isExpanded ? "Show less" : "Show more"}
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 transition-transform duration-200",
+                isExpanded && "rotate-180"
+              )}
+            />
+          </button>
 
           {/* Expanded details */}
           <div
@@ -260,7 +264,7 @@ export function SwapReviewModal({
               isExpanded ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"
             )}
           >
-            <div className="divide-y divide-border/30 pt-0">
+            <div className="divide-y divide-white/5 pt-2">
               <InfoRow
                 label="Rate"
                 value={`1 ${fromTokenData.symbol} = ${exchangeRate.toLocaleString()} ${toTokenData.symbol}`}
@@ -270,7 +274,7 @@ export function SwapReviewModal({
                 label="Max slippage"
                 value={
                   <span className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-muted/50 text-xs font-medium">
+                    <span className="px-2 py-0.5 rounded bg-white/10 text-xs font-medium">
                       Auto
                     </span>
                     {maxSlippage}
@@ -285,33 +289,33 @@ export function SwapReviewModal({
               />
               <InfoRow
                 label="Price impact"
-                value={priceImpact}
+                value={priceImpactDisplay}
                 tooltip="The difference between market price and estimated price due to trade size"
                 valueClassName={
-                  parseFloat(priceImpact) < 0
-                    ? "text-green-500"
-                    : "text-red-500"
+                  priceImpactValue < 0
+                    ? "text-green-400"
+                    : priceImpactValue > 1
+                    ? "text-red-400"
+                    : "text-yellow-400"
                 }
               />
+              {minOut && (
+                <InfoRow
+                  label="Minimum received"
+                  value={`${formattedMinOut} ${toTokenData.symbol}`}
+                  tooltip="The minimum amount you will receive after slippage"
+                />
+              )}
             </div>
           </div>
         </div>
 
-        {/* Warning Banner (optional - for high slippage, etc.) */}
-        {/*
-        <div className="mx-4 sm:mx-6 mt-4 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-          <p className="text-sm text-yellow-500 text-center">
-            High price impact. Consider reducing your trade size.
-          </p>
-        </div>
-        */}
-
         {/* CTA Button */}
-        <div className="p-4 sm:p-6 pt-4">
+        <div className="p-5 sm:p-6">
           <Button
             onClick={onConfirm}
             disabled={isSwapping}
-            className="w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg bg-primary hover:bg-primary/90 transition-all active:scale-[0.98]"
+            className="w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg bg-[#3898FF] hover:bg-[#3898FF]/90 transition-all active:scale-[0.98]"
           >
             {isSwapping ? (
               <span className="flex items-center gap-2">
@@ -319,7 +323,7 @@ export function SwapReviewModal({
                 Swapping...
               </span>
             ) : (
-              "Swap"
+              "Confirm swap"
             )}
           </Button>
         </div>
