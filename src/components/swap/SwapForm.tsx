@@ -750,10 +750,11 @@ export function SwapForm() {
             <span className="text-[11px] sm:text-xs font-medium text-primary">
               Earning Fast Rewards
             </span>
-            <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" viewBox="0 0 98 95" fill="currentColor">
-              <path d="M0.344727 0.226562L36.7147 94.6165H59.9647L26.0747 0.226562H0.344727Z" />
-              <path d="M72.8246 0.226562L52.5447 56.5766H76.2947L97.8146 0.226562H72.8246Z" opacity="0.6" />
-            </svg>
+            <img
+              src="/assets/fast-icon.png"
+              alt="Fast"
+              className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+            />
           </div>
         </div>
       </div>
