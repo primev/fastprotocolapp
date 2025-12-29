@@ -69,18 +69,18 @@ export const DashboardHeader = ({
           </div>
 
           {/* Tabs - Centered - Desktop only */}
-          <div className="flex-1  justify-center hidden sm:flex">
+          <div className="flex-1 justify-center hidden sm:flex">
             <Tabs value={activeTab} onValueChange={onTabChange} className="w-auto">
-              <TabsList className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
+              <TabsList className="inline-flex rounded-full bg-muted/50 p-1">
                 <TabsTrigger
                   value="swap"
-                  className="text-sm rounded-full data-[state=active]:bg-background"
+                  className="text-sm rounded-full data-[state=active]:bg-background min-w-[80px] justify-center"
                 >
                   Swap
                 </TabsTrigger>
                 <TabsTrigger
                   value="genesis"
-                  className="text-sm rounded-full data-[state=active]:bg-background"
+                  className="text-sm rounded-full data-[state=active]:bg-background min-w-[80px] justify-center"
                 >
                   My Miles
                 </TabsTrigger>
@@ -209,18 +209,18 @@ export const DashboardHeader = ({
       </header>
 
       {/* Tabs - Centered */}
-      <div className="flex-1 bg-background/80  justify-center flex flex-col items-center sm:hidden py-4">
+      <div className="flex-1 bg-background/80 justify-center flex flex-col items-center sm:hidden py-4">
         <Tabs value={activeTab} onValueChange={onTabChange} className="w-auto">
-          <TabsList className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
+          <TabsList className="inline-flex rounded-full bg-muted/50 p-1">
             <TabsTrigger
               value="swap"
-              className="text-sm rounded-full data-[state=active]:bg-background"
+              className="text-sm rounded-full data-[state=active]:bg-background min-w-[72px] justify-center"
             >
               Swap
             </TabsTrigger>
             <TabsTrigger
               value="genesis"
-              className="text-sm rounded-full data-[state=active]:bg-background"
+              className="text-sm rounded-full data-[state=active]:bg-background min-w-[72px] justify-center"
             >
               My Miles
             </TabsTrigger>
