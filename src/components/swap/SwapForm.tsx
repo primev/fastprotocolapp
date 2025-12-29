@@ -411,16 +411,16 @@ function TokenSelectorModal({
   )
 }
 
-// Animated Background Orbs
+// Animated Background Orbs - Fixed to viewport
 function AnimatedBackground() {
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden pointer-events-none z-0">
       {/* Primary orb */}
-      <div className="absolute top-1/4 -left-20 w-64 h-64 sm:w-96 sm:h-96 rounded-full bg-primary/20 blur-3xl animate-pulse" />
+      <div className="absolute top-1/4 -left-32 w-80 h-80 sm:w-[500px] sm:h-[500px] rounded-full bg-primary/20 blur-3xl animate-pulse" />
       {/* Secondary orb */}
-      <div className="absolute bottom-1/4 -right-20 w-64 h-64 sm:w-96 sm:h-96 rounded-full bg-pink-500/15 blur-3xl animate-pulse [animation-delay:1s]" />
+      <div className="absolute bottom-1/4 -right-32 w-80 h-80 sm:w-[500px] sm:h-[500px] rounded-full bg-pink-500/15 blur-3xl animate-pulse [animation-delay:1s]" />
       {/* Accent orb */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 sm:w-72 sm:h-72 rounded-full bg-accent/10 blur-3xl animate-pulse [animation-delay:2s]" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 sm:w-96 sm:h-96 rounded-full bg-accent/10 blur-3xl animate-pulse [animation-delay:2s]" />
     </div>
   )
 }
@@ -513,24 +513,24 @@ export function SwapForm() {
   const priceImpact = sellAmount ? "< 0.01%" : "-"
 
   return (
-    <div className="relative py-4 sm:py-6 flex flex-col items-center px-4">
+    <div className="relative min-h-[calc(100vh-80px)] flex flex-col items-center justify-center px-4 py-4">
       {/* Animated Background */}
       <AnimatedBackground />
 
       {/* Hero Section */}
-      <div className="relative z-10 text-center mb-4 sm:mb-6 max-w-2xl">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-3 bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent leading-tight">
+      <div className="relative z-10 text-center mb-3 sm:mb-4 max-w-2xl">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-2 bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent leading-tight">
           Lightning-fast swaps
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base sm:text-lg text-muted-foreground">
           Trade crypto on Fast Protocol with fast execution and mev rewards
         </p>
       </div>
 
       {/* Swap Interface - No outer card wrapper */}
-      <div className="relative z-10 w-full max-w-[500px] px-4 sm:px-0 mt-2">
+      <div className="relative z-10 w-full max-w-[500px] px-4 sm:px-0">
         {/* Header - Above both cards */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <span className="text-xl font-semibold text-white">Swap</span>
           <TooltipProvider>
             <Tooltip>
@@ -549,8 +549,8 @@ export function SwapForm() {
         {/* Stacked Sell/Buy cards */}
         <div className="relative flex flex-col">
           {/* Sell Card */}
-          <div className="rounded-[16px] bg-[#161b22] border border-white/5 px-4 py-4 sm:px-5 sm:py-5">
-            <div className="flex items-center justify-between mb-3">
+          <div className="rounded-[16px] bg-[#161b22] border border-white/5 px-4 py-3 sm:px-5 sm:py-4">
+            <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Sell</span>
               {sellToken && allTokens[sellToken] && (
                 <span className="text-xs text-gray-500">
@@ -558,15 +558,15 @@ export function SwapForm() {
                 </span>
               )}
             </div>
-            <div className="flex items-center justify-between gap-3 min-h-[60px]">
-              <div className="flex-1 min-w-0 py-1">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
                 <input
                   ref={sellInputRef}
                   type="number"
                   value={sellAmount}
                   onChange={(e) => setSellAmount(e.target.value)}
                   placeholder="0"
-                  style={{ fontSize: '36px', fontWeight: 600, lineHeight: '44px' }}
+                  style={{ fontSize: '36px', fontWeight: 600, lineHeight: '42px' }}
                   className="w-full border-0 bg-transparent p-0 text-white h-auto focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none tracking-tight"
                 />
                 {sellAmount && sellToken && (
@@ -598,18 +598,18 @@ export function SwapForm() {
           </div>
 
           {/* Swap Arrow Button - Between cards */}
-          <div className="flex justify-center -my-2 relative z-20">
+          <div className="flex justify-center -my-3 relative z-20">
             <button
               onClick={handleSwapTokens}
-              className="h-10 w-10 rounded-full bg-[#0d1117] border-4 border-[#161b22] flex items-center justify-center hover:bg-[#1c2128] transition-all active:scale-90 group shadow-lg"
+              className="h-9 w-9 rounded-full bg-[#0d1117] border-4 border-[#161b22] flex items-center justify-center hover:bg-[#1c2128] transition-all active:scale-90 group shadow-lg"
             >
               <ArrowDown className="h-4 w-4 text-gray-400 group-hover:text-primary transition-colors group-hover:rotate-180 duration-300" />
             </button>
           </div>
 
           {/* Buy Card */}
-          <div className="rounded-[16px] bg-[#161b22] border border-white/5 px-4 py-4 sm:px-5 sm:py-5">
-            <div className="flex items-center justify-between mb-3">
+          <div className="rounded-[16px] bg-[#161b22] border border-white/5 px-4 py-3 sm:px-5 sm:py-4">
+            <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Buy</span>
               {buyToken && allTokens[buyToken] && (
                 <span className="text-xs text-gray-500">
@@ -617,14 +617,14 @@ export function SwapForm() {
                 </span>
               )}
             </div>
-            <div className="flex items-center justify-between gap-3 min-h-[60px]">
-              <div className="flex-1 min-w-0 py-1">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
                 <input
                   type="text"
                   value={buyAmount}
                   readOnly
                   placeholder="0"
-                  style={{ fontSize: '36px', fontWeight: 600, lineHeight: '44px' }}
+                  style={{ fontSize: '36px', fontWeight: 600, lineHeight: '42px' }}
                   className="w-full border-0 bg-transparent p-0 text-gray-400 h-auto focus:outline-none tracking-tight"
                 />
                 {buyAmount && buyToken && (
