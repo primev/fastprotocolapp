@@ -14,7 +14,7 @@ import { mainnet } from "wagmi/chains"
 import { RPC_ENDPOINT } from "@/lib/network-config"
 
 // WalletConnect project ID - get one at https://cloud.walletconnect.com
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "00000000000000000000000000000000"
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "753df1d698d3e84c24acf5f4bda42f87"
 
 const connectors = connectorsForWallets(
   [
