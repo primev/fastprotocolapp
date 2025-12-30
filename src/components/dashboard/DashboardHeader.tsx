@@ -50,8 +50,8 @@ export const DashboardHeader = ({
   return (
     <>
       <header className="border-b border-border/50 backdrop-blur-sm bg-background/80 sticky top-0 z-50">
-        <div className="container mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div className="relative">
+        <div className="container mx-auto px-4 sm:px-6 py-4 flex items-center justify-between relative">
+          <div className="flex-shrink-0">
             <Image
               src="/assets/fast-icon.png"
               alt="Fast Protocol"
@@ -68,19 +68,19 @@ export const DashboardHeader = ({
             />
           </div>
 
-          {/* Tabs - Centered - Desktop only */}
-          <div className="flex-1 justify-center hidden sm:flex">
-            <Tabs value={activeTab} onValueChange={onTabChange} className="w-auto">
+          {/* Tabs - Absolutely Centered - Desktop only */}
+          <div className="absolute left-1/2 -translate-x-1/2 hidden sm:block">
+            <Tabs value={activeTab} onValueChange={onTabChange}>
               <TabsList className="inline-flex rounded-full bg-muted/50 p-1">
                 <TabsTrigger
                   value="swap"
-                  className="text-sm rounded-full data-[state=active]:bg-background min-w-[80px] justify-center"
+                  className="text-sm rounded-full data-[state=active]:bg-background px-4 py-1.5"
                 >
                   Swap
                 </TabsTrigger>
                 <TabsTrigger
                   value="genesis"
-                  className="text-sm rounded-full data-[state=active]:bg-background min-w-[80px] justify-center"
+                  className="text-sm rounded-full data-[state=active]:bg-background px-4 py-1.5"
                 >
                   My Miles
                 </TabsTrigger>
@@ -88,7 +88,7 @@ export const DashboardHeader = ({
             </Tabs>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <Badge
               variant="outline"
               className="h-10 px-3 lg:px-2.5 text-sm lg:text-sm border-primary/50 flex items-center"
