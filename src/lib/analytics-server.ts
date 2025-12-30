@@ -1,3 +1,5 @@
+import { env } from "@/env/server"
+
 /**
  * Server-side function to fetch cumulative successful transactions from analytics API
  * Calls the internal API route which handles the external API call
@@ -27,8 +29,6 @@ export async function getCumulativeTransactions(): Promise<number | null> {
     return null
   }
 }
-
-import { env } from "@/env/server"
 
 /**
  * Server-side function to fetch current ETH price from Alchemy
@@ -119,6 +119,41 @@ export async function getCumulativeSwapVolume(): Promise<number | null> {
     return null
   } catch (error) {
     console.error("Error fetching cumulative swap volume:", error)
+    return null
+  }
+}
+
+/**
+ * Server-side function to fetch total points earned from Fuul payout summary
+ * Calls the internal API route which handles the external API call
+ */
+export async function getTotalPointsEarned(): Promise<number | null> {
+  try {
+    // Call the internal API route
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+    const response = await fetch(`${baseUrl}/api/fuul/payouts-summary?currency=point`, {
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      console.error("Failed to fetch payout summary:", response.statusText)
+      return null
+    }
+
+    const data = await response.json()
+
+    if (
+      data.success &&
+      data.data &&
+      data.data.total_payouts !== null &&
+      data.data.total_payouts !== undefined
+    ) {
+      return Number(data.data.total_payouts)
+    }
+
+    return null
+  } catch (error) {
+    console.error("Error fetching total points earned:", error)
     return null
   }
 }

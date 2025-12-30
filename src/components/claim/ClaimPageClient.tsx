@@ -12,6 +12,7 @@ interface ClaimPageClientProps {
   initialTransactions: string | null
   initialSwapVolume: string | null
   initialEthPrice: string | null
+  initialTotalPoints: string | null
 }
 
 export const ClaimPageClient = ({
@@ -19,6 +20,7 @@ export const ClaimPageClient = ({
   initialTransactions,
   initialSwapVolume,
   initialEthPrice,
+  initialTotalPoints,
 }: ClaimPageClientProps) => {
   const router = useRouter()
 
@@ -124,7 +126,9 @@ export const ClaimPageClient = ({
                 <p className="text-sm text-muted-foreground">Genesis SBTs Minted</p>
               </div>
               {/* <div className="space-y-2">
-                <p className="text-3xl font-bold font-mono text-primary">2.4M</p>
+                <p className="text-3xl font-bold font-mono text-primary">
+                  {initialTotalPoints !== null ? Number(initialTotalPoints).toLocaleString() : "0"}
+                </p>
                 <p className="text-sm text-muted-foreground">Total Points Earned</p>
               </div> */}
               <div className="space-y-2">
