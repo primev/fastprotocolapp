@@ -156,7 +156,7 @@ export const ClaimPageClient = ({
                       })()
                     : "$0"}
                 </p>
-                <p className="text-sm text-muted-foreground">Total Volume</p>
+                <p className="text-sm text-muted-foreground">Swap Volume</p>
               </div>
             </div>
           </div>
