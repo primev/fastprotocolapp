@@ -15,3 +15,8 @@ export const OPENSEA_URL = "https://opensea.io/collection/fast-protocol-genesis-
 export const DISCORD_INVITE_URL = "https://discord.com/invite/fastprotocol"
 export const TELEGRAM_INVITE_URL = "https://t.me/Fast_Protocol"
 export const TWITTER_INVITE_URL = "https://x.com/Fast_Protocol"
+
+/**
+ * Default ETH price in USD to use as fallback when live price is unavailable
+ */
+export const DEFAULT_ETH_PRICE_USD = 3000

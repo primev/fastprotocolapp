@@ -7,6 +7,13 @@ export const CONTRACT_ABI = [
     stateMutability: "view",
     type: "function",
   },
+  {
+    inputs: [],
+    name: "totalSupply",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
 ] as const
 
 export const CONTRACT_ADDRESS = "0xd0E132C73C9425072AAB9256d63aa14D798D063A"
