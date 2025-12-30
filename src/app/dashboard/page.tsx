@@ -41,6 +41,7 @@ import { MetaMaskToggleModal } from "@/components/onboarding/MetaMaskToggleModal
 import { AddRpcModal } from "@/components/onboarding/AddRpcModal"
 import { BrowserWalletStepsModal } from "@/components/onboarding/BrowserWalletStepsModal"
 import { SwapForm } from "@/components/swap/SwapForm"
+import { MarketsPage } from "@/components/markets/MarketsPage"
 
 // Utils
 import { cn } from "@/lib/utils"
@@ -122,7 +123,7 @@ const DashboardContent = () => {
   // Handle tab from URL query parameter
   useEffect(() => {
     const tab = searchParams.get("tab")
-    if (tab && ["genesis", "swap"].includes(tab)) {
+    if (tab && ["genesis", "swap", "markets"].includes(tab)) {
       setActiveTab(tab)
     }
   }, [searchParams])
@@ -294,7 +295,7 @@ const DashboardContent = () => {
       {/* Content Area - Add padding to account for fixed headers */}
       <div className={cn(
         "container mx-auto py-4",
-        activeTab === "swap" ? "px-0 pt-28 sm:pt-24" : "px-4 sm:px-0 pt-56 sm:pt-32"
+        activeTab === "swap" || activeTab === "markets" ? "px-0 pt-28 sm:pt-24" : "px-4 sm:px-0 pt-56 sm:pt-32"
       )}>
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           {/* Genesis SBT Tab */}
@@ -360,6 +361,11 @@ const DashboardContent = () => {
           {/* Swap Tab */}
           <TabsContent value="swap" className="mt-0">
             <SwapForm />
+          </TabsContent>
+
+          {/* Markets Tab */}
+          <TabsContent value="markets" className="mt-0">
+            <MarketsPage />
           </TabsContent>
         </Tabs>
       </div>

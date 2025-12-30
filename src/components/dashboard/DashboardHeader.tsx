@@ -79,6 +79,12 @@ export const DashboardHeader = ({
                   Swap
                 </TabsTrigger>
                 <TabsTrigger
+                  value="markets"
+                  className="text-sm rounded-full data-[state=active]:bg-background px-4 py-1.5"
+                >
+                  Markets
+                </TabsTrigger>
+                <TabsTrigger
                   value="genesis"
                   className="text-sm rounded-full data-[state=active]:bg-background px-4 py-1.5"
                 >
@@ -214,13 +220,19 @@ export const DashboardHeader = ({
           <TabsList className="inline-flex rounded-full bg-muted/50 p-1">
             <TabsTrigger
               value="swap"
-              className="text-sm rounded-full data-[state=active]:bg-background min-w-[72px] justify-center"
+              className="text-sm rounded-full data-[state=active]:bg-background px-3 py-1.5"
             >
               Swap
             </TabsTrigger>
             <TabsTrigger
+              value="markets"
+              className="text-sm rounded-full data-[state=active]:bg-background px-3 py-1.5"
+            >
+              Markets
+            </TabsTrigger>
+            <TabsTrigger
               value="genesis"
-              className="text-sm rounded-full data-[state=active]:bg-background min-w-[72px] justify-center"
+              className="text-sm rounded-full data-[state=active]:bg-background px-3 py-1.5"
             >
               My Miles
             </TabsTrigger>
