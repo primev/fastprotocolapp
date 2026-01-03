@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react'
 import { useMarketStore } from '@/hooks/useMarketStore'
-import { MarketCarousel } from './MarketCarousel'
 import { MarketPredictor } from './MarketPredictor'
 import { MarketBetForm } from './MarketBetForm'
 import { MarketRules } from './MarketRules'
@@ -21,9 +20,6 @@ export function MarketsPage() {
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4 sm:px-0 space-y-6">
-      {/* Featured Markets Carousel */}
-      <MarketCarousel />
-
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Market Predictor - Takes 3 columns on large screens */}

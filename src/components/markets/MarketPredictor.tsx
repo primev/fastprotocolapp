@@ -4,7 +4,13 @@ import { useMemo } from 'react'
 import { useMarketStore } from '@/hooks/useMarketStore'
 import { formatTimeLeft, formatPrice, formatChange } from '@/lib/mockMarketData'
 import { cn } from '@/lib/utils'
-import { TrendingUp, TrendingDown, Clock, Zap } from 'lucide-react'
+import { TrendingUp, TrendingDown, Clock, Zap, ChevronDown, Users } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface SparklineProps {
   data: number[]
@@ -136,7 +142,7 @@ function Sparkline({ data, isUp, width = 400, height = 140 }: SparklineProps) {
 }
 
 export function MarketPredictor() {
-  const { selectedMarket } = useMarketStore()
+  const { selectedMarket, markets, setSelectedMarket } = useMarketStore()
 
   if (!selectedMarket) {
     return (
@@ -164,26 +170,79 @@ export function MarketPredictor() {
       {/* Header */}
       <div className="relative p-6 pb-4">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            <div className={cn(
-              "flex items-center justify-center w-16 h-16 rounded-2xl text-3xl",
-              "bg-gradient-to-br from-white/10 to-white/5",
-              "border border-white/10 shadow-lg"
-            )}>
-              {selectedMarket.icon}
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white">{selectedMarket.name}</h2>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-sm text-gray-400">{selectedMarket.symbol}</span>
-                <span className="h-1 w-1 rounded-full bg-gray-600" />
-                <span className="flex items-center gap-1.5 text-sm text-gray-400">
-                  <Zap className="h-3.5 w-3.5 text-primary" />
-                  {selectedMarket.type === 'crypto' ? '15min Prediction' : 'Event Market'}
-                </span>
-              </div>
-            </div>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-4 group cursor-pointer text-left">
+                <div className={cn(
+                  "flex items-center justify-center w-16 h-16 rounded-2xl text-3xl",
+                  "bg-gradient-to-br from-white/10 to-white/5",
+                  "border border-white/10 shadow-lg",
+                  "group-hover:border-primary/30 transition-colors"
+                )}>
+                  {selectedMarket.icon}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-2xl font-bold text-white group-hover:text-primary transition-colors">{selectedMarket.name}</h2>
+                    <ChevronDown className="h-5 w-5 text-gray-400 group-hover:text-primary transition-colors" />
+                  </div>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-sm text-gray-400">{selectedMarket.symbol}</span>
+                    <span className="h-1 w-1 rounded-full bg-gray-600" />
+                    <span className="flex items-center gap-1.5 text-sm text-gray-400">
+                      <Zap className="h-3.5 w-3.5 text-primary" />
+                      {selectedMarket.type === 'crypto' ? '15min Prediction' : 'Event Market'}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="w-[320px] p-2 bg-[#1a1f2e] border-white/10"
+            >
+              {markets.map((market) => {
+                const marketIsUp = market.changePercent >= 0
+                const isSelected = market.id === selectedMarket.id
+                return (
+                  <DropdownMenuItem
+                    key={market.id}
+                    onClick={() => setSelectedMarket(market)}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg cursor-pointer",
+                      "hover:bg-white/5 focus:bg-white/5",
+                      isSelected && "bg-primary/10 border border-primary/20"
+                    )}
+                  >
+                    <div className={cn(
+                      "flex items-center justify-center w-10 h-10 rounded-xl text-xl",
+                      "bg-gradient-to-br from-white/10 to-white/5",
+                      "border border-white/10"
+                    )}>
+                      {market.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-white">{market.symbol}</span>
+                        <span className="text-sm text-gray-400">
+                          {market.type === 'crypto' ? '$' : ''}{formatPrice(market.currentPrice, market.type)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <span className="text-xs text-gray-500 truncate">{market.name}</span>
+                        <span className={cn(
+                          "text-xs font-medium",
+                          marketIsUp ? "text-emerald-400" : "text-rose-400"
+                        )}>
+                          {marketIsUp ? '+' : ''}{market.changePercent.toFixed(2)}%
+                        </span>
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Timer */}
           <div className={cn(
