@@ -16,36 +16,36 @@ interface DeFiProtocol {
 }
 
 const TOP_DEFI_PROTOCOLS: DeFiProtocol[] = [
-  {
-    name: "Uniswap",
-    swapUrl: "https://app.uniswap.org/",
-    logo: "https://assets.coingecko.com/coins/images/12504/large/uniswap-uni.png",
-  },
+  // {
+  //   name: "Uniswap",
+  //   swapUrl: "https://app.uniswap.org/",
+  //   logo: "https://assets.coingecko.com/coins/images/12504/large/uniswap-uni.png",
+  // },
   {
     name: "Curve",
     swapUrl: "https://curve.fi/",
     logo: "https://assets.coingecko.com/coins/images/12124/large/Curve.png",
   },
-  {
-    name: "Balancer",
-    swapUrl: "https://balancer.fi/swap/ethereum/ETH",
-    logo: "https://cryptologos.cc/logos/balancer-bal-logo.png",
-  },
-  {
-    name: "1inch",
-    swapUrl: "https://app.1inch.io/",
-    logo: "https://assets.coingecko.com/coins/images/13469/large/1inch-token.png",
-  },
+  // {
+  //   name: "Balancer",
+  //   swapUrl: "https://balancer.fi/swap/ethereum/ETH",
+  //   logo: "https://cryptologos.cc/logos/balancer-bal-logo.png",
+  // },
+  // {
+  //   name: "1inch",
+  //   swapUrl: "https://app.1inch.io/",
+  //   logo: "https://assets.coingecko.com/coins/images/13469/large/1inch-token.png",
+  // },
   {
     name: "SushiSwap",
     swapUrl: "https://www.sushi.com/swap",
     logo: "https://assets.coingecko.com/coins/images/12271/large/512x512_Logo_no_chop.png",
   },
-  {
-    name: "KyberSwap",
-    swapUrl: "https://kyberswap.com/swap",
-    logo: "https://assets.coingecko.com/coins/images/14899/large/RwdVsGcw_400x400.jpg",
-  },
+  // {
+  //   name: "KyberSwap",
+  //   swapUrl: "https://kyberswap.com/swap",
+  //   logo: "https://assets.coingecko.com/coins/images/14899/large/RwdVsGcw_400x400.jpg",
+  // },
 ]
 
 export const SwapEarnAccordion = () => {
