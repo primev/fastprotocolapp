@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Zap, TrendingUp, Users, Shield } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
+import { formatNumber } from "@/lib/utils"
 
 interface ClaimPageClientProps {
   initialTotalSupply: string | null
@@ -121,21 +122,19 @@ export const ClaimPageClient = ({
             <div className="pt-16 grid grid-cols-2 md:grid-cols-3 gap-8">
               <div className="space-y-2">
                 <p className="text-3xl font-bold font-mono text-primary">
-                  {initialTotalSupply !== null ? Number(initialTotalSupply).toLocaleString() : "0"}
+                  {formatNumber(initialTotalSupply)}
                 </p>
                 <p className="text-sm text-muted-foreground">Genesis SBTs Minted</p>
               </div>
               {/* <div className="space-y-2">
                 <p className="text-3xl font-bold font-mono text-primary">
-                  {initialTotalPoints !== null ? Number(initialTotalPoints).toLocaleString() : "0"}
+                  {formatNumber(initialTotalPoints)}
                 </p>
                 <p className="text-sm text-muted-foreground">Total Points Earned</p>
               </div> */}
               <div className="space-y-2">
                 <p className="text-3xl font-bold font-mono text-primary">
-                  {initialTransactions !== null
-                    ? Number(initialTransactions).toLocaleString()
-                    : "0"}
+                  {formatNumber(initialTransactions)}
                 </p>
                 <p className="text-sm text-muted-foreground">Transactions</p>
               </div>

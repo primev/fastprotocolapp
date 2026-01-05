@@ -33,7 +33,7 @@ import { SBTDisplayCard } from "@/components/dashboard/SBTDisplayCard"
 import { ReferralsCard } from "@/components/dashboard/ReferralsCard"
 import { OneTimeTasksAccordion } from "@/components/dashboard/OneTimeTasksAccordion"
 import { SwapEarnAccordion } from "@/components/dashboard/SwapEarnAccordion"
-import { WeeklyActivitySection } from "@/components/dashboard/WeeklyActivitySection"
+import { UserMetricsSection } from "@/components/dashboard/UserMetricsSection"
 import { PointsHUD } from "@/components/dashboard/PointsHUD"
 import { WeeklyTasksSection } from "@/components/dashboard/WeeklyTasksSection"
 import { ReferralsSection } from "@/components/dashboard/ReferralsSection"
@@ -363,7 +363,9 @@ const DashboardContent = () => {
 
                 <SwapEarnAccordion />
 
-                <WeeklyActivitySection />
+                <hr />
+                <UserMetricsSection address={address} />
+                <hr />
               </div>
             </div>
           </TabsContent>
