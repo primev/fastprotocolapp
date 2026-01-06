@@ -64,8 +64,7 @@ export async function GET() {
     if (dataRows.length > 0) {
       // Format: [swap_tx_count, total_swap_vol_eth]
       const row = dataRows[0]
-      const swapTxCount =
-        row[0] !== null && row[0] !== undefined ? Number(row[0]) : null
+      const swapTxCount = row[0] !== null && row[0] !== undefined ? Number(row[0]) : null
 
       if (swapTxCount !== null && !isNaN(swapTxCount)) {
         return NextResponse.json({
@@ -81,4 +80,3 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch swap count" }, { status: 500 })
   }
 }
-

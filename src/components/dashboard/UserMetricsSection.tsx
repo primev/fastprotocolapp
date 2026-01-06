@@ -24,10 +24,7 @@ interface UserMetrics {
   ethPrice: number | null
 }
 
-export const UserMetricsSection = ({
-  address,
-  initialGlobalStats,
-}: UserMetricsSectionProps) => {
+export const UserMetricsSection = ({ address, initialGlobalStats }: UserMetricsSectionProps) => {
   const [metrics, setMetrics] = useState<UserMetrics | null>(
     // If initial global stats are provided, use them
     initialGlobalStats
