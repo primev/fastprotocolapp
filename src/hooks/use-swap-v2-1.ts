@@ -118,7 +118,7 @@ export function useSwapV2_1(): UseSwapReturn {
       }
 
       // Validate inputs
-      if (params.amountIn <= 0n) {
+      if (params.amountIn <= BigInt(0)) {
         setState((s) => ({
           ...s,
           status: "error",
@@ -188,6 +188,7 @@ export function useSwapV2_1(): UseSwapReturn {
 
         // Sign the intent
         const signature = await signTypedDataAsync({
+          account: address,
           domain: typedData.domain,
           types: typedData.types,
           primaryType: typedData.primaryType,
@@ -314,10 +315,10 @@ export function validateSwapParams(params: Partial<SwapParams>): asserts params 
   if (params.tokenIn === params.tokenOut) {
     throw new Error("Cannot swap same token")
   }
-  if (!params.amountIn || params.amountIn <= 0n) {
+  if (!params.amountIn || params.amountIn <= BigInt(0)) {
     throw new Error("amountIn must be greater than 0")
   }
-  if (!params.expectedAmountOut || params.expectedAmountOut <= 0n) {
+  if (!params.expectedAmountOut || params.expectedAmountOut <= BigInt(0)) {
     throw new Error("expectedAmountOut must be greater than 0")
   }
   if (

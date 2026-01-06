@@ -7,15 +7,28 @@ jiti('./src/env/server');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Keep SSR/basic settings default for now to match primev.xyz phase-1
-  // distDir: './.next',
-  // reactStrictMode: true,
-  // basePath: process.env.NEXT_PUBLIC_BASE_PATH || '',
-  // webpack(config) {
-  //   // Optional: Preserve Vite-style alias if desired
-  //   // config.resolve.alias['@'] = require('path').resolve(__dirname, 'src');
-  //   return config;
-  // },
+  webpack: (config, { isServer }) => {
+    // Handle packages that have issues with webpack bundling
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        // MetaMask SDK uses React Native async storage, provide empty fallback for web
+        '@react-native-async-storage/async-storage': false,
+        // pino-pretty is optional and only needed in Node.js
+        'pino-pretty': false,
+      };
+    }
+
+    // Ignore optional dependencies that cause build warnings
+    config.externals = config.externals || [];
+    if (!isServer) {
+      config.externals.push({
+        'pino-pretty': 'pino-pretty',
+      });
+    }
+
+    return config;
+  },
   env: {
     NEXT_PUBLIC_BASE_URL: (() => {
       // If explicitly set in .env, use that (for local development)
