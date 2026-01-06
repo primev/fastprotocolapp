@@ -117,8 +117,47 @@ function getTokenDecimals(symbol: string): number {
 }
 
 /**
+ * Sanitize and validate amount input
+ * @param input Raw input string
+ * @returns Sanitized number or null if invalid
+ */
+function sanitizeAmountInput(input: string): number | null {
+  if (!input || typeof input !== "string") return null
+
+  // Remove any non-numeric characters except decimal point
+  const sanitized = input.replace(/[^0-9.]/g, "")
+
+  // Ensure only one decimal point
+  const parts = sanitized.split(".")
+  const cleanedAmount = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join("")}` : sanitized
+
+  const num = parseFloat(cleanedAmount)
+
+  // Validate the number
+  if (isNaN(num) || num < 0 || !isFinite(num)) return null
+
+  // Reject numbers that are too large (potential overflow)
+  if (num > Number.MAX_SAFE_INTEGER) return null
+
+  return num
+}
+
+/**
+ * Validate slippage input
+ * @param slippage Raw slippage string
+ * @returns Validated slippage percentage or default
+ */
+function validateSlippage(slippage: string): number {
+  const num = parseFloat(slippage)
+  if (isNaN(num) || num < 0) return 0.5 // Default to 0.5%
+  if (num > 50) return 50 // Cap at 50%
+  return num
+}
+
+/**
  * Hook for fetching real-time quotes from Uniswap V3
- * Includes debouncing, slippage calculation, and price impact estimation
+ * Includes debouncing, slippage calculation, price impact estimation,
+ * and comprehensive input validation/sanitization
  */
 export function useQuote({
   tokenIn,
@@ -148,15 +187,16 @@ export function useQuote({
     }
     abortControllerRef.current = new AbortController()
 
-    // Validate inputs
-    if (!tokenIn || !tokenOut || !amountIn || tokenIn === tokenOut) {
+    // Validate token inputs
+    if (!tokenIn || !tokenOut || tokenIn === tokenOut) {
       setQuote(null)
       setError(null)
       return
     }
 
-    const amountInNum = parseFloat(amountIn)
-    if (isNaN(amountInNum) || amountInNum <= 0) {
+    // Sanitize and validate amount input
+    const amountInNum = sanitizeAmountInput(amountIn)
+    if (amountInNum === null || amountInNum <= 0) {
       setQuote(null)
       setError(null)
       return
@@ -250,8 +290,8 @@ export function useQuote({
       const amountOutFormatted = formatUnits(bestQuote.amountOut, tokenOutDecimals)
       const amountOutNum = parseFloat(amountOutFormatted)
 
-      // Calculate minOut based on slippage
-      const slippagePercent = parseFloat(slippage) || 0.5
+      // Calculate minOut based on slippage (with validation)
+      const slippagePercent = validateSlippage(slippage)
       const slippageBps = BigInt(Math.floor(slippagePercent * 100)) // Convert to basis points
       const minOut = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
       const minOutFormatted = formatUnits(minOut, tokenOutDecimals)
