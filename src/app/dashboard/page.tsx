@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect, useLayoutEffect, useRef, Suspense, useCallback } from "react"
+import { Suspense, useState, useEffect, useLayoutEffect, useRef, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAccount } from "wagmi"
-import { ConnectButton } from "@rainbow-me/rainbowkit"
+import { useConnectModal } from "@rainbow-me/rainbowkit"
 import { toast } from "sonner"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
@@ -33,7 +33,7 @@ import { SBTDisplayCard } from "@/components/dashboard/SBTDisplayCard"
 import { ReferralsCard } from "@/components/dashboard/ReferralsCard"
 import { OneTimeTasksAccordion } from "@/components/dashboard/OneTimeTasksAccordion"
 import { SwapEarnAccordion } from "@/components/dashboard/SwapEarnAccordion"
-import { WeeklyActivitySection } from "@/components/dashboard/WeeklyActivitySection"
+import { UserMetricsSection } from "@/components/dashboard/UserMetricsSection"
 import { PointsHUD } from "@/components/dashboard/PointsHUD"
 import { WeeklyTasksSection } from "@/components/dashboard/WeeklyTasksSection"
 import { ReferralsSection } from "@/components/dashboard/ReferralsSection"
@@ -53,6 +53,8 @@ import { isMetaMaskWallet, isRabbyWallet } from "@/lib/onboarding-utils"
 import { NETWORK_CONFIG } from "@/lib/network-config"
 import type { TaskName } from "@/hooks/use-dashboard-tasks"
 
+// Client-side rendering for instant page load
+// Data fetching happens on the client side after initial render
 const DashboardContent = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -101,6 +103,8 @@ const DashboardContent = () => {
   const { isConnected, address, status, connector } = useAccount()
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected)
   const rpcTest = useRPCTest()
+  const { openConnectModal } = useConnectModal()
+  const hasOpenedConnectModalRef = useRef(false)
 
   // Custom hooks
   const userOnboarding = useUserOnboarding(isConnected, address)
@@ -159,6 +163,20 @@ const DashboardContent = () => {
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  // Automatically open wallet connect modal if user is not connected
+  useEffect(() => {
+    if (
+      isMounted &&
+      !isConnected &&
+      !hasOpenedConnectModalRef.current &&
+      status !== "connecting" &&
+      status !== "reconnecting"
+    ) {
+      hasOpenedConnectModalRef.current = true
+      openConnectModal()
+    }
+  }, [isMounted, isConnected, status, openConnectModal])
 
   // Measure header and announcement heights - use layout effect to run synchronously before paint
   useLayoutEffect(() => {
@@ -363,7 +381,9 @@ const DashboardContent = () => {
 
                 <SwapEarnAccordion />
 
-                <WeeklyActivitySection />
+                <hr />
+                <UserMetricsSection address={address} />
+                <hr />
               </div>
             </div>
           </TabsContent>
@@ -529,6 +549,7 @@ const DashboardContent = () => {
   )
 }
 
+// Wrap the component that uses useSearchParams in Suspense
 const DashboardPage = () => {
   return (
     <Suspense
