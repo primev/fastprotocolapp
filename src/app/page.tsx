@@ -2,6 +2,7 @@
 
 import { useState, Fragment } from "react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -13,8 +14,8 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { captureEmailAction } from "@/actions/capture-email"
-import { Check, MessageCircle, Send } from "lucide-react"
-import { FaXTwitter } from "react-icons/fa6"
+import { Check } from "lucide-react"
+import { SocialIcon } from "react-social-icons"
 import { AnimatedBackground } from "@/components/AnimatedBackground"
 import type { CaptureEmailResult } from "@/lib/email"
 import { useAddFastToMetamask } from "@/hooks/use-add-fast-to-metamask"
@@ -22,9 +23,9 @@ import Marquee from "react-fast-marquee"
 import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL, TWITTER_INVITE_URL } from "@/lib/constants"
 
 const socialLinks = [
-  { name: "Discord", icon: MessageCircle, url: DISCORD_INVITE_URL },
-  { name: "Telegram", icon: Send, url: TELEGRAM_INVITE_URL },
-  { name: "Twitter", icon: FaXTwitter, url: TWITTER_INVITE_URL },
+  { name: "Discord", network: "discord", url: DISCORD_INVITE_URL },
+  { name: "Telegram", network: "telegram", url: TELEGRAM_INVITE_URL },
+  { name: "X", network: "x", url: TWITTER_INVITE_URL },
 ]
 
 const footerLogos = [
@@ -73,6 +74,7 @@ const footerLogos = [
 ]
 
 const IndexPage = () => {
+  const router = useRouter()
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
@@ -127,6 +129,18 @@ const IndexPage = () => {
 
       <div className="relative z-10 w-full px-4 flex-1 flex flex-col justify-between py-4 sm:py-6 tablet:py-8 lg:py-6">
         <div className="max-w-6xl mx-auto w-full text-center flex-1 flex flex-col justify-between">
+          {/* Launch App Button - Top Right */}
+          <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
+            <Button
+              variant="glass"
+              size="lg"
+              onClick={() => router.push("/dashboard")}
+              className="h-9 sm:h-10 px-4 sm:px-6 text-xs sm:text-sm"
+            >
+              Launch App
+            </Button>
+          </div>
+
           {/* Logo */}
           <section className="flex-1 flex items-center justify-center">
             <Image
@@ -179,92 +193,78 @@ const IndexPage = () => {
               </form>
             </div>
 
-            {/* Social Links */}
-            <div className="flex flex-wrap gap-2 xs:gap-3 tablet:gap-4 justify-center px-3 xs:px-4 tablet:px-6 mb-4 xs:mb-6 sm:mb-8 tablet:mb-0">
-              {socialLinks.map(({ name, icon: Icon, url }) => (
-                <Fragment key={name}>
-                  <Button
-                    variant="glass"
-                    size="lg"
-                    asChild
-                    className="sm:hidden px-2.5 xs:px-3 tablet:px-4 py-2.5 xs:py-3 tablet:py-4 rounded-full aspect-square"
-                  >
-                    <a
-                      href={url}
-                      target={url.startsWith("mailto:") ? undefined : "_blank"}
-                      rel={url.startsWith("mailto:") ? undefined : "noopener noreferrer"}
-                      aria-label={name}
-                    >
-                      <Icon className="w-6 h-6 xs:w-7 xs:h-7 tablet:w-8 tablet:h-8" />
-                    </a>
-                  </Button>
-                  <Button
-                    variant="glass"
-                    size="lg"
-                    asChild
-                    className="hidden tablet:flex text-lg lg:text-sm px-6 lg:px-4 py-3 lg:py-2"
-                  >
-                    <a
-                      href={url}
-                      target={url.startsWith("mailto:") ? undefined : "_blank"}
-                      rel={url.startsWith("mailto:") ? undefined : "noopener noreferrer"}
-                      aria-label={name}
-                    >
-                      <Icon className="w-5 h-5 lg:w-4 lg:h-4 mr-2" />
-                      <span>{name}</span>
-                    </a>
-                  </Button>
-                  <Button
-                    variant="glass"
-                    size="lg"
-                    asChild
-                    className="hidden sm:flex tablet:hidden text-sm px-4 py-2"
-                  >
-                    <a
-                      href={url}
-                      target={url.startsWith("mailto:") ? undefined : "_blank"}
-                      rel={url.startsWith("mailto:") ? undefined : "noopener noreferrer"}
-                      aria-label={name}
-                    >
-                      <Icon className="w-4 h-4 mr-2" />
-                      <span>{name}</span>
-                    </a>
-                  </Button>
-                </Fragment>
-              ))}
+            {/* Add RPC & Claim SBT Badge Buttons */}
+            <div className="flex flex-col items-center space-y-3 xs:space-y-3 tablet:space-y-4 px-3 xs:px-4 tablet:px-6 mb-4 xs:mb-6 sm:mb-8 tablet:mb-0">
+              <div className="flex flex-col sm:flex-row gap-2 xs:gap-3 tablet:gap-4 items-center">
+                <Button
+                  variant="glass"
+                  size="lg"
+                  onClick={handleAddRPC}
+                  disabled={isProcessing || rpcAdded}
+                  className="h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-11 px-6 xs:px-7 sm:px-8 tablet:px-10 lg:px-7 text-xs xs:text-sm sm:text-base tablet:text-lg lg:text-sm border-2 border-primary/20 flex items-center gap-2 tablet:gap-3 lg:gap-2 w-full sm:w-auto"
+                >
+                  {rpcAdded ? (
+                    <>
+                      <Check className="w-4 h-4 tablet:w-5 tablet:h-5 lg:w-4 lg:h-4" />
+                      <span>Added Successfully!</span>
+                    </>
+                  ) : isProcessing ? (
+                    "Processing..."
+                  ) : (
+                    <>
+                      <Image
+                        src="/assets/metamask-icon.svg"
+                        alt="MetaMask"
+                        width={24}
+                        height={24}
+                        className="w-4 h-4 tablet:w-5 tablet:h-5 lg:w-4 lg:h-4"
+                      />
+                      <span>Add Fast RPC</span>
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="glass"
+                  size="lg"
+                  onClick={() => router.push("/claim/onboarding")}
+                  className="h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-11 px-6 xs:px-7 sm:px-8 tablet:px-10 lg:px-7 text-xs xs:text-sm sm:text-base tablet:text-lg lg:text-sm border-2 border-primary/20 w-full sm:w-auto flex items-center gap-2 tablet:gap-3 lg:gap-2"
+                >
+                  <SocialIcon
+                    network="opensea"
+                    style={{
+                      height: "22px",
+                      width: "22px",
+                    }}
+                  />
+                  Claim SBT Badge
+                </Button>
+              </div>
             </div>
           </section>
 
-          {/* Add RPC Button */}
+          {/* Social Links */}
           <section className="flex-1 flex items-center justify-center mt-4 xs:mt-6 sm:mt-8 tablet:mt-0">
-            <div className="flex flex-col items-center space-y-2 xs:space-y-3 tablet:space-y-4 px-3 xs:px-4 tablet:px-6">
-              <Button
-                variant="glass"
-                size="lg"
-                onClick={handleAddRPC}
-                disabled={isProcessing || rpcAdded}
-                className="h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-11 px-6 xs:px-7 sm:px-8 tablet:px-10 lg:px-7 text-xs xs:text-sm sm:text-base tablet:text-lg lg:text-sm border-2 border-primary/20 flex items-center gap-2 tablet:gap-3 lg:gap-2"
-              >
-                {rpcAdded ? (
-                  <>
-                    <Check className="w-4 h-4 tablet:w-5 tablet:h-5 lg:w-4 lg:h-4" />
-                    <span>Added Successfully!</span>
-                  </>
-                ) : isProcessing ? (
-                  "Processing..."
-                ) : (
-                  <>
-                    <Image
-                      src="/assets/metamask-icon.svg"
-                      alt="MetaMask"
-                      width={24}
-                      height={24}
-                      className="w-4 h-4 tablet:w-5 tablet:h-5 lg:w-4 lg:h-4"
+            <div className="flex flex-col items-center space-y-3 xs:space-y-3 tablet:space-y-4 px-3 xs:px-4 tablet:px-6">
+              <div className="flex flex-wrap gap-4 xs:gap-5 sm:gap-6 tablet:gap-7 justify-center">
+                {socialLinks.map(({ name, network, url }) => (
+                  <a
+                    key={name}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={name}
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                  >
+                    <SocialIcon
+                      network={network}
+                      style={{
+                        height: "40px",
+                        width: "40px",
+                      }}
                     />
-                    <span>Add Fast RPC</span>
-                  </>
-                )}
-              </Button>
+                  </a>
+                ))}
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setIsHelpDialogOpen(true)}

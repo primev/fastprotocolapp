@@ -30,15 +30,15 @@ const DashboardPage = async () => {
   }
 
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="animate-pulse text-muted-foreground">Loading...</div>
-        </div>
-      }
-    >
+    // <Suspense
+    //   fallback={
+    //     <div className="min-h-screen bg-background flex items-center justify-center">
+    //       <div className="animate-pulse text-muted-foreground">Loading...</div>
+    //     </div>
+    //   }
+    // >
       <DashboardContent initialGlobalStats={initialGlobalStats} />
-    </Suspense>
+    // </Suspense>
   )
 }
 
