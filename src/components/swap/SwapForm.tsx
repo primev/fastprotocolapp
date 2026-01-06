@@ -20,6 +20,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { SwapReviewModal } from "./SwapReviewModal"
 import { useQuote, formatQuoteAmount, formatPriceImpact, getPriceImpactSeverity } from "@/hooks/use-quote"
 
@@ -438,7 +443,10 @@ export function SwapForm() {
   const [sellToken, setSellToken] = useState<TokenType>("ETH")
   const [buyToken, setBuyToken] = useState<TokenType>(null)
   const [slippage, setSlippage] = useState("0.5")
+  const [customSlippage, setCustomSlippage] = useState("")
+  const [deadline, setDeadline] = useState("30")
   const [showReviewModal, setShowReviewModal] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [showSellTokenSelector, setShowSellTokenSelector] = useState(false)
   const [showBuyTokenSelector, setShowBuyTokenSelector] = useState(false)
   const [customTokens, setCustomTokens] = useState<Record<string, Token>>({})
@@ -532,18 +540,110 @@ export function SwapForm() {
         {/* Header - Above both cards */}
         <div className="flex items-center justify-between mb-2 sm:mb-3">
           <span className="text-xl font-semibold text-white">Swap</span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="p-2 rounded-lg hover:bg-white/5 transition-colors">
-                  <Settings className="h-5 w-5 text-gray-400" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Slippage: {slippage}%</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Popover open={showSettings} onOpenChange={setShowSettings}>
+            <PopoverTrigger asChild>
+              <button className="p-2 rounded-lg hover:bg-white/5 transition-colors">
+                <Settings className="h-5 w-5 text-gray-400 hover:text-white transition-colors" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-80 bg-[#1c2128] border-white/10 p-4"
+            >
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-white">Transaction Settings</h3>
+
+                {/* Slippage Tolerance */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-400">Slippage tolerance</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-500 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="max-w-[200px]">
+                          <p className="text-xs">Your transaction will revert if the price changes unfavorably by more than this percentage.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div className="flex gap-2">
+                    {["0.1", "0.5", "1.0"].map((value) => (
+                      <button
+                        key={value}
+                        onClick={() => {
+                          setSlippage(value)
+                          setCustomSlippage("")
+                        }}
+                        className={cn(
+                          "flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors",
+                          slippage === value && !customSlippage
+                            ? "bg-primary text-white"
+                            : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+                        )}
+                      >
+                        {value}%
+                      </button>
+                    ))}
+                    <div className="relative flex-1">
+                      <input
+                        type="number"
+                        placeholder="Custom"
+                        value={customSlippage}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setCustomSlippage(val)
+                          if (val && parseFloat(val) > 0) {
+                            setSlippage(val)
+                          }
+                        }}
+                        className={cn(
+                          "w-full py-2 px-3 rounded-lg text-sm font-medium bg-white/5 border transition-colors text-right pr-6",
+                          customSlippage
+                            ? "border-primary text-white"
+                            : "border-transparent text-gray-400 hover:bg-white/10"
+                        )}
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500">%</span>
+                    </div>
+                  </div>
+                  {parseFloat(slippage) > 5 && (
+                    <p className="text-xs text-yellow-500">⚠️ High slippage may result in unfavorable trades</p>
+                  )}
+                  {parseFloat(slippage) < 0.1 && (
+                    <p className="text-xs text-yellow-500">⚠️ Low slippage may cause transaction to fail</p>
+                  )}
+                </div>
+
+                {/* Transaction Deadline */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-400">Transaction deadline</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-500 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="max-w-[200px]">
+                          <p className="text-xs">Your transaction will revert if it is pending for more than this period of time.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={deadline}
+                      onChange={(e) => setDeadline(e.target.value)}
+                      className="w-20 py-2 px-3 rounded-lg text-sm font-medium bg-white/5 border border-transparent text-white text-right focus:border-primary focus:outline-none"
+                    />
+                    <span className="text-sm text-gray-400">minutes</span>
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Stacked Sell/Buy cards */}
