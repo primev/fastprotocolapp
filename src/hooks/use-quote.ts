@@ -32,7 +32,8 @@ export const TOKEN_DECIMALS: Record<string, number> = {
   LINK: 18,
   UNI: 18,
   AAVE: 18,
-  FAST: 18, // Assuming FAST token has 18 decimals
+  // TODO: Uncomment when FAST token is available
+  // FAST: 18,
 }
 
 // Uniswap V3 Quoter V2 ABI (only the function we need)

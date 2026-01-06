@@ -25,18 +25,19 @@ const ETH_ICON = (
   </svg>
 )
 
-const FAST_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 98 95" fill="none">
-    <path
-      d="M0.344727 0.226562L36.7147 94.6165H59.9647L26.0747 0.226562H0.344727Z"
-      className="fill-primary"
-    />
-    <path
-      d="M72.8246 0.226562L52.5447 56.5766H76.2947L97.8146 0.226562H72.8246Z"
-      fill="#E97D25"
-    />
-  </svg>
-)
+// TODO: Uncomment when FAST token is available
+// const FAST_ICON = (
+//   <svg className="h-full w-full" viewBox="0 0 98 95" fill="none">
+//     <path
+//       d="M0.344727 0.226562L36.7147 94.6165H59.9647L26.0747 0.226562H0.344727Z"
+//       className="fill-primary"
+//     />
+//     <path
+//       d="M72.8246 0.226562L52.5447 56.5766H76.2947L97.8146 0.226562H72.8246Z"
+//       fill="#E97D25"
+//     />
+//   </svg>
+// )
 
 const USDC_ICON = (
   <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
@@ -63,7 +64,8 @@ interface Token {
 
 const TOKENS: Record<string, Token> = {
   ETH: { symbol: "ETH", name: "Ethereum", icon: ETH_ICON },
-  FAST: { symbol: "FAST", name: "Fast Token", icon: FAST_ICON },
+  // TODO: Uncomment when FAST token is available
+  // FAST: { symbol: "FAST", name: "Fast Token", icon: FAST_ICON },
   USDC: { symbol: "USDC", name: "USD Coin", icon: USDC_ICON },
 }
 
