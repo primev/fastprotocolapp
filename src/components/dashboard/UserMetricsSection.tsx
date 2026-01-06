@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card"
 import { TrendingUp, ArrowUpRight, Coins } from "lucide-react"
 import { formatNumber } from "@/lib/utils"
 import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
+import { FEATURE_FLAGS } from "@/lib/feature-flags"
 
 interface UserMetricsSectionProps {
   address?: string
@@ -23,32 +24,63 @@ export const UserMetricsSection = ({ address }: UserMetricsSectionProps) => {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!address) {
-      setMetrics(null)
-      return
-    }
-
     const fetchMetrics = async () => {
       setIsLoading(true)
       setError(null)
 
       try {
-        const response = await fetch(`/api/analytics/user/${address}`)
+        // If feature flag is enabled, fetch global stats (same endpoints as claim page)
+        if (FEATURE_FLAGS.show_global_stats) {
+          const [transactionsResponse, swapVolumeResponse, swapCountResponse, ethPriceResponse] =
+            await Promise.all([
+              fetch("/api/analytics/transactions"),
+              fetch("/api/analytics/volume/swap"),
+              fetch("/api/analytics/swap-count"),
+              fetch("/api/analytics/eth-price"),
+            ])
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch user metrics")
+          if (!transactionsResponse.ok || !swapVolumeResponse.ok) {
+            throw new Error("Failed to fetch global metrics")
+          }
+
+          const transactionsData = await transactionsResponse.json()
+          const swapVolumeData = await swapVolumeResponse.json()
+          const swapCountData = swapCountResponse.ok ? await swapCountResponse.json() : null
+          const ethPriceData = ethPriceResponse.ok ? await ethPriceResponse.json() : null
+
+          setMetrics({
+            totalTxs: transactionsData.cumulativeSuccessfulTxs || 0,
+            swapTxs: swapCountData?.swapTxCount || 0,
+            totalSwapVolEth: swapVolumeData.cumulativeSwapVolEth || 0,
+            ethPrice:
+              ethPriceData?.ethPrice !== null && ethPriceData?.ethPrice !== undefined
+                ? Number(ethPriceData.ethPrice)
+                : null,
+          })
+        } else {
+          // Fetch user-specific data
+          if (!address) {
+            setMetrics(null)
+            return
+          }
+
+          const response = await fetch(`/api/analytics/user/${address}`)
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch user metrics")
+          }
+
+          const data = await response.json()
+          setMetrics({
+            totalTxs: data.totalTxs || 0,
+            swapTxs: data.swapTxs || 0,
+            totalSwapVolEth: data.totalSwapVolEth || 0,
+            ethPrice:
+              data.ethPrice !== null && data.ethPrice !== undefined ? Number(data.ethPrice) : null,
+          })
         }
-
-        const data = await response.json()
-        setMetrics({
-          totalTxs: data.totalTxs || 0,
-          swapTxs: data.swapTxs || 0,
-          totalSwapVolEth: data.totalSwapVolEth || 0,
-          ethPrice:
-            data.ethPrice !== null && data.ethPrice !== undefined ? Number(data.ethPrice) : null,
-        })
       } catch (err) {
-        console.error("Error fetching user metrics:", err)
+        console.error("Error fetching metrics:", err)
         setError("Failed to load metrics")
       } finally {
         setIsLoading(false)
@@ -58,16 +90,20 @@ export const UserMetricsSection = ({ address }: UserMetricsSectionProps) => {
     fetchMetrics()
   }, [address])
 
-  // Show placeholder data when not logged in
-  const showPlaceholder = !address
+  // Show placeholder data when not logged in (only for user-specific stats)
+  const showPlaceholder = !FEATURE_FLAGS.show_global_stats && !address
   const displayMetrics = showPlaceholder
     ? { totalTxs: 0, swapTxs: 0, totalSwapVolEth: 0, ethPrice: null }
     : metrics
 
+  const isGlobalStats = FEATURE_FLAGS.show_global_stats
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold mb-2">Transaction Summary</h2>
+        <h2 className="text-xl font-bold mb-2">
+          {isGlobalStats ? "Global Transaction Summary" : "Transaction Summary"}
+        </h2>
         {/* <p className="text-muted-foreground">Track your transaction metrics and swap volume</p> */}
       </div>
 
@@ -95,7 +131,9 @@ export const UserMetricsSection = ({ address }: UserMetricsSectionProps) => {
               <div className="text-3xl font-bold font-mono">
                 {formatNumber(displayMetrics.totalTxs)}
               </div>
-              <div className="text-sm text-muted-foreground">All Fast RPC transactions</div>
+              {!isGlobalStats && (
+                <div className="text-sm text-muted-foreground">All Fast RPC transactions</div>
+              )}
             </div>
           </Card>
 
@@ -109,7 +147,9 @@ export const UserMetricsSection = ({ address }: UserMetricsSectionProps) => {
               <div className="text-3xl font-bold font-mono">
                 {formatNumber(displayMetrics.swapTxs)}
               </div>
-              <div className="text-sm text-muted-foreground">Total swaps with Fast RPC</div>
+              {!isGlobalStats && (
+                <div className="text-sm text-muted-foreground">Total swaps with Fast RPC</div>
+              )}
             </div>
           </Card>
 
@@ -120,28 +160,20 @@ export const UserMetricsSection = ({ address }: UserMetricsSectionProps) => {
               <h3 className="text-lg font-semibold">Swap Volume</h3>
             </div>
             <div className="space-y-2">
-              <div className="flex items-baseline gap-2 text-3xl font-bold font-mono">
+              <div className="text-3xl font-bold font-mono">
                 {(() => {
+                  const swapVolume = displayMetrics.totalSwapVolEth
                   const price =
                     displayMetrics.ethPrice !== null
                       ? displayMetrics.ethPrice
                       : DEFAULT_ETH_PRICE_USD
-                  const totalUsd = displayMetrics.totalSwapVolEth * price
-                  // If the value has decimals, show 2 decimal places, otherwise use compact notation
-                  if (totalUsd % 1 !== 0) {
-                    return `$${totalUsd.toFixed(2)}`
-                  }
-                  return `$${formatNumber(totalUsd, {
+                  const totalUsd = swapVolume * price
+                  return `$${totalUsd.toLocaleString(undefined, {
                     maximumFractionDigits: 1,
+                    notation: "compact",
+                    compactDisplay: "short",
                   })}`
                 })()}
-                <span className="text-base text-muted-foreground font-normal ml-1">USD</span>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                <span className="font-mono">
-                  {formatNumber(displayMetrics.totalSwapVolEth, { maximumFractionDigits: 4 })}
-                </span>{" "}
-                ETH
               </div>
             </div>
           </Card>

@@ -124,6 +124,36 @@ export async function getCumulativeSwapVolume(): Promise<number | null> {
 }
 
 /**
+ * Server-side function to fetch global swap transaction count from analytics API
+ * Calls the internal API route which handles the external API call
+ */
+export async function getSwapTransactionCount(): Promise<number | null> {
+  try {
+    // Call the internal API route
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+    const response = await fetch(`${baseUrl}/api/analytics/swap-count`, {
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      console.error("Failed to fetch swap count:", response.statusText)
+      return null
+    }
+
+    const data = await response.json()
+
+    if (data.success && data.swapTxCount !== null && data.swapTxCount !== undefined) {
+      return Number(data.swapTxCount)
+    }
+
+    return null
+  } catch (error) {
+    console.error("Error fetching swap transaction count:", error)
+    return null
+  }
+}
+
+/**
  * Server-side function to fetch total points earned from Fuul payout summary
  * Calls the internal API route which handles the external API call
  */
