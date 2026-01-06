@@ -88,7 +88,6 @@ export const DashboardHeader = ({
                 <TabsTrigger
                   value="leaderboard"
                   className="text-sm rounded-full data-[state=active]:bg-background"
-                  disabled
                 >
                   Leaderboard
                 </TabsTrigger>
