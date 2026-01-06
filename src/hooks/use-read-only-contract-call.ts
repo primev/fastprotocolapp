@@ -67,10 +67,11 @@ export function useReadOnlyContractCall<T = any>({
       let lastError: Error | null = null
 
       // Primary: Fast RPC endpoint
+      // Todo: Change to RPC_ENDPOINT after testing bug
       try {
         const fastRpcClient = createPublicClient({
           chain: mainnet,
-          transport: http(RPC_ENDPOINT, {
+          transport: http(FALLBACK_RPC_ENDPOINT, {
             fetchOptions: {
               cache: "no-store", // Disable HTTP caching
             },

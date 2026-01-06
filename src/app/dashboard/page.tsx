@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect, useLayoutEffect, useRef, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAccount } from "wagmi"
+import { useConnectModal } from "@rainbow-me/rainbowkit"
 import { toast } from "sonner"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import {
@@ -102,6 +103,8 @@ const DashboardContent = () => {
   const { isConnected, address, status, connector } = useAccount()
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected)
   const rpcTest = useRPCTest()
+  const { openConnectModal } = useConnectModal()
+  const hasOpenedConnectModalRef = useRef(false)
 
   // Custom hooks
   const userOnboarding = useUserOnboarding(isConnected, address)
@@ -160,6 +163,20 @@ const DashboardContent = () => {
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  // Automatically open wallet connect modal if user is not connected
+  useEffect(() => {
+    if (
+      isMounted &&
+      !isConnected &&
+      !hasOpenedConnectModalRef.current &&
+      status !== "connecting" &&
+      status !== "reconnecting"
+    ) {
+      hasOpenedConnectModalRef.current = true
+      openConnectModal()
+    }
+  }, [isMounted, isConnected, status, openConnectModal])
 
   // Measure header and announcement heights - use layout effect to run synchronously before paint
   useLayoutEffect(() => {

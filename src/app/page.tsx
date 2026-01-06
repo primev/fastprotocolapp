@@ -1,9 +1,13 @@
 "use client"
 
-import { useState, Fragment } from "react"
+import { useState, Fragment, useEffect, useRef } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { useAccount } from "wagmi"
+import { useConnectModal } from "@rainbow-me/rainbowkit"
 import { Button } from "@/components/ui/button"
+import { useReadOnlyContractCall } from "@/hooks/use-read-only-contract-call"
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from "@/lib/contract-config"
 import { Input } from "@/components/ui/input"
 import {
   Dialog,
@@ -75,12 +79,24 @@ const footerLogos = [
 
 const IndexPage = () => {
   const router = useRouter()
+  const { isConnected, address } = useAccount()
+  const { openConnectModal } = useConnectModal()
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [rpcAdded, setRpcAdded] = useState(false)
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false)
   const { isProcessing, addFastToMetamask } = useAddFastToMetamask()
+  const shouldNavigateAfterConnectRef = useRef(false)
+
+  // Direct contract call to check if user has minted
+  const { data: tokenId, isLoading: isLoadingTokenId } = useReadOnlyContractCall<bigint>({
+    contractAddress: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: "getTokenIdByAddress",
+    args: address ? [address] : [],
+    enabled: isConnected && !!address,
+  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -121,6 +137,53 @@ const IndexPage = () => {
       setTimeout(() => setRpcAdded(false), 3000)
     }
   }
+
+  const handleClaimClick = () => {
+    if (!isConnected) {
+      shouldNavigateAfterConnectRef.current = true
+      openConnectModal()
+    } else {
+      // If already connected, check tokenId as proof of minting
+      // tokenId must be non-zero to prove they minted
+      if (tokenId !== null && tokenId !== undefined && tokenId !== BigInt(0)) {
+        router.push("/dashboard")
+      } else {
+        router.push("/claim/onboarding")
+      }
+    }
+  }
+
+  // Navigate after connection if user clicked claim
+  // Wait for the contract call to fetch data using the address before navigating
+  useEffect(() => {
+    // Only proceed if:
+    // 1. User is connected
+    // 2. Address is available (passed to contract call)
+    // 3. User clicked claim button
+    // 4. Contract call has finished loading AND we have a definitive BigInt result
+    //    (tokenId must be a BigInt - either BigInt(0) or a non-zero BigInt)
+    //    We don't navigate if tokenId is null (means no data/error) or undefined
+    if (
+      isConnected &&
+      address &&
+      shouldNavigateAfterConnectRef.current &&
+      !isLoadingTokenId &&
+      tokenId !== null &&
+      tokenId !== undefined &&
+      typeof tokenId === "bigint" // Ensure we have an actual BigInt result
+    ) {
+      // Reset the flag before navigation
+      shouldNavigateAfterConnectRef.current = false
+
+      // Use tokenId as proof of minting - must be non-zero
+      // tokenId is a BigInt: BigInt(0) means not minted, non-zero means minted
+      if (tokenId !== BigInt(0)) {
+        router.push("/dashboard")
+      } else {
+        router.push("/claim/onboarding")
+      }
+    }
+  }, [isConnected, address, tokenId, isLoadingTokenId, router])
 
   return (
     <div className="relative h-screen flex flex-col overflow-hidden bg-background">
@@ -226,7 +289,7 @@ const IndexPage = () => {
                 <Button
                   variant="glass"
                   size="lg"
-                  onClick={() => router.push("/claim/onboarding")}
+                  onClick={handleClaimClick}
                   className="h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-11 px-6 xs:px-7 sm:px-8 tablet:px-10 lg:px-7 text-xs xs:text-sm sm:text-base tablet:text-lg lg:text-sm border-2 border-primary/20 w-full sm:w-auto flex items-center gap-2 tablet:gap-3 lg:gap-2"
                 >
                   <SocialIcon
