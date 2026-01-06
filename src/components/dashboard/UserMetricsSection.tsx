@@ -9,6 +9,12 @@ import { FEATURE_FLAGS } from "@/lib/feature-flags"
 
 interface UserMetricsSectionProps {
   address?: string
+  initialGlobalStats?: {
+    totalTxs: number | null
+    swapTxs: number | null
+    totalSwapVolEth: number | null
+    ethPrice: number | null
+  } | null
 }
 
 interface UserMetrics {
@@ -18,12 +24,30 @@ interface UserMetrics {
   ethPrice: number | null
 }
 
-export const UserMetricsSection = ({ address }: UserMetricsSectionProps) => {
-  const [metrics, setMetrics] = useState<UserMetrics | null>(null)
+export const UserMetricsSection = ({
+  address,
+  initialGlobalStats,
+}: UserMetricsSectionProps) => {
+  const [metrics, setMetrics] = useState<UserMetrics | null>(
+    // If initial global stats are provided, use them
+    initialGlobalStats
+      ? {
+          totalTxs: initialGlobalStats.totalTxs ?? 0,
+          swapTxs: initialGlobalStats.swapTxs ?? 0,
+          totalSwapVolEth: initialGlobalStats.totalSwapVolEth ?? 0,
+          ethPrice: initialGlobalStats.ethPrice ?? null,
+        }
+      : null
+  )
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // If initial global stats are provided, don't fetch
+    if (initialGlobalStats && FEATURE_FLAGS.show_global_stats) {
+      return
+    }
+
     const fetchMetrics = async () => {
       setIsLoading(true)
       setError(null)
