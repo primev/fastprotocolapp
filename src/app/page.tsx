@@ -142,7 +142,7 @@ const IndexPage = () => {
           </div>
 
           {/* Logo */}
-          <section className="flex-1 flex items-center justify-center">
+          <section className="flex-1 flex items-center justify-center pt-6 sm:pt-0">
             <Image
               src="/assets/fast-protocol-logo-icon.png"
               alt="Fast Protocol"
