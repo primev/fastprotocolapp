@@ -2,6 +2,34 @@ import { NextRequest, NextResponse } from "next/server"
 import { env } from "@/env/server"
 import { getEthPrice } from "@/lib/analytics-server"
 
+// In-memory cache for leaderboard data
+const cache = new Map<string, { data: any; timestamp: number }>()
+const CACHE_TTL = 2 * 60 * 1000 // 2 minutes in milliseconds
+
+// Helper function to get cache key
+function getCacheKey(currentUserAddress: string | null): string {
+  return `leaderboard:${currentUserAddress || 'all'}`
+}
+
+// Helper function to get cached data
+function getCachedData(key: string): any | null {
+  const cached = cache.get(key)
+  if (!cached) return null
+  
+  const now = Date.now()
+  if (now - cached.timestamp > CACHE_TTL) {
+    cache.delete(key)
+    return null
+  }
+  
+  return cached.data
+}
+
+// Helper function to set cached data
+function setCachedData(key: string, data: any): void {
+  cache.set(key, { data, timestamp: Date.now() })
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authToken = env.ANALYTICS_DB_AUTH_TOKEN
@@ -13,6 +41,13 @@ export async function GET(request: NextRequest) {
     // Get current user address from query params (optional)
     const { searchParams } = new URL(request.url)
     const currentUserAddress = searchParams.get("currentUser")?.toLowerCase()
+
+    // Check cache first
+    const cacheKey = getCacheKey(currentUserAddress || null)
+    const cachedData = getCachedData(cacheKey)
+    if (cachedData) {
+      return NextResponse.json(cachedData)
+    }
 
     // Query: Rank by total swap volume, calculate 24h change
     // Using date_trunc approach similar to volume/swap route for Trino compatibility
@@ -357,14 +392,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const responseData = {
       success: true,
       leaderboard,
       userPosition,
       userVolume,
       nextRankVolume,
       ethPrice,
-    })
+    }
+
+    // Cache the response
+    setCachedData(cacheKey, responseData)
+
+    return NextResponse.json(responseData)
   } catch (error) {
     console.error("Error fetching leaderboard:", error)
     const errorMessage = error instanceof Error ? error.message : "Unknown error"
