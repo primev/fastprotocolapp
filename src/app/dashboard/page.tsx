@@ -39,7 +39,6 @@ import { WeeklyTasksSection } from "@/components/dashboard/WeeklyTasksSection"
 import { ReferralsSection } from "@/components/dashboard/ReferralsSection"
 import { PartnerQuestsSection } from "@/components/dashboard/PartnerQuestsSection"
 import { OneTimeTasksSection } from "@/components/dashboard/OneTimeTasksSection"
-import { LeaderboardTable } from "@/components/dashboard/LeaderboardTable"
 import { SBTGatingModal } from "@/components/modals/SBTGatingModal"
 import { TransactionFeedbackModal } from "@/components/modals/TransactionFeedbackModal"
 import { ReferralModal } from "@/components/modals/ReferralModal"
@@ -77,6 +76,7 @@ const DashboardContent = () => {
   const headerRef = useRef<HTMLDivElement>(null)
   const announcementRef = useRef<HTMLDivElement>(null)
   const titleSectionRef = useRef<HTMLDivElement>(null)
+  
 
   // Callback refs to measure immediately when elements mount
   const setHeaderRef = useCallback((node: HTMLDivElement | null) => {
@@ -132,9 +132,9 @@ const DashboardContent = () => {
   // Handle tab from URL query parameter
   useEffect(() => {
     const tab = searchParams.get("tab")
-    if (tab && ["genesis", "points", "leaderboard"].includes(tab)) {
-      // Block access to Points and Leaderboard if no Genesis SBT
-      if (!genesisSBT.hasGenesisSBT && (tab === "points" || tab === "leaderboard")) {
+    if (tab && ["genesis", "points"].includes(tab)) {
+      // Block access to Points if no Genesis SBT
+      if (!genesisSBT.hasGenesisSBT && tab === "points") {
         setActiveTab("genesis")
         return
       }
@@ -143,8 +143,8 @@ const DashboardContent = () => {
   }, [searchParams, genesisSBT.hasGenesisSBT])
 
   const handleTabChange = (value: string) => {
-    // Block access to Points and Leaderboard if no Genesis SBT
-    if (!genesisSBT.hasGenesisSBT && (value === "points" || value === "leaderboard")) {
+    // Block access to Points if no Genesis SBT
+    if (!genesisSBT.hasGenesisSBT && value === "points") {
       setShowSBTGatingModal(true)
       return
     }
@@ -163,6 +163,7 @@ const DashboardContent = () => {
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
 
   // Automatically open wallet connect modal if user is not connected
   useEffect(() => {
@@ -420,10 +421,6 @@ const DashboardContent = () => {
             </div>
           </TabsContent>
 
-          {/* Leaderboard Tab */}
-          <TabsContent value="leaderboard">
-            <LeaderboardTable />
-          </TabsContent>
         </Tabs>
       </div>
 

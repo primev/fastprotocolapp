@@ -5,7 +5,6 @@ import {
   DialogContent,
   DialogDescription,
   DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Award, Zap } from "lucide-react"
@@ -35,7 +34,6 @@ export const SBTGatingModal = ({ open }: SBTGatingModalProps) => {
               <Award className="w-8 h-8 text-primary" />
             </div>
           </div>
-          <DialogTitle className="text-center text-xl">Fast Genesis SBT Required</DialogTitle>
           <DialogDescription className="text-center text-base pt-2">
             You must mint your Genesis SBT to access the Fast Points System and Season 1
             leaderboard.

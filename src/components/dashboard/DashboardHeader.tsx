@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import Link from "next/link"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Award, Wallet, Settings } from "lucide-react"
 import { ConnectButton, useAccountModal, useConnectModal } from "@rainbow-me/rainbowkit"
@@ -68,41 +69,36 @@ export const DashboardHeader = ({
             />
           </div>
 
-          {/* Tabs - Centered - Desktop only */}
-          <div className="flex-1  justify-center hidden sm:flex">
-            <Tabs value={activeTab} onValueChange={onTabChange} className="w-auto">
-              <TabsList className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
-                <TabsTrigger
-                  value="genesis"
-                  className="text-sm rounded-full data-[state=active]:bg-background"
-                >
-                  Genesis SBT
-                </TabsTrigger>
-                {/* <TabsTrigger
-                  value="points"
-                  className="text-sm rounded-full data-[state=active]:bg-background"
-                  disabled
-                >
-                  Miles
-                </TabsTrigger> */}
-                <TabsTrigger
-                  value="leaderboard"
-                  className="text-sm rounded-full data-[state=active]:bg-background"
-                >
-                  Leaderboard
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+          {/* Navigation Links - Centered - Desktop only */}
+          <div className="flex-1 justify-center hidden sm:flex">
+            <div className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
+              <Link
+                href="/dashboard"
+                className={`text-sm rounded-full px-4 py-2 transition-colors ${
+                  activeTab === "genesis"
+                    ? "bg-background"
+                    : "hover:bg-muted/50"
+                }`}
+              >
+                Genesis SBT
+              </Link>
+              <Link
+                href="/leaderboard"
+                className="text-sm rounded-full px-4 py-2 transition-colors hover:bg-muted/50"
+              >
+                Leaderboard
+              </Link>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
-            <Badge
+            {/* <Badge
               variant="outline"
               className="h-10 px-3 lg:px-2.5 text-sm lg:text-sm border-primary/50 flex items-center"
             >
               <Award className="w-4 h-4 lg:w-3.5 lg:h-3.5 mr-2 lg:mr-1.5 text-primary" />
               {points} Miles
-            </Badge>
+            </Badge> */}
             {/* Wallet icon button for mobile (when connected) */}
             {isConnected && (
               <Button
@@ -209,32 +205,26 @@ export const DashboardHeader = ({
         </div>
       </header>
 
-      {/* Tabs - Centered */}
-      <div className="flex-1 bg-background/80  justify-center flex flex-col items-center sm:hidden py-4">
-        <Tabs value={activeTab} onValueChange={onTabChange} className="w-auto">
-          <TabsList className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
-            <TabsTrigger
-              value="genesis"
-              className="text-sm rounded-full data-[state=active]:bg-background"
-            >
-              Genesis SBT
-            </TabsTrigger>
-            <TabsTrigger
-              value="points"
-              className="text-sm rounded-full data-[state=active]:bg-background"
-              disabled
-            >
-              Miles
-            </TabsTrigger>
-            <TabsTrigger
-              value="leaderboard"
-              className="text-sm rounded-full data-[state=active]:bg-background"
-              disabled
-            >
-              Leaderboard
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+      {/* Mobile Navigation */}
+      <div className="flex-1 bg-background/80 justify-center flex flex-col items-center sm:hidden py-4">
+        <div className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
+          <Link
+            href="/dashboard"
+            className={`text-sm rounded-full px-4 py-2 transition-colors ${
+              activeTab === "genesis"
+                ? "bg-background"
+                : "hover:bg-muted/50"
+            }`}
+          >
+            Genesis SBT
+          </Link>
+          <Link
+            href="/leaderboard"
+            className="text-sm rounded-full px-4 py-2 transition-colors hover:bg-muted/50"
+          >
+            Leaderboard
+          </Link>
+        </div>
       </div>
     </>
   )

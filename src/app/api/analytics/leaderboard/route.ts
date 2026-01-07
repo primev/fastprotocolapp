@@ -203,9 +203,27 @@ export async function GET(request: NextRequest) {
           )
         ) higher_volumes`
 
+        // Prepare next rank query (we'll use it if user is outside top 15)
+        const nextRankQuery = `SELECT 
+          MIN(total_swap_vol_eth) AS total_swap_vol_eth
+        FROM (
+          SELECT 
+            lower(from_address) AS wallet,
+            SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
+          FROM mevcommit_57173.processed_l1_txns_v2
+          WHERE is_swap = TRUE
+          GROUP BY lower(from_address)
+          HAVING SUM(COALESCE(swap_vol_eth, 0)) > (
+            SELECT SUM(COALESCE(swap_vol_eth, 0))
+            FROM mevcommit_57173.processed_l1_txns_v2
+            WHERE is_swap = TRUE
+              AND lower(from_address) = lower('${currentUserAddress}')
+          )
+        ) higher_volumes`
+
         try {
-          // Fetch user data and rank in parallel
-          const [userDataResponse, userRankResponse] = await Promise.all([
+          // Fetch user data, rank, and next rank volume in parallel for speed
+          const [userDataResponse, userRankResponse, nextRankResponse] = await Promise.all([
             fetch(
               "https://analyticsdb.mev-commit.xyz/api/v1/catalogs/default_catalog/databases/mev_commit_8855/sql",
               {
@@ -228,12 +246,26 @@ export async function GET(request: NextRequest) {
                 body: JSON.stringify({ query: userRankQuery }),
               }
             ),
+            fetch(
+              "https://analyticsdb.mev-commit.xyz/api/v1/catalogs/default_catalog/databases/mev_commit_8855/sql",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Basic ${authToken}`,
+                },
+                body: JSON.stringify({ query: nextRankQuery }),
+              }
+            ),
           ])
 
           if (userDataResponse.ok && userRankResponse.ok) {
-            // Parse user data
-            const userDataText = await userDataResponse.text()
-            const userRankText = await userRankResponse.text()
+            // Parse all responses in parallel
+            const [userDataText, userRankText, nextRankText] = await Promise.all([
+              userDataResponse.text(),
+              userRankResponse.text(),
+              nextRankResponse?.text() || Promise.resolve(""),
+            ])
             
             let userTotalSwapVolEth = 0
             let userChange24hPct = 0
@@ -286,61 +318,23 @@ export async function GET(request: NextRequest) {
                   if (nextRankUser) {
                     nextRankVolume = nextRankUser.swapVolume24h
                   }
-                } else {
-                  // User is outside top 15, query for the user at position (userPosition - 1)
-                  const nextRankQuery = `WITH ranked_users AS (
-                    SELECT 
-                      lower(from_address) AS wallet,
-                      SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth,
-                      ROW_NUMBER() OVER (ORDER BY SUM(COALESCE(swap_vol_eth, 0)) DESC) AS rank_position
-                    FROM mevcommit_57173.processed_l1_txns_v2
-                    WHERE is_swap = TRUE
-                    GROUP BY lower(from_address)
-                    HAVING SUM(COALESCE(swap_vol_eth, 0)) > 0
-                  )
-                  SELECT total_swap_vol_eth
-                  FROM ranked_users
-                  WHERE rank_position = ${userPosition - 1}
-                  LIMIT 1`
-
-                  try {
-                    const nextRankResponse = await fetch(
-                      "https://analyticsdb.mev-commit.xyz/api/v1/catalogs/default_catalog/databases/mev_commit_8855/sql",
-                      {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                          Authorization: `Basic ${authToken}`,
-                        },
-                        body: JSON.stringify({ query: nextRankQuery }),
-                      }
-                    )
-
-                    if (nextRankResponse.ok) {
-                      const nextRankText = await nextRankResponse.text()
-                      const nextRankLines = nextRankText.trim().split("\n")
-                      for (const line of nextRankLines) {
-                        if (!line.trim()) continue
-                        try {
-                          const parsed = JSON.parse(line)
-                          if (parsed.data && Array.isArray(parsed.data) && parsed.data[0] !== null) {
-                            const nextRankVolEth = Number(parsed.data[0]) || 0
-                            if (nextRankVolEth > 0) {
-                              nextRankVolume = ethPrice !== null ? nextRankVolEth * ethPrice : nextRankVolEth
-                              console.log(`Next rank volume for position ${userPosition - 1}: ${nextRankVolume} USD (${nextRankVolEth} ETH)`)
-                            }
-                            break
-                          }
-                        } catch (e) {
-                          continue
+                } else if (nextRankResponse && nextRankResponse.ok) {
+                  // User is outside top 15, parse the next rank volume from parallel fetch
+                  const nextRankLines = nextRankText.trim().split("\n")
+                  for (const line of nextRankLines) {
+                    if (!line.trim()) continue
+                    try {
+                      const parsed = JSON.parse(line)
+                      if (parsed.data && Array.isArray(parsed.data) && parsed.data[0] !== null) {
+                        const nextRankVolEth = Number(parsed.data[0]) || 0
+                        if (nextRankVolEth > 0) {
+                          nextRankVolume = ethPrice !== null ? nextRankVolEth * ethPrice : nextRankVolEth
                         }
+                        break
                       }
-                    } else {
-                      const errorText = await nextRankResponse.text()
-                      console.error("Error fetching next rank volume:", nextRankResponse.status, errorText)
+                    } catch (e) {
+                      continue
                     }
-                  } catch (error) {
-                    console.error("Error fetching next rank volume:", error)
                   }
                 }
               }
