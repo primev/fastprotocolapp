@@ -29,7 +29,6 @@ interface LeaderboardProps {
   preloadedEthPrice?: number | null
 }
 
-
 // Format wallet address with ellipsis (first 4 chars + ... + last 4 chars)
 const formatWalletAddress = (address: string): string => {
   if (address.length <= 12) return address
@@ -50,13 +49,13 @@ const formatVolume = (volume: number): string => {
   }
   if (volume >= 1_000) {
     // Show ALL digits to the left of decimal (no decimal at all), and no K character
-    const digits = Math.floor(volume).toLocaleString('en-US', { maximumFractionDigits: 0 })
+    const digits = Math.floor(volume).toLocaleString("en-US", { maximumFractionDigits: 0 })
     return `$${digits}`
   }
   // For less than 1000, leave regular locale string (could have decimals, e.g. 532.11)
   // If it has decimal, cap to 2
   if (volume % 1 !== 0) {
-    return `$${volume.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    return `$${volume.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
   return `$${volume.toLocaleString()}`
 }
@@ -65,18 +64,18 @@ const formatVolume = (volume: number): string => {
 const formatChange24h = (change: number): string => {
   const sign = change >= 0 ? "+" : ""
   if (Math.abs(change) >= 100 && Number.isInteger(change)) {
-  return `${sign}${change.toFixed(0)}%`
-}
+    return `${sign}${change.toFixed(0)}%`
+  }
   return `${sign}${change.toFixed(2)}%`
 }
 
-export const LeaderboardTable = ({ 
-  address, 
-  preloadedData, 
+export const LeaderboardTable = ({
+  address,
+  preloadedData,
   isPreloading,
   preloadedActiveTraders,
   preloadedSwapVolumeEth,
-  preloadedEthPrice
+  preloadedEthPrice,
 }: LeaderboardProps) => {
   const { address: connectedAddress } = useAccount()
   const currentUserAddress = address || connectedAddress
@@ -85,7 +84,9 @@ export const LeaderboardTable = ({
   const [isLoadingActiveTraders, setIsLoadingActiveTraders] = useState(!preloadedActiveTraders)
   const [swapVolumeEth, setSwapVolumeEth] = useState<number | null>(preloadedSwapVolumeEth ?? null)
   const [ethPrice, setEthPrice] = useState<number | null>(preloadedEthPrice ?? null)
-  const [isLoadingTotalVolume, setIsLoadingTotalVolume] = useState(!(preloadedSwapVolumeEth && preloadedEthPrice))
+  const [isLoadingTotalVolume, setIsLoadingTotalVolume] = useState(
+    !(preloadedSwapVolumeEth && preloadedEthPrice)
+  )
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([])
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(!preloadedData && !isPreloading)
   const [userPosition, setUserPosition] = useState<number | null>(null)
@@ -101,25 +102,25 @@ export const LeaderboardTable = ({
       setUserVolume(preloadedData.userVolume || null)
       setNextRankVolume(preloadedData.nextRankVolume || null)
       setIsLoadingLeaderboard(false)
-      
-      // Debug logging
-      console.log('Using preloaded leaderboard data:', {
-        userPosition: preloadedData.userPosition,
-        userVolume: preloadedData.userVolume,
-        nextRankVolume: preloadedData.nextRankVolume,
-        volumeDifference: preloadedData.nextRankVolume && preloadedData.userVolume 
-          ? preloadedData.nextRankVolume - preloadedData.userVolume 
-          : null
-      })
-      
-      // Log leaderboard data to console as a table
-      console.table(leaderboard.map(entry => ({
-        Rank: entry.rank,
-        Wallet: entry.wallet,
-        'Total Volume (USD)': `$${entry.swapVolume24h.toLocaleString()}`,
-        '24h Change': `${entry.change24h >= 0 ? '+' : ''}${entry.change24h.toFixed(2)}%`,
-        'Is Current User': entry.isCurrentUser ? 'Yes' : 'No'
-      })))
+
+      // // Debug logging
+      // console.log('Using preloaded leaderboard data:', {
+      //   userPosition: preloadedData.userPosition,
+      //   userVolume: preloadedData.userVolume,
+      //   nextRankVolume: preloadedData.nextRankVolume,
+      //   volumeDifference: preloadedData.nextRankVolume && preloadedData.userVolume
+      //     ? preloadedData.nextRankVolume - preloadedData.userVolume
+      //     : null
+      // })
+
+      // // Log leaderboard data to console as a table
+      // console.table(leaderboard.map(entry => ({
+      //   Rank: entry.rank,
+      //   Wallet: entry.wallet,
+      //   'Total Volume (USD)': `$${entry.swapVolume24h.toLocaleString()}`,
+      //   '24h Change': `${entry.change24h >= 0 ? '+' : ''}${entry.change24h.toFixed(2)}%`,
+      //   'Is Current User': entry.isCurrentUser ? 'Yes' : 'No'
+      // })))
     }
   }, [preloadedData])
 
@@ -130,18 +131,18 @@ export const LeaderboardTable = ({
         setIsLoadingActiveTraders(false)
         return
       }
-      
+
       try {
         setIsLoadingActiveTraders(true)
         const response = await fetch("/api/analytics/active-traders")
-        
+
         if (!response.ok) {
           console.error("Failed to fetch active traders:", response.statusText)
           return
         }
 
         const data = await response.json()
-        
+
         if (data.success && data.activeTraders !== null && data.activeTraders !== undefined) {
           setActiveTraders(Number(data.activeTraders))
         }
@@ -154,12 +155,16 @@ export const LeaderboardTable = ({
 
     const fetchTotalVolume = async () => {
       // Skip if we already have preloaded data
-      if (preloadedSwapVolumeEth !== null && preloadedSwapVolumeEth !== undefined && 
-          preloadedEthPrice !== null && preloadedEthPrice !== undefined) {
+      if (
+        preloadedSwapVolumeEth !== null &&
+        preloadedSwapVolumeEth !== undefined &&
+        preloadedEthPrice !== null &&
+        preloadedEthPrice !== undefined
+      ) {
         setIsLoadingTotalVolume(false)
         return
       }
-      
+
       try {
         setIsLoadingTotalVolume(true)
         const [swapVolumeResponse, ethPriceResponse] = await Promise.all([
@@ -203,7 +208,7 @@ export const LeaderboardTable = ({
         setIsLoadingLeaderboard(false)
         return
       }
-      
+
       try {
         setIsLoadingLeaderboard(true)
         const url = currentUserAddress
@@ -225,25 +230,26 @@ export const LeaderboardTable = ({
           setUserPosition(data.userPosition || null)
           setUserVolume(data.userVolume || null)
           setNextRankVolume(data.nextRankVolume || null)
-          
+
           // Debug logging
-          console.log('Leaderboard API Response:', {
+          console.log("Leaderboard API Response:", {
             userPosition: data.userPosition,
             userVolume: data.userVolume,
             nextRankVolume: data.nextRankVolume,
-            volumeDifference: data.nextRankVolume && data.userVolume 
-              ? data.nextRankVolume - data.userVolume 
-              : null
+            volumeDifference:
+              data.nextRankVolume && data.userVolume ? data.nextRankVolume - data.userVolume : null,
           })
-          
+
           // Log leaderboard data to console as a table
-          console.table(leaderboard.map(entry => ({
-            Rank: entry.rank,
-            Wallet: entry.wallet,
-            'Total Volume (USD)': `$${entry.swapVolume24h.toLocaleString()}`,
-            '24h Change': `${entry.change24h >= 0 ? '+' : ''}${entry.change24h.toFixed(2)}%`,
-            'Is Current User': entry.isCurrentUser ? 'Yes' : 'No'
-          })))
+          console.table(
+            leaderboard.map((entry) => ({
+              Rank: entry.rank,
+              Wallet: entry.wallet,
+              "Total Volume (USD)": `$${entry.swapVolume24h.toLocaleString()}`,
+              "24h Change": `${entry.change24h >= 0 ? "+" : ""}${entry.change24h.toFixed(2)}%`,
+              "Is Current User": entry.isCurrentUser ? "Yes" : "No",
+            }))
+          )
         }
       } catch (error) {
         console.error("Error fetching leaderboard:", error)
@@ -253,14 +259,16 @@ export const LeaderboardTable = ({
     }
 
     // Fetch all data in parallel for faster loading
-    Promise.all([
-      fetchActiveTraders(),
-      fetchTotalVolume(),
-      fetchLeaderboard(),
-    ]).catch((error) => {
+    Promise.all([fetchActiveTraders(), fetchTotalVolume(), fetchLeaderboard()]).catch((error) => {
       console.error("Error fetching leaderboard data:", error)
     })
-  }, [currentUserAddress, preloadedData, preloadedActiveTraders, preloadedSwapVolumeEth, preloadedEthPrice])
+  }, [
+    currentUserAddress,
+    preloadedData,
+    preloadedActiveTraders,
+    preloadedSwapVolumeEth,
+    preloadedEthPrice,
+  ])
 
   // Use real leaderboard data only
   const displayLeaderboardData = leaderboardData
@@ -288,14 +296,12 @@ export const LeaderboardTable = ({
       return `$${volume.toFixed(2)}`
     }
     // For very small values, show up to 6 decimal places
-    return `$${volume.toFixed(6).replace(/\.?0+$/, '')}`
+    return `$${volume.toFixed(6).replace(/\.?0+$/, "")}`
   }
 
   // Calculate total volume in USD (swap volume in ETH * ETH price)
   const totalVolumeUsd =
-    swapVolumeEth !== null && ethPrice !== null
-      ? swapVolumeEth * ethPrice
-      : null
+    swapVolumeEth !== null && ethPrice !== null ? swapVolumeEth * ethPrice : null
 
   // Use real user position and volume only
   const displayUserPosition = userPosition
@@ -383,9 +389,7 @@ export const LeaderboardTable = ({
                 {isLoadingLeaderboard || displayUserPosition === null ? (
                   <span className="text-muted-foreground">...</span>
                 ) : (
-                  <>
-                    {displayUserPosition}
-                  </>
+                  <>{displayUserPosition}</>
                 )}
               </p>
             </div>
@@ -407,22 +411,22 @@ export const LeaderboardTable = ({
               </>
             ) : (
               <>
-            <TrendingUp className="w-5 h-5 text-primary flex-shrink-0" />
-            <p className="text-sm font-medium">
+                <TrendingUp className="w-5 h-5 text-primary flex-shrink-0" />
+                <p className="text-sm font-medium">
                   {volumeToNextRank !== null && volumeToNextRank > 0 ? (
                     <>
                       You're{" "}
-                      <span className="font-semibold text-primary">{formatVolumeDifference(volumeToNextRank)}</span>{" "}
-                      away from reaching rank{" "}
                       <span className="font-semibold text-primary">
-                        #{displayUserPosition - 1}
-                      </span>
+                        {formatVolumeDifference(volumeToNextRank)}
+                      </span>{" "}
+                      away from reaching rank{" "}
+                      <span className="font-semibold text-primary">#{displayUserPosition - 1}</span>
                     </>
                   ) : (
                     <>
                       Keep swapping to climb from rank{" "}
-                      <span className="font-semibold text-primary">#{displayUserPosition}</span>
-                      {" "}to rank{" "}
+                      <span className="font-semibold text-primary">#{displayUserPosition}</span> to
+                      rank{" "}
                       <span className="font-semibold text-primary">#{displayUserPosition - 1}</span>
                       !
                     </>
@@ -470,54 +474,54 @@ export const LeaderboardTable = ({
                 </tr>
               ) : (
                 displayLeaderboardData.map((entry, index) => (
-                <tr
-                  key={entry.rank}
-                  className={`border-b border-border/20 transition-all duration-200 ${
-                    entry.isCurrentUser
-                      ? "bg-gradient-to-r from-primary/15 via-primary/10 to-transparent border-l-2 border-l-primary"
-                      : "hover:bg-muted/20"
-                  } ${index === displayLeaderboardData.length - 1 ? "border-b-0" : ""}`}
-                >
-                  <td className="py-5 px-6">
-                    <div className="flex items-center gap-2">{getRankBadge(entry.rank)}</div>
-                  </td>
-                  <td className="py-5 px-6">
-                    <div className="flex items-center gap-2.5">
-                      <span className="font-mono text-sm font-medium">
-                        {formatWalletAddress(entry.wallet)}
+                  <tr
+                    key={entry.rank}
+                    className={`border-b border-border/20 transition-all duration-200 ${
+                      entry.isCurrentUser
+                        ? "bg-gradient-to-r from-primary/15 via-primary/10 to-transparent border-l-2 border-l-primary"
+                        : "hover:bg-muted/20"
+                    } ${index === displayLeaderboardData.length - 1 ? "border-b-0" : ""}`}
+                  >
+                    <td className="py-5 px-6">
+                      <div className="flex items-center gap-2">{getRankBadge(entry.rank)}</div>
+                    </td>
+                    <td className="py-5 px-6">
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-mono text-sm font-medium">
+                          {formatWalletAddress(entry.wallet)}
+                        </span>
+                        {entry.isCurrentUser && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs px-2 py-0.5 bg-primary/10 border-primary/40 text-primary font-medium"
+                          >
+                            You
+                          </Badge>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-5 px-6 text-right">
+                      <span className="font-mono text-sm font-semibold">
+                        {formatVolume(entry.swapVolume24h)}
                       </span>
-                      {entry.isCurrentUser && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs px-2 py-0.5 bg-primary/10 border-primary/40 text-primary font-medium"
+                    </td>
+                    <td className="py-5 px-6 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {entry.change24h >= 0 ? (
+                          <TrendingUp className="w-3.5 h-3.5 text-success" />
+                        ) : (
+                          <TrendingUp className="w-3.5 h-3.5 text-destructive rotate-180" />
+                        )}
+                        <span
+                          className={`font-mono text-sm font-medium ${
+                            entry.change24h >= 0 ? "text-success" : "text-destructive"
+                          }`}
                         >
-                          You
-                        </Badge>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-5 px-6 text-right">
-                    <span className="font-mono text-sm font-semibold">
-                      {formatVolume(entry.swapVolume24h)}
-                    </span>
-                  </td>
-                  <td className="py-5 px-6 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      {entry.change24h >= 0 ? (
-                        <TrendingUp className="w-3.5 h-3.5 text-success" />
-                      ) : (
-                        <TrendingUp className="w-3.5 h-3.5 text-destructive rotate-180" />
-                      )}
-                      <span
-                        className={`font-mono text-sm font-medium ${
-                          entry.change24h >= 0 ? "text-success" : "text-destructive"
-                        }`}
-                      >
-                        {formatChange24h(entry.change24h)}
-                      </span>
-                    </div>
-                  </td>
-                </tr>
+                          {formatChange24h(entry.change24h)}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
                 ))
               )}
             </tbody>
@@ -536,60 +540,60 @@ export const LeaderboardTable = ({
             </Card>
           ) : (
             displayLeaderboardData.map((entry) => (
-            <Card
-              key={entry.rank}
-              className={`p-5 border transition-all duration-300 ${
-                entry.isCurrentUser
-                  ? "bg-gradient-to-r from-primary/20 to-primary/5 border-primary/50 shadow-lg shadow-primary/10"
-                  : "bg-card/60 border-border/30 hover:border-primary/40 hover:shadow-md"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-5 pb-4 border-b border-border/20">
-                <div className="flex items-center gap-3">
-                  {getRankBadge(entry.rank)}
-                  <span className="font-mono text-sm font-medium text-foreground/90">
-                    {formatWalletAddress(entry.wallet)}
-                  </span>
-                </div>
-                {entry.isCurrentUser && (
-                  <Badge
-                    variant="outline"
-                    className="text-xs px-2.5 py-1 bg-primary/15 border-primary/50 text-primary font-semibold shadow-sm"
-                  >
-                    You
-                  </Badge>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground/80 font-medium uppercase tracking-wider">
-                    Total Swap Volume
-                  </p>
-                  <p className="font-mono font-semibold text-lg text-foreground">
-                    {formatVolume(entry.swapVolume24h)}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground/80 font-medium uppercase tracking-wider text-right">
-                    24h Change
-                  </p>
-                  <div className="flex items-center justify-end gap-1.5">
-                    {entry.change24h >= 0 ? (
-                      <TrendingUp className="w-4 h-4 text-success/90" />
-                    ) : (
-                      <TrendingUp className="w-4 h-4 text-destructive/90 rotate-180" />
-                    )}
-                    <span
-                      className={`font-mono font-semibold text-lg ${
-                        entry.change24h >= 0 ? "text-success/90" : "text-destructive/90"
-                      }`}
-                    >
-                      {formatChange24h(entry.change24h)}
+              <Card
+                key={entry.rank}
+                className={`p-5 border transition-all duration-300 ${
+                  entry.isCurrentUser
+                    ? "bg-gradient-to-r from-primary/20 to-primary/5 border-primary/50 shadow-lg shadow-primary/10"
+                    : "bg-card/60 border-border/30 hover:border-primary/40 hover:shadow-md"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-5 pb-4 border-b border-border/20">
+                  <div className="flex items-center gap-3">
+                    {getRankBadge(entry.rank)}
+                    <span className="font-mono text-sm font-medium text-foreground/90">
+                      {formatWalletAddress(entry.wallet)}
                     </span>
                   </div>
+                  {entry.isCurrentUser && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs px-2.5 py-1 bg-primary/15 border-primary/50 text-primary font-semibold shadow-sm"
+                    >
+                      You
+                    </Badge>
+                  )}
                 </div>
-              </div>
-            </Card>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground/80 font-medium uppercase tracking-wider">
+                      Total Swap Volume
+                    </p>
+                    <p className="font-mono font-semibold text-lg text-foreground">
+                      {formatVolume(entry.swapVolume24h)}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground/80 font-medium uppercase tracking-wider text-right">
+                      24h Change
+                    </p>
+                    <div className="flex items-center justify-end gap-1.5">
+                      {entry.change24h >= 0 ? (
+                        <TrendingUp className="w-4 h-4 text-success/90" />
+                      ) : (
+                        <TrendingUp className="w-4 h-4 text-destructive/90 rotate-180" />
+                      )}
+                      <span
+                        className={`font-mono font-semibold text-lg ${
+                          entry.change24h >= 0 ? "text-success/90" : "text-destructive/90"
+                        }`}
+                      >
+                        {formatChange24h(entry.change24h)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
             ))
           )}
         </div>

@@ -1,11 +1,6 @@
 "use client"
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Award, Zap } from "lucide-react"
 import { useRouter } from "next/navigation"

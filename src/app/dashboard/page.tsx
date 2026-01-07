@@ -76,7 +76,6 @@ const DashboardContent = () => {
   const headerRef = useRef<HTMLDivElement>(null)
   const announcementRef = useRef<HTMLDivElement>(null)
   const titleSectionRef = useRef<HTMLDivElement>(null)
-  
 
   // Callback refs to measure immediately when elements mount
   const setHeaderRef = useCallback((node: HTMLDivElement | null) => {
@@ -163,7 +162,6 @@ const DashboardContent = () => {
   useEffect(() => {
     setIsMounted(true)
   }, [])
-
 
   // Automatically open wallet connect modal if user is not connected
   useEffect(() => {
@@ -420,7 +418,6 @@ const DashboardContent = () => {
               </p>
             </div>
           </TabsContent>
-
         </Tabs>
       </div>
 

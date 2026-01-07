@@ -128,10 +128,6 @@ export async function GET() {
     return NextResponse.json({ error: "No data returned from analytics API" }, { status: 500 })
   } catch (error) {
     console.error("Error fetching active traders analytics:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch active traders analytics" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Failed to fetch active traders analytics" }, { status: 500 })
   }
 }
-

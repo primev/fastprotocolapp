@@ -75,9 +75,7 @@ export const DashboardHeader = ({
               <Link
                 href="/dashboard"
                 className={`text-sm rounded-full px-4 py-2 transition-colors ${
-                  activeTab === "genesis"
-                    ? "bg-background"
-                    : "hover:bg-muted/50"
+                  activeTab === "genesis" ? "bg-background" : "hover:bg-muted/50"
                 }`}
               >
                 Genesis SBT
@@ -211,9 +209,7 @@ export const DashboardHeader = ({
           <Link
             href="/dashboard"
             className={`text-sm rounded-full px-4 py-2 transition-colors ${
-              activeTab === "genesis"
-                ? "bg-background"
-                : "hover:bg-muted/50"
+              activeTab === "genesis" ? "bg-background" : "hover:bg-muted/50"
             }`}
           >
             Genesis SBT

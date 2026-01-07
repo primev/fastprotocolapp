@@ -8,20 +8,20 @@ const CACHE_TTL = 2 * 60 * 1000 // 2 minutes in milliseconds
 
 // Helper function to get cache key
 function getCacheKey(currentUserAddress: string | null): string {
-  return `leaderboard:${currentUserAddress || 'all'}`
+  return `leaderboard:${currentUserAddress || "all"}`
 }
 
 // Helper function to get cached data
 function getCachedData(key: string): any | null {
   const cached = cache.get(key)
   if (!cached) return null
-  
+
   const now = Date.now()
   if (now - cached.timestamp > CACHE_TTL) {
     cache.delete(key)
     return null
   }
-  
+
   return cached.data
 }
 
@@ -113,10 +113,10 @@ export async function GET(request: NextRequest) {
       console.error("Analytics API error:", errorText)
       console.error("SQL Query that failed:", sqlQuery)
       return NextResponse.json(
-        { 
+        {
           error: `Analytics API returned status ${response.status}`,
           details: errorText,
-          query: sqlQuery 
+          query: sqlQuery,
         },
         { status: response.status }
       )
@@ -301,7 +301,7 @@ export async function GET(request: NextRequest) {
               userRankResponse.text(),
               nextRankResponse?.text() || Promise.resolve(""),
             ])
-            
+
             let userTotalSwapVolEth = 0
             let userChange24hPct = 0
             let actualRank: number | null = null
@@ -363,7 +363,8 @@ export async function GET(request: NextRequest) {
                       if (parsed.data && Array.isArray(parsed.data) && parsed.data[0] !== null) {
                         const nextRankVolEth = Number(parsed.data[0]) || 0
                         if (nextRankVolEth > 0) {
-                          nextRankVolume = ethPrice !== null ? nextRankVolEth * ethPrice : nextRankVolEth
+                          nextRankVolume =
+                            ethPrice !== null ? nextRankVolEth * ethPrice : nextRankVolEth
                         }
                         break
                       }
@@ -410,13 +411,12 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error"
     const errorStack = error instanceof Error ? error.stack : undefined
     return NextResponse.json(
-      { 
+      {
         error: "Failed to fetch leaderboard",
         details: errorMessage,
-        stack: errorStack 
+        stack: errorStack,
       },
       { status: 500 }
     )
   }
 }
-
