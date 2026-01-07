@@ -148,6 +148,9 @@ const formatChange24h = (change: number): string => {
 export const LeaderboardTable = () => {
   const [activeTraders, setActiveTraders] = useState<number | null>(null)
   const [isLoadingActiveTraders, setIsLoadingActiveTraders] = useState(true)
+  const [swapVolumeEth, setSwapVolumeEth] = useState<number | null>(null)
+  const [ethPrice, setEthPrice] = useState<number | null>(null)
+  const [isLoadingTotalVolume, setIsLoadingTotalVolume] = useState(true)
 
   useEffect(() => {
     const fetchActiveTraders = async () => {
@@ -172,7 +175,46 @@ export const LeaderboardTable = () => {
       }
     }
 
+    const fetchTotalVolume = async () => {
+      try {
+        setIsLoadingTotalVolume(true)
+        const [swapVolumeResponse, ethPriceResponse] = await Promise.all([
+          fetch("/api/analytics/volume/swap"),
+          fetch("/api/analytics/eth-price"),
+        ])
+
+        if (!swapVolumeResponse.ok || !ethPriceResponse.ok) {
+          console.error("Failed to fetch total volume data")
+          return
+        }
+
+        const swapVolumeData = await swapVolumeResponse.json()
+        const ethPriceData = await ethPriceResponse.json()
+
+        if (
+          swapVolumeData.success &&
+          swapVolumeData.cumulativeSwapVolEth !== null &&
+          swapVolumeData.cumulativeSwapVolEth !== undefined
+        ) {
+          setSwapVolumeEth(Number(swapVolumeData.cumulativeSwapVolEth))
+        }
+
+        if (
+          ethPriceData.success &&
+          ethPriceData.ethPrice !== null &&
+          ethPriceData.ethPrice !== undefined
+        ) {
+          setEthPrice(Number(ethPriceData.ethPrice))
+        }
+      } catch (error) {
+        console.error("Error fetching total volume:", error)
+      } finally {
+        setIsLoadingTotalVolume(false)
+      }
+    }
+
     fetchActiveTraders()
+    fetchTotalVolume()
   }, [])
 
   const currentUser = mockLeaderboardData.find((entry) => entry.isCurrentUser)
@@ -180,6 +222,12 @@ export const LeaderboardTable = () => {
   
   // Use fetched active traders or fall back to mock data if not loaded yet
   const displayActiveTraders = activeTraders !== null ? activeTraders : mockStats.activeTraders
+  
+  // Calculate total volume in USD (swap volume in ETH * ETH price)
+  const totalVolumeUsd =
+    swapVolumeEth !== null && ethPrice !== null
+      ? swapVolumeEth * ethPrice
+      : mockStats.totalVolume
 
   const getRankBadge = (rank: number) => {
     if (rank === 1)
@@ -243,7 +291,11 @@ export const LeaderboardTable = () => {
                 <p className="text-sm font-medium">Total Volume</p>
               </div>
               <p className="text-3xl font-bold tracking-tight">
-                {formatVolume(mockStats.totalVolume)}
+                {isLoadingTotalVolume ? (
+                  <span className="text-muted-foreground">...</span>
+                ) : (
+                  formatVolume(totalVolumeUsd)
+                )}
               </p>
             </div>
           </div>
