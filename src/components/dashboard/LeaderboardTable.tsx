@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useAccount } from "wagmi"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Trophy, TrendingUp, Users, DollarSign, Award } from "lucide-react"
@@ -8,9 +9,13 @@ import { Trophy, TrendingUp, Users, DollarSign, Award } from "lucide-react"
 interface LeaderboardEntry {
   rank: number
   wallet: string
-  swapVolume24h: number // 24h swap volume in USD
+  swapVolume24h: number // Total swap volume in USD (ranked by this)
   change24h: number // 24h change percentage
   isCurrentUser?: boolean
+}
+
+interface LeaderboardProps {
+  address?: string
 }
 
 // Mock stats data
@@ -128,13 +133,27 @@ const formatWalletAddress = (address: string): string => {
   return `${address.slice(0, 4)}...${address.slice(-4)}`
 }
 
-// Format volume in USD with K/M notation
+// Format volume in USD with detailed M/B/T notation as per spec (K, but do not show the "K" char)
+// If showing a decimal, only show 2
 const formatVolume = (volume: number): string => {
-  if (volume >= 1000000) {
-    return `$${(volume / 1000000).toFixed(1)}M`
+  if (volume >= 1_000_000_000_000) {
+    return `$${(volume / 1_000_000_000_000).toFixed(2)}T`
   }
-  if (volume >= 1000) {
-    return `$${(volume / 1000).toFixed(0)}K`
+  if (volume >= 1_000_000_000) {
+    return `$${(volume / 1_000_000_000).toFixed(2)}B`
+  }
+  if (volume >= 1_000_000) {
+    return `$${(volume / 1_000_000).toFixed(2)}M`
+  }
+  if (volume >= 1_000) {
+    // Show ALL digits to the left of decimal (no decimal at all), and no K character
+    const digits = Math.floor(volume).toLocaleString('en-US', { maximumFractionDigits: 0 })
+    return `$${digits}`
+  }
+  // For less than 1000, leave regular locale string (could have decimals, e.g. 532.11)
+  // If it has decimal, cap to 2
+  if (volume % 1 !== 0) {
+    return `$${volume.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
   return `$${volume.toLocaleString()}`
 }
@@ -142,15 +161,25 @@ const formatVolume = (volume: number): string => {
 // Format 24h change as percentage
 const formatChange24h = (change: number): string => {
   const sign = change >= 0 ? "+" : ""
-  return `${sign}${change.toFixed(0)}%`
+  if (Math.abs(change) >= 100 && Number.isInteger(change)) {
+    return `${sign}${change.toFixed(0)}%`
+  }
+  return `${sign}${change.toFixed(2)}%`
 }
 
-export const LeaderboardTable = () => {
+export const LeaderboardTable = ({ address }: LeaderboardProps) => {
+  const { address: connectedAddress } = useAccount()
+  const currentUserAddress = address || connectedAddress
+
   const [activeTraders, setActiveTraders] = useState<number | null>(null)
   const [isLoadingActiveTraders, setIsLoadingActiveTraders] = useState(true)
   const [swapVolumeEth, setSwapVolumeEth] = useState<number | null>(null)
   const [ethPrice, setEthPrice] = useState<number | null>(null)
   const [isLoadingTotalVolume, setIsLoadingTotalVolume] = useState(true)
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([])
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(true)
+  const [userPosition, setUserPosition] = useState<number | null>(null)
+  const [userVolume, setUserVolume] = useState<number | null>(null)
 
   useEffect(() => {
     const fetchActiveTraders = async () => {
@@ -213,21 +242,77 @@ export const LeaderboardTable = () => {
       }
     }
 
+    const fetchLeaderboard = async () => {
+      try {
+        setIsLoadingLeaderboard(true)
+        const url = currentUserAddress
+          ? `/api/analytics/leaderboard?currentUser=${currentUserAddress}`
+          : "/api/analytics/leaderboard"
+
+        const response = await fetch(url)
+
+        if (!response.ok) {
+          console.error("Failed to fetch leaderboard:", response.statusText)
+          return
+        }
+
+        const data = await response.json()
+
+        if (data.success) {
+          const leaderboard = data.leaderboard || []
+          setLeaderboardData(leaderboard)
+          setUserPosition(data.userPosition || null)
+          setUserVolume(data.userVolume || null)
+          
+          // Log leaderboard data to console as a table
+          console.table(leaderboard.map(entry => ({
+            Rank: entry.rank,
+            Wallet: entry.wallet,
+            'Total Volume (USD)': `$${entry.swapVolume24h.toLocaleString()}`,
+            '24h Change': `${entry.change24h >= 0 ? '+' : ''}${entry.change24h.toFixed(2)}%`,
+            'Is Current User': entry.isCurrentUser ? 'Yes' : 'No'
+          })))
+        }
+      } catch (error) {
+        console.error("Error fetching leaderboard:", error)
+      } finally {
+        setIsLoadingLeaderboard(false)
+      }
+    }
+
     fetchActiveTraders()
     fetchTotalVolume()
-  }, [])
+    fetchLeaderboard()
+  }, [currentUserAddress])
 
-  const currentUser = mockLeaderboardData.find((entry) => entry.isCurrentUser)
-  const volumeToNextRank = mockStats.nextRankVolume - mockStats.userVolume
-  
+  // Use real leaderboard data or fall back to mock during loading
+  const displayLeaderboardData =
+    leaderboardData.length > 0 ? leaderboardData : mockLeaderboardData
+  const currentUser = displayLeaderboardData.find((entry) => entry.isCurrentUser)
+
+  // Calculate volume to next rank
+  const volumeToNextRank =
+    currentUser && userPosition && userPosition > 1
+      ? (() => {
+          const nextRankUser = displayLeaderboardData.find(
+            (entry) => entry.rank === userPosition - 1
+          )
+          return nextRankUser ? nextRankUser.swapVolume24h - (userVolume || 0) : 0
+        })()
+      : 0
+
   // Use fetched active traders or fall back to mock data if not loaded yet
   const displayActiveTraders = activeTraders !== null ? activeTraders : mockStats.activeTraders
-  
+
   // Calculate total volume in USD (swap volume in ETH * ETH price)
   const totalVolumeUsd =
     swapVolumeEth !== null && ethPrice !== null
       ? swapVolumeEth * ethPrice
       : mockStats.totalVolume
+
+  // Use real user position and volume if available
+  const displayUserPosition = userPosition || mockStats.userPosition
+  const displayUserVolume = userVolume !== null ? userVolume : mockStats.userVolume
 
   const getRankBadge = (rank: number) => {
     if (rank === 1)
@@ -255,13 +340,13 @@ export const LeaderboardTable = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 px-4 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="space-y-2">
         <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
           Swap Volume Leaderboard
         </h1>
-        <p className="text-muted-foreground text-lg">Top traders ranked by 24h swap volume</p>
+        <p className="text-muted-foreground text-lg">Top traders ranked by total swap volume</p>
       </div>
 
       {/* Stats Cards */}
@@ -308,7 +393,13 @@ export const LeaderboardTable = () => {
                 <p className="text-sm font-medium">Your Position</p>
               </div>
               <p className="text-3xl font-bold tracking-tight text-primary">
-                #{mockStats.userPosition} • {formatVolume(mockStats.userVolume)}
+                {isLoadingLeaderboard ? (
+                  <span className="text-muted-foreground">...</span>
+                ) : (
+                  <>
+                    #{displayUserPosition}
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -321,8 +412,12 @@ export const LeaderboardTable = () => {
           <div className="flex items-center gap-3">
             <TrendingUp className="w-5 h-5 text-primary flex-shrink-0" />
             <p className="text-sm font-medium">
-              Keep swapping! You're just <span className="font-semibold text-primary">{formatVolume(volumeToNextRank)}</span> away from reaching rank{" "}
-              <span className="font-semibold text-primary">#{mockStats.userPosition - 1}</span>
+              Keep swapping! You're just{" "}
+              <span className="font-semibold text-primary">{formatVolume(volumeToNextRank)}</span>{" "}
+              away from reaching rank{" "}
+              <span className="font-semibold text-primary">
+                #{displayUserPosition > 1 ? displayUserPosition - 1 : displayUserPosition}
+              </span>
             </p>
           </div>
         </Card>
@@ -342,7 +437,7 @@ export const LeaderboardTable = () => {
                   Wallet Address
                 </th>
                 <th className="text-right py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Swap Volume
+                  Total Swap Volume
                 </th>
                 <th className="text-right py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   24h Change
@@ -350,7 +445,20 @@ export const LeaderboardTable = () => {
               </tr>
             </thead>
             <tbody>
-              {mockLeaderboardData.map((entry, index) => (
+              {isLoadingLeaderboard ? (
+                <tr>
+                  <td colSpan={4} className="py-8 px-6 text-center text-muted-foreground">
+                    Loading leaderboard...
+                  </td>
+                </tr>
+              ) : displayLeaderboardData.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-8 px-6 text-center text-muted-foreground">
+                    No leaderboard data available
+                  </td>
+                </tr>
+              ) : (
+                displayLeaderboardData.map((entry, index) => (
                 <tr
                   key={entry.rank}
                   className={`border-b border-border/20 transition-all duration-200 ${
@@ -399,14 +507,24 @@ export const LeaderboardTable = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Mobile Cards */}
         <div className="md:hidden p-4 space-y-3">
-          {mockLeaderboardData.map((entry) => (
+          {isLoadingLeaderboard ? (
+            <Card className="p-4">
+              <div className="text-center text-muted-foreground">Loading leaderboard...</div>
+            </Card>
+          ) : displayLeaderboardData.length === 0 ? (
+            <Card className="p-4">
+              <div className="text-center text-muted-foreground">No leaderboard data available</div>
+            </Card>
+          ) : (
+            displayLeaderboardData.map((entry) => (
             <Card
               key={entry.rank}
               className={`p-4 border transition-all duration-200 ${
@@ -433,14 +551,14 @@ export const LeaderboardTable = () => {
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground font-medium">Swap Volume</p>
+                  <p className="text-xs text-muted-foreground font-medium">Total Swap Volume</p>
                   <p className="font-mono font-semibold text-base">
                     {formatVolume(entry.swapVolume24h)}
                   </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground font-medium">24h Change</p>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-end gap-1.5">
                     {entry.change24h >= 0 ? (
                       <TrendingUp className="w-3.5 h-3.5 text-success" />
                     ) : (
@@ -457,7 +575,8 @@ export const LeaderboardTable = () => {
                 </div>
               </div>
             </Card>
-          ))}
+            ))
+          )}
         </div>
       </Card>
     </div>
