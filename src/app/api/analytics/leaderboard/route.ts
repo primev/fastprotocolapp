@@ -130,6 +130,7 @@ export async function GET(request: NextRequest) {
     let userPosition: number | null = null
     let userVolume: number | null = null
     let userChange24h: number = 0
+    let nextRankVolume: number | null = null
 
     if (currentUserAddress) {
       const userInLeaderboard = leaderboard.find((entry) => entry.isCurrentUser)
@@ -137,6 +138,13 @@ export async function GET(request: NextRequest) {
         userPosition = userInLeaderboard.rank
         userVolume = userInLeaderboard.swapVolume24h
         userChange24h = userInLeaderboard.change24h
+        // Find next rank user from leaderboard if user is not #1
+        if (userPosition > 1) {
+          const nextRankUser = leaderboard.find((entry) => entry.rank === userPosition - 1)
+          if (nextRankUser) {
+            nextRankVolume = nextRankUser.swapVolume24h
+          }
+        }
       } else {
         // Fetch user's data separately to add them to the leaderboard
         // First, get the user's volume and 24h change data
@@ -270,6 +278,73 @@ export async function GET(request: NextRequest) {
               userVolume = userTotalSwapVolUsd
               userChange24h = userChange24hPct
 
+              // Find the next rank user's volume (for all positions > 1)
+              if (userPosition > 1) {
+                if (userPosition <= 15) {
+                  // User is in top 15, find next rank user from leaderboard
+                  const nextRankUser = leaderboard.find((entry) => entry.rank === userPosition - 1)
+                  if (nextRankUser) {
+                    nextRankVolume = nextRankUser.swapVolume24h
+                  }
+                } else {
+                  // User is outside top 15, query for the user at position (userPosition - 1)
+                  const nextRankQuery = `WITH ranked_users AS (
+                    SELECT 
+                      lower(from_address) AS wallet,
+                      SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth,
+                      ROW_NUMBER() OVER (ORDER BY SUM(COALESCE(swap_vol_eth, 0)) DESC) AS rank_position
+                    FROM mevcommit_57173.processed_l1_txns_v2
+                    WHERE is_swap = TRUE
+                    GROUP BY lower(from_address)
+                    HAVING SUM(COALESCE(swap_vol_eth, 0)) > 0
+                  )
+                  SELECT total_swap_vol_eth
+                  FROM ranked_users
+                  WHERE rank_position = ${userPosition - 1}
+                  LIMIT 1`
+
+                  try {
+                    const nextRankResponse = await fetch(
+                      "https://analyticsdb.mev-commit.xyz/api/v1/catalogs/default_catalog/databases/mev_commit_8855/sql",
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Basic ${authToken}`,
+                        },
+                        body: JSON.stringify({ query: nextRankQuery }),
+                      }
+                    )
+
+                    if (nextRankResponse.ok) {
+                      const nextRankText = await nextRankResponse.text()
+                      const nextRankLines = nextRankText.trim().split("\n")
+                      for (const line of nextRankLines) {
+                        if (!line.trim()) continue
+                        try {
+                          const parsed = JSON.parse(line)
+                          if (parsed.data && Array.isArray(parsed.data) && parsed.data[0] !== null) {
+                            const nextRankVolEth = Number(parsed.data[0]) || 0
+                            if (nextRankVolEth > 0) {
+                              nextRankVolume = ethPrice !== null ? nextRankVolEth * ethPrice : nextRankVolEth
+                              console.log(`Next rank volume for position ${userPosition - 1}: ${nextRankVolume} USD (${nextRankVolEth} ETH)`)
+                            }
+                            break
+                          }
+                        } catch (e) {
+                          continue
+                        }
+                      }
+                    } else {
+                      const errorText = await nextRankResponse.text()
+                      console.error("Error fetching next rank volume:", nextRankResponse.status, errorText)
+                    }
+                  } catch (error) {
+                    console.error("Error fetching next rank volume:", error)
+                  }
+                }
+              }
+
               // Add current user to leaderboard if not in top 15
               if (userPosition > 15) {
                 leaderboard.push({
@@ -293,6 +368,7 @@ export async function GET(request: NextRequest) {
       leaderboard,
       userPosition,
       userVolume,
+      nextRankVolume,
       ethPrice,
     })
   } catch (error) {

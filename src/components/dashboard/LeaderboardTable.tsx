@@ -162,8 +162,8 @@ const formatVolume = (volume: number): string => {
 const formatChange24h = (change: number): string => {
   const sign = change >= 0 ? "+" : ""
   if (Math.abs(change) >= 100 && Number.isInteger(change)) {
-    return `${sign}${change.toFixed(0)}%`
-  }
+  return `${sign}${change.toFixed(0)}%`
+}
   return `${sign}${change.toFixed(2)}%`
 }
 
@@ -180,6 +180,7 @@ export const LeaderboardTable = ({ address }: LeaderboardProps) => {
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(true)
   const [userPosition, setUserPosition] = useState<number | null>(null)
   const [userVolume, setUserVolume] = useState<number | null>(null)
+  const [nextRankVolume, setNextRankVolume] = useState<number | null>(null)
 
   useEffect(() => {
     const fetchActiveTraders = async () => {
@@ -263,6 +264,17 @@ export const LeaderboardTable = ({ address }: LeaderboardProps) => {
           setLeaderboardData(leaderboard)
           setUserPosition(data.userPosition || null)
           setUserVolume(data.userVolume || null)
+          setNextRankVolume(data.nextRankVolume || null)
+          
+          // Debug logging
+          console.log('Leaderboard API Response:', {
+            userPosition: data.userPosition,
+            userVolume: data.userVolume,
+            nextRankVolume: data.nextRankVolume,
+            volumeDifference: data.nextRankVolume && data.userVolume 
+              ? data.nextRankVolume - data.userVolume 
+              : null
+          })
           
           // Log leaderboard data to console as a table
           console.table(leaderboard.map(entry => ({
@@ -290,16 +302,30 @@ export const LeaderboardTable = ({ address }: LeaderboardProps) => {
     leaderboardData.length > 0 ? leaderboardData : mockLeaderboardData
   const currentUser = displayLeaderboardData.find((entry) => entry.isCurrentUser)
 
-  // Calculate volume to next rank
+  // Calculate volume to next rank using the API-provided value
   const volumeToNextRank =
-    currentUser && userPosition && userPosition > 1
-      ? (() => {
-          const nextRankUser = displayLeaderboardData.find(
-            (entry) => entry.rank === userPosition - 1
-          )
-          return nextRankUser ? nextRankUser.swapVolume24h - (userVolume || 0) : 0
-        })()
-      : 0
+    userPosition && userPosition > 1 && nextRankVolume !== null && userVolume !== null
+      ? nextRankVolume - userVolume
+      : null
+
+  // Format volume difference with appropriate precision for small values
+  const formatVolumeDifference = (volume: number): string => {
+    if (volume >= 1000000) {
+      return `$${(volume / 1000000).toFixed(2)}M`
+    }
+    if (volume >= 1000) {
+      return `$${(volume / 1000).toFixed(2)}K`
+    }
+    if (volume >= 1) {
+      return `$${volume.toFixed(2)}`
+    }
+    // For values less than $1, show more precision
+    if (volume >= 0.01) {
+      return `$${volume.toFixed(2)}`
+    }
+    // For very small values, show up to 6 decimal places
+    return `$${volume.toFixed(6).replace(/\.?0+$/, '')}`
+  }
 
   // Use fetched active traders or fall back to mock data if not loaded yet
   const displayActiveTraders = activeTraders !== null ? activeTraders : mockStats.activeTraders
@@ -351,10 +377,10 @@ export const LeaderboardTable = ({ address }: LeaderboardProps) => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <Card className="p-6 bg-gradient-to-br from-card/80 to-card/40 border-border/50 hover:border-primary/30 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
+        <Card className="p-6 bg-gradient-to-br from-card/90 to-card/50 border-border/40 hover:border-primary/40 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
           <div className="flex items-start justify-between">
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="flex items-center gap-2 text-muted-foreground/80">
                 <Users className="w-4 h-4" />
                 <p className="text-sm font-medium">Active Traders</p>
               </div>
@@ -368,10 +394,10 @@ export const LeaderboardTable = ({ address }: LeaderboardProps) => {
             </div>
           </div>
         </Card>
-        <Card className="p-6 bg-gradient-to-br from-card/80 to-card/40 border-border/50 hover:border-primary/30 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
+        <Card className="p-6 bg-gradient-to-br from-card/90 to-card/50 border-border/40 hover:border-primary/40 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
           <div className="flex items-start justify-between">
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="flex items-center gap-2 text-muted-foreground/80">
                 <DollarSign className="w-4 h-4" />
                 <p className="text-sm font-medium">Total Volume</p>
               </div>
@@ -385,10 +411,10 @@ export const LeaderboardTable = ({ address }: LeaderboardProps) => {
             </div>
           </div>
         </Card>
-        <Card className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10">
+        <Card className="p-6 bg-gradient-to-br from-primary/15 to-primary/8 border-primary/40 hover:border-primary/60 transition-all duration-300 hover:shadow-lg hover:shadow-primary/20">
           <div className="flex items-start justify-between">
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-primary/80">
+              <div className="flex items-center gap-2 text-primary/90">
                 <Award className="w-4 h-4" />
                 <p className="text-sm font-medium">Your Position</p>
               </div>
@@ -397,7 +423,7 @@ export const LeaderboardTable = ({ address }: LeaderboardProps) => {
                   <span className="text-muted-foreground">...</span>
                 ) : (
                   <>
-                    #{displayUserPosition}
+                    {displayUserPosition}
                   </>
                 )}
               </p>
@@ -407,39 +433,63 @@ export const LeaderboardTable = ({ address }: LeaderboardProps) => {
       </div>
 
       {/* Encouragement Message */}
-      {currentUser && volumeToNextRank > 0 && (
-        <Card className="p-5 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 border-primary/30 backdrop-blur-sm">
+      {currentUser && displayUserPosition && (
+        <Card className="p-5 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 border-primary/30 backdrop-blur-sm shadow-md">
           <div className="flex items-center gap-3">
+            {displayUserPosition === 1 ? (
+              <>
+                <Trophy className="w-5 h-5 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                <p className="text-sm font-medium">
+                  🎉 Congratulations! You're ranked{" "}
+                  <span className="font-semibold text-primary">#1</span> on the leaderboard!
+                </p>
+              </>
+            ) : (
+              <>
             <TrendingUp className="w-5 h-5 text-primary flex-shrink-0" />
             <p className="text-sm font-medium">
-              Keep swapping! You're just{" "}
-              <span className="font-semibold text-primary">{formatVolume(volumeToNextRank)}</span>{" "}
-              away from reaching rank{" "}
-              <span className="font-semibold text-primary">
-                #{displayUserPosition > 1 ? displayUserPosition - 1 : displayUserPosition}
-              </span>
-            </p>
+                  {volumeToNextRank !== null && volumeToNextRank > 0 ? (
+                    <>
+                      You're{" "}
+                      <span className="font-semibold text-primary">{formatVolumeDifference(volumeToNextRank)}</span>{" "}
+                      away from reaching rank{" "}
+                      <span className="font-semibold text-primary">
+                        #{displayUserPosition - 1}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Keep swapping to climb from rank{" "}
+                      <span className="font-semibold text-primary">#{displayUserPosition}</span>
+                      {" "}to rank{" "}
+                      <span className="font-semibold text-primary">#{displayUserPosition - 1}</span>
+                      !
+                    </>
+                  )}
+                </p>
+              </>
+            )}
           </div>
         </Card>
       )}
 
       {/* Leaderboard Table */}
-      <Card className="p-0 bg-card/40 border-border/50 overflow-hidden backdrop-blur-sm">
+      <Card className="p-0 bg-card/50 border-border/40 overflow-hidden backdrop-blur-sm shadow-lg">
         {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-border/50 bg-muted/20">
-                <th className="text-left py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <tr className="border-b border-border/30 bg-gradient-to-r from-muted/30 to-muted/10">
+                <th className="text-left py-5 px-6 text-xs font-semibold text-muted-foreground/80 uppercase tracking-wider">
                   Rank
                 </th>
-                <th className="text-left py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <th className="text-left py-5 px-6 text-xs font-semibold text-muted-foreground/80 uppercase tracking-wider">
                   Wallet Address
                 </th>
-                <th className="text-right py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <th className="text-right py-5 px-6 text-xs font-semibold text-muted-foreground/80 uppercase tracking-wider">
                   Total Swap Volume
                 </th>
-                <th className="text-right py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <th className="text-right py-5 px-6 text-xs font-semibold text-muted-foreground/80 uppercase tracking-wider">
                   24h Change
                 </th>
               </tr>
@@ -465,7 +515,7 @@ export const LeaderboardTable = ({ address }: LeaderboardProps) => {
                     entry.isCurrentUser
                       ? "bg-gradient-to-r from-primary/15 via-primary/10 to-transparent border-l-2 border-l-primary"
                       : "hover:bg-muted/20"
-                  } ${index === mockLeaderboardData.length - 1 ? "border-b-0" : ""}`}
+                  } ${index === displayLeaderboardData.length - 1 ? "border-b-0" : ""}`}
                 >
                   <td className="py-5 px-6">
                     <div className="flex items-center gap-2">{getRankBadge(entry.rank)}</div>
@@ -514,59 +564,63 @@ export const LeaderboardTable = ({ address }: LeaderboardProps) => {
         </div>
 
         {/* Mobile Cards */}
-        <div className="md:hidden p-4 space-y-3">
+        <div className="md:hidden p-4 space-y-4">
           {isLoadingLeaderboard ? (
-            <Card className="p-4">
+            <Card className="p-6 bg-card/50 border-border/30">
               <div className="text-center text-muted-foreground">Loading leaderboard...</div>
             </Card>
           ) : displayLeaderboardData.length === 0 ? (
-            <Card className="p-4">
+            <Card className="p-6 bg-card/50 border-border/30">
               <div className="text-center text-muted-foreground">No leaderboard data available</div>
             </Card>
           ) : (
             displayLeaderboardData.map((entry) => (
             <Card
               key={entry.rank}
-              className={`p-4 border transition-all duration-200 ${
+              className={`p-5 border transition-all duration-300 ${
                 entry.isCurrentUser
-                  ? "bg-gradient-to-r from-primary/15 to-primary/5 border-primary/40 shadow-lg shadow-primary/5"
-                  : "bg-card/50 border-border/50 hover:border-primary/30"
+                  ? "bg-gradient-to-r from-primary/20 to-primary/5 border-primary/50 shadow-lg shadow-primary/10"
+                  : "bg-card/60 border-border/30 hover:border-primary/40 hover:shadow-md"
               }`}
             >
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-5 pb-4 border-b border-border/20">
                 <div className="flex items-center gap-3">
                   {getRankBadge(entry.rank)}
-                  <span className="font-mono text-sm font-medium">
+                  <span className="font-mono text-sm font-medium text-foreground/90">
                     {formatWalletAddress(entry.wallet)}
                   </span>
                 </div>
                 {entry.isCurrentUser && (
                   <Badge
                     variant="outline"
-                    className="text-xs px-2 py-0.5 bg-primary/10 border-primary/40 text-primary font-medium"
+                    className="text-xs px-2.5 py-1 bg-primary/15 border-primary/50 text-primary font-semibold shadow-sm"
                   >
                     You
                   </Badge>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground font-medium">Total Swap Volume</p>
-                  <p className="font-mono font-semibold text-base">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground/80 font-medium uppercase tracking-wider">
+                    Total Swap Volume
+                  </p>
+                  <p className="font-mono font-semibold text-lg text-foreground">
                     {formatVolume(entry.swapVolume24h)}
                   </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground font-medium">24h Change</p>
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground/80 font-medium uppercase tracking-wider text-right">
+                    24h Change
+                  </p>
                   <div className="flex items-center justify-end gap-1.5">
                     {entry.change24h >= 0 ? (
-                      <TrendingUp className="w-3.5 h-3.5 text-success" />
+                      <TrendingUp className="w-4 h-4 text-success/90" />
                     ) : (
-                      <TrendingUp className="w-3.5 h-3.5 text-destructive rotate-180" />
+                      <TrendingUp className="w-4 h-4 text-destructive/90 rotate-180" />
                     )}
                     <span
-                      className={`font-mono font-semibold text-base ${
-                        entry.change24h >= 0 ? "text-success" : "text-destructive"
+                      className={`font-mono font-semibold text-lg ${
+                        entry.change24h >= 0 ? "text-success/90" : "text-destructive/90"
                       }`}
                     >
                       {formatChange24h(entry.change24h)}
