@@ -78,13 +78,13 @@ export const DashboardHeader = ({
                 >
                   Genesis SBT
                 </TabsTrigger>
-                <TabsTrigger
+                {/* <TabsTrigger
                   value="points"
                   className="text-sm rounded-full data-[state=active]:bg-background"
                   disabled
                 >
                   Miles
-                </TabsTrigger>
+                </TabsTrigger> */}
                 <TabsTrigger
                   value="leaderboard"
                   className="text-sm rounded-full data-[state=active]:bg-background"

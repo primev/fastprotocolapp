@@ -187,3 +187,33 @@ export async function getTotalPointsEarned(): Promise<number | null> {
     return null
   }
 }
+
+/**
+ * Server-side function to fetch active traders count from analytics API
+ * Calls the internal API route which handles the external API call
+ */
+export async function getActiveTraders(): Promise<number | null> {
+  try {
+    // Call the internal API route
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+    const response = await fetch(`${baseUrl}/api/analytics/active-traders`, {
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      console.error("Failed to fetch active traders:", response.statusText)
+      return null
+    }
+
+    const data = await response.json()
+
+    if (data.success && data.activeTraders !== null && data.activeTraders !== undefined) {
+      return Number(data.activeTraders)
+    }
+
+    return null
+  } catch (error) {
+    console.error("Error fetching active traders:", error)
+    return null
+  }
+}

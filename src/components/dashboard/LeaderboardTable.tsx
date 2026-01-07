@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Trophy, TrendingUp, Users, DollarSign, Award } from "lucide-react"
@@ -145,8 +146,40 @@ const formatChange24h = (change: number): string => {
 }
 
 export const LeaderboardTable = () => {
+  const [activeTraders, setActiveTraders] = useState<number | null>(null)
+  const [isLoadingActiveTraders, setIsLoadingActiveTraders] = useState(true)
+
+  useEffect(() => {
+    const fetchActiveTraders = async () => {
+      try {
+        setIsLoadingActiveTraders(true)
+        const response = await fetch("/api/analytics/active-traders")
+        
+        if (!response.ok) {
+          console.error("Failed to fetch active traders:", response.statusText)
+          return
+        }
+
+        const data = await response.json()
+        
+        if (data.success && data.activeTraders !== null && data.activeTraders !== undefined) {
+          setActiveTraders(Number(data.activeTraders))
+        }
+      } catch (error) {
+        console.error("Error fetching active traders:", error)
+      } finally {
+        setIsLoadingActiveTraders(false)
+      }
+    }
+
+    fetchActiveTraders()
+  }, [])
+
   const currentUser = mockLeaderboardData.find((entry) => entry.isCurrentUser)
   const volumeToNextRank = mockStats.nextRankVolume - mockStats.userVolume
+  
+  // Use fetched active traders or fall back to mock data if not loaded yet
+  const displayActiveTraders = activeTraders !== null ? activeTraders : mockStats.activeTraders
 
   const getRankBadge = (rank: number) => {
     if (rank === 1)
@@ -193,7 +226,11 @@ export const LeaderboardTable = () => {
                 <p className="text-sm font-medium">Active Traders</p>
               </div>
               <p className="text-3xl font-bold tracking-tight">
-                {mockStats.activeTraders.toLocaleString()}
+                {isLoadingActiveTraders ? (
+                  <span className="text-muted-foreground">...</span>
+                ) : (
+                  displayActiveTraders.toLocaleString()
+                )}
               </p>
             </div>
           </div>
