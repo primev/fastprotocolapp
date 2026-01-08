@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -45,6 +46,7 @@ export const DashboardHeader = ({
   activeTab,
   onTabChange,
 }: DashboardHeaderProps) => {
+  const router = useRouter()
   const { openAccountModal } = useAccountModal()
   const { openConnectModal } = useConnectModal()
 
@@ -58,38 +60,26 @@ export const DashboardHeader = ({
               alt="Fast Protocol"
               width={40}
               height={40}
-              className="sm:hidden"
+              className="sm:hidden h-10 w-auto"
             />
             <Image
               src="/assets/fast-protocol-logo-icon.png"
               alt="Fast Protocol"
               width={150}
               height={75}
-              className="hidden sm:block"
+              className="hidden sm:block h-10 w-auto"
             />
           </div>
 
-          {/* Navigation Links - Centered - Desktop only */}
-          <div className="flex-1 justify-center hidden sm:flex">
-            <div className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
-              <Link
-                href="/dashboard"
-                className={`text-sm rounded-full px-4 py-2 transition-colors ${
-                  activeTab === "genesis" ? "bg-background" : "hover:bg-muted/50"
-                }`}
-              >
-                Genesis SBT
-              </Link>
-              <Link
-                href="/leaderboard"
-                className="text-sm rounded-full px-4 py-2 transition-colors hover:bg-muted/50"
-              >
-                Leaderboard
-              </Link>
-            </div>
-          </div>
-
           <div className="flex items-center gap-2 sm:gap-4">
+            {/* Leaderboard Button */}
+            <Button
+              variant="outline"
+              className="h-10 px-4 text-sm"
+              onClick={() => router.push("/leaderboard")}
+            >
+              Leaderboard
+            </Button>
             {/* <Badge
               variant="outline"
               className="h-10 px-3 lg:px-2.5 text-sm lg:text-sm border-primary/50 flex items-center"
@@ -206,20 +196,20 @@ export const DashboardHeader = ({
       {/* Mobile Navigation */}
       <div className="flex-1 bg-background/80 justify-center flex flex-col items-center sm:hidden py-4">
         <div className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
-          <Link
-            href="/dashboard"
+          <button
+            onClick={() => router.push("/dashboard")}
             className={`text-sm rounded-full px-4 py-2 transition-colors ${
               activeTab === "genesis" ? "bg-background" : "hover:bg-muted/50"
             }`}
           >
             Genesis SBT
-          </Link>
-          <Link
-            href="/leaderboard"
+          </button>
+          <button
+            onClick={() => router.push("/leaderboard")}
             className="text-sm rounded-full px-4 py-2 transition-colors hover:bg-muted/50"
           >
             Leaderboard
-          </Link>
+          </button>
         </div>
       </div>
     </>

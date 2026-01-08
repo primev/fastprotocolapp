@@ -44,3 +44,37 @@ export function formatNumber(
 
   return str
 }
+
+/**
+ * Formats a number as currency with $ prefix using formatNumber
+ * @param value - The number to format
+ * @param options - Optional formatting options
+ * @returns Formatted currency string (e.g., "$1.5K", "$2.3M", "$1B")
+ */
+export function formatCurrency(
+  value: number | string | null | undefined,
+  options?: {
+    maximumFractionDigits?: number
+    minimumFractionDigits?: number
+  }
+): string {
+  return `$${formatNumber(value, options)}`
+}
+
+/**
+ * Formats a wallet address to show first and last few characters
+ * @param address - The wallet address to format
+ * @param startChars - Number of characters to show at start (default: 4)
+ * @param endChars - Number of characters to show at end (default: 4)
+ * @returns Formatted address (e.g., "0x12...abcd")
+ */
+export function formatWalletAddress(
+  address: string,
+  startChars: number = 4,
+  endChars: number = 4
+): string {
+  if (!address || address.length < startChars + endChars) {
+    return address
+  }
+  return `${address.slice(0, startChars)}...${address.slice(-endChars)}`
+}

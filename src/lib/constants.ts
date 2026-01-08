@@ -20,3 +20,61 @@ export const TWITTER_INVITE_URL = "https://x.com/Fast_Protocol"
  * Default ETH price in USD to use as fallback when live price is unavailable
  */
 export const DEFAULT_ETH_PRICE_USD = 3000
+
+/**
+ * Tier thresholds for leaderboard rankings
+ */
+export const TIER_THRESHOLDS = {
+  GOLD: 1_000_000,
+  SILVER: 100_000,
+  BRONZE: 10_000,
+} as const
+
+export type Tier = "gold" | "silver" | "bronze" | "standard"
+
+export interface TierMetadata {
+  label: string
+  color: string
+  dot: string
+}
+
+/**
+ * Gets the tier based on volume
+ */
+export function getTierFromVolume(volume: number | null | undefined): Tier {
+  if (!volume) return "standard"
+  if (volume >= TIER_THRESHOLDS.GOLD) return "gold"
+  if (volume >= TIER_THRESHOLDS.SILVER) return "silver"
+  if (volume >= TIER_THRESHOLDS.BRONZE) return "bronze"
+  return "standard"
+}
+
+/**
+ * Gets metadata for a tier (styling information)
+ */
+export function getTierMetadata(tier: string): TierMetadata {
+  switch (tier.toLowerCase()) {
+    case "gold":
+      return { label: "Gold", color: "text-yellow-500", dot: "bg-yellow-500" }
+    case "silver":
+      return { label: "Silver", color: "text-slate-400", dot: "bg-slate-400" }
+    case "bronze":
+      return { label: "Bronze", color: "text-amber-600", dot: "bg-amber-600" }
+    default:
+      return {
+        label: "Standard",
+        color: "text-muted-foreground/30",
+        dot: "bg-muted-foreground/20",
+      }
+  }
+}
+
+/**
+ * Gets the next tier threshold value based on current volume
+ */
+export function getNextTier(volume: number | null | undefined): number {
+  const vol = volume || 0
+  if (vol < TIER_THRESHOLDS.BRONZE) return TIER_THRESHOLDS.BRONZE
+  if (vol < TIER_THRESHOLDS.SILVER) return TIER_THRESHOLDS.SILVER
+  return TIER_THRESHOLDS.GOLD
+}

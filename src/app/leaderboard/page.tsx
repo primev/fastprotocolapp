@@ -201,36 +201,26 @@ const LeaderboardContent = () => {
                 alt="Fast Protocol"
                 width={40}
                 height={40}
-                className="sm:hidden"
+                className="md:hidden h-10 w-auto"
               />
               <Image
                 src="/assets/fast-protocol-logo-icon.png"
                 alt="Fast Protocol"
                 width={150}
                 height={75}
-                className="hidden sm:block"
+                className="hidden md:block h-10 w-auto"
               />
             </Link>
 
-            {/* Navigation Links - Centered - Desktop only */}
-            <div className="flex-1 justify-center hidden sm:flex">
-              <div className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
-                <Link
-                  href="/dashboard"
-                  className="text-sm rounded-full px-4 py-2 transition-colors hover:bg-muted/50"
-                >
-                  Genesis SBT
-                </Link>
-                <Link
-                  href="/leaderboard"
-                  className="text-sm rounded-full px-4 py-2 transition-colors bg-background"
-                >
-                  Leaderboard
-                </Link>
-              </div>
-            </div>
-
             <div className="flex items-center gap-2 sm:gap-4">
+              {/* Genesis SBT Button */}
+              <Button
+                variant="outline"
+                className="h-10 px-4 text-sm"
+                onClick={() => router.push("/dashboard")}
+              >
+                Genesis SBT
+              </Button>
               {/* <Badge
                 variant="outline"
                 className="h-10 px-3 lg:px-2.5 text-sm lg:text-sm border-primary/50 flex items-center"
@@ -238,20 +228,20 @@ const LeaderboardContent = () => {
                 <Award className="w-4 h-4 lg:w-3.5 lg:h-3.5 mr-2 lg:mr-1.5 text-primary" />
                 {points} Miles
               </Badge> */}
-              {/* Wallet icon button for mobile (when connected) */}
+              {/* Wallet icon button for small and medium screens (when connected) */}
               {isConnected && (
                 <Button
                   variant="outline"
                   size="icon"
-                  className="sm:hidden"
+                  className="lg:hidden"
                   onClick={openAccountModal}
                 >
                   <Wallet className="w-4 h-4" />
                 </Button>
               )}
-              {/* ConnectButton - full on desktop, "Connect" only on mobile when not connected */}
+              {/* ConnectButton - full on large screens, icon on small/medium when connected */}
               {isConnected ? (
-                <div className="hidden sm:block">
+                <div className="hidden lg:block">
                   <ConnectButton showBalance={false} accountStatus="address" />
                 </div>
               ) : (
@@ -260,10 +250,10 @@ const LeaderboardContent = () => {
                     <Skeleton className="h-10 w-32 rounded-full" />
                   ) : (
                     <>
-                      <Button onClick={openConnectModal} className="h-10 sm:hidden px-4">
+                      <Button onClick={openConnectModal} className="h-10 lg:hidden px-4">
                         Connect
                       </Button>
-                      <div className="hidden sm:block">
+                      <div className="hidden lg:block">
                         <ConnectButton showBalance={false} accountStatus="address" />
                       </div>
                     </>
@@ -348,43 +338,17 @@ const LeaderboardContent = () => {
       {/* Mobile Navigation */}
       <div className="flex-1 bg-background/80 justify-center flex flex-col items-center sm:hidden py-4">
         <div className="inline-flex space-x-2 rounded-full bg-muted/50 p-1">
-          <Link
-            href="/dashboard"
+          <button
+            onClick={() => router.push("/dashboard")}
             className="text-sm rounded-full px-4 py-2 transition-colors hover:bg-muted/50"
           >
             Genesis SBT
-          </Link>
-          <Link
-            href="/leaderboard"
-            className="text-sm rounded-full px-4 py-2 transition-colors bg-background"
-          >
-            Leaderboard
-          </Link>
-        </div>
-      </div>
-
-      {/* Announcement Banner */}
-      <div
-        ref={setAnnouncementRef}
-        className="fixed left-0 right-0 z-40 bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all backdrop-blur-sm"
-        style={{ top: `${headerHeight}px` }}
-      >
-        <div className="container mx-auto px-4 py-1 text-center">
-          <p className="text-primary-foreground text-sm">
-            🎉 You're all set. Make your first Fast swap on these{" "}
-            <a
-              href="#defi-protocols"
-              className="underline underline-offset-4 font-medium hover:text-primary-foreground/80 transition-colors"
-            >
-              top DeFi protocols
-            </a>
-            .
-          </p>
+          </button>
         </div>
       </div>
 
       {/* Content Area - Add padding to account for fixed headers */}
-      <div className="container mx-auto px-4 sm:px-0 py-4 pt-56 sm:pt-32">
+      <div className="w-full container mx-auto px-0 sm:px-0 pb-2 md:pb-4 pt-[20px] sm:pt-[75px] overflow-x-hidden">
         <LeaderboardTable />
       </div>
 
