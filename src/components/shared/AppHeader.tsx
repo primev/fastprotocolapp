@@ -119,7 +119,7 @@ export const AppHeader = ({
                   disabled
                   className="px-4 py-2 rounded-full text-sm font-medium text-muted-foreground opacity-60 cursor-not-allowed"
                 >
-                  Miles (Coming Soon)
+                  Miles
                 </button>
               </div>
             </div>
@@ -155,13 +155,25 @@ export const AppHeader = ({
               </>
             )}
 
-            {/* Mobile Hamburger Menu */}
+            {/* Medium screens: Wallet icon (when connected) - Show before hamburger on sm */}
+            {isConnected && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="hidden sm:flex lg:hidden"
+                onClick={openAccountModal}
+              >
+                <Wallet className="w-4 h-4" />
+              </Button>
+            )}
+
+            {/* Mobile Hamburger Menu - Show on sm and below, hide on md+ */}
             <Sheet>
               <SheetTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="sm:hidden"
+                  className="md:hidden sm:ml-auto"
                   aria-label="Open navigation menu"
                 >
                   <Menu className="h-5 w-5" />
@@ -256,18 +268,6 @@ export const AppHeader = ({
               </SheetContent>
             </Sheet>
 
-            {/* Medium screens and up: Wallet icon (when connected) */}
-            {isConnected && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="hidden sm:flex lg:hidden"
-                onClick={openAccountModal}
-              >
-                <Wallet className="w-4 h-4" />
-              </Button>
-            )}
-
             {/* Large screens: Full ConnectButton */}
             {isConnected ? (
               <div className="hidden lg:block">
@@ -290,12 +290,12 @@ export const AppHeader = ({
               <>
                 <div
                   onClick={() => window.open(DISCORD_INVITE_URL, "_blank")}
-                  className="hidden sm:block cursor-pointer hover:opacity-80 transition-opacity"
+                  className="hidden md:block cursor-pointer hover:opacity-80 transition-opacity"
                   aria-label="Discord"
                 >
                   <SocialIcon network="discord" style={{ height: 35, width: 35 }} />
                 </div>
-                <div className="hidden sm:block relative">
+                <div className="hidden md:block relative">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
