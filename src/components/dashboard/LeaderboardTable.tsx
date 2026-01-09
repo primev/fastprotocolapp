@@ -460,12 +460,14 @@ export const LeaderboardTable = ({
                             ? formatVolDiffDisplay(adjustedNextRankVol - adjustedUserVol)
                             : "--"}
                         </span>
-                        <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-muted-foreground/40 uppercase tracking-widest">
-                          Reach <span className={nextTierMeta.color}>{nextTierName}</span> in{" "}
-                          {adjustedUserVol
-                            ? formatVolDiffDisplay(nextTierVal - adjustedUserVol)
-                            : "--"}
-                        </span>
+                        {currentTier !== "gold" && (
+                          <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-muted-foreground/40 uppercase tracking-widest">
+                            Reach <span className={nextTierMeta.color}>{nextTierName}</span> in{" "}
+                            {adjustedUserVol
+                              ? formatVolDiffDisplay(nextTierVal - adjustedUserVol)
+                              : "--"}
+                          </span>
+                        )}
                       </>
                     )
                   ) : (
