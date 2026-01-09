@@ -78,3 +78,9 @@ export function getNextTier(volume: number | null | undefined): number {
   if (vol < TIER_THRESHOLDS.SILVER) return TIER_THRESHOLDS.SILVER
   return TIER_THRESHOLDS.GOLD
 }
+
+/**
+ * Testing constant: Multiplier applied to user swap volume for testing purposes
+ * Set to 1 to disable, or increase to boost volume (e.g., 10000000 = 10Mx volume)
+ */
+export const TESTING_VOLUME_MULTIPLIER = 1

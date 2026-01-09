@@ -11,6 +11,7 @@ import {
   getTierFromVolume,
   getTierMetadata,
   getNextTier,
+  TESTING_VOLUME_MULTIPLIER,
   type Tier,
 } from "@/lib/constants"
 
@@ -64,6 +65,91 @@ export const LeaderboardTable = ({
     () => (swapVolumeEth && ethPrice ? swapVolumeEth * ethPrice : null),
     [swapVolumeEth, ethPrice]
   )
+
+  // Apply testing multiplier to user volume
+  const adjustedUserVol = useMemo(
+    () => (userVol ? userVol * TESTING_VOLUME_MULTIPLIER : null),
+    [userVol]
+  )
+
+  // Recalculate position and leaderboard with adjusted volume
+  const { adjustedLbData, adjustedUserPos, adjustedNextRankVol } = useMemo(() => {
+    if (!adjustedUserVol || !lbData.length) {
+      return { adjustedLbData: lbData, adjustedUserPos: userPos, adjustedNextRankVol: nextRankVol }
+    }
+
+    // Create adjusted leaderboard with user's adjusted volume
+    let adjusted = lbData.map((entry) => {
+      if (entry.isCurrentUser) {
+        return { ...entry, swapVolume24h: adjustedUserVol }
+      }
+      return entry
+    })
+
+    // If user is not in original leaderboard, add them with adjusted volume
+    const userInOriginal = adjusted.some((e) => e.isCurrentUser)
+    if (!userInOriginal && userAddr) {
+      adjusted.push({
+        wallet: userAddr,
+        rank: 0, // Will be recalculated
+        swapVolume24h: adjustedUserVol,
+        change24h: 0,
+        isCurrentUser: true,
+      })
+    }
+
+    // Sort by volume (descending) and recalculate ranks
+    const sorted = [...adjusted].sort((a, b) => b.swapVolume24h - a.swapVolume24h)
+    const ranked = sorted.map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+    }))
+
+    // Find user's new position and next rank volume
+    const userEntry = ranked.find((e) => e.isCurrentUser)
+    const calculatedPos = userEntry ? userEntry.rank : null
+
+    // Show top 15 entries
+    const top15 = ranked.slice(0, 15)
+    const userInTop15 = top15.some((e) => e.isCurrentUser)
+
+    // If user is in top 15, use calculated position; otherwise use actual API position
+    const newPos = userInTop15 && calculatedPos ? calculatedPos : userPos
+
+    // Find next rank volume (person above user)
+    let newNextRankVol = null
+    if (newPos && newPos > 1) {
+      if (userInTop15 && calculatedPos) {
+        // User is in top 15, use ranked list
+        const nextRankEntry = ranked.find((e) => e.rank === calculatedPos - 1)
+        newNextRankVol = nextRankEntry ? nextRankEntry.swapVolume24h : null
+      } else {
+        // User is outside top 15, use API nextRankVol
+        newNextRankVol = nextRankVol
+      }
+    }
+
+    let displayData = top15
+    if (!userInTop15 && userPos && userAddr) {
+      // Add user entry after top 15 with actual position from API
+      displayData = [
+        ...top15,
+        {
+          wallet: userAddr,
+          rank: userPos, // Use actual API position
+          swapVolume24h: adjustedUserVol,
+          change24h: 0,
+          isCurrentUser: true,
+        },
+      ]
+    }
+
+    return {
+      adjustedLbData: displayData,
+      adjustedUserPos: newPos,
+      adjustedNextRankVol: newNextRankVol,
+    }
+  }, [lbData, adjustedUserVol, userPos, nextRankVol, userAddr])
 
   // Data Fetching: Preloaded Data
   useEffect(() => {
@@ -172,20 +258,20 @@ export const LeaderboardTable = ({
     fetchSwapTxs()
   }, [userAddr])
 
-  // Tier Calculations
-  const currentTier = useMemo(() => getTierFromVolume(userVol), [userVol])
+  // Tier Calculations (using adjusted volume)
+  const currentTier = useMemo(() => getTierFromVolume(adjustedUserVol), [adjustedUserVol])
   const currentTierMeta = useMemo(() => getTierMetadata(currentTier), [currentTier])
-  const nextTierVal = useMemo(() => getNextTier(userVol), [userVol])
+  const nextTierVal = useMemo(() => getNextTier(adjustedUserVol), [adjustedUserVol])
   const progress = useMemo(
-    () => Math.min(((userVol || 0) / nextTierVal) * 100, 100),
-    [userVol, nextTierVal]
+    () => Math.min(((adjustedUserVol || 0) / nextTierVal) * 100, 100),
+    [adjustedUserVol, nextTierVal]
   )
   const nextTierName = useMemo(() => {
-    const vol = userVol || 0
+    const vol = adjustedUserVol || 0
     if (vol < TIER_THRESHOLDS.BRONZE) return "Bronze"
     if (vol < TIER_THRESHOLDS.SILVER) return "Silver"
     return "Gold"
-  }, [userVol])
+  }, [adjustedUserVol])
   const nextTierMeta = useMemo(() => getTierMetadata(nextTierName.toLowerCase()), [nextTierName])
 
   // Formatting Helpers
@@ -262,7 +348,7 @@ export const LeaderboardTable = ({
                     Global Rank
                   </span>
                   <span className="text-2xl font-black tabular-nums leading-none text-primary">
-                    #{userPos || "--"}
+                    #{adjustedUserPos || "--"}
                   </span>
                 </div>
               </div>
@@ -285,7 +371,7 @@ export const LeaderboardTable = ({
                     Your Swap Volume
                   </span>
                   <span className="text-2xl font-black tabular-nums leading-none">
-                    {userVol ? formatVolumeDisplay(userVol) : "$0.00"}
+                    {adjustedUserVol ? formatVolumeDisplay(adjustedUserVol) : "$0.00"}
                   </span>
                 </div>
               </div>
@@ -306,9 +392,9 @@ export const LeaderboardTable = ({
       </div>
 
       {/* Progress & Analysis Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch">
         {/* Progress Tracker Card */}
-        <Card className="p-3 sm:p-4 bg-white/[0.01] border-white/5 flex flex-col justify-center space-y-2 sm:space-y-3 min-w-0 w-full">
+        <Card className="p-3 sm:p-4 bg-white/[0.01] border-white/5 flex flex-col justify-center space-y-2 sm:space-y-3 min-w-0 w-full h-full">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-muted-foreground/40 min-w-0">
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
               <Target size={10} className="sm:w-3 sm:h-3 shrink-0" />{" "}
@@ -343,8 +429,8 @@ export const LeaderboardTable = ({
         </Card>
 
         {/* Performance Analysis Card */}
-        <Card className="overflow-hidden border-white/5 bg-white/[0.01] transition-all duration-300 hover:border-primary/20 shadow-2xl">
-          <div className="flex flex-col sm:flex-row items-stretch min-h-[80px]">
+        <Card className="overflow-hidden border-white/5 bg-white/[0.01] transition-all duration-300 hover:border-primary/20 shadow-2xl h-full flex">
+          <div className="flex flex-col sm:flex-row items-stretch w-full h-full">
             {/* Analysis Content */}
             <div className="sm:w-2/3 p-4 sm:p-5 flex flex-col justify-center bg-primary/[0.01]">
               <div className="flex flex-col space-y-2">
@@ -356,22 +442,35 @@ export const LeaderboardTable = ({
                 </div>
 
                 <p className="text-sm sm:text-base font-bold leading-snug tracking-tight text-foreground/90">
-                  {userPos ? (
-                    <>
-                      $urpass <span className="italic font-bold">#{userPos - 1}</span> with{" "}
-                      <span className="text-primary font-black decoration-primary/20 tabular-nums">
-                        {nextRankVol && userVol
-                          ? formatVolDiffDisplay(nextRankVol - userVol)
-                          : "--"}
-                      </span>
-                      <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-muted-foreground/40 uppercase tracking-widest">
-                        Reach <span className={nextTierMeta.color}>{nextTierName}</span> in{" "}
-                        {userVol ? formatVolDiffDisplay(nextTierVal - userVol) : "--"}
-                      </span>
-                    </>
+                  {adjustedUserPos ? (
+                    adjustedUserPos === 1 ? (
+                      <>
+                        <span className="text-primary font-black">Congratulations!</span> You're in{" "}
+                        <span className="italic font-bold text-primary">#1</span> position.
+                        <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-primary/80 uppercase tracking-widest">
+                          Hold that lead
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        Surpass <span className="italic font-bold">#{adjustedUserPos - 1}</span>{" "}
+                        with{" "}
+                        <span className="text-primary font-black decoration-primary/20 tabular-nums">
+                          {adjustedNextRankVol && adjustedUserVol
+                            ? formatVolDiffDisplay(adjustedNextRankVol - adjustedUserVol)
+                            : "--"}
+                        </span>
+                        <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-muted-foreground/40 uppercase tracking-widest">
+                          Reach <span className={nextTierMeta.color}>{nextTierName}</span> in{" "}
+                          {adjustedUserVol
+                            ? formatVolDiffDisplay(nextTierVal - adjustedUserVol)
+                            : "--"}
+                        </span>
+                      </>
+                    )
                   ) : (
-                    <span className="text-muted-foreground/30 font-black uppercase tracking-widest italic">
-                      Network synchronization in progress...
+                    <span className="text-[10px] sm:text-sm text-muted-foreground/30 font-black uppercase tracking-widest italic">
+                      Network sync in progress...
                     </span>
                   )}
                 </p>
@@ -404,8 +503,8 @@ export const LeaderboardTable = ({
         {/* Table Header */}
         <div className="hidden sm:grid grid-cols-12 px-3 sm:px-4 md:px-6 text-[8px] font-black uppercase tracking-[0.4em] text-muted-foreground/30 min-w-[600px]">
           <div className="col-span-2">POS</div>
-          <div className="col-span-6">IDENTIFIER</div>
-          <div className="col-span-4 text-right">VOLUME / 24H</div>
+          <div className="col-span-7 sm:col-span-6">IDENTIFIER</div>
+          <div className="col-span-3 sm:col-span-4 text-right">VOLUME / 24H</div>
         </div>
 
         {/* Table Rows */}
@@ -419,10 +518,22 @@ export const LeaderboardTable = ({
               No leaderboard data available
             </div>
           ) : (
-            lbData.map((entry) => {
-              const shouldShowDivider = userPos && userPos > 15 && entry.rank === 15
+            adjustedLbData.map((entry, index) => {
+              // Show divider before user entry when they're outside top 15
+              const shouldShowDivider =
+                adjustedUserPos && adjustedUserPos > 15 && entry.isCurrentUser && index === 15
               return (
                 <React.Fragment key={entry.wallet}>
+                  {/* User Position Divider */}
+                  {shouldShowDivider && (
+                    <div className="flex items-center gap-4 py-4">
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40">
+                        Your Position
+                      </span>
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                    </div>
+                  )}
                   {/* Leaderboard Row */}
                   <div
                     className={`grid grid-cols-12 items-center px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-xl border transition-all min-w-0 ${
@@ -460,16 +571,6 @@ export const LeaderboardTable = ({
                       </div>
                     </div>
                   </div>
-                  {/* User Position Divider */}
-                  {shouldShowDivider && (
-                    <div className="flex items-center gap-4 py-4">
-                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-                      <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40">
-                        Your Position
-                      </span>
-                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-                    </div>
-                  )}
                 </React.Fragment>
               )
             })
