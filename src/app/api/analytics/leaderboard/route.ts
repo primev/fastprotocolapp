@@ -54,7 +54,8 @@ export async function GET(request: NextRequest) {
     const sqlQuery = `WITH all_time AS (
       SELECT 
         lower(from_address) AS wallet,
-        SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
+        SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth,
+        COUNT(*) AS swap_count
       FROM mevcommit_57173.processed_l1_txns_v2
       WHERE is_swap = TRUE
       GROUP BY lower(from_address)
@@ -81,6 +82,7 @@ export async function GET(request: NextRequest) {
     SELECT 
       a.wallet,
       COALESCE(a.total_swap_vol_eth, 0) AS total_swap_vol_eth,
+      COALESCE(a.swap_count, 0) AS swap_count,
       COALESCE(c.swap_vol_eth_24h, 0) AS swap_vol_eth_24h,
       CASE 
         WHEN COALESCE(p.swap_vol_eth_prev_24h, 0) > 0 
@@ -143,11 +145,12 @@ export async function GET(request: NextRequest) {
     // Get ETH price for USD conversion
     const ethPrice = await getEthPrice()
 
-    // Format: [wallet, total_swap_vol_eth, swap_vol_eth_24h, change_24h_pct]
+    // Format: [wallet, total_swap_vol_eth, swap_count, swap_vol_eth_24h, change_24h_pct]
     let leaderboard = dataRows.map((row, index) => {
       const wallet = row[0]
       const totalSwapVolEth = Number(row[1]) || 0
-      const change24hPct = Number(row[3]) || 0
+      const swapCount = Number(row[2]) || 0
+      const change24hPct = Number(row[4]) || 0
 
       // Convert total volume to USD
       const totalSwapVolUsd = ethPrice !== null ? totalSwapVolEth * ethPrice : totalSwapVolEth
@@ -156,6 +159,7 @@ export async function GET(request: NextRequest) {
         rank: index + 1,
         wallet: wallet,
         swapVolume24h: totalSwapVolUsd, // Using total volume as the displayed value
+        swapCount: swapCount,
         change24h: change24hPct,
         isCurrentUser: currentUserAddress ? wallet === currentUserAddress : false,
       }
@@ -185,7 +189,8 @@ export async function GET(request: NextRequest) {
         // First, get the user's volume and 24h change data
         const userDataQuery = `WITH all_time_user AS (
           SELECT 
-            SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
+            SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth,
+            COUNT(*) AS swap_count
           FROM mevcommit_57173.processed_l1_txns_v2
           WHERE is_swap = TRUE
             AND lower(from_address) = lower('${currentUserAddress}')
@@ -209,6 +214,7 @@ export async function GET(request: NextRequest) {
         )
         SELECT 
           COALESCE(a.total_swap_vol_eth, 0) AS total_swap_vol_eth,
+          COALESCE(a.swap_count, 0) AS swap_count,
           COALESCE(c.swap_vol_eth_24h, 0) AS swap_vol_eth_24h,
           CASE 
             WHEN COALESCE(p.swap_vol_eth_prev_24h, 0) > 0 
@@ -303,6 +309,7 @@ export async function GET(request: NextRequest) {
             ])
 
             let userTotalSwapVolEth = 0
+            let userSwapCount = 0
             let userChange24hPct = 0
             let actualRank: number | null = null
 
@@ -314,7 +321,8 @@ export async function GET(request: NextRequest) {
                 const parsed = JSON.parse(line)
                 if (parsed.data && Array.isArray(parsed.data) && parsed.data[0] !== null) {
                   userTotalSwapVolEth = Number(parsed.data[0]) || 0
-                  userChange24hPct = Number(parsed.data[2]) || 0
+                  userSwapCount = Number(parsed.data[1]) || 0
+                  userChange24hPct = Number(parsed.data[3]) || 0
                   break
                 }
               } catch (e) {
@@ -381,6 +389,7 @@ export async function GET(request: NextRequest) {
                   rank: userPosition,
                   wallet: currentUserAddress,
                   swapVolume24h: userTotalSwapVolUsd,
+                  swapCount: userSwapCount,
                   change24h: userChange24hPct,
                   isCurrentUser: true,
                 })

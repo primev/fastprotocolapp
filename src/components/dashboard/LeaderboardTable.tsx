@@ -19,6 +19,7 @@ interface LeaderboardEntry {
   wallet: string
   rank: number
   swapVolume24h: number
+  swapCount?: number
   change24h: number
   isCurrentUser?: boolean
 }
@@ -81,7 +82,17 @@ export const LeaderboardTable = ({
     // Create adjusted leaderboard with user's adjusted volume
     let adjusted = lbData.map((entry) => {
       if (entry.isCurrentUser) {
-        return { ...entry, swapVolume24h: adjustedUserVol }
+        return {
+          ...entry,
+          swapVolume24h: adjustedUserVol,
+          // Use userSwapTxs if swapCount is not available from API
+          swapCount:
+            entry.swapCount !== undefined
+              ? entry.swapCount
+              : userSwapTxs !== null
+                ? userSwapTxs
+                : undefined,
+        }
       }
       return entry
     })
@@ -93,6 +104,7 @@ export const LeaderboardTable = ({
         wallet: userAddr,
         rank: 0, // Will be recalculated
         swapVolume24h: adjustedUserVol,
+        swapCount: userSwapTxs !== null ? userSwapTxs : undefined,
         change24h: 0,
         isCurrentUser: true,
       })
@@ -138,6 +150,7 @@ export const LeaderboardTable = ({
           wallet: userAddr,
           rank: userPos, // Use actual API position
           swapVolume24h: adjustedUserVol,
+          swapCount: userSwapTxs !== null ? userSwapTxs : undefined,
           change24h: 0,
           isCurrentUser: true,
         },
@@ -149,7 +162,7 @@ export const LeaderboardTable = ({
       adjustedUserPos: newPos,
       adjustedNextRankVol: newNextRankVol,
     }
-  }, [lbData, adjustedUserVol, userPos, nextRankVol, userAddr])
+  }, [lbData, adjustedUserVol, userPos, nextRankVol, userAddr, userSwapTxs])
 
   // Data Fetching: Preloaded Data
   useEffect(() => {
@@ -502,13 +515,6 @@ export const LeaderboardTable = ({
 
       {/* Leaderboard Table Section */}
       <div className="space-y-2 w-full overflow-x-auto">
-        {/* Table Header */}
-        <div className="hidden sm:grid grid-cols-12 px-3 sm:px-4 md:px-6 text-[8px] font-black uppercase tracking-[0.4em] text-muted-foreground/30 min-w-[600px]">
-          <div className="col-span-2">POS</div>
-          <div className="col-span-7 sm:col-span-6">IDENTIFIER</div>
-          <div className="col-span-3 sm:col-span-4 text-right">VOLUME / 24H</div>
-        </div>
-
         {/* Table Rows */}
         <div className="space-y-1.5 w-full">
           {isLoading ? (
@@ -538,28 +544,146 @@ export const LeaderboardTable = ({
                   )}
                   {/* Leaderboard Row */}
                   <div
-                    className={`grid grid-cols-12 items-center px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-xl border transition-all min-w-0 ${
+                    className={`relative grid grid-cols-12 items-center px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-xl border transition-all min-w-0 overflow-hidden ${
                       entry.isCurrentUser
                         ? "bg-primary/[0.05] border-primary/30"
                         : "bg-card/20 border-white/5"
                     }`}
                   >
-                    <div className="col-span-2 min-w-0">
-                      <span className="text-xl sm:text-2xl md:text-3xl font-black tracking-tighter text-muted-foreground/10 whitespace-nowrap">
-                        {entry.rank.toString().padStart(2, "0")}
-                      </span>
+                    <div className="col-span-4 sm:col-span-3 min-w-0 flex items-center gap-4 relative group/rank">
+                      {entry.rank <= 3 &&
+                        (() => {
+                          const entryTier = getTierFromVolume(entry.swapVolume24h)
+                          const tierMeta = getTierMetadata(entryTier)
+                          const tierColorClasses = {
+                            gold: {
+                              accent: "bg-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.4)]",
+                              text: "text-yellow-500/80",
+                              bloom: "from-yellow-500/30",
+                            },
+                            silver: {
+                              accent: "bg-slate-300 shadow-[0_0_15px_rgba(203,213,225,0.3)]",
+                              text: "text-slate-400/80",
+                              bloom: "from-slate-400/20",
+                            },
+                            bronze: {
+                              accent: "bg-amber-700 shadow-[0_0_15px_rgba(180,83,9,0.2)]",
+                              text: "text-amber-600/80",
+                              bloom: "from-amber-800/20",
+                            },
+                            standard: {
+                              accent: "",
+                              text: "",
+                              bloom: "",
+                            },
+                          }
+                          const tierColors =
+                            tierColorClasses[entryTier as keyof typeof tierColorClasses] ||
+                            tierColorClasses.standard
+
+                          return (
+                            <>
+                              {/* The "Podium Light" - A very thin, elegant vertical accent */}
+                              <div
+                                className={`absolute left-[-1.5rem] top-1/2 -translate-y-1/2 w-[3px] h-10 rounded-full blur-[1px] transition-all duration-500 group-hover/rank:h-12 ${tierColors.accent}`}
+                              />
+
+                              {/* Background Bloom - Only for top 3, very soft */}
+                              <div
+                                className={`absolute inset-0 -left-6 w-24 h-full bg-gradient-to-r to-transparent -z-10 opacity-20 pointer-events-none transition-opacity duration-700 group-hover/rank:opacity-40 ${tierColors.bloom}`}
+                              />
+                            </>
+                          )
+                        })()}
+
+                      {/* Rank Number with "Engraved" look */}
+                      <div className="relative flex flex-col justify-center items-center">
+                        <span
+                          className={`text-3xl sm:text-4xl md:text-5xl font-black tracking-[calc(-0.05em)] leading-none tabular-nums transition-all duration-500 ${
+                            entry.rank === 1
+                              ? "text-white scale-110 origin-left"
+                              : entry.rank === 2
+                                ? "text-white/80"
+                                : entry.rank === 3
+                                  ? "text-white/60"
+                                  : "text-muted-foreground/10"
+                          }`}
+                        >
+                          {entry.rank.toString().padStart(2, "0")}
+                        </span>
+
+                        {/* Tier Label for top 3 */}
+                        {entry.rank <= 3 &&
+                          (() => {
+                            const entryTier = getTierFromVolume(entry.swapVolume24h)
+                            const tierMeta = getTierMetadata(entryTier)
+                            const tierColorClasses = {
+                              gold: "text-yellow-500/80",
+                              silver: "text-slate-400/80",
+                              bronze: "text-amber-600/80",
+                              standard: "",
+                            }
+                            const textColor =
+                              tierColorClasses[entryTier as keyof typeof tierColorClasses] ||
+                              tierColorClasses.standard
+
+                            return (
+                              <span
+                                className={`text-[8px] font-bold uppercase tracking-[0.3em] mt-1 transition-colors ${textColor}`}
+                              >
+                                {tierMeta.label}
+                              </span>
+                            )
+                          })()}
+                      </div>
                     </div>
-                    <div className="col-span-7 sm:col-span-6 flex items-center gap-1.5 sm:gap-2 min-w-0">
-                      <span className="font-mono text-sm sm:text-base md:text-lg truncate">
-                        {formatWalletAddress(entry.wallet)}
-                      </span>
+                    <div className="col-span-5 sm:col-span-4 flex items-center gap-1.5 sm:gap-2 min-w-0">
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-mono text-sm sm:text-base md:text-lg truncate">
+                          {formatWalletAddress(entry.wallet)}
+                        </span>
+                        {entry.swapCount !== undefined && entry.swapCount !== null && (
+                          <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
+                            {entry.swapCount.toLocaleString()} swap
+                            {entry.swapCount !== 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
                       {entry.isCurrentUser && (
                         <Badge className="bg-primary text-[9px] sm:text-[10px] h-4 sm:h-5 px-1.5 sm:px-2 font-black shrink-0">
                           YOU
                         </Badge>
                       )}
                     </div>
-                    <div className="col-span-3 sm:col-span-4 text-right min-w-0">
+                    <div className="hidden sm:flex col-span-2 justify-end items-center min-w-0 group/miles">
+                      {/* The Container: Uses a very subtle glassmorphism effect to house the status */}
+                      <div className="flex items-center gap-3 px-3 py-1.5 rounded-full bg-white/[0.01] border border-white/[0.03]">
+                        {/* Text Stack: Uses high-end spacing for a "technical" look */}
+                        <div className="flex flex-col items-end">
+                          <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/30">
+                            Miles
+                          </span>
+                          <span className="text-[7px] font-black uppercase tracking-[0.2em] text-primary/50 italic">
+                            Pending
+                          </span>
+                        </div>
+
+                        {/* The Bolt: Styled as a neon filament */}
+                        <div className="relative flex items-center justify-center">
+                          {/* Background Bloom: Creates a soft 'light' behind the icon so it doesn't look flat */}
+                          <div className="absolute inset-0 bg-primary/10 blur-[6px] rounded-full" />
+
+                          {/* The Icon: High stroke width with a hollow center for elegance */}
+                          <Zap
+                            size={13}
+                            strokeWidth={2.5}
+                            className="text-primary/70 drop-shadow-[0_0_2px_rgba(59,130,246,0.5)] relative z-10"
+                            fill="none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-span-3 sm:col-span-3 text-right min-w-0">
                       <p className="text-base sm:text-xl md:text-2xl font-black tracking-tighter tabular-nums whitespace-nowrap">
                         {formatVolumeDisplay(entry.swapVolume24h)}
                       </p>
