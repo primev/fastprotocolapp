@@ -89,12 +89,12 @@ export const TESTING_VOLUME_MULTIPLIER = 1
  * React Query cache settings for leaderboard data
  * These match the API cache TTL (2 minutes) to ensure consistent caching behavior
  */
-export const LEADERBOARD_CACHE_STALE_TIME = 2 * 60 * 1000 // 2 minutes in milliseconds
-export const LEADERBOARD_CACHE_GC_TIME = 5 * 60 * 1000 // 5 minutes in milliseconds
+export const LEADERBOARD_CACHE_STALE_TIME = 1 * 60 * 1000 // 2 minutes in milliseconds. Controls freshness (when to refetch)
+export const LEADERBOARD_CACHE_GC_TIME = 5 * 60 * 1000 // 5 minutes in milliseconds. Controls how long to keep cached data (when to delete)
 
 /**
  * React Query cache settings for dashboard data
  * Dashboard data changes less frequently, so we can cache longer
  */
-export const DASHBOARD_CACHE_STALE_TIME = 1 * 60 * 1000 // 1 minute in milliseconds
-export const DASHBOARD_CACHE_GC_TIME = 5 * 60 * 1000 // 5 minutes in milliseconds
+export const DASHBOARD_CACHE_STALE_TIME = 1 * 60 * 1000 // 1 minute in milliseconds.  Controls freshness (when to refetch)
+export const DASHBOARD_CACHE_GC_TIME = 5 * 60 * 1000 // 5 minutes in milliseconds. Controls how long to keep cached data (when to delete)

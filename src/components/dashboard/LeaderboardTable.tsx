@@ -53,12 +53,12 @@ export const LeaderboardTable = ({
   const [activeTraders, setActiveTraders] = useState<number | null>(preloadedActiveTraders ?? null)
   const [swapVolumeEth, setSwapVolumeEth] = useState<number | null>(preloadedSwapVolumeEth ?? null)
   const [ethPrice, setEthPrice] = useState<number | null>(preloadedEthPrice ?? null)
-  // Initialize with preloaded data to prevent flicker
   const [lbData, setLbData] = useState<LeaderboardEntry[]>(preloadedData?.leaderboard || [])
   const [userVol, setUserVol] = useState<number | null>(null)
   const [userPos, setUserPos] = useState<number | null>(null)
   const [nextRankVol, setNextRankVol] = useState<number | null>(null)
   const [userSwapTxs, setUserSwapTxs] = useState<number | null>(null)
+
   // Only show loading if we don't have preloaded data
   const [isLoading, setIsLoading] = useState(
     !preloadedData?.success || !preloadedData?.leaderboard?.length
@@ -640,12 +640,11 @@ export const LeaderboardTable = ({
                         <span className="font-mono text-sm sm:text-base md:text-lg truncate">
                           {formatWalletAddress(entry.wallet)}
                         </span>
-                        {entry.swapCount !== undefined && entry.swapCount !== null && (
-                          <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
-                            {entry.swapCount.toLocaleString()} swap
-                            {entry.swapCount !== 1 ? "s" : ""}
-                          </span>
-                        )}
+                        <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
+                          {entry.swapCount !== undefined && entry.swapCount !== null
+                            ? `${entry.swapCount.toLocaleString()} swap${entry.swapCount !== 1 ? "s" : ""}`
+                            : "N/A"}
+                        </span>
                       </div>
                       {entry.isCurrentUser && (
                         <Badge className="bg-primary text-[9px] sm:text-[10px] h-4 sm:h-5 px-1.5 sm:px-2 font-black shrink-0">
