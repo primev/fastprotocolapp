@@ -449,7 +449,11 @@ export const LeaderboardTable = ({
                 </div>
 
                 <p className="text-sm sm:text-base font-bold leading-snug tracking-tight text-foreground/90">
-                  {adjustedUserPos ? (
+                  {!userAddr ? (
+                    <span className="text-[10px] sm:text-sm text-muted-foreground/40 font-black uppercase tracking-widest italic">
+                      Connect wallet to unlock rank
+                    </span>
+                  ) : adjustedUserPos ? (
                     adjustedUserPos === 1 ? (
                       <>
                         <span className="text-primary font-black">Congratulations!</span> You're in{" "}
