@@ -12,7 +12,6 @@ import {
   getTierMetadata,
   getNextTier,
   TESTING_VOLUME_MULTIPLIER,
-  type Tier,
 } from "@/lib/constants"
 
 interface LeaderboardEntry {
@@ -54,12 +53,16 @@ export const LeaderboardTable = ({
   const [activeTraders, setActiveTraders] = useState<number | null>(preloadedActiveTraders ?? null)
   const [swapVolumeEth, setSwapVolumeEth] = useState<number | null>(preloadedSwapVolumeEth ?? null)
   const [ethPrice, setEthPrice] = useState<number | null>(preloadedEthPrice ?? null)
-  const [lbData, setLbData] = useState<LeaderboardEntry[]>([])
+  // Initialize with preloaded data to prevent flicker
+  const [lbData, setLbData] = useState<LeaderboardEntry[]>(preloadedData?.leaderboard || [])
   const [userVol, setUserVol] = useState<number | null>(null)
   const [userPos, setUserPos] = useState<number | null>(null)
   const [nextRankVol, setNextRankVol] = useState<number | null>(null)
   const [userSwapTxs, setUserSwapTxs] = useState<number | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  // Only show loading if we don't have preloaded data
+  const [isLoading, setIsLoading] = useState(
+    !preloadedData?.success || !preloadedData?.leaderboard?.length
+  )
 
   // Computed Values
   const totalVol = useMemo(
@@ -164,87 +167,78 @@ export const LeaderboardTable = ({
     }
   }, [lbData, adjustedUserVol, userPos, nextRankVol, userAddr, userSwapTxs])
 
-  // Data Fetching: Preloaded Data
+  // Data Fetching: Sync preloaded data on mount and when props change
   useEffect(() => {
-    if (preloadedData?.success) {
-      setLbData(preloadedData.leaderboard || [])
-      setUserVol(preloadedData.userVolume || null)
-      setUserPos(preloadedData.userPosition || null)
-      setNextRankVol(preloadedData.nextRankVolume || null)
-      setIsLoading(false)
+    // Set preloaded global stats (no wallet needed)
+    if (preloadedActiveTraders !== null && preloadedActiveTraders !== undefined) {
+      setActiveTraders(preloadedActiveTraders)
     }
-  }, [preloadedData])
+    if (preloadedSwapVolumeEth !== null && preloadedSwapVolumeEth !== undefined) {
+      setSwapVolumeEth(preloadedSwapVolumeEth)
+    }
+    if (preloadedEthPrice !== null && preloadedEthPrice !== undefined) {
+      setEthPrice(preloadedEthPrice)
+    }
 
-  // Data Fetching: API Calls
-  useEffect(() => {
-    if (preloadedData?.success) return
-
-    const fetchData = async () => {
-      try {
-        setIsLoading(true)
-
-        if (!preloadedActiveTraders) {
-          try {
-            const response = await fetch("/api/analytics/active-traders")
-            if (response.ok) {
-              const data = await response.json()
-              if (data.success && data.activeTraders !== null) {
-                setActiveTraders(Number(data.activeTraders))
-              }
-            }
-          } catch (error) {
-            console.error("Error fetching active traders:", error)
-          }
-        }
-
-        if (!preloadedSwapVolumeEth || !preloadedEthPrice) {
-          try {
-            const [swapVolumeResponse, ethPriceResponse] = await Promise.all([
-              fetch("/api/analytics/volume/swap"),
-              fetch("/api/analytics/eth-price"),
-            ])
-
-            if (swapVolumeResponse.ok && ethPriceResponse.ok) {
-              const swapVolumeData = await swapVolumeResponse.json()
-              const ethPriceData = await ethPriceResponse.json()
-
-              if (swapVolumeData.success && swapVolumeData.cumulativeSwapVolEth !== null) {
-                setSwapVolumeEth(Number(swapVolumeData.cumulativeSwapVolEth))
-              }
-
-              if (ethPriceData.success && ethPriceData.ethPrice !== null) {
-                setEthPrice(Number(ethPriceData.ethPrice))
-              }
-            }
-          } catch (error) {
-            console.error("Error fetching total volume:", error)
-          }
-        }
-
+    // Set preloaded leaderboard (top 15, no user-specific data)
+    if (preloadedData?.success && preloadedData.leaderboard?.length) {
+      setLbData(preloadedData.leaderboard)
+      setIsLoading(false)
+    } else if (!preloadedData?.success && lbData.length === 0) {
+      // Only fetch if no preloaded data at all and we don't have data
+      setIsLoading(true)
+      const fetchLeaderboard = async () => {
         try {
-          const res = await fetch(
-            userAddr
-              ? `/api/analytics/leaderboard?currentUser=${userAddr}`
-              : "/api/analytics/leaderboard"
-          )
+          const res = await fetch("/api/analytics/leaderboard")
           const data = await res.json()
           if (data.success) {
             setLbData(data.leaderboard || [])
-            setUserVol(data.userVolume || null)
-            setUserPos(data.userPosition || null)
-            setNextRankVol(data.nextRankVolume || null)
           }
         } catch (error) {
           console.error("Error fetching leaderboard:", error)
+        } finally {
+          setIsLoading(false)
         }
-      } finally {
-        setIsLoading(false)
+      }
+      fetchLeaderboard()
+    }
+  }, [
+    preloadedData,
+    preloadedActiveTraders,
+    preloadedSwapVolumeEth,
+    preloadedEthPrice,
+    lbData.length,
+  ])
+
+  // Data Fetching: Fetch user-specific data only when wallet is connected
+  useEffect(() => {
+    if (!userAddr) {
+      setUserVol(null)
+      setUserPos(null)
+      setNextRankVol(null)
+      return
+    }
+
+    // Only fetch user-specific data (position, volume, next rank) if we have preloaded leaderboard
+    // This means we already have the top 15, we just need user's position
+    const fetchUserData = async () => {
+      try {
+        const res = await fetch(`/api/analytics/leaderboard?currentUser=${userAddr}`)
+        const data = await res.json()
+        if (data.success) {
+          setUserVol(data.userVolume || null)
+          setUserPos(data.userPosition || null)
+          setNextRankVol(data.nextRankVolume || null)
+        }
+      } catch (error) {
+        console.error("Error fetching user leaderboard data:", error)
       }
     }
 
-    fetchData()
-  }, [userAddr, preloadedData, preloadedActiveTraders, preloadedSwapVolumeEth, preloadedEthPrice])
+    fetchUserData()
+  }, [userAddr])
 
+  // Fetch user swap transactions (only when wallet is connected)
   useEffect(() => {
     if (!userAddr) {
       setUserSwapTxs(null)
@@ -517,7 +511,7 @@ export const LeaderboardTable = ({
       <div className="space-y-2 w-full overflow-x-auto">
         {/* Table Rows */}
         <div className="space-y-1.5 w-full">
-          {isLoading ? (
+          {isLoading && lbData.length === 0 ? (
             <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20 animate-pulse">
               Synchronizing Data...
             </div>

@@ -103,6 +103,10 @@ All colors MUST be HSL.
 
   html {
     overflow-x: hidden;
+    /* Reserve space for scrollbar to prevent layout shift when navigating between
+       pages with different content heights (e.g., dashboard vs leaderboard).
+       Without this, scrollbar appearing/disappearing causes ~15px horizontal jolt. */
+    scrollbar-gutter: stable;
   }
 
   #__next,
