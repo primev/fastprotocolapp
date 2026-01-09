@@ -533,7 +533,7 @@ export function SwapForm() {
           Lightning-fast swaps
         </h1>
         <p className="text-sm sm:text-lg text-muted-foreground px-4 sm:px-0">
-          Trade crypto on Fast Protocol with fast execution and mev rewards
+          Trade crypto on Ethereum with fast execution and mev rewards
         </p>
       </div>
 
