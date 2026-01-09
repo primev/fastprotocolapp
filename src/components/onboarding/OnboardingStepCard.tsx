@@ -153,12 +153,6 @@ export const OnboardingStepCard = ({
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              console.log(
-                "Button clicked for step:",
-                step.id,
-                "disabled:",
-                step.completed && !isRpcStep && !isWalletStep
-              )
               onStepClick(step.id)
             }}
             variant="outline"

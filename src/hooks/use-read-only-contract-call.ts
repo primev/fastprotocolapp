@@ -112,8 +112,6 @@ export function useReadOnlyContractCall<T = any>({
             args: contractArgs,
             blockTag: "latest",
           } as any)
-
-          console.log("Fallback RPC call succeeded:", result?.toString())
         } catch (fallbackError) {
           // Both failed, throw the original error
           throw lastError

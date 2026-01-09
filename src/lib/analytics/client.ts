@@ -176,10 +176,10 @@ export class AnalyticsClient {
         const dataRows = this.parseNDJSONResponse(responseText)
 
         // Telemetry/logging
-        const duration = Date.now() - startTime
-        console.log(
-          `[AnalyticsClient] Query "${queryKey}" executed in ${duration}ms, returned ${dataRows.length} rows`
-        )
+        // const duration = Date.now() - startTime
+        // console.log(
+        //   `[AnalyticsClient] Query "${queryKey}" executed in ${duration}ms, returned ${dataRows.length} rows`
+        // )
 
         return dataRows
       } catch (fetchError) {

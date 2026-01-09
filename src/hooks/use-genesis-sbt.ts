@@ -76,12 +76,6 @@ export function useGenesisSBT(
 
     if (!isLoadingTokenId && contractTokenId !== null && contractTokenId !== undefined) {
       const fetchedValue = contractTokenId
-      console.log(
-        "Fetched tokenId from contract:",
-        fetchedValue?.toString(),
-        "for address:",
-        address
-      )
 
       const tokenIdFromLocalStorage = localStorage.getItem("genesisSBTTokenId")
 

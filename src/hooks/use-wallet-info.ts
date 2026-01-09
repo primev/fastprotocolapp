@@ -119,7 +119,6 @@ export function useWalletInfo(
       if (currentIcon && currentIcon !== lastIcon) {
         setWalletIcon(currentIcon)
         lastIcon = currentIcon
-        console.log("Wallet info updated via polling:", { name: currentName, icon: currentIcon })
         if (hasFoundGoodName && currentIcon) {
           clearInterval(intervalId) // Stop polling once we have both name and icon
         }

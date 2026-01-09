@@ -130,7 +130,6 @@ const OnboardingPageContent = () => {
         }
 
         hasSentConnectWalletRef.current = true
-        console.log("connect_wallet event sent successfully")
       } catch (error) {
         console.error("Error sending connect_wallet event:", error)
       }

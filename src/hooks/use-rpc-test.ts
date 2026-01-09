@@ -63,7 +63,7 @@ export function useRPCTest(): UseRPCTestReturn {
   // Log receipt when available
   useEffect(() => {
     if (receipt) {
-      console.log("Transaction receipt:", receipt)
+      // Receipt available
     }
   }, [receipt])
 
@@ -104,7 +104,6 @@ export function useRPCTest(): UseRPCTestReturn {
       statusProcessedRef.current = true
       setIsQueryingAPI(false)
       setIsTesting(false)
-      console.log(`Status received from ${source}:`, result)
 
       setTestResult({
         success: result.success,
@@ -221,7 +220,6 @@ export function useRPCTest(): UseRPCTestReturn {
   const test = async () => {
     // Prevent starting a new test if actively sending or confirming
     if (isSending || isConfirming) {
-      console.log("Test already in progress, please wait...")
       return
     }
 
