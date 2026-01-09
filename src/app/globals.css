@@ -116,6 +116,22 @@ All colors MUST be HSL.
 }
 
 @layer utilities {
+  /* Ensure RainbowKit wallet buttons are touchable on mobile */
+  /* Fix for mobile wallet connection buttons */
+  [data-rk] button,
+  [data-rk] [role="button"] {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+
+  /* Ensure wallet option buttons in modal are clickable */
+  [data-rk] [data-testid],
+  [data-rk] [aria-label] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+
   .glow-text {
     text-shadow: 0 0 20px hsl(var(--primary) / 0.5);
   }

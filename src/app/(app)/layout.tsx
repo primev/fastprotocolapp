@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { usePathname } from "next/navigation"
-import { useAccount } from "wagmi"
+import { useAccount, useConnect } from "wagmi"
 import { useConnectModal } from "@rainbow-me/rainbowkit"
 import { toast } from "sonner"
 import { Suspense } from "react"
@@ -30,10 +30,11 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const headerRef = useRef<HTMLDivElement>(null)
 
   const { isConnected, status, connector, address } = useAccount()
+  const { connectors } = useConnect()
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected)
   const rpcTest = useRPCTest()
   const { openConnectModal } = useConnectModal()
-  const hasOpenedConnectModalRef = useRef(false)
+  const [hasCheckedStatus, setHasCheckedStatus] = useState(false)
 
   // Wallet detection
   const isMetaMask = isMetaMaskWallet(connector)
@@ -48,19 +49,38 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   }, [])
 
   // Automatically open wallet connect modal if user is not connected (only on dashboard/leaderboard)
+  // Uses connector-aware mounting to wait for wagmi to detect wallets before opening
   useEffect(() => {
+    // 1. Detection Guard: Wait for connectors to be detected
+    // Wagmi populates this array once window.ethereum/EIP-6963 is scanned
+    if (connectors.length === 0) return
+
+    // 2. Mobile Guard: Disable auto-open on mobile devices
+    // Prevents broken states and follows UX best practices for mobile
+    if (typeof window !== "undefined") {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+      if (isMobile) return
+    }
+
+    // 3. State Guard: Only open once, don't reopen if user closed it
     if (
-      isMounted &&
       !isConnected &&
-      !hasOpenedConnectModalRef.current &&
+      !hasCheckedStatus &&
       status !== "connecting" &&
       status !== "reconnecting" &&
       (pathname?.startsWith("/dashboard") || pathname?.startsWith("/leaderboard"))
     ) {
-      hasOpenedConnectModalRef.current = true
-      openConnectModal()
+      // Small tick to ensure RainbowKit's internal state is also ready
+      const timer = setTimeout(() => {
+        if (openConnectModal) {
+          openConnectModal()
+          setHasCheckedStatus(true)
+        }
+      }, 300) // Much safer than 500ms when combined with connectors.length check
+
+      return () => clearTimeout(timer)
     }
-  }, [isMounted, isConnected, status, openConnectModal, pathname])
+  }, [isConnected, connectors, openConnectModal, hasCheckedStatus, status, pathname])
 
   // Measure header height
   const setHeaderRef = useCallback((node: HTMLDivElement | null) => {
