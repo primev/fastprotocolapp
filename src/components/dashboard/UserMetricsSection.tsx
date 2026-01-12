@@ -6,6 +6,7 @@ import { TrendingUp, ArrowUpRight, Coins } from "lucide-react"
 import { formatNumber } from "@/lib/utils"
 import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
+import { useUserAnalyticsData } from "@/hooks/use-dashboard-data"
 
 interface UserMetricsSectionProps {
   address?: string
@@ -25,23 +26,54 @@ interface UserMetrics {
 }
 
 export const UserMetricsSection = ({ address, initialGlobalStats }: UserMetricsSectionProps) => {
-  const [metrics, setMetrics] = useState<UserMetrics | null>(
-    // If initial global stats are provided, use them
-    initialGlobalStats
-      ? {
-          totalTxs: initialGlobalStats.totalTxs ?? 0,
-          swapTxs: initialGlobalStats.swapTxs ?? 0,
-          totalSwapVolEth: initialGlobalStats.totalSwapVolEth ?? 0,
-          ethPrice: initialGlobalStats.ethPrice ?? null,
-        }
-      : null
+  // Use React Query for user analytics if feature flag is disabled and address is provided
+  const userAnalyticsQuery = useUserAnalyticsData(
+    !FEATURE_FLAGS.show_global_stats && address ? address : undefined
   )
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+
+  const [metrics, setMetrics] = useState<UserMetrics | null>(() => {
+    // If feature flag is enabled and initial global stats are provided, use them
+    if (FEATURE_FLAGS.show_global_stats && initialGlobalStats) {
+      return {
+        totalTxs: initialGlobalStats.totalTxs ?? 0,
+        swapTxs: initialGlobalStats.swapTxs ?? 0,
+        totalSwapVolEth: initialGlobalStats.totalSwapVolEth ?? 0,
+        ethPrice: initialGlobalStats.ethPrice ?? null,
+      }
+    }
+    // Otherwise, use user-specific data from React Query if available
+    if (!FEATURE_FLAGS.show_global_stats && userAnalyticsQuery.data) {
+      return userAnalyticsQuery.data
+    }
+    return null
+  })
+  const [isLoading, setIsLoading] = useState(
+    !FEATURE_FLAGS.show_global_stats && address ? userAnalyticsQuery.isLoading : false
+  )
+  const [error, setError] = useState<string | null>(
+    userAnalyticsQuery.error ? "Failed to load metrics" : null
+  )
+
+  // Sync React Query data to local state
+  useEffect(() => {
+    if (userAnalyticsQuery.data && !FEATURE_FLAGS.show_global_stats && address) {
+      setMetrics(userAnalyticsQuery.data)
+      setIsLoading(false)
+      setError(null)
+    } else if (userAnalyticsQuery.error) {
+      setError("Failed to load metrics")
+      setIsLoading(false)
+    }
+  }, [userAnalyticsQuery.data, userAnalyticsQuery.error, userAnalyticsQuery.isLoading, address])
 
   useEffect(() => {
     // If initial global stats are provided, don't fetch
     if (initialGlobalStats && FEATURE_FLAGS.show_global_stats) {
+      return
+    }
+
+    // If React Query is handling user analytics, don't fetch again
+    if (!FEATURE_FLAGS.show_global_stats && address && userAnalyticsQuery.data !== undefined) {
       return
     }
 
@@ -79,26 +111,31 @@ export const UserMetricsSection = ({ address, initialGlobalStats }: UserMetricsS
                 : null,
           })
         } else {
-          // Fetch user-specific data
+          // User-specific data is handled by React Query hook
           if (!address) {
             setMetrics(null)
             return
           }
 
-          const response = await fetch(`/api/analytics/user/${address}`)
+          // Only fetch if React Query doesn't have data (fallback)
+          if (userAnalyticsQuery.data === undefined && !userAnalyticsQuery.isLoading) {
+            const response = await fetch(`/api/analytics/user/${address}`)
 
-          if (!response.ok) {
-            throw new Error("Failed to fetch user metrics")
+            if (!response.ok) {
+              throw new Error("Failed to fetch user metrics")
+            }
+
+            const data = await response.json()
+            setMetrics({
+              totalTxs: data.totalTxs || 0,
+              swapTxs: data.swapTxs || 0,
+              totalSwapVolEth: data.totalSwapVolEth || 0,
+              ethPrice:
+                data.ethPrice !== null && data.ethPrice !== undefined
+                  ? Number(data.ethPrice)
+                  : null,
+            })
           }
-
-          const data = await response.json()
-          setMetrics({
-            totalTxs: data.totalTxs || 0,
-            swapTxs: data.swapTxs || 0,
-            totalSwapVolEth: data.totalSwapVolEth || 0,
-            ethPrice:
-              data.ethPrice !== null && data.ethPrice !== undefined ? Number(data.ethPrice) : null,
-          })
         }
       } catch (err) {
         console.error("Error fetching metrics:", err)
@@ -109,7 +146,7 @@ export const UserMetricsSection = ({ address, initialGlobalStats }: UserMetricsS
     }
 
     fetchMetrics()
-  }, [address])
+  }, [address, userAnalyticsQuery.data, userAnalyticsQuery.isLoading])
 
   // Show placeholder data when not logged in (only for user-specific stats)
   const showPlaceholder = !FEATURE_FLAGS.show_global_stats && !address

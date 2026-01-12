@@ -1,10 +1,9 @@
 "use client"
 
-import { Suspense, useState, useEffect, useLayoutEffect, useRef, useCallback } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useState, useEffect, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import { useAccount } from "wagmi"
 import { useConnectModal } from "@rainbow-me/rainbowkit"
-import { toast } from "sonner"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import {
   Dialog,
@@ -24,11 +23,10 @@ import { useGenesisSBT } from "@/hooks/use-genesis-sbt"
 import { useDashboardTasks } from "@/hooks/use-dashboard-tasks"
 import { useEmailDialog } from "@/hooks/use-email-dialog"
 import { useAffiliateCode } from "@/hooks/use-affiliate-code"
-import { useRPCTest } from "@/hooks/use-rpc-test"
-import { useWalletInfo } from "@/hooks/use-wallet-info"
+import { usePrefetchLeaderboard } from "@/hooks/use-leaderboard-data"
+import { useDashboardTab } from "../DashboardTabContext"
 
 // Components
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { SBTDisplayCard } from "@/components/dashboard/SBTDisplayCard"
 import { ReferralsCard } from "@/components/dashboard/ReferralsCard"
 import { OneTimeTasksAccordion } from "@/components/dashboard/OneTimeTasksAccordion"
@@ -39,72 +37,29 @@ import { WeeklyTasksSection } from "@/components/dashboard/WeeklyTasksSection"
 import { ReferralsSection } from "@/components/dashboard/ReferralsSection"
 import { PartnerQuestsSection } from "@/components/dashboard/PartnerQuestsSection"
 import { OneTimeTasksSection } from "@/components/dashboard/OneTimeTasksSection"
-import { LeaderboardTable } from "@/components/dashboard/LeaderboardTable"
 import { SBTGatingModal } from "@/components/modals/SBTGatingModal"
 import { TransactionFeedbackModal } from "@/components/modals/TransactionFeedbackModal"
 import { ReferralModal } from "@/components/modals/ReferralModal"
-import { RPCTestModal } from "@/components/network-checker"
-import { MetaMaskToggleModal } from "@/components/onboarding/MetaMaskToggleModal"
-import { AddRpcModal } from "@/components/onboarding/AddRpcModal"
-import { BrowserWalletStepsModal } from "@/components/onboarding/BrowserWalletStepsModal"
 
-// Utils
-import { isMetaMaskWallet, isRabbyWallet } from "@/lib/onboarding-utils"
-import { NETWORK_CONFIG } from "@/lib/network-config"
 import type { TaskName } from "@/hooks/use-dashboard-tasks"
 
-// Client-side rendering for instant page load
-// Data fetching happens on the client side after initial render
+// Dashboard page content - uses shared (app) layout for header and RPC/network modals
 const DashboardContent = () => {
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const [points] = useState(0)
-  const [activeTab, setActiveTab] = useState("genesis")
   const [showSBTGatingModal, setShowSBTGatingModal] = useState(false)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
   const [oneTimeTasksAccordionValue, setOneTimeTasksAccordionValue] = useState<string | undefined>(
     "one-time-tasks"
   )
   const [isMounted, setIsMounted] = useState(false)
-  const [isTestModalOpen, setIsTestModalOpen] = useState(false)
-  const [isMetaMaskModalOpen, setIsMetaMaskModalOpen] = useState(false)
-  const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false)
-  const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false)
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false)
-  const [headerHeight, setHeaderHeight] = useState(75)
-  const [announcementHeight, setAnnouncementHeight] = useState(32)
-  const [titleSectionHeight, setTitleSectionHeight] = useState(100)
-  const headerRef = useRef<HTMLDivElement>(null)
-  const announcementRef = useRef<HTMLDivElement>(null)
-  const titleSectionRef = useRef<HTMLDivElement>(null)
 
-  // Callback refs to measure immediately when elements mount
-  const setHeaderRef = useCallback((node: HTMLDivElement | null) => {
-    headerRef.current = node
-    if (node) {
-      setHeaderHeight(node.offsetHeight)
-    }
-  }, [])
-
-  const setAnnouncementRef = useCallback((node: HTMLDivElement | null) => {
-    announcementRef.current = node
-    if (node) {
-      setAnnouncementHeight(node.offsetHeight)
-    }
-  }, [])
-
-  const setTitleSectionRef = useCallback((node: HTMLDivElement | null) => {
-    titleSectionRef.current = node
-    if (node) {
-      setTitleSectionHeight(node.offsetHeight)
-    }
-  }, [])
-
-  const { isConnected, address, status, connector } = useAccount()
-  const { walletName, walletIcon } = useWalletInfo(connector, isConnected)
-  const rpcTest = useRPCTest()
+  const { isConnected, address, status } = useAccount()
   const { openConnectModal } = useConnectModal()
   const hasOpenedConnectModalRef = useRef(false)
+
+  // Use DashboardTabContext from (app) layout for genesis/points tabs
+  const { activeTab, setActiveTab } = useDashboardTab()
 
   // Custom hooks
   const userOnboarding = useUserOnboarding(isConnected, address)
@@ -125,32 +80,30 @@ const DashboardContent = () => {
     },
   })
 
-  // Wallet detection
-  const isMetaMask = isMetaMaskWallet(connector)
-  const isRabby = isRabbyWallet(connector)
+  // Prefetch leaderboard data for faster navigation
+  const { prefetch: prefetchLeaderboard } = usePrefetchLeaderboard()
 
-  // Handle tab from URL query parameter
-  useEffect(() => {
-    const tab = searchParams.get("tab")
-    if (tab && ["genesis", "points", "leaderboard"].includes(tab)) {
-      // Block access to Points and Leaderboard if no Genesis SBT
-      if (!genesisSBT.hasGenesisSBT && (tab === "points" || tab === "leaderboard")) {
-        setActiveTab("genesis")
-        return
-      }
-      setActiveTab(tab)
-    }
-  }, [searchParams, genesisSBT.hasGenesisSBT])
-
+  // Handle tab change with SBT gating for Points tab
   const handleTabChange = (value: string) => {
-    // Block access to Points and Leaderboard if no Genesis SBT
-    if (!genesisSBT.hasGenesisSBT && (value === "points" || value === "leaderboard")) {
+    // Block access to Points if no Genesis SBT
+    if (!genesisSBT.hasGenesisSBT && value === "points") {
       setShowSBTGatingModal(true)
       return
     }
     setActiveTab(value)
-    router.push(`/dashboard?tab=${value}`)
   }
+
+  // Sync activeTab from URL on mount (DashboardTabContext handles this, but we need to respect SBT gating)
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    if (tab && ["genesis", "points"].includes(tab)) {
+      // Block access to Points if no Genesis SBT
+      if (!genesisSBT.hasGenesisSBT && tab === "points") {
+        return
+      }
+      setActiveTab(tab)
+    }
+  }, [searchParams, genesisSBT.hasGenesisSBT, setActiveTab])
 
   // Handle feedback modal from genesis SBT hook
   useEffect(() => {
@@ -158,11 +111,18 @@ const DashboardContent = () => {
       setShowFeedbackModal(true)
       genesisSBT.markFeedbackShown()
     }
-  }, [genesisSBT.shouldShowFeedbackModal])
+  }, [genesisSBT])
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  // Prefetch leaderboard data when dashboard loads (for faster navigation)
+  useEffect(() => {
+    if (isMounted) {
+      prefetchLeaderboard(address)
+    }
+  }, [isMounted, address, prefetchLeaderboard])
 
   // Automatically open wallet connect modal if user is not connected
   useEffect(() => {
@@ -178,102 +138,6 @@ const DashboardContent = () => {
     }
   }, [isMounted, isConnected, status, openConnectModal])
 
-  // Measure header and announcement heights - use layout effect to run synchronously before paint
-  useLayoutEffect(() => {
-    const updateHeights = () => {
-      if (headerRef.current) {
-        setHeaderHeight(headerRef.current.offsetHeight)
-      }
-      if (announcementRef.current) {
-        setAnnouncementHeight(announcementRef.current.offsetHeight)
-      }
-      if (titleSectionRef.current) {
-        setTitleSectionHeight(titleSectionRef.current.offsetHeight)
-      }
-    }
-
-    // Update immediately - useLayoutEffect runs synchronously before paint
-    updateHeights()
-
-    // Use ResizeObserver for real-time updates
-    const resizeObserver = new ResizeObserver(() => {
-      updateHeights()
-    })
-
-    if (headerRef.current) resizeObserver.observe(headerRef.current)
-    if (announcementRef.current) resizeObserver.observe(announcementRef.current)
-    if (titleSectionRef.current) resizeObserver.observe(titleSectionRef.current)
-
-    window.addEventListener("resize", updateHeights)
-
-    return () => {
-      resizeObserver.disconnect()
-      window.removeEventListener("resize", updateHeights)
-    }
-  })
-
-  // Handler for adding network (MetaMask wallet_addEthereumChain)
-  const handleAddNetwork = async () => {
-    if (!isConnected || !connector) {
-      toast.error("Please connect your wallet first")
-      return
-    }
-
-    try {
-      let provider = null
-      try {
-        provider = await connector.getProvider()
-      } catch (error) {
-        console.error("Error getting provider from connector:", error)
-      }
-
-      // Fallback to window.ethereum
-      if (!provider && typeof window !== "undefined" && (window as any).ethereum) {
-        const ethereum = (window as any).ethereum
-        provider = Array.isArray(ethereum) ? ethereum[0] : ethereum
-      }
-
-      if (!provider || !provider.request) {
-        toast.error("Provider not available", {
-          description: "Unable to access wallet provider.",
-        })
-        return
-      }
-
-      await provider.request({
-        method: "wallet_addEthereumChain",
-        params: [NETWORK_CONFIG],
-      })
-
-      toast.success("Network added successfully", {
-        description: "Fast Protocol network has been added to your wallet.",
-      })
-    } catch (error: any) {
-      if (error?.code === 4001) {
-        // User rejected
-        return
-      }
-      toast.error("Failed to add network", {
-        description: error?.message || "Failed to add Fast Protocol network.",
-      })
-    }
-  }
-
-  // Handler for RPC setup based on wallet type
-  const handleRpcSetup = () => {
-    if (!isConnected) {
-      toast.error("Please connect your wallet first")
-      return
-    }
-    if (isMetaMask) {
-      setIsMetaMaskModalOpen(true)
-    } else if (isRabby) {
-      setIsAddRpcModalOpen(true)
-    } else {
-      setIsBrowserWalletModalOpen(true)
-    }
-  }
-
   // Handle email submission
   const handleEmailSubmit = () => {
     emailDialog.handleEmailSubmit(() => {
@@ -281,37 +145,13 @@ const DashboardContent = () => {
     })
   }
 
-  const titleSectionTop = headerHeight + announcementHeight
-
   return (
-    <div className="bg-background min-h-screen">
-      <div
-        ref={setHeaderRef}
-        className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
-      >
-        <DashboardHeader
-          points={points}
-          isConnected={isConnected}
-          status={status}
-          isMounted={isMounted}
-          isMetaMask={isMetaMask}
-          onAddNetwork={handleAddNetwork}
-          onRpcSetup={handleRpcSetup}
-          onTestRpc={() => setIsTestModalOpen(true)}
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-        />
-      </div>
-
-      {/* Announcement Banner */}
-      <div
-        ref={setAnnouncementRef}
-        className="fixed left-0 right-0 z-40 bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all backdrop-blur-sm"
-        style={{ top: `${headerHeight}px` }}
-      >
+    <>
+      {/* Announcement Banner - dashboard specific, rendered in page content */}
+      <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all">
         <div className="container mx-auto px-4 py-1 text-center">
           <p className="text-primary-foreground text-sm">
-            🎉 You're all set. Make your first Fast swap on these{" "}
+            🎉 You&apos;re all set. Make your first Fast swap on these{" "}
             <a
               href="#defi-protocols"
               className="underline underline-offset-4 font-medium hover:text-primary-foreground/80 transition-colors"
@@ -323,8 +163,8 @@ const DashboardContent = () => {
         </div>
       </div>
 
-      {/* Content Area - Add padding to account for fixed headers */}
-      <div className="container mx-auto px-4 sm:px-0 py-4  pt-56 sm:pt-32">
+      {/* Content Area - layout provides paddingTop for header */}
+      <div className="container mx-auto px-4 sm:px-4 py-4">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           {/* Genesis SBT Tab */}
           <TabsContent value="genesis">
@@ -341,12 +181,6 @@ const DashboardContent = () => {
 
               {/* Right Panel - Tasks */}
               <div className="lg:col-span-9 space-y-6">
-                {/* Fixed Title Section */}
-                {/* <div
-                  ref={setTitleSectionRef}
-                  className="fixed left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50"
-                  style={{ top: `${titleSectionTop}px` }}
-                > */}
                 <div className="container mx-auto py-4 px-0">
                   <div className="flex items-center justify-between gap-4 flex-col sm:flex-row">
                     <div>
@@ -365,7 +199,6 @@ const DashboardContent = () => {
                     />
                   </div>
                 </div>
-                {/* </div> */}
 
                 <OneTimeTasksAccordion
                   tasks={dashboardTasks.oneTimeTasks}
@@ -419,15 +252,10 @@ const DashboardContent = () => {
               </p>
             </div>
           </TabsContent>
-
-          {/* Leaderboard Tab */}
-          <TabsContent value="leaderboard">
-            <LeaderboardTable />
-          </TabsContent>
         </Tabs>
       </div>
 
-      {/* Email Dialog */}
+      {/* Email Dialog - dashboard specific */}
       <Dialog open={emailDialog.showEmailDialog} onOpenChange={emailDialog.setShowEmailDialog}>
         <DialogContent className="sm:max-w-md border-primary/50">
           <DialogHeader>
@@ -478,62 +306,18 @@ const DashboardContent = () => {
         </DialogContent>
       </Dialog>
 
-      {/* RPC Test Modal */}
-      <RPCTestModal
-        open={isTestModalOpen}
-        onOpenChange={setIsTestModalOpen}
-        onConfirm={() => {}}
-        onClose={() => {
-          setIsTestModalOpen(false)
-          rpcTest.reset()
-        }}
-      />
-
-      {/* MetaMask Toggle Network Modal */}
-      <MetaMaskToggleModal
-        open={isMetaMaskModalOpen}
-        onOpenChange={setIsMetaMaskModalOpen}
-        onComplete={() => {
-          setIsMetaMaskModalOpen(false)
-        }}
-      />
-
-      {/* Add RPC Modal for Non-MetaMask Wallets */}
-      <AddRpcModal
-        open={isAddRpcModalOpen}
-        onOpenChange={setIsAddRpcModalOpen}
-        walletName={walletName}
-        walletIcon={walletIcon}
-        isMetaMask={isMetaMask}
-        onComplete={() => {
-          setIsAddRpcModalOpen(false)
-        }}
-      />
-
-      {/* Browser Wallet Steps Modal */}
-      <BrowserWalletStepsModal
-        open={isBrowserWalletModalOpen}
-        onOpenChange={setIsBrowserWalletModalOpen}
-        walletName={walletName}
-        walletIcon={walletIcon}
-        onComplete={() => {
-          setIsBrowserWalletModalOpen(false)
-        }}
-      />
-
-      {/* Transaction Feedback Modal */}
+      {/* Transaction Feedback Modal - dashboard specific */}
       <TransactionFeedbackModal
         isOpen={showFeedbackModal}
         walletAddress={address}
         onClose={() => setShowFeedbackModal(false)}
       />
 
-      {/* Referral Modal */}
+      {/* Referral Modal - dashboard specific */}
       <ReferralModal
         open={isReferralModalOpen}
         onOpenChange={(open) => {
           setIsReferralModalOpen(open)
-          // Refresh affiliate code and link when modal closes
           if (!open) {
             setTimeout(() => {
               refreshAffiliateCode()
@@ -543,13 +327,13 @@ const DashboardContent = () => {
         }}
       />
 
-      {/* SBT Gating Modal */}
+      {/* SBT Gating Modal - dashboard specific */}
       <SBTGatingModal open={showSBTGatingModal} />
-    </div>
+    </>
   )
 }
 
-// Wrap the component that uses useSearchParams in Suspense
+// Wrap in Suspense for useSearchParams
 const DashboardPage = () => {
   return (
     <Suspense

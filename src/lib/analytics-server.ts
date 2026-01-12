@@ -1,4 +1,5 @@
 import { env } from "@/env/server"
+import { getLeaderboard } from "@/lib/analytics/services/leaderboard.service"
 
 /**
  * Server-side function to fetch cumulative successful transactions from analytics API
@@ -184,6 +185,85 @@ export async function getTotalPointsEarned(): Promise<number | null> {
     return null
   } catch (error) {
     console.error("Error fetching total points earned:", error)
+    return null
+  }
+}
+
+/**
+ * Server-side function to fetch active traders count from analytics API
+ * Calls the internal API route which handles the external API call
+ */
+export async function getActiveTraders(): Promise<number | null> {
+  try {
+    // Call the internal API route
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+    const response = await fetch(`${baseUrl}/api/analytics/active-traders`, {
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      console.error("Failed to fetch active traders:", response.statusText)
+      return null
+    }
+
+    const data = await response.json()
+
+    if (data.success && data.activeTraders !== null && data.activeTraders !== undefined) {
+      return Number(data.activeTraders)
+    }
+
+    return null
+  } catch (error) {
+    console.error("Error fetching active traders:", error)
+    return null
+  }
+}
+
+/**
+ * Server-side function to fetch leaderboard data (top 15) without user-specific data
+ * This can be used for SSR to show the leaderboard immediately
+ */
+export async function getLeaderboardTop15(): Promise<{
+  leaderboard: Array<{
+    rank: number
+    wallet: string
+    swapVolume24h: number
+    swapCount: number
+    change24h: number
+    isCurrentUser: boolean
+  }>
+  ethPrice: number | null
+} | null> {
+  try {
+    // Get ETH price for USD conversion
+    const ethPrice = await getEthPrice()
+
+    // Use the SQL flow via leaderboard service
+    const leaderboardRows = await getLeaderboard(15)
+
+    // Transform to expected format with USD conversion
+    const leaderboard = leaderboardRows.map((row, index) => {
+      const [wallet, totalSwapVolEth, swapCount, swapVolEth24h, change24hPct] = row
+
+      // Convert 24h volume to USD (using 24h volume for swapVolume24h field)
+      const swapVolUsd = ethPrice !== null ? swapVolEth24h * ethPrice : swapVolEth24h
+
+      return {
+        rank: index + 1,
+        wallet: wallet,
+        swapVolume24h: swapVolUsd,
+        swapCount: swapCount,
+        change24h: change24hPct,
+        isCurrentUser: false, // Will be set client-side if needed
+      }
+    })
+
+    return {
+      leaderboard,
+      ethPrice,
+    }
+  } catch (error) {
+    console.error("Error fetching leaderboard top 15:", error)
     return null
   }
 }

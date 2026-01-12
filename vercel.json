@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "app/**": {
+      "includeFiles": "src/lib/analytics/sql/**"
+    }
+  }
+}
+

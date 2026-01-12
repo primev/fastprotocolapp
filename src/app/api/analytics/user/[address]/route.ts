@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { env } from "@/env/server"
 import { getEthPrice } from "@/lib/analytics-server"
+import { getUserSwapVolume } from "@/lib/analytics/services/users.service"
+import { AnalyticsClientError } from "@/lib/analytics/client"
 
 // Validate wallet address format
 function isValidWalletAddress(address: string): boolean {
@@ -55,63 +57,16 @@ export async function GET(
     const swapTxs = fastRpcData.swap_count || 0
 
     // Get swap volume from analytics database
-    const authToken = env.ANALYTICS_DB_AUTH_TOKEN
-    if (!authToken) {
-      // Return partial data if analytics DB token is not configured
-      return NextResponse.json({
-        totalTxs,
-        swapTxs,
-        totalSwapVolEth: 0,
-      })
-    }
-
-    // Query for swap volume
-    const sqlQuery = `SELECT
-      SUM(COALESCE(p.swap_vol_eth, 0)) AS total_swap_vol_eth
-    FROM mevcommit_57173.processed_l1_txns_v2 p
-    WHERE lower(p.from_address) = lower('${normalizedAddress}')
-      AND p.is_swap = TRUE`
-
-    const dbResponse = await fetch(
-      "https://analyticsdb.mev-commit.xyz/api/v1/catalogs/default_catalog/databases/mev_commit_8855/sql",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${authToken}`,
-        },
-        body: JSON.stringify({ query: sqlQuery }),
-      }
-    )
-
     let totalSwapVolEth = 0
-
-    if (dbResponse.ok) {
-      // Parse NDJSON response
-      const responseText = await dbResponse.text()
-      const lines = responseText.trim().split("\n")
-      const dataRows: any[] = []
-
-      for (const line of lines) {
-        if (!line.trim()) continue
-
-        try {
-          const parsed = JSON.parse(line)
-          if (parsed.data && Array.isArray(parsed.data)) {
-            dataRows.push(parsed.data)
-          }
-        } catch (lineError) {
-          continue
-        }
-      }
-
-      if (dataRows.length > 0 && dataRows[0][0] !== null && dataRows[0][0] !== undefined) {
-        totalSwapVolEth = Number(dataRows[0][0]) || 0
-      }
-    } else {
+    try {
+      totalSwapVolEth = await getUserSwapVolume(normalizedAddress)
+    } catch (error) {
       // Log error but don't fail the request - return partial data
-      const errorText = await dbResponse.text()
-      console.error("Analytics DB API error:", errorText)
+      if (error instanceof AnalyticsClientError) {
+        console.error("Analytics DB API error:", error.message)
+      } else {
+        console.error("Analytics DB API error:", error)
+      }
     }
 
     const ethPrice = await getEthPrice()

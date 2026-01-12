@@ -1,29 +1,28 @@
 import { NextResponse } from "next/server"
-import { getSwapVolume } from "@/lib/analytics/services/transactions.service"
+import { getActiveTraders } from "@/lib/analytics/services/transactions.service"
 import { AnalyticsClientError } from "@/lib/analytics/client"
 
 export async function GET() {
   try {
-    const cumulativeSwapVolume = await getSwapVolume()
+    const activeTraders = await getActiveTraders({
+      catalog: "fastrpc",
+    })
 
-    if (cumulativeSwapVolume === null) {
+    if (activeTraders === null) {
       return NextResponse.json({ error: "No data returned from analytics API" }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
-      cumulativeSwapVolEth: cumulativeSwapVolume,
+      activeTraders: activeTraders,
     })
   } catch (error) {
-    console.error("Error fetching transaction volume analytics:", error)
+    console.error("Error fetching active traders analytics:", error)
 
     if (error instanceof AnalyticsClientError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode || 500 })
     }
 
-    return NextResponse.json(
-      { error: "Failed to fetch transaction volume analytics" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Failed to fetch active traders analytics" }, { status: 500 })
   }
 }

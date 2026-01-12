@@ -154,7 +154,6 @@ export function parseTokenIdFromReceipt(receipt: {
       topics[3]
     ) {
       try {
-        console.log("Parsed token ID:", topics[3])
         return BigInt(topics[3])
       } catch {
         return null

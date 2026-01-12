@@ -104,7 +104,6 @@ export function useMinting({
 
       isProcessing = true
       receiptProcessedRef.current = true
-      console.log(`Receipt received from ${source}:`, receipt)
 
       const tokenId = parseTokenIdFromReceipt(receipt)
       if (tokenId) {
@@ -160,7 +159,6 @@ export function useMinting({
     if (isWriteError || isConfirmError) {
       setIsMinting(false)
       const error = writeError || confirmError
-      console.log("error", error)
 
       if (error?.message?.toLowerCase().includes("user")) {
         toast.error("Claiming Failed", {
@@ -191,7 +189,6 @@ export function useMinting({
         functionName: "mint",
       } as unknown as any)
     } catch (error: any) {
-      console.log("error", error)
       setIsMinting(false)
 
       toast.error("Transaction Failed", {
