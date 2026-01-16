@@ -10,7 +10,7 @@ interface IFastSettlementV3 {
         address user;
         address inputToken;
         address outputToken; // address(0) for ETH
-        uint256 sellAmount;
+        uint256 inputAmt;
         uint256 userAmtOut;
         address recipient;
         uint256 deadline;
@@ -29,7 +29,7 @@ interface IFastSettlementV3 {
         address indexed user,
         address indexed inputToken,
         address indexed outputToken,
-        uint256 sellAmount,
+        uint256 inputAmt,
         uint256 userAmtOut,
         uint256 received,
         uint256 surplus
@@ -44,7 +44,7 @@ interface IFastSettlementV3 {
     error BadNonce();
     error BadTreasury();
     error BadRecipient();
-    error BadSellAmount();
+    error BadInputAmt();
     error BadUserAmtOut();
     error BadCallTarget();
     error UnauthorizedExecutor();

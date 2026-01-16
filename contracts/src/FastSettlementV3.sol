@@ -1,51 +1,74 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {IPermit2} from "./interfaces/IPermit2.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IFastSettlementV3} from "./interfaces/IFastSettlementV3.sol";
+import {IPermit2} from "./interfaces/IPermit2.sol";
+import {FastSettlementV3Storage} from "./FastSettlementV3Storage.sol";
 
 /// @title FastSettlementV3
-/// @notice Implementation of IFastSettlementV3.
-contract FastSettlementV3 is IFastSettlementV3, Ownable2Step, ReentrancyGuard {
+/// @notice V3 implementation using UUPS Upgradeable pattern.
+contract FastSettlementV3 is
+    Initializable,
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable,
+    ReentrancyGuard,
+    IFastSettlementV3,
+    FastSettlementV3Storage
+{
     using SafeERC20 for IERC20;
+    using Address for address payable;
 
-    // ============ Immutable & State Variables ============
-
-    IPermit2 public immutable PERMIT2;
-    address public executor; // Authorized caller of execute()
-    address public treasury;
-
-    // ============ Type Hashes & Strings ============
+    // ============ Constants & Immutables ============
 
     bytes32 public constant INTENT_TYPEHASH =
         keccak256(
             bytes(
-                "Intent(address user,address inputToken,address outputToken,uint256 sellAmount,uint256 userAmtOut,address recipient,uint256 deadline,uint256 nonce)"
+                "Intent(address user,address inputToken,address outputToken,uint256 inputAmt,uint256 userAmtOut,address recipient,uint256 deadline,uint256 nonce)"
             )
         );
 
     string public constant WITNESS_TYPE_STRING =
-        "Intent witness)Intent(address user,address inputToken,address outputToken,uint256 sellAmount,uint256 userAmtOut,address recipient,uint256 deadline,uint256 nonce)TokenPermissions(address token,uint256 amount)";
+        "Intent witness)Intent(address user,address inputToken,address outputToken,uint256 inputAmt,uint256 userAmtOut,address recipient,uint256 deadline,uint256 nonce)TokenPermissions(address token,uint256 amount)";
+
+    // Permit2 address is constant, so immutable is fine for upgradeable contracts
+    // (set in constructor of implementation).
+    IPermit2 public immutable PERMIT2;
+
+    // ============ Constructor & Initializer ============
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor(address _permit2) {
+        if (_permit2 == address(0)) revert InvalidPermit2();
+        PERMIT2 = IPermit2(_permit2);
+        _disableInitializers();
+    }
+
+    function initialize(address _executor, address _treasury) public initializer {
+        if (_treasury == address(0)) revert BadTreasury();
+        if (_executor == address(0)) revert BadExecutor();
+        __Ownable_init(msg.sender);
+        executor = _executor;
+        treasury = _treasury;
+    }
+
+    // ============ UUPS Authorization ============
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     // ============ Modifiers ============
 
     modifier onlyExecutor() {
         if (msg.sender != executor) revert UnauthorizedExecutor();
         _;
-    }
-
-    // ============ Constructor ============
-
-    constructor(address _executor, address _permit2, address _treasury) Ownable(msg.sender) {
-        if (_permit2 == address(0)) revert InvalidPermit2();
-        if (_treasury == address(0)) revert BadTreasury();
-        executor = _executor;
-        PERMIT2 = IPermit2(_permit2);
-        treasury = _treasury;
     }
 
     // ============ Receive ============
@@ -59,45 +82,30 @@ contract FastSettlementV3 is IFastSettlementV3, Ownable2Step, ReentrancyGuard {
         bytes calldata signature,
         SwapCall calldata swapData
     ) external payable onlyExecutor nonReentrant returns (uint256 received, uint256 surplus) {
-        // 1. Validate Intent Constraints (Basic)
+        // Validate constraints
         if (block.timestamp > intent.deadline) revert IntentExpired();
-        // Nonce is checked by Permit2
         if (intent.recipient == address(0)) revert BadRecipient();
-        if (intent.sellAmount == 0) revert BadSellAmount();
+        if (intent.inputAmt == 0) revert BadInputAmt();
         if (intent.userAmtOut == 0) revert BadUserAmtOut();
 
-        // 2. Pull Funds via Permit2 Witness
-        // The Witness IS the Intent struct.
-        // The signature verifies: Permit(token, amount, nonce, deadline) + Witness(Intent)
+        // Track start balance
+        uint256 startInputBal = _getBalance(intent.inputToken);
 
+        // Pull funds
         IPermit2.PermitTransferFrom memory permit = IPermit2.PermitTransferFrom({
             permitted: IPermit2.TokenPermissions({
                 token: intent.inputToken,
-                amount: intent.sellAmount
+                amount: intent.inputAmt
             }),
             nonce: intent.nonce,
             deadline: intent.deadline
         });
 
         IPermit2.SignatureTransferDetails memory transferDetails = IPermit2
-            .SignatureTransferDetails({to: address(this), requestedAmount: intent.sellAmount});
+            .SignatureTransferDetails({to: address(this), requestedAmount: intent.inputAmt});
 
-        // Hash the intent using our TypeHash
-        bytes32 witness = keccak256(
-            abi.encode(
-                INTENT_TYPEHASH,
-                intent.user,
-                intent.inputToken,
-                intent.outputToken,
-                intent.sellAmount,
-                intent.userAmtOut,
-                intent.recipient,
-                intent.deadline,
-                intent.nonce
-            )
-        );
+        bytes32 witness = keccak256(abi.encode(INTENT_TYPEHASH, intent));
 
-        // Call Permit2. This validates signature, nonce, deadline, and transfers tokens.
         PERMIT2.permitWitnessTransferFrom(
             permit,
             transferDetails,
@@ -107,66 +115,69 @@ contract FastSettlementV3 is IFastSettlementV3, Ownable2Step, ReentrancyGuard {
             signature
         );
 
-        // 3. Approve Swap Target
-        IERC20(intent.inputToken).forceApprove(swapData.to, intent.sellAmount);
-
-        // 4. Measure Balance Before
-        uint256 balBefore = _getBalance(intent.outputToken);
-
-        // 5. Execute Swap Call
-        (bool success, bytes memory ret) = swapData.to.call{value: swapData.value}(swapData.data);
-        if (!success) {
-            // Bubble revert reason
-            assembly {
-                revert(add(ret, 32), mload(ret))
-            }
+        // Approve router
+        if (intent.inputToken != address(0)) {
+            // Approve sellAmount
+            IERC20(intent.inputToken).forceApprove(swapData.to, intent.inputAmt);
         }
 
-        // 6. Measure Balance After
-        uint256 balAfter = _getBalance(intent.outputToken);
-        received = balAfter - balBefore;
+        // Execute swap
+        // Pass ETH if input is native
+        uint256 valueToSend = (intent.inputToken == address(0)) ? intent.inputAmt : 0;
 
-        // 7. Enforce userAmtOut
+        uint256 outputBalBefore = _getBalance(intent.outputToken);
+
+        (bool success, ) = swapData.to.call{value: valueToSend}(swapData.data);
+        if (!success) revert BadCallTarget();
+
+        uint256 outputBalAfter = _getBalance(intent.outputToken);
+        received = outputBalAfter - outputBalBefore;
+
+        // Verify output
+        // Solvers must account for fees
         if (received < intent.userAmtOut) revert InsufficientOut(received, intent.userAmtOut);
 
-        // 8. Distribute Proceeds
+        // Distribute proceeds
+        surplus = received - intent.userAmtOut;
+
+        // Pay user
         if (intent.outputToken == address(0)) {
-            // Pay user
-            (bool paySuccess, ) = intent.recipient.call{value: intent.userAmtOut}("");
-            require(paySuccess, "ETH transfer to recipient failed");
-
-            // Pay treasury surplus
-            surplus = received - intent.userAmtOut;
-            if (surplus > 0) {
-                (bool treasSuccess, ) = treasury.call{value: surplus}("");
-                require(treasSuccess, "ETH transfer to treasury failed");
-            }
+            payable(intent.recipient).sendValue(intent.userAmtOut);
         } else {
-            // Pay user
             IERC20(intent.outputToken).safeTransfer(intent.recipient, intent.userAmtOut);
+        }
 
-            // Pay treasury surplus
-            surplus = received - intent.userAmtOut;
-            if (surplus > 0) {
+        // Pay treasury
+        if (surplus > 0) {
+            if (intent.outputToken == address(0)) {
+                payable(treasury).sendValue(surplus);
+            } else {
                 IERC20(intent.outputToken).safeTransfer(treasury, surplus);
             }
         }
 
-        // 9. Cleanup
         // Reset approval
-        IERC20(intent.inputToken).forceApprove(swapData.to, 0);
+        if (intent.inputToken != address(0)) {
+            IERC20(intent.inputToken).forceApprove(swapData.to, 0);
+        }
 
-        // Refund any leftover input tokens to user (if any)
-        uint256 inputRemains = IERC20(intent.inputToken).balanceOf(address(this));
-        if (inputRemains > 0) {
-            IERC20(intent.inputToken).safeTransfer(intent.user, inputRemains);
+        // Refund unused input
+        uint256 finalInputBal = _getBalance(intent.inputToken);
+        if (finalInputBal > startInputBal) {
+            uint256 unused = finalInputBal - startInputBal;
+            // Refund
+            if (intent.inputToken == address(0)) {
+                payable(intent.user).sendValue(unused);
+            } else {
+                IERC20(intent.inputToken).safeTransfer(intent.user, unused);
+            }
         }
 
         emit IntentExecuted(
             intent.user,
             intent.inputToken,
             intent.outputToken,
-            intent.sellAmount,
+            intent.inputAmt,
             intent.userAmtOut,
             received,
             surplus
@@ -190,8 +201,7 @@ contract FastSettlementV3 is IFastSettlementV3, Ownable2Step, ReentrancyGuard {
 
     function rescueTokens(address token, uint256 amount) external onlyOwner {
         if (token == address(0)) {
-            (bool s, ) = msg.sender.call{value: amount}("");
-            require(s, "Rescue ETH failed");
+            payable(msg.sender).sendValue(amount);
         } else {
             IERC20(token).safeTransfer(msg.sender, amount);
         }

@@ -9,6 +9,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 // ============ Mocks ============
 
 contract MockERC20 is ERC20 {
@@ -99,7 +101,12 @@ contract FastSettlementV3Test is Test {
         tokenIn = new MockERC20("Token In", "TIN");
         tokenOut = new MockERC20("Token Out", "TOUT");
 
-        settlement = new FastSettlementV3(executor, address(permit2), treasury);
+        FastSettlementV3 impl = new FastSettlementV3(address(permit2));
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(FastSettlementV3.initialize, (executor, treasury))
+        );
+        settlement = FastSettlementV3(payable(address(proxy)));
 
         tokenIn.mint(user, 1000e18);
         vm.prank(user);
@@ -119,7 +126,7 @@ contract FastSettlementV3Test is Test {
                 user: user,
                 inputToken: address(tokenIn),
                 outputToken: isEth ? address(0) : address(tokenOut),
-                sellAmount: amountIn,
+                inputAmt: amountIn,
                 userAmtOut: userAmtOut,
                 recipient: recipient,
                 deadline: block.timestamp + 1 hours,

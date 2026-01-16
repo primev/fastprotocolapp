@@ -8,6 +8,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 // ============ Mocks ============
 contract MockERC20 is ERC20 {
     uint8 private _decimals;
@@ -79,9 +81,15 @@ contract FastSettlementV3IntegrationTest is Test {
         // 3. Deploy Swap Router
         swapRouter = new MockSwapRouter();
 
-        // 4. Deploy Settlement Contract linked to Real Permit2
-        vm.prank(owner);
-        settlement = new FastSettlementV3(executor, permit2, treasury);
+        // 4. Deploy Settlement Contract linked to Real Permit2 (via Proxy)
+        vm.startPrank(owner);
+        FastSettlementV3 impl = new FastSettlementV3(permit2);
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(FastSettlementV3.initialize, (executor, treasury))
+        );
+        settlement = FastSettlementV3(payable(address(proxy)));
+        vm.stopPrank();
 
         // 5. Fund User and Approve Permit2
         tokenIn.mint(user, 1000e18);
@@ -103,7 +111,7 @@ contract FastSettlementV3IntegrationTest is Test {
             user: user,
             inputToken: address(tokenIn),
             outputToken: address(tokenOut),
-            sellAmount: amountIn,
+            inputAmt: amountIn,
             userAmtOut: amountOut,
             recipient: recipient,
             deadline: deadline,
@@ -148,7 +156,7 @@ contract FastSettlementV3IntegrationTest is Test {
             user: user,
             inputToken: address(tokenIn),
             outputToken: address(0), // ETH output
-            sellAmount: amountIn,
+            inputAmt: amountIn,
             userAmtOut: amountOut,
             recipient: recipient,
             deadline: deadline,
@@ -192,7 +200,7 @@ contract FastSettlementV3IntegrationTest is Test {
             user: user,
             inputToken: address(tokenIn),
             outputToken: address(tokenOut),
-            sellAmount: amountIn,
+            inputAmt: amountIn,
             userAmtOut: amountOut,
             recipient: recipient,
             deadline: deadline,
@@ -221,6 +229,86 @@ contract FastSettlementV3IntegrationTest is Test {
         settlement.execute(intent, badSignature, call);
     }
 
+    function test_Integration_RealPermit2_TamperedIntent_Amount() public {
+        uint256 amountIn = 100e18;
+        uint256 amountOut = 90e18;
+
+        IFastSettlementV3.Intent memory intent = IFastSettlementV3.Intent({
+            user: user,
+            inputToken: address(tokenIn),
+            outputToken: address(tokenOut),
+            inputAmt: amountIn,
+            userAmtOut: amountOut,
+            recipient: recipient,
+            deadline: block.timestamp + 1 hours,
+            nonce: 0
+        });
+
+        // Sign ORIGINAL intent
+        bytes memory signature = _getPermitSignature(intent, userKey);
+
+        // Tamper with input amount
+        intent.inputAmt = 50e18;
+
+        IFastSettlementV3.SwapCall memory call = IFastSettlementV3.SwapCall({
+            to: address(swapRouter),
+            value: 0,
+            data: abi.encodeWithSelector(
+                MockSwapRouter.swap.selector,
+                address(tokenIn),
+                intent.inputAmt,
+                address(tokenOut),
+                amountOut,
+                false
+            )
+        });
+
+        vm.prank(executor);
+        // Should revert because signature doesn't match new amount
+        vm.expectRevert();
+        settlement.execute(intent, signature, call);
+    }
+
+    function test_Integration_RealPermit2_TamperedIntent_Recipient() public {
+        uint256 amountIn = 100e18;
+        uint256 amountOut = 90e18;
+
+        IFastSettlementV3.Intent memory intent = IFastSettlementV3.Intent({
+            user: user,
+            inputToken: address(tokenIn),
+            outputToken: address(tokenOut),
+            inputAmt: amountIn,
+            userAmtOut: amountOut,
+            recipient: recipient,
+            deadline: block.timestamp + 1 hours,
+            nonce: 0
+        });
+
+        // Sign ORIGINAL intent
+        bytes memory signature = _getPermitSignature(intent, userKey);
+
+        // Tamper with recipient
+        intent.recipient = makeAddr("attacker");
+
+        IFastSettlementV3.SwapCall memory call = IFastSettlementV3.SwapCall({
+            to: address(swapRouter),
+            value: 0,
+            data: abi.encodeWithSelector(
+                MockSwapRouter.swap.selector,
+                address(tokenIn),
+                amountIn,
+                address(tokenOut),
+                amountOut,
+                false
+            )
+        });
+
+        vm.prank(executor);
+        // Should revert because signature doesn't match new recipient
+        vm.expectRevert();
+        settlement.execute(intent, signature, call);
+    }
+
     function test_Integration_UnauthorizedExecutor() public {
         uint256 amountIn = 100e18;
         uint256 amountOut = 90e18;
@@ -229,7 +317,7 @@ contract FastSettlementV3IntegrationTest is Test {
             user: user,
             inputToken: address(tokenIn),
             outputToken: address(tokenOut),
-            sellAmount: amountIn,
+            inputAmt: amountIn,
             userAmtOut: amountOut,
             recipient: recipient,
             deadline: block.timestamp + 1 hours,
@@ -271,7 +359,7 @@ contract FastSettlementV3IntegrationTest is Test {
                 intent.user,
                 intent.inputToken,
                 intent.outputToken,
-                intent.sellAmount,
+                intent.inputAmt,
                 intent.userAmtOut,
                 intent.recipient,
                 intent.deadline,
@@ -287,7 +375,7 @@ contract FastSettlementV3IntegrationTest is Test {
 
         // 3. Build TokenPermissions Hash
         bytes32 tokenPermissionsHash = keccak256(
-            abi.encode(TOKEN_PERMISSIONS_TYPEHASH, intent.inputToken, intent.sellAmount)
+            abi.encode(TOKEN_PERMISSIONS_TYPEHASH, intent.inputToken, intent.inputAmt)
         );
 
         // 4. Build Full Struct Hash
