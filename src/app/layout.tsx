@@ -3,6 +3,7 @@ import "@/app/globals.css"
 import type { Metadata, Viewport } from "next"
 import { Providers } from "@/components/providers"
 import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 function addProtocolIfMissing(url: string): string {
   if (/^https?:\/\//i.test(url)) {
@@ -51,6 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="overflow-x-hidden">
         <Providers>{children}</Providers>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
