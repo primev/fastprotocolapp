@@ -39,8 +39,6 @@ contract FastSettlementV3 is
     string public constant WITNESS_TYPE_STRING =
         "Intent witness)Intent(address user,address inputToken,address outputToken,uint256 inputAmt,uint256 userAmtOut,address recipient,uint256 deadline,uint256 nonce)TokenPermissions(address token,uint256 amount)";
 
-    // Permit2 address is constant, so immutable is fine for upgradeable contracts
-    // (set in constructor of implementation).
     IPermit2 public immutable PERMIT2;
 
     // ============ Constructor & Initializer ============
@@ -84,6 +82,7 @@ contract FastSettlementV3 is
     ) external payable onlyExecutor nonReentrant returns (uint256 received, uint256 surplus) {
         // Validate constraints
         if (block.timestamp > intent.deadline) revert IntentExpired();
+        if (intent.inputToken == address(0)) revert BadInputToken();
         if (intent.recipient == address(0)) revert BadRecipient();
         if (intent.inputAmt == 0) revert BadInputAmt();
         if (intent.userAmtOut == 0) revert BadUserAmtOut();
@@ -115,26 +114,19 @@ contract FastSettlementV3 is
             signature
         );
 
-        // Approve router
-        if (intent.inputToken != address(0)) {
-            // Approve sellAmount
-            IERC20(intent.inputToken).forceApprove(swapData.to, intent.inputAmt);
-        }
+        // Approve swap contract
+        IERC20(intent.inputToken).forceApprove(swapData.to, intent.inputAmt);
 
         // Execute swap
-        // Pass ETH if input is native
-        uint256 valueToSend = (intent.inputToken == address(0)) ? intent.inputAmt : 0;
-
         uint256 outputBalBefore = _getBalance(intent.outputToken);
 
-        (bool success, ) = swapData.to.call{value: valueToSend}(swapData.data);
+        (bool success, ) = swapData.to.call(swapData.data);
         if (!success) revert BadCallTarget();
 
         uint256 outputBalAfter = _getBalance(intent.outputToken);
         received = outputBalAfter - outputBalBefore;
 
-        // Verify output
-        // Solvers must account for fees
+        // Verify output, quote must account for fees
         if (received < intent.userAmtOut) revert InsufficientOut(received, intent.userAmtOut);
 
         // Distribute proceeds
@@ -157,20 +149,14 @@ contract FastSettlementV3 is
         }
 
         // Reset approval
-        if (intent.inputToken != address(0)) {
-            IERC20(intent.inputToken).forceApprove(swapData.to, 0);
-        }
+        IERC20(intent.inputToken).forceApprove(swapData.to, 0);
 
         // Refund unused input
         uint256 finalInputBal = _getBalance(intent.inputToken);
         if (finalInputBal > startInputBal) {
             uint256 unused = finalInputBal - startInputBal;
             // Refund
-            if (intent.inputToken == address(0)) {
-                payable(intent.user).sendValue(unused);
-            } else {
-                IERC20(intent.inputToken).safeTransfer(intent.user, unused);
-            }
+            IERC20(intent.inputToken).safeTransfer(intent.user, unused);
         }
 
         emit IntentExecuted(

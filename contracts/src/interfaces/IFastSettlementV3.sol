@@ -45,6 +45,7 @@ interface IFastSettlementV3 {
     error BadTreasury();
     error BadExecutor();
     error BadRecipient();
+    error BadInputToken();
     error BadInputAmt();
     error BadUserAmtOut();
     error BadCallTarget();
