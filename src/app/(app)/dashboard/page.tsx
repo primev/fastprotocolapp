@@ -117,10 +117,14 @@ const DashboardContent = () => {
     setIsMounted(true)
   }, [])
 
-  // Prefetch leaderboard data when dashboard loads (for faster navigation)
+  // Prefetch leaderboard data when dashboard loads (debounced to avoid lag)
   useEffect(() => {
     if (isMounted) {
-      prefetchLeaderboard(address)
+      // Delay prefetch to avoid blocking initial render
+      const timeoutId = setTimeout(() => {
+        prefetchLeaderboard(address)
+      }, 500) // Wait 500ms after mount before prefetching
+      return () => clearTimeout(timeoutId)
     }
   }, [isMounted, address, prefetchLeaderboard])
 

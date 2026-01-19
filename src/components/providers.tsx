@@ -18,6 +18,9 @@ const queryClient = new QueryClient({
       refetchOnMount: "always",
       refetchOnWindowFocus: false,
       refetchOnReconnect: "always",
+      // Enable structural sharing to prevent unnecessary re-renders
+      // This compares data by structure, not reference, reducing re-renders
+      structuralSharing: true,
     },
   },
 })

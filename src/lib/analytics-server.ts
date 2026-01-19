@@ -1,6 +1,7 @@
 import { env } from "@/env/server"
 import { getLeaderboard } from "@/lib/analytics/services/leaderboard.service"
 import { transformLeaderboardRows } from "@/lib/analytics/services/leaderboard-transform"
+import { getActiveTraders as getActiveTradersService } from "@/lib/analytics/services/transactions.service"
 
 /**
  * Server-side function to fetch cumulative successful transactions from analytics API
@@ -192,28 +193,17 @@ export async function getTotalPointsEarned(): Promise<number | null> {
 
 /**
  * Server-side function to fetch active traders count from analytics API
- * Calls the internal API route which handles the external API call
+ * Calls the service directly instead of HTTP to avoid issues on Vercel
  */
 export async function getActiveTraders(): Promise<number | null> {
   try {
-    // Call the internal API route
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-    const response = await fetch(`${baseUrl}/api/analytics/active-traders`, {
-      cache: "no-store",
+    // Call the service directly instead of making HTTP request
+    // This avoids issues with self-referencing URLs on Vercel
+    const activeTraders = await getActiveTradersService({
+      catalog: "fastrpc",
     })
 
-    if (!response.ok) {
-      console.error("Failed to fetch active traders:", response.statusText)
-      return null
-    }
-
-    const data = await response.json()
-
-    if (data.success && data.activeTraders !== null && data.activeTraders !== undefined) {
-      return Number(data.activeTraders)
-    }
-
-    return null
+    return activeTraders
   } catch (error) {
     console.error("Error fetching active traders:", error)
     return null

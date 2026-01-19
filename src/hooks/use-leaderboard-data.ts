@@ -12,7 +12,7 @@ interface LeaderboardEntry {
   isCurrentUser: boolean
 }
 
-interface LeaderboardData {
+export interface LeaderboardData {
   success: boolean
   leaderboard: LeaderboardEntry[]
   userPosition?: number | null
@@ -65,14 +65,41 @@ async function fetchLeaderboardStats(): Promise<LeaderboardStats> {
 
 /**
  * Hook to fetch leaderboard data with React Query
+ * @param currentUserAddress - Optional wallet address for user-specific data
+ * @param initialData - SSR preloaded data to hydrate the cache
  */
-export function useLeaderboardData(currentUserAddress?: string | null) {
+export function useLeaderboardData(
+  currentUserAddress?: string | null,
+  initialData?: LeaderboardData
+) {
+  // Strategy: Prioritize user-specific data when address is available
+  // Use general leaderboard as placeholder for instant page render
+  const isUserSpecificQuery = !!currentUserAddress
+  const shouldUseInitialData = initialData && !isUserSpecificQuery
+
   return useQuery<LeaderboardData>({
     queryKey: ["leaderboard", currentUserAddress || "all"],
     queryFn: () => fetchLeaderboard(currentUserAddress),
     staleTime: LEADERBOARD_CACHE_STALE_TIME,
     gcTime: LEADERBOARD_CACHE_GC_TIME,
     refetchOnWindowFocus: false,
+    // Use SSR data as initial cache only for general leaderboard (no address)
+    initialData: shouldUseInitialData ? initialData : undefined,
+    initialDataUpdatedAt: shouldUseInitialData ? Date.now() : undefined,
+    // Always fetch user-specific data immediately when address is available
+    // This ensures user data loads as fast as possible
+    refetchOnMount: isUserSpecificQuery ? true : shouldUseInitialData ? false : true,
+    // Priority optimization: Show general leaderboard immediately while user data loads
+    // This makes the page feel instant - leaderboard appears right away, user data fills in
+    placeholderData: (previousData) => {
+      // If we have previous data from cache, use it
+      if (previousData) return previousData
+      // If fetching user-specific data, use general leaderboard as placeholder
+      // This shows the page structure immediately while user data loads
+      if (initialData && isUserSpecificQuery) return initialData
+      return undefined
+    },
+    enabled: true,
     // With staleTime set, React Query will use cached data immediately if fresh
     // and only refetch in background if stale - this prevents black screen
   })
@@ -80,14 +107,23 @@ export function useLeaderboardData(currentUserAddress?: string | null) {
 
 /**
  * Hook to fetch leaderboard stats with React Query
+ * @param initialData - SSR preloaded stats to hydrate the cache
  */
-export function useLeaderboardStats() {
+export function useLeaderboardStats(initialData?: LeaderboardStats) {
   return useQuery<LeaderboardStats>({
     queryKey: ["leaderboardStats"],
     queryFn: fetchLeaderboardStats,
     staleTime: LEADERBOARD_CACHE_STALE_TIME,
     gcTime: LEADERBOARD_CACHE_GC_TIME,
     refetchOnWindowFocus: false,
+    // Use SSR data as initial cache to prevent unnecessary refetch
+    initialData: initialData,
+    initialDataUpdatedAt: initialData ? Date.now() : undefined,
+    // Prevent refetch on mount - use cached data, only refetch if stale
+    // This prevents lag when navigating between pages
+    refetchOnMount: false,
+    // Keep previous data visible during background refetch to prevent jumps
+    placeholderData: (previousData) => previousData,
     // With staleTime set, React Query will use cached data immediately if fresh
     // and only refetch in background if stale - this prevents black screen
   })

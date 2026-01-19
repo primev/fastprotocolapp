@@ -5,7 +5,8 @@ import { useAccount } from "wagmi"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, Target, Zap } from "lucide-react"
-import { formatCurrency, formatWalletAddress } from "@/lib/utils"
+import { formatCurrency } from "@/lib/utils"
+import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import {
   TIER_THRESHOLDS,
   getTierFromVolume,
@@ -29,40 +30,45 @@ interface LeaderboardData {
   userVolume?: number | null
   userPosition?: number | null
   nextRankVolume?: number | null
+  ethPrice?: number | null
+}
+
+interface LeaderboardStats {
+  activeTraders: number | null
+  swapVolumeEth: number | null
+  ethPrice: number | null
 }
 
 interface LeaderboardTableProps {
   address?: string
-  preloadedData?: LeaderboardData
-  preloadedActiveTraders?: number | null
-  preloadedSwapVolumeEth?: number | null
-  preloadedEthPrice?: number | null
+  leaderboardData?: LeaderboardData | null
+  statsData?: LeaderboardStats | null
+  isLoading?: boolean
+  isFetching?: boolean
 }
 
 export const LeaderboardTable = ({
   address,
-  preloadedData,
-  preloadedActiveTraders,
-  preloadedSwapVolumeEth,
-  preloadedEthPrice,
+  leaderboardData,
+  statsData,
+  isLoading: isLoadingProp = false,
+  isFetching: isFetchingProp = false,
 }: LeaderboardTableProps) => {
-  // State Management
+  // State Management - only for data not provided by React Query
   const { address: conn } = useAccount()
   const userAddr = address || conn
 
-  const [activeTraders, setActiveTraders] = useState<number | null>(preloadedActiveTraders ?? null)
-  const [swapVolumeEth, setSwapVolumeEth] = useState<number | null>(preloadedSwapVolumeEth ?? null)
-  const [ethPrice, setEthPrice] = useState<number | null>(preloadedEthPrice ?? null)
-  const [lbData, setLbData] = useState<LeaderboardEntry[]>(preloadedData?.leaderboard || [])
-  const [userVol, setUserVol] = useState<number | null>(null)
-  const [userPos, setUserPos] = useState<number | null>(null)
-  const [nextRankVol, setNextRankVol] = useState<number | null>(null)
-  const [userSwapTxs, setUserSwapTxs] = useState<number | null>(null)
+  // Get data from props (React Query managed)
+  const activeTraders = statsData?.activeTraders ?? null
+  const swapVolumeEth = statsData?.swapVolumeEth ?? null
+  const ethPrice = statsData?.ethPrice ?? leaderboardData?.ethPrice ?? null
+  const lbData = leaderboardData?.leaderboard || []
+  const userVol = leaderboardData?.userVolume ?? null
+  const userPos = leaderboardData?.userPosition ?? null
+  const nextRankVol = leaderboardData?.nextRankVolume ?? null
 
-  // Only show loading if we don't have preloaded data
-  const [isLoading, setIsLoading] = useState(
-    !preloadedData?.success || !preloadedData?.leaderboard?.length
-  )
+  // Only userSwapTxs needs separate state since it's not in leaderboardData
+  const [userSwapTxs, setUserSwapTxs] = useState<number | null>(null)
 
   // Computed Values
   const totalVol = useMemo(
@@ -99,13 +105,12 @@ export const LeaderboardTable = ({
       }
       return entry
     })
-   
 
     // If user is not in original leaderboard, add them with adjusted volume
     const userInOriginal = adjusted.some((e) => e.isCurrentUser)
     if (!userInOriginal && userAddr) {
       adjusted.push({
-        wallet: formatWalletAddress(userAddr),
+        wallet: trimWalletAddress(userAddr.toLowerCase()),
         rank: 0, // Will be recalculated
         swapVolume24h: adjustedUserVol,
         swapCount: userSwapTxs !== null ? userSwapTxs : undefined,
@@ -151,7 +156,7 @@ export const LeaderboardTable = ({
       displayData = [
         ...top15,
         {
-          wallet: formatWalletAddress(userAddr),
+          wallet: trimWalletAddress(userAddr.toLowerCase()),
           rank: userPos, // Use actual API position
           swapVolume24h: adjustedUserVol,
           swapCount: userSwapTxs !== null ? userSwapTxs : undefined,
@@ -168,76 +173,8 @@ export const LeaderboardTable = ({
     }
   }, [lbData, adjustedUserVol, userPos, nextRankVol, userAddr, userSwapTxs])
 
-  // Data Fetching: Sync preloaded data on mount and when props change
-  useEffect(() => {
-    // Set preloaded global stats (no wallet needed)
-    if (preloadedActiveTraders !== null && preloadedActiveTraders !== undefined) {
-      setActiveTraders(preloadedActiveTraders)
-    }
-    if (preloadedSwapVolumeEth !== null && preloadedSwapVolumeEth !== undefined) {
-      setSwapVolumeEth(preloadedSwapVolumeEth)
-    }
-    if (preloadedEthPrice !== null && preloadedEthPrice !== undefined) {
-      setEthPrice(preloadedEthPrice)
-    }
-
-    // Set preloaded leaderboard (top 15, no user-specific data)
-    if (preloadedData?.success && preloadedData.leaderboard?.length) {
-      setLbData(preloadedData.leaderboard)
-      setIsLoading(false)
-    } else if (!preloadedData?.success && lbData.length === 0) {
-      // Only fetch if no preloaded data at all and we don't have data
-      setIsLoading(true)
-      const fetchLeaderboard = async () => {
-        try {
-          const res = await fetch("/api/analytics/leaderboard")
-          const data = await res.json()
-          if (data.success) {
-            setLbData(data.leaderboard || [])
-          }
-        } catch (error) {
-          console.error("Error fetching leaderboard:", error)
-        } finally {
-          setIsLoading(false)
-        }
-      }
-      fetchLeaderboard()
-    }
-  }, [
-    preloadedData,
-    preloadedActiveTraders,
-    preloadedSwapVolumeEth,
-    preloadedEthPrice,
-    lbData.length,
-  ])
-
-  // Data Fetching: Fetch user-specific data only when wallet is connected
-  useEffect(() => {
-    if (!userAddr) {
-      setUserVol(null)
-      setUserPos(null)
-      setNextRankVol(null)
-      return
-    }
-
-    // Only fetch user-specific data (position, volume, next rank) if we have preloaded leaderboard
-    // This means we already have the top 15, we just need user's position
-    const fetchUserData = async () => {
-      try {
-        const res = await fetch(`/api/analytics/leaderboard?currentUser=${userAddr}`)
-        const data = await res.json()
-        if (data.success) {
-          setUserVol(data.userVolume || null)
-          setUserPos(data.userPosition || null)
-          setNextRankVol(data.nextRankVolume || null)
-        }
-      } catch (error) {
-        console.error("Error fetching user leaderboard data:", error)
-      }
-    }
-
-    fetchUserData()
-  }, [userAddr])
+  // Data fetching removed - all data comes from React Query via props
+  // Only fetch userSwapTxs separately since it's not part of leaderboardData
 
   // Fetch user swap transactions (only when wallet is connected)
   useEffect(() => {
@@ -516,9 +453,10 @@ export const LeaderboardTable = ({
       <div className="space-y-2 w-full overflow-x-auto">
         {/* Table Rows */}
         <div className="space-y-1.5 w-full">
-          {isLoading && lbData.length === 0 ? (
+          {isLoadingProp && lbData.length === 0 ? (
+            // Only show loading state if we truly have no data and are loading
             <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20 animate-pulse">
-              Synchronizing Data...
+              Loading leaderboard...
             </div>
           ) : lbData.length === 0 ? (
             <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20">

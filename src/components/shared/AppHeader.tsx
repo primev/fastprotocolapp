@@ -91,7 +91,7 @@ export const AppHeader = ({
               <div className="inline-flex items-center rounded-full bg-muted/50 p-1 gap-1">
                 <Link
                   href="/dashboard"
-                  prefetch={true}
+                  prefetch={false}
                   onMouseEnter={handleDashboardHover(address)}
                   className={cn(
                     "px-4 py-2 rounded-full text-sm font-medium transition-all",
@@ -104,7 +104,7 @@ export const AppHeader = ({
                 </Link>
                 <Link
                   href="/leaderboard"
-                  prefetch={true}
+                  prefetch={false}
                   onMouseEnter={handleLeaderboardHover(address)}
                   className={cn(
                     "px-4 py-2 rounded-full text-sm font-medium transition-all",
