@@ -1,5 +1,6 @@
 import { env } from "@/env/server"
 import { getLeaderboard } from "@/lib/analytics/services/leaderboard.service"
+import { transformLeaderboardRows } from "@/lib/analytics/services/leaderboard-transform"
 
 /**
  * Server-side function to fetch cumulative successful transactions from analytics API
@@ -241,22 +242,14 @@ export async function getLeaderboardTop15(): Promise<{
     // Use the SQL flow via leaderboard service
     const leaderboardRows = await getLeaderboard(15)
 
-    // Transform to expected format with USD conversion
-    const leaderboard = leaderboardRows.map((row, index) => {
-      const [wallet, totalSwapVolEth, swapCount, swapVolEth24h, change24hPct] = row
-
-      // Convert 24h volume to USD (using 24h volume for swapVolume24h field)
-      const swapVolUsd = ethPrice !== null ? swapVolEth24h * ethPrice : swapVolEth24h
-
-      return {
-        rank: index + 1,
-        wallet: wallet,
-        swapVolume24h: swapVolUsd,
-        swapCount: swapCount,
-        change24h: change24hPct,
-        isCurrentUser: false, // Will be set client-side if needed
-      }
-    })
+    // Transform to expected format with USD conversion using shared utility
+    // useTotalVolume=false means we use swap_vol_eth_24h (24h volume) for SSR
+    const leaderboard = transformLeaderboardRows(
+      leaderboardRows,
+      ethPrice,
+      null, // No current user for SSR
+      false // Use 24h volume for SSR
+    )
 
     return {
       leaderboard,

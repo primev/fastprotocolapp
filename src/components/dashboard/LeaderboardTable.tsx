@@ -99,12 +99,13 @@ export const LeaderboardTable = ({
       }
       return entry
     })
+   
 
     // If user is not in original leaderboard, add them with adjusted volume
     const userInOriginal = adjusted.some((e) => e.isCurrentUser)
     if (!userInOriginal && userAddr) {
       adjusted.push({
-        wallet: userAddr,
+        wallet: formatWalletAddress(userAddr),
         rank: 0, // Will be recalculated
         swapVolume24h: adjustedUserVol,
         swapCount: userSwapTxs !== null ? userSwapTxs : undefined,
@@ -150,7 +151,7 @@ export const LeaderboardTable = ({
       displayData = [
         ...top15,
         {
-          wallet: userAddr,
+          wallet: formatWalletAddress(userAddr),
           rank: userPos, // Use actual API position
           swapVolume24h: adjustedUserVol,
           swapCount: userSwapTxs !== null ? userSwapTxs : undefined,
@@ -638,7 +639,7 @@ export const LeaderboardTable = ({
                     <div className="col-span-5 sm:col-span-4 flex items-center gap-1.5 sm:gap-2 min-w-0">
                       <div className="flex flex-col min-w-0">
                         <span className="font-mono text-sm sm:text-base md:text-lg truncate">
-                          {formatWalletAddress(entry.wallet)}
+                          {entry.wallet}
                         </span>
                         <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
                           {entry.swapCount !== undefined && entry.swapCount !== null
