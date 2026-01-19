@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAccount } from "wagmi"
 import { useQueryClient } from "@tanstack/react-query"
 import {
@@ -68,6 +68,7 @@ export function LeaderboardPageClient({
     data: leaderboardData,
     isLoading: isLeaderboardLoading,
     isFetching: isLeaderboardFetching,
+    refetch: refetchLeaderboard,
   } = useLeaderboardData(
     address,
     // Strategy:
@@ -85,20 +86,37 @@ export function LeaderboardPageClient({
     setIsMounted(true)
   }, [])
 
+  // Track previous address to detect changes
+  const prevAddressRef = useRef<string | undefined>(address)
+
   // Priority: Fetch user-specific data immediately when address is available
-  // Start fetching before React Query to minimize delay
+  // Also invalidate and refetch when address changes to ensure fresh data
   useEffect(() => {
-    if (address && isMounted) {
-      // Immediately prefetch user-specific data with high priority
-      // This ensures user data loads as fast as possible
-      queryClient.prefetchQuery({
-        queryKey: ["leaderboard", address],
+    if (!isMounted) return
+
+    // Check if address actually changed
+    const addressChanged = prevAddressRef.current !== address
+    prevAddressRef.current = address
+
+    if (addressChanged) {
+      // When address changes, invalidate queries to mark them as stale
+      // Then fetch the new query directly to ensure it loads
+      queryClient.invalidateQueries({ queryKey: ["leaderboard"] })
+
+      // Directly fetch the new query to ensure it loads immediately
+      const queryKey = address ? ["leaderboard", address] : ["leaderboard", "all"]
+      queryClient.fetchQuery({
+        queryKey,
         queryFn: async () => {
-          const response = await fetch(`/api/analytics/leaderboard?currentUser=${address}`)
+          const response = await fetch(
+            address
+              ? `/api/analytics/leaderboard?currentUser=${address}`
+              : `/api/analytics/leaderboard`
+          )
           if (!response.ok) throw new Error("Failed to fetch leaderboard")
           return response.json()
         },
-        staleTime: LEADERBOARD_CACHE_STALE_TIME,
+        staleTime: 0, // Always fetch fresh data when address changes
       })
     }
   }, [address, isMounted, queryClient])

@@ -80,7 +80,7 @@ export function useLeaderboardData(
   return useQuery<LeaderboardData>({
     queryKey: ["leaderboard", currentUserAddress || "all"],
     queryFn: () => fetchLeaderboard(currentUserAddress),
-    staleTime: LEADERBOARD_CACHE_STALE_TIME,
+    staleTime: isUserSpecificQuery ? 0 : LEADERBOARD_CACHE_STALE_TIME, // Always refetch user-specific queries
     gcTime: LEADERBOARD_CACHE_GC_TIME,
     refetchOnWindowFocus: false,
     // Use SSR data as initial cache only for general leaderboard (no address)
@@ -88,20 +88,26 @@ export function useLeaderboardData(
     initialDataUpdatedAt: shouldUseInitialData ? Date.now() : undefined,
     // Always fetch user-specific data immediately when address is available
     // This ensures user data loads as fast as possible
-    refetchOnMount: isUserSpecificQuery ? true : shouldUseInitialData ? false : true,
+    refetchOnMount: isUserSpecificQuery ? "always" : shouldUseInitialData ? false : true,
     // Priority optimization: Show general leaderboard immediately while user data loads
     // This makes the page feel instant - leaderboard appears right away, user data fills in
     placeholderData: (previousData) => {
-      // If we have previous data from cache, use it
-      if (previousData) return previousData
+      // Don't use placeholder data from a different address - this prevents showing stale user data
+      // When switching wallets, show general leaderboard as placeholder instead
+      if (previousData && isUserSpecificQuery) {
+        // If we have previous data but it's for a different user, don't use it
+        // Use general leaderboard instead
+        return initialData
+      }
       // If fetching user-specific data, use general leaderboard as placeholder
       // This shows the page structure immediately while user data loads
       if (initialData && isUserSpecificQuery) return initialData
-      return undefined
+      // For general queries, use previous data if available
+      return previousData
     },
     enabled: true,
-    // With staleTime set, React Query will use cached data immediately if fresh
-    // and only refetch in background if stale - this prevents black screen
+    // With staleTime set to 0 for user queries, React Query will always refetch
+    // This ensures fresh data when switching wallets
   })
 }
 
