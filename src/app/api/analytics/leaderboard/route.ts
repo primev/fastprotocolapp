@@ -6,6 +6,10 @@ import {
   getUserRank,
   getNextRankThreshold,
 } from "@/lib/analytics/services/leaderboard.service"
+import {
+  transformLeaderboardRows,
+  trimWalletAddress,
+} from "@/lib/analytics/services/leaderboard-transform"
 import { AnalyticsClientError } from "@/lib/analytics/client"
 import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/constants"
 
@@ -55,25 +59,14 @@ export async function GET(request: NextRequest) {
     // Get ETH price for USD conversion
     const ethPrice = await getEthPrice()
 
-    // Format: [wallet, total_swap_vol_eth, swap_count, swap_vol_eth_24h, change_24h_pct]
-    let leaderboard = leaderboardRows.map((row, index) => {
-      const wallet = row[0]
-      const totalSwapVolEth = Number(row[1]) || 0
-      const swapCount = Number(row[2]) || 0
-      const change24hPct = Number(row[4]) || 0
-
-      // Convert total volume to USD
-      const totalSwapVolUsd = ethPrice !== null ? totalSwapVolEth * ethPrice : totalSwapVolEth
-
-      return {
-        rank: index + 1,
-        wallet: wallet,
-        swapVolume24h: totalSwapVolUsd, // Using total volume as the displayed value
-        swapCount: swapCount,
-        change24h: change24hPct,
-        isCurrentUser: currentUserAddress ? wallet === currentUserAddress : false,
-      }
-    })
+    // Transform leaderboard rows using shared transformation utility
+    // useTotalVolume=true means we use total_swap_vol_eth instead of swap_vol_eth_24h
+    let leaderboard = transformLeaderboardRows(
+      leaderboardRows,
+      ethPrice,
+      currentUserAddress,
+      true // Use total volume
+    )
 
     // Find current user's position and add them if not in top 15
     let userPosition: number | null = null
@@ -131,10 +124,10 @@ export async function GET(request: NextRequest) {
             }
 
             // Add current user to leaderboard if not in top 15
-            if (userPosition > 15) {
+            if (userPosition > 15 && currentUserAddress) {
               leaderboard.push({
                 rank: userPosition,
-                wallet: currentUserAddress,
+                wallet: trimWalletAddress(currentUserAddress.toLowerCase()),
                 swapVolume24h: userTotalSwapVolUsd,
                 swapCount: userSwapCount,
                 change24h: userChange24hPct,

@@ -1,5 +1,7 @@
 import { env } from "@/env/server"
 import { getLeaderboard } from "@/lib/analytics/services/leaderboard.service"
+import { transformLeaderboardRows } from "@/lib/analytics/services/leaderboard-transform"
+import { getActiveTraders as getActiveTradersService } from "@/lib/analytics/services/transactions.service"
 
 /**
  * Server-side function to fetch cumulative successful transactions from analytics API
@@ -191,28 +193,17 @@ export async function getTotalPointsEarned(): Promise<number | null> {
 
 /**
  * Server-side function to fetch active traders count from analytics API
- * Calls the internal API route which handles the external API call
+ * Calls the service directly instead of HTTP to avoid issues on Vercel
  */
 export async function getActiveTraders(): Promise<number | null> {
   try {
-    // Call the internal API route
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-    const response = await fetch(`${baseUrl}/api/analytics/active-traders`, {
-      cache: "no-store",
+    // Call the service directly instead of making HTTP request
+    // This avoids issues with self-referencing URLs on Vercel
+    const activeTraders = await getActiveTradersService({
+      catalog: "fastrpc",
     })
 
-    if (!response.ok) {
-      console.error("Failed to fetch active traders:", response.statusText)
-      return null
-    }
-
-    const data = await response.json()
-
-    if (data.success && data.activeTraders !== null && data.activeTraders !== undefined) {
-      return Number(data.activeTraders)
-    }
-
-    return null
+    return activeTraders
   } catch (error) {
     console.error("Error fetching active traders:", error)
     return null
@@ -241,22 +232,14 @@ export async function getLeaderboardTop15(): Promise<{
     // Use the SQL flow via leaderboard service
     const leaderboardRows = await getLeaderboard(15)
 
-    // Transform to expected format with USD conversion
-    const leaderboard = leaderboardRows.map((row, index) => {
-      const [wallet, totalSwapVolEth, swapCount, swapVolEth24h, change24hPct] = row
-
-      // Convert 24h volume to USD (using 24h volume for swapVolume24h field)
-      const swapVolUsd = ethPrice !== null ? swapVolEth24h * ethPrice : swapVolEth24h
-
-      return {
-        rank: index + 1,
-        wallet: wallet,
-        swapVolume24h: swapVolUsd,
-        swapCount: swapCount,
-        change24h: change24hPct,
-        isCurrentUser: false, // Will be set client-side if needed
-      }
-    })
+    // Transform to expected format with USD conversion using shared utility
+    // useTotalVolume=false means we use swap_vol_eth_24h (24h volume) for SSR
+    const leaderboard = transformLeaderboardRows(
+      leaderboardRows,
+      ethPrice,
+      null, // No current user for SSR
+      false // Use 24h volume for SSR
+    )
 
     return {
       leaderboard,
