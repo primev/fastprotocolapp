@@ -18,6 +18,7 @@ export function usePagePrefetch() {
   // Debounce refs to prevent excessive prefetching on rapid hover events
   const leaderboardPrefetchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const dashboardPrefetchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const swapPrefetchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   /**
    * Prefetch leaderboard page and data
@@ -62,6 +63,27 @@ export function usePagePrefetch() {
   )
 
   /**
+   * Prefetch swap page and data
+   * Debounced to prevent excessive prefetching on rapid hover events
+   */
+  const prefetchSwapPage = useCallback(
+    (address?: string | null) => {
+      // Clear existing timeout
+      if (swapPrefetchTimeoutRef.current) {
+        clearTimeout(swapPrefetchTimeoutRef.current)
+      }
+
+      // Debounce prefetch by 100ms to avoid excessive prefetching on rapid hover
+      swapPrefetchTimeoutRef.current = setTimeout(() => {
+        // Prefetch route
+        router.prefetch("/swap")
+        // Token list will be fetched on server, so no need to prefetch client-side
+      }, 100)
+    },
+    [router]
+  )
+
+  /**
    * Cleanup function to clear timeouts
    */
   const cleanup = useCallback(() => {
@@ -72,6 +94,10 @@ export function usePagePrefetch() {
     if (dashboardPrefetchTimeoutRef.current) {
       clearTimeout(dashboardPrefetchTimeoutRef.current)
       dashboardPrefetchTimeoutRef.current = null
+    }
+    if (swapPrefetchTimeoutRef.current) {
+      clearTimeout(swapPrefetchTimeoutRef.current)
+      swapPrefetchTimeoutRef.current = null
     }
   }, [])
 
@@ -85,6 +111,7 @@ export function usePagePrefetch() {
   return {
     prefetchLeaderboardPage,
     prefetchDashboardPage,
+    prefetchSwapPage,
     cleanup,
   }
 }
@@ -94,7 +121,7 @@ export function usePagePrefetch() {
  * Provides onMouseEnter handlers for header buttons
  */
 export function usePrefetchOnHover() {
-  const { prefetchLeaderboardPage, prefetchDashboardPage } = usePagePrefetch()
+  const { prefetchLeaderboardPage, prefetchDashboardPage, prefetchSwapPage } = usePagePrefetch()
 
   const handleLeaderboardHover = useCallback(
     (address?: string | null) => () => {
@@ -110,8 +137,16 @@ export function usePrefetchOnHover() {
     [prefetchDashboardPage]
   )
 
+  const handleSwapHover = useCallback(
+    (address?: string | null) => () => {
+      prefetchSwapPage(address)
+    },
+    [prefetchSwapPage]
+  )
+
   return {
     handleLeaderboardHover,
     handleDashboardHover,
+    handleSwapHover,
   }
 }

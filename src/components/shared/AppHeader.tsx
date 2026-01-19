@@ -56,12 +56,13 @@ export const AppHeader = ({
   const { openConnectModal } = useConnectModal()
 
   // Hover prefetching for faster navigation
-  const { handleDashboardHover, handleLeaderboardHover } = usePrefetchOnHover()
+  const { handleDashboardHover, handleLeaderboardHover, handleSwapHover } = usePrefetchOnHover()
 
   // Navigation items for mobile drawer
   const navItems = [
     { label: "Genesis SBT", href: "/dashboard", active: pathname?.startsWith("/dashboard") },
     { label: "Leaderboard", href: "/leaderboard", active: pathname?.startsWith("/leaderboard") },
+    { label: "Swap", href: "/swap", active: pathname?.startsWith("/swap") },
   ]
 
   return (
@@ -86,7 +87,9 @@ export const AppHeader = ({
           </Link>
 
           {/* Tab Bar - Centered (conditional based on route) */}
-          {(pathname?.startsWith("/dashboard") || pathname?.startsWith("/leaderboard")) && (
+          {(pathname?.startsWith("/dashboard") ||
+            pathname?.startsWith("/leaderboard") ||
+            pathname?.startsWith("/swap")) && (
             <div className="hidden md:flex items-center justify-center flex-1 mx-8">
               <div className="inline-flex items-center rounded-full bg-muted/50 p-1 gap-1">
                 <Link
@@ -114,6 +117,19 @@ export const AppHeader = ({
                   )}
                 >
                   Leaders
+                </Link>
+                <Link
+                  href="/swap"
+                  prefetch={false}
+                  onMouseEnter={handleSwapHover(address)}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm font-medium transition-all",
+                    pathname?.startsWith("/swap")
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Swap
                 </Link>
                 <button
                   disabled
