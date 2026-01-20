@@ -300,7 +300,7 @@ export function useQuote({
       // Estimate price impact (simplified - comparing to spot price would require additional call)
       // For now, estimate based on trade size relative to typical pool liquidity
       const priceImpact = -0.01 * Math.log10(amountInNum + 1) // Rough estimate
-
+      console.log("bestQuote.amountOut", bestQuote.amountOut)
       setQuote({
         amountOut: bestQuote.amountOut,
         amountOutFormatted,

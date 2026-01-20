@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useMemo } from "react"
+import React, { useState, useEffect, useMemo, useRef } from "react"
 import { ArrowDown, Wallet } from "lucide-react"
 import { useAccount, useBalance } from "wagmi"
 import { useConnectModal } from "@rainbow-me/rainbowkit"
@@ -9,7 +9,7 @@ import { cn, formatCurrency } from "@/lib/utils"
 import TokenSelector from "./TokenSelector"
 import TokenSelectButton from "./TokenSelectButton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { useSwapQuote } from "@/hooks/use-swap-quote"
+import { useQuote, formatQuoteAmount } from "@/hooks/use-quote"
 import tokenList from "@/lib/token-list.json"
 import type { Token } from "@/types/swap"
 
@@ -124,18 +124,105 @@ export default function SwapInterface() {
   const [isLoadingFromPrice, setIsLoadingFromPrice] = useState(false)
   const [isLoadingToPrice, setIsLoadingToPrice] = useState(false)
   const [isSellSideActive, setIsSellSideActive] = useState(true) // Track which side has the input
+  const [timeLeft, setTimeLeft] = useState(15) // Quote expiration timer
+  const [displayQuote, setDisplayQuote] = useState<string | null>(null)
+  const hasRefetchedRef = useRef(false)
+  const [pulseKey, setPulseKey] = useState(0) // Key to trigger animation
+  const lastQuoteAmountRef = useRef<string | null>(null) // Track last quote amount to detect changes
+  const quoteTimestampRef = useRef<number>(0) // Track when quote was last updated
 
-  // Use swap quote hook to calculate output amount
+  // Use new quote hook to calculate output amount
   // When sell side is active: fromToken -> toToken
   // When buy side is active: toToken -> fromToken
-  const { quote, isRefreshing: isQuoteLoading } = useSwapQuote({
-    tokenIn: isSellSideActive ? fromToken : toToken,
-    tokenOut: isSellSideActive ? toToken : fromToken,
+  const {
+    quote,
+    isLoading: isQuoteLoading,
+    refetch,
+  } = useQuote({
+    tokenIn: isSellSideActive && fromToken ? fromToken.symbol : toToken?.symbol || "",
+    tokenOut: isSellSideActive && toToken ? toToken.symbol : fromToken?.symbol || "",
     amountIn: amount,
+    slippage: "0.5",
+    enabled:
+      !!amount &&
+      parseFloat(amount) > 0 &&
+      !!fromToken &&
+      !!toToken &&
+      (isSellSideActive ? !!fromToken?.symbol : !!toToken?.symbol) &&
+      (isSellSideActive ? !!toToken?.symbol : !!fromToken?.symbol),
   })
 
-  // Output amount from quote
-  const outputAmount = quote?.output || "0"
+  // Always update displayQuote when we get a quote
+  // Force update to show latest value even if it appears the same
+  useEffect(() => {
+    if (quote?.amountOutFormatted) {
+      const quoteId = quote.amountOut.toString()
+      const isNewQuote = quoteId !== lastQuoteAmountRef.current
+
+      // Always update displayQuote to show latest value
+      // This ensures the UI reflects the most recent quote
+      setDisplayQuote(quote.amountOutFormatted)
+
+      // If it's a genuinely new quote, update tracking and reset timer
+      if (isNewQuote) {
+        lastQuoteAmountRef.current = quoteId
+        setTimeLeft(15) // Reset timer when new quote arrives
+        hasRefetchedRef.current = false
+        // Don't reset pulseKey here - let animation complete if in progress
+      }
+    }
+  }, [quote?.amountOutFormatted, quote?.exchangeRate, quote?.amountOut]) // Depend on specific fields to catch all changes
+
+  // Clear displayQuote when inputs are invalid
+  useEffect(() => {
+    if (!amount || parseFloat(amount) <= 0 || !fromToken || !toToken) {
+      setDisplayQuote(null)
+      lastQuoteAmountRef.current = null
+      hasRefetchedRef.current = false
+    }
+  }, [amount, fromToken, toToken])
+
+  // Handle countdown timer and auto-refetch
+  useEffect(() => {
+    if (!displayQuote) {
+      setTimeLeft(15)
+      hasRefetchedRef.current = false
+      return
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        const newTime = prev - 1
+
+        // Refetch when we hit 3 seconds (first pulse) - trigger every cycle
+        if (newTime === 3) {
+          hasRefetchedRef.current = true
+          setPulseKey((k) => k + 1) // Trigger pulse animation
+          // Force refetch to get latest market price
+          setTimeout(() => {
+            refetch()
+          }, 0)
+        }
+
+        if (newTime <= 0) {
+          // Reset and continue the cycle - allow pulsing again next cycle
+          hasRefetchedRef.current = false
+          setPulseKey(0) // Reset pulse key for next cycle
+          refetch() // Also refetch when timer resets
+          return 15
+        }
+
+        return newTime
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [displayQuote, refetch, quote])
+
+  // Output amount from quote (use displayQuote to prevent blank state)
+  const outputAmount = displayQuote || quote?.amountOutFormatted || "0"
+  // Pulse when pulseKey > 0 (triggered when timeLeft reaches 3, animation runs for 3s)
+  const shouldPulse = pulseKey > 0 && displayQuote !== null
 
   // Track if user has explicitly set fromToken to undefined (for "Select token" state)
   const [hasExplicitlyClearedFromToken, setHasExplicitlyClearedFromToken] = useState(false)
@@ -430,8 +517,14 @@ export default function SwapInterface() {
           ) : (
             // Show quote output when sell side is not active
             <div className="flex-1 relative">
-              <span className="text-4xl font-medium text-white/40 block leading-none">
-                {isQuoteLoading
+              <span
+                key={pulseKey}
+                className={cn(
+                  "text-4xl font-medium text-white block leading-none",
+                  shouldPulse && "animate-pulse-3"
+                )}
+              >
+                {isQuoteLoading && !displayQuote
                   ? "—"
                   : outputAmount && parseFloat(outputAmount) > 0
                     ? formatDisplayAmount(outputAmount, fromToken)
@@ -725,8 +818,14 @@ export default function SwapInterface() {
           ) : (
             // Show quote output when buy side is not active
             <div className="flex-1 relative">
-              <span className="text-4xl font-medium text-white/40 block leading-none">
-                {isQuoteLoading
+              <span
+                key={pulseKey}
+                className={cn(
+                  "text-4xl font-medium text-white block leading-none",
+                  shouldPulse && "animate-pulse-3"
+                )}
+              >
+                {isQuoteLoading && !displayQuote
                   ? "—"
                   : outputAmount && parseFloat(outputAmount) > 0
                     ? formatDisplayAmount(outputAmount, toToken)
