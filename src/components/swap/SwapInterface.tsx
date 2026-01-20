@@ -1,12 +1,13 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from "react"
-import { ChevronDown, ArrowDown, Wallet } from "lucide-react"
+import { ArrowDown, Wallet } from "lucide-react"
 import { useAccount, useBalance } from "wagmi"
 import { useConnectModal } from "@rainbow-me/rainbowkit"
 import { formatUnits } from "viem"
 import { cn, formatCurrency } from "@/lib/utils"
 import TokenSelector from "./TokenSelector"
+import TokenSelectButton from "./TokenSelectButton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useSwapQuote } from "@/hooks/use-swap-quote"
 import tokenList from "@/lib/token-list.json"
@@ -122,19 +123,42 @@ export default function SwapInterface() {
   const [toTokenPrice, setToTokenPrice] = useState<number | null>(null)
   const [isLoadingFromPrice, setIsLoadingFromPrice] = useState(false)
   const [isLoadingToPrice, setIsLoadingToPrice] = useState(false)
+  const [isSellSideActive, setIsSellSideActive] = useState(true) // Track which side has the input
 
   // Use swap quote hook to calculate output amount
+  // When sell side is active: fromToken -> toToken
+  // When buy side is active: toToken -> fromToken
   const { quote, isRefreshing: isQuoteLoading } = useSwapQuote({
-    tokenIn: fromToken,
-    tokenOut: toToken,
+    tokenIn: isSellSideActive ? fromToken : toToken,
+    tokenOut: isSellSideActive ? toToken : fromToken,
     amountIn: amount,
   })
 
   // Output amount from quote
   const outputAmount = quote?.output || "0"
 
+  // Track if user has explicitly set fromToken to undefined (for "Select token" state)
+  const [hasExplicitlyClearedFromToken, setHasExplicitlyClearedFromToken] = useState(false)
+  const [hasExplicitlyClearedToToken, setHasExplicitlyClearedToToken] = useState(false)
+
+  // Reset flags when tokens are selected
+  useEffect(() => {
+    if (fromToken) {
+      setHasExplicitlyClearedFromToken(false)
+    }
+  }, [fromToken])
+
+  useEffect(() => {
+    if (toToken) {
+      setHasExplicitlyClearedToToken(false)
+    }
+  }, [toToken])
+
   // Default to ETH when wallet is not connected or when tokens load
   useEffect(() => {
+    // Don't auto-set if user has explicitly cleared the token (for "Select token" state)
+    if (hasExplicitlyClearedFromToken) return
+    
     if (!isConnected) {
       // When wallet is not connected, always default to ETH
       const ethToken = tokens.find(t => t.symbol === "ETH") || DEFAULT_ETH_TOKEN
@@ -144,7 +168,7 @@ export default function SwapInterface() {
       const ethToken = tokens.find(t => t.symbol === "ETH") || DEFAULT_ETH_TOKEN
       setFromToken(ethToken)
     }
-  }, [isConnected, tokens, fromToken])
+  }, [isConnected, tokens, fromToken, hasExplicitlyClearedFromToken])
 
   // Fetch token price when fromToken changes
   useEffect(() => {
@@ -265,173 +289,178 @@ export default function SwapInterface() {
     <div className="w-full max-w-[500px] bg-[#131313] border border-white/10 rounded-[24px] p-2 flex flex-col gap-1 shadow-2xl relative z-0">
       
       {/* SELL SECTION */}
-      <div className="group bg-[#1B1B1B] rounded-[20px] p-4 flex flex-col gap-2 border border-transparent focus-within:border-white/5 transition-all">
+      <div className={cn(
+        "group rounded-[20px] p-4 flex flex-col gap-2 border transition-all",
+        isSellSideActive 
+          ? "bg-[#222] border border-white/30 shadow-2xl ring-1 ring-white/8" 
+          : "bg-[#1B1B1B] border border-transparent focus-within:border-white/5"
+      )}>
         <div className="flex justify-between items-center">
           <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Sell</span>
-          {/* Quick Select Percentages - Only visible on hover */}
-          {isConnected && fromBalance && fromToken && (
-            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              {['25%', '50%', '75%', 'Max'].map((pct) => {
-                const handlePercentageClick = () => {
-                  if (!fromBalance || !fromToken) return
-                  
-                  const balanceValue = parseFloat(formatUnits(fromBalance.value, fromToken.decimals))
-                  
-                  if (pct === 'Max') {
-                    setAmount(balanceValue.toString())
-                  } else {
-                    const percent = parseFloat(pct) / 100
-                    const amountValue = balanceValue * percent
-                    setAmount(amountValue.toString())
-                  }
-                }
+          {/* Quick Select Percentages - Always rendered to prevent layout shift */}
+          <div className={cn(
+            "flex gap-1 transition-opacity duration-200",
+            isSellSideActive && isConnected && fromBalance && fromToken
+              ? "opacity-0 group-hover:opacity-100"
+              : "opacity-0 pointer-events-none"
+          )}>
+            {['25%', '50%', '75%', 'Max'].map((pct) => {
+              const handlePercentageClick = () => {
+                if (!fromBalance || !fromToken) return
                 
-                return (
+                const balanceValue = parseFloat(formatUnits(fromBalance.value, fromToken.decimals))
+                
+                if (pct === 'Max') {
+                  setAmount(balanceValue.toString())
+                } else {
+                  const percent = parseFloat(pct) / 100
+                  const amountValue = balanceValue * percent
+                  setAmount(amountValue.toString())
+                }
+              }
+              
+              return (
               <button 
                 key={pct}
-                    onClick={handlePercentageClick}
+                  onClick={handlePercentageClick}
                 className="px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-bold text-muted-foreground hover:bg-white/10 hover:text-white transition-colors"
               >
                 {pct}
               </button>
-                )
-              })}
+              )
+            })}
           </div>
-          )}
         </div>
 
         <div className="flex justify-between items-center mt-1">
-          {(() => {
-            const displayValue = isInputFocused || !amount 
-              ? amount 
-              : formatDisplayAmount(amount, fromToken)
-            const fullValue = amount && parseFloat(amount) > 0 
-              ? parseFloat(amount).toString()
-              : null
-            const isTrimmed = fullValue && displayValue !== fullValue
-            
-            if (isTrimmed) {
-              return (
-                <TooltipProvider delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex-1 relative">
-                        <input 
-                          type="text" 
-                          value={displayValue}
-                          onChange={(e) => {
-                            // Allow user to type freely, store raw value
-                            const value = e.target.value.replace(/[^0-9.]/g, '')
-                            // Prevent multiple decimal points
-                            const parts = value.split('.')
-                            const cleaned = parts.length > 2 
-                              ? parts[0] + '.' + parts.slice(1).join('')
-                              : value
-                            setAmount(cleaned)
-                          }}
-                          onFocus={() => setIsInputFocused(true)}
-                          onBlur={() => {
-                            setIsInputFocused(false)
-                            // Format on blur if needed
-                            if (amount) {
-                              const num = parseFloat(amount)
-                              if (!isNaN(num)) {
-                                setAmount(num.toString())
+          {isSellSideActive ? (
+            // Show input when sell side is active
+            (() => {
+              const displayValue = isInputFocused || !amount 
+                ? amount 
+                : formatDisplayAmount(amount, fromToken)
+              const fullValue = amount && parseFloat(amount) > 0 
+                ? parseFloat(amount).toString()
+                : null
+              const isTrimmed = fullValue && displayValue !== fullValue
+              
+              if (isTrimmed) {
+                return (
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex-1 relative">
+                          <input 
+                            type="text" 
+                            value={displayValue}
+                            onChange={(e) => {
+                              // Allow user to type freely, store raw value
+                              const value = e.target.value.replace(/[^0-9.]/g, '')
+                              // Prevent multiple decimal points
+                              const parts = value.split('.')
+                              const cleaned = parts.length > 2 
+                                ? parts[0] + '.' + parts.slice(1).join('')
+                                : value
+                              setAmount(cleaned)
+                            }}
+                            onFocus={() => setIsInputFocused(true)}
+                            onBlur={() => {
+                              setIsInputFocused(false)
+                              // Format on blur if needed
+                              if (amount) {
+                                const num = parseFloat(amount)
+                                if (!isNaN(num)) {
+                                  setAmount(num.toString())
+                                }
                               }
-                            }
-                          }}
-                          placeholder="0"
-                          className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20"
-                          disabled={!isConnected}
-                        />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs font-mono bg-zinc-900 border-zinc-700">
-                      <p className="text-white/70">{parseFloat(amount).toLocaleString('en-US', { 
-                        maximumFractionDigits: 18,
-                        useGrouping: false
-                      })}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )
-            }
-            
-            return (
-              <div className="flex-1 relative">
+                            }}
+                            placeholder="0"
+                            className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none"
+                            disabled={!isConnected}
+                          />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs font-mono bg-zinc-900 border-zinc-700">
+                        <p className="text-white/70">{parseFloat(amount).toLocaleString('en-US', { 
+                          maximumFractionDigits: 18,
+                          useGrouping: false
+                        })}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )
+              }
+              
+              return (
+                <div className="flex-1 relative">
           <input 
             type="text" 
-                  value={displayValue}
-                  onChange={(e) => {
-                    // Allow user to type freely, store raw value
-                    const value = e.target.value.replace(/[^0-9.]/g, '')
-                    // Prevent multiple decimal points
-                    const parts = value.split('.')
-                    const cleaned = parts.length > 2 
-                      ? parts[0] + '.' + parts.slice(1).join('')
-                      : value
-                    setAmount(cleaned)
-                  }}
-                  onFocus={() => setIsInputFocused(true)}
-                  onBlur={() => {
-                    setIsInputFocused(false)
-                    // Format on blur if needed
-                    if (amount) {
-                      const num = parseFloat(amount)
-                      if (!isNaN(num)) {
-                        setAmount(num.toString())
+                    value={displayValue}
+                    onChange={(e) => {
+                      // Allow user to type freely, store raw value
+                      const value = e.target.value.replace(/[^0-9.]/g, '')
+                      // Prevent multiple decimal points
+                      const parts = value.split('.')
+                      const cleaned = parts.length > 2 
+                        ? parts[0] + '.' + parts.slice(1).join('')
+                        : value
+                      setAmount(cleaned)
+                    }}
+                    onFocus={() => setIsInputFocused(true)}
+                    onBlur={() => {
+                      setIsInputFocused(false)
+                      // Format on blur if needed
+                      if (amount) {
+                        const num = parseFloat(amount)
+                        if (!isNaN(num)) {
+                          setAmount(num.toString())
+                        }
                       }
-                    }
-                  }}
+                    }}
             placeholder="0"
-            className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20"
-                  disabled={!isConnected}
-                />
-              </div>
-            )
-          })()}
-          <button 
+            className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none"
+                    disabled={!isConnected}
+                  />
+                </div>
+              )
+            })()
+          ) : (
+            // Show quote output when sell side is not active
+            <div className="flex-1 relative">
+              <span className="text-4xl font-medium text-white/40 block leading-none">
+                {isQuoteLoading ? "—" : outputAmount && parseFloat(outputAmount) > 0 
+                  ? formatDisplayAmount(outputAmount, fromToken)
+                  : "0"}
+              </span>
+            </div>
+          )}
+          <TokenSelectButton
+            token={fromToken}
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
               setIsFromTokenSelectorOpen(true)
             }}
-            className="flex items-center gap-2 bg-[#131313] hover:bg-[#222] border border-white/10 rounded-full pl-1 pr-3 py-1 shadow-sm transition-all"
-          >
-            {fromToken ? (
-              <>
-                {fromToken.logoURI ? (
-                  <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center">
-                    <img src={fromToken.logoURI} alt={fromToken.symbol} className="w-full h-full object-contain" />
-                  </div>
-                ) : (
-            <div className="w-7 h-7 rounded-full bg-white/10 overflow-hidden flex items-center justify-center">
-                    <span className="text-xs font-bold">{fromToken.symbol[0]}</span>
-            </div>
-                )}
-                <span className="font-bold text-lg">{fromToken.symbol}</span>
-              </>
-            ) : (
-              <span className="font-bold text-lg">Select</span>
-            )}
-            <ChevronDown size={16} className="text-white/40" />
-          </button>
+          />
         </div>
 
         <div className="flex justify-between items-center text-xs font-medium text-muted-foreground">
           <span>
-            {amount && parseFloat(amount) > 0 && fromTokenPrice
-              ? (() => {
-                  const usdValue = parseFloat(amount) * fromTokenPrice
-                  return `$${usdValue.toLocaleString('en-US', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                    useGrouping: true
-                  })}`
-                })()
-              : amount && parseFloat(amount) > 0 && isLoadingFromPrice
-              ? "—"
-              : "—"}
+            {(() => {
+              const displayAmount = isSellSideActive ? amount : outputAmount
+              return displayAmount && parseFloat(displayAmount) > 0 && fromTokenPrice
+                ? (() => {
+                    const usdValue = parseFloat(displayAmount) * fromTokenPrice
+                    return `$${usdValue.toLocaleString('en-US', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                      useGrouping: true
+                    })}`
+                  })()
+                : displayAmount && parseFloat(displayAmount) > 0 && isLoadingFromPrice
+                ? "—"
+                : "—"
+            })()}
           </span>
           {isConnected && address && fromToken && fromBalance && (
             <TooltipProvider delayDuration={300}>
@@ -466,19 +495,31 @@ export default function SwapInterface() {
             // Store current values before swapping
             const tempFromToken = fromToken
             const tempToToken = toToken
-            const currentOutputAmount = quote?.output || outputAmount || ""
+            const currentAmount = amount // Preserve the input amount
             
             // Swap tokens
             setFromToken(tempToToken)
             setToToken(tempFromToken)
             
-            // Swap the amount - use current output amount as new input
-            // If we have a quote output, use it; otherwise use the displayed output amount
-            if (currentOutputAmount && parseFloat(currentOutputAmount) > 0) {
-              setAmount(currentOutputAmount)
+            // If swapping undefined tokens, preserve the "Select token" state
+            if (tempToToken === undefined) {
+              setHasExplicitlyClearedFromToken(true)
             } else {
-              setAmount("")
+              setHasExplicitlyClearedFromToken(false)
             }
+            
+            if (tempFromToken === undefined) {
+              setHasExplicitlyClearedToToken(true)
+            } else {
+              setHasExplicitlyClearedToToken(false)
+            }
+            
+            // Keep the same amount - it will now be used for the new fromToken
+            // The quote will automatically recalculate for the new token pair
+            setAmount(currentAmount || "")
+            
+            // Swap which side is active (input side)
+            setIsSellSideActive(!isSellSideActive)
             
             // Swap prices
             const tempFromPrice = fromTokenPrice
@@ -493,87 +534,213 @@ export default function SwapInterface() {
       </div>
 
       {/* BUY SECTION */}
-      <div className="group relative bg-[#1B1B1B] rounded-[20px] p-4 flex flex-col gap-2 border border-transparent hover:bg-[#1e1e1e] transition-all">
+      <div className={cn(
+        "group relative rounded-[20px] p-4 flex flex-col gap-2 border transition-all",
+        !isSellSideActive 
+          ? "bg-[#222] border border-white/30 shadow-2xl ring-1 ring-white/8" 
+          : "bg-[#1B1B1B] border border-transparent hover:bg-[#1e1e1e]"
+      )}>
         <div className="flex justify-between items-center">
           <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Buy</span>
-          {/* Common Tokens Quick Select - Only visible on hover */}
-          {commonTokens.length > 0 && (
-            <TooltipProvider delayDuration={0}>
-              <div className="flex gap-1.5 pointer-events-none opacity-0 group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200">
-                {commonTokens.map((token) => (
-                  <Tooltip key={token.address}>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => setToToken(token)}
-                        className="p-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all"
-                      >
-                        {token.logoURI ? (
-                          <img
-                            src={token.logoURI}
-                            alt={token.symbol}
-                            className="w-5 h-5 rounded-full"
-                          />
-                        ) : (
-                          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-                            <span className="text-[10px] font-bold">{token.symbol[0]}</span>
-                          </div>
-                        )}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{token.symbol}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
+          {/* Quick Select Percentages - Always rendered to prevent layout shift */}
+          <div className={cn(
+            "flex gap-1 transition-opacity duration-200",
+            !isSellSideActive && isConnected && toBalance && toToken
+              ? "opacity-0 group-hover:opacity-100"
+              : "opacity-0 pointer-events-none"
+          )}>
+            {['25%', '50%', '75%', 'Max'].map((pct) => {
+              const handlePercentageClick = () => {
+                if (!toBalance || !toToken) return
+                
+                const balanceValue = parseFloat(formatUnits(toBalance.value, toToken.decimals))
+                
+                if (pct === 'Max') {
+                  setAmount(balanceValue.toString())
+                } else {
+                  const percent = parseFloat(pct) / 100
+                  const amountValue = balanceValue * percent
+                  setAmount(amountValue.toString())
+                }
+              }
+              
+              return (
+                <button 
+                  key={pct}
+                  onClick={handlePercentageClick}
+                  className="px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-bold text-muted-foreground hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  {pct}
+                </button>
+              )
+            })}
+          </div>
+          {/* Common Tokens Quick Select - Always rendered to prevent layout shift */}
+          <TooltipProvider delayDuration={0}>
+            <div className={cn(
+              "flex gap-1.5 transition-opacity duration-200",
+              isSellSideActive && commonTokens.length > 0
+                ? "pointer-events-none opacity-0 group-hover:opacity-100 group-hover:pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            )}>
+              {commonTokens.map((token) => (
+                <Tooltip key={token.address}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setToToken(token)}
+                      className="p-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all"
+                    >
+                      {token.logoURI ? (
+                        <img
+                          src={token.logoURI}
+                          alt={token.symbol}
+                          className="w-5 h-5 rounded-full"
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                          <span className="text-[10px] font-bold">{token.symbol[0]}</span>
               </div>
-            </TooltipProvider>
-          )}
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{token.symbol}</p>
+                  </TooltipContent>
+                </Tooltip>
+            ))}
+          </div>
+          </TooltipProvider>
         </div>
 
         <div className="flex justify-between items-center mt-1">
-          <span className="text-4xl font-medium text-white/40">
-            {isQuoteLoading ? "—" : outputAmount && parseFloat(outputAmount) > 0 
-              ? formatDisplayAmount(outputAmount, toToken)
-              : "0"}
-          </span>
-          <button 
+          {!isSellSideActive ? (
+            // Show input when buy side is active
+            (() => {
+              const displayValue = isInputFocused || !amount 
+                ? amount 
+                : formatDisplayAmount(amount, toToken)
+              const fullValue = amount && parseFloat(amount) > 0 
+                ? parseFloat(amount).toString()
+                : null
+              const isTrimmed = fullValue && displayValue !== fullValue
+              
+              if (isTrimmed) {
+                return (
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex-1 relative">
+                          <input 
+                            type="text" 
+                            value={displayValue}
+                            onChange={(e) => {
+                              // Allow user to type freely, store raw value
+                              const value = e.target.value.replace(/[^0-9.]/g, '')
+                              // Prevent multiple decimal points
+                              const parts = value.split('.')
+                              const cleaned = parts.length > 2 
+                                ? parts[0] + '.' + parts.slice(1).join('')
+                                : value
+                              setAmount(cleaned)
+                            }}
+                            onFocus={() => setIsInputFocused(true)}
+                            onBlur={() => {
+                              setIsInputFocused(false)
+                              // Format on blur if needed
+                              if (amount) {
+                                const num = parseFloat(amount)
+                                if (!isNaN(num)) {
+                                  setAmount(num.toString())
+                                }
+                              }
+                            }}
+                            placeholder="0"
+                            className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none"
+                            disabled={!isConnected}
+                          />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs font-mono bg-zinc-900 border-zinc-700">
+                        <p className="text-white/70">{parseFloat(amount).toLocaleString('en-US', { 
+                          maximumFractionDigits: 18,
+                          useGrouping: false
+                        })}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )
+              }
+              
+              return (
+                <div className="flex-1 relative">
+                  <input 
+                    type="text" 
+                    value={displayValue}
+                    onChange={(e) => {
+                      // Allow user to type freely, store raw value
+                      const value = e.target.value.replace(/[^0-9.]/g, '')
+                      // Prevent multiple decimal points
+                      const parts = value.split('.')
+                      const cleaned = parts.length > 2 
+                        ? parts[0] + '.' + parts.slice(1).join('')
+                        : value
+                      setAmount(cleaned)
+                    }}
+                    onFocus={() => setIsInputFocused(true)}
+                    onBlur={() => {
+                      setIsInputFocused(false)
+                      // Format on blur if needed
+                      if (amount) {
+                        const num = parseFloat(amount)
+                        if (!isNaN(num)) {
+                          setAmount(num.toString())
+                        }
+                      }
+                    }}
+                    placeholder="0"
+                    className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none"
+                    disabled={!isConnected}
+                  />
+                </div>
+              )
+            })()
+          ) : (
+            // Show quote output when buy side is not active
+            <div className="flex-1 relative">
+              <span className="text-4xl font-medium text-white/40 block leading-none">
+                {isQuoteLoading ? "—" : outputAmount && parseFloat(outputAmount) > 0 
+                  ? formatDisplayAmount(outputAmount, toToken)
+                  : "0"}
+              </span>
+            </div>
+          )}
+          <TokenSelectButton
+            token={toToken}
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
               setIsToTokenSelectorOpen(true)
             }}
-            className="flex items-center gap-1.5 bg-primary hover:opacity-90 text-primary-foreground rounded-full px-3 py-1.5 shadow-lg transition-all"
-          >
-            {toToken ? (
-              <>
-                {toToken.logoURI && (
-                  <div className="w-4 h-4 rounded-full overflow-hidden">
-                    <img src={toToken.logoURI} alt={toToken.symbol} className="w-full h-full object-contain" />
-                  </div>
-                )}
-                <span className="font-bold text-sm">{toToken.symbol}</span>
-              </>
-            ) : (
-              <span className="font-bold text-sm">Select token</span>
-            )}
-            <ChevronDown size={14} />
-          </button>
+          />
         </div>
 
         <div className="flex justify-between items-center text-xs font-medium text-muted-foreground">
           <span>
-            {outputAmount && parseFloat(outputAmount) > 0 && toTokenPrice
-              ? (() => {
-                  const usdValue = parseFloat(outputAmount) * toTokenPrice
-                  return `$${usdValue.toLocaleString('en-US', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                    useGrouping: true
-                  })}`
-                })()
-              : outputAmount && parseFloat(outputAmount) > 0 && isLoadingToPrice
-              ? "—"
-              : "—"}
+            {(() => {
+              const displayAmount = !isSellSideActive ? amount : outputAmount
+              return displayAmount && parseFloat(displayAmount) > 0 && toTokenPrice
+                ? (() => {
+                    const usdValue = parseFloat(displayAmount) * toTokenPrice
+                    return `$${usdValue.toLocaleString('en-US', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                      useGrouping: true
+                    })}`
+                  })()
+                : displayAmount && parseFloat(displayAmount) > 0 && isLoadingToPrice
+                ? "—"
+                : "—"
+            })()}
           </span>
           {isConnected && address && toToken && toBalance && (
             <TooltipProvider delayDuration={300}>
