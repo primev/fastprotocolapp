@@ -49,12 +49,7 @@ export default function SwapQuoter({
                 timeLeft < 5 ? "text-destructive" : "text-muted-foreground"
               )}
             >
-              <Timer
-                size={10}
-                className={cn(
-                  timeLeft < 5 && "text-destructive animate-pulse"
-                )}
-              />
+              <Timer size={10} className={cn(timeLeft < 5 && "text-destructive animate-pulse")} />
               <span className="tabular-nums">{timeLeft}s</span>
             </div>
           </div>

@@ -81,11 +81,7 @@ export default function TokenSelector({
                   )}
                 >
                   {token.logoURI && (
-                    <img
-                      src={token.logoURI}
-                      alt={token.symbol}
-                      className="h-5 w-5 rounded-full"
-                    />
+                    <img src={token.logoURI} alt={token.symbol} className="h-5 w-5 rounded-full" />
                   )}
                   <span className="text-sm font-medium">{token.symbol}</span>
                 </button>
@@ -106,9 +102,7 @@ export default function TokenSelector({
                 onClick={() => handleSelect(token)}
                 className={cn(
                   "w-full flex items-center gap-3 p-3 rounded-xl transition-colors",
-                  selectedToken?.address === token.address
-                    ? "bg-primary/10"
-                    : "hover:bg-muted/30"
+                  selectedToken?.address === token.address ? "bg-primary/10" : "hover:bg-muted/30"
                 )}
               >
                 <div className="h-9 w-9 rounded-full bg-muted/50 flex items-center justify-center p-1.5">
@@ -124,16 +118,12 @@ export default function TokenSelector({
                 </div>
                 <div className="flex-1 text-left">
                   <p className="font-medium">{token.symbol}</p>
-                  {token.name && (
-                    <p className="text-xs text-muted-foreground">{token.name}</p>
-                  )}
+                  {token.name && <p className="text-xs text-muted-foreground">{token.name}</p>}
                 </div>
               </button>
             ))
           ) : (
-            <div className="p-4 text-center text-muted-foreground text-sm">
-              No tokens found
-            </div>
+            <div className="p-4 text-center text-muted-foreground text-sm">No tokens found</div>
           )}
         </div>
       </DialogContent>

@@ -147,8 +147,15 @@ export async function getTokenPrice(symbol: string): Promise<number | null> {
     //   ]
     // }
     if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-      const tokenData = data.data.find((item: any) => item.symbol.toUpperCase() === symbol.toUpperCase())
-      if (tokenData && tokenData.prices && Array.isArray(tokenData.prices) && tokenData.prices.length > 0) {
+      const tokenData = data.data.find(
+        (item: any) => item.symbol.toUpperCase() === symbol.toUpperCase()
+      )
+      if (
+        tokenData &&
+        tokenData.prices &&
+        Array.isArray(tokenData.prices) &&
+        tokenData.prices.length > 0
+      ) {
         const usdPrice = tokenData.prices.find((price: any) => price.currency === "usd")
         if (usdPrice && usdPrice.value) {
           return Number(usdPrice.value)
