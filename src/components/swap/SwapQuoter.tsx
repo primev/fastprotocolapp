@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Timer, RefreshCw, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -8,9 +8,11 @@ import {
   formatQuoteAmount,
   formatPriceImpact,
   getPriceImpactSeverity,
+  type QuoteResult,
 } from "@/hooks/use-quote"
 
 const QUOTE_TTL = 15 // Seconds a quote is valid
+const REFETCH_THRESHOLD = 3 // Refetch when 3 seconds remain
 
 interface SwapQuoterProps {
   tokenIn: string
@@ -36,58 +38,115 @@ export default function SwapQuoter({
   })
 
   const [timeLeft, setTimeLeft] = useState(QUOTE_TTL)
+  const [displayQuote, setDisplayQuote] = useState<QuoteResult | null>(null)
+  const hasRefetchedRef = useRef(false)
+  const lastQuoteIdRef = useRef<string | null>(null)
 
-  // Handle countdown timer
+  // Generate a unique ID for a quote based on its values
+  const getQuoteId = (q: QuoteResult) => `${q.amountOut.toString()}-${q.exchangeRate}-${q.fee}`
+
+  // Keep the previous quote visible while fetching a new one
+  // Only update displayQuote when we get a genuinely new quote
   useEffect(() => {
-    if (!quote) {
+    if (quote) {
+      const quoteId = getQuoteId(quote)
+      // Only update if it's a new quote (different ID)
+      if (quoteId !== lastQuoteIdRef.current) {
+        setDisplayQuote(quote)
+        lastQuoteIdRef.current = quoteId
+        hasRefetchedRef.current = false
+        setTimeLeft(QUOTE_TTL)
+      }
+    }
+    // Don't clear displayQuote when quote becomes null - keep showing the last valid quote
+    // Only clear if we explicitly don't have tokens/amount
+  }, [quote])
+
+  // Clear displayQuote only when inputs are invalid (no tokens or amount)
+  useEffect(() => {
+    if (!tokenIn || !tokenOut || !amountIn || parseFloat(amountIn) <= 0) {
+      setDisplayQuote(null)
+      lastQuoteIdRef.current = null
+      hasRefetchedRef.current = false
+    }
+  }, [tokenIn, tokenOut, amountIn])
+
+  // Handle countdown timer and auto-refetch
+  useEffect(() => {
+    if (!displayQuote) {
       setTimeLeft(QUOTE_TTL)
+      hasRefetchedRef.current = false
       return
     }
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
-        if (prev <= 1) {
-          refetch() // Auto-refresh when timer hits 0
+        const newTime = prev - 1
+
+        // Refetch when we hit the threshold (only once per quote)
+        if (newTime === REFETCH_THRESHOLD && !hasRefetchedRef.current) {
+          hasRefetchedRef.current = true
+          refetch() // Fetch new quote before expiration
+        }
+
+        // If timer reaches 0, reset it and try refetching again if needed
+        if (newTime <= 0) {
+          const currentQuoteId = quote ? getQuoteId(quote) : null
+          // If we still have the same quote, refetch again
+          if (!currentQuoteId || currentQuoteId === lastQuoteIdRef.current) {
+            refetch()
+          }
           return QUOTE_TTL
         }
-        return prev - 1
+
+        return newTime
       })
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [quote, refetch])
+  }, [displayQuote, refetch, quote])
 
-  // Reset timer when quote changes
-  useEffect(() => {
-    if (quote) {
-      setTimeLeft(QUOTE_TTL)
-    }
-  }, [quote])
+  // Use displayQuote for rendering to ensure we always show a value when tokens are present
+  // displayQuote persists even when quote is temporarily null during refetch
+  const activeQuote = displayQuote || quote
+  const priceImpactSeverity = activeQuote ? getPriceImpactSeverity(activeQuote.priceImpact) : "low"
+  const isExpiringSoon = activeQuote && timeLeft <= REFETCH_THRESHOLD
 
-  const priceImpactSeverity = quote ? getPriceImpactSeverity(quote.priceImpact) : "low"
+  // Only show error if we don't have any quote to display
+  const showError = error && !activeQuote
 
   return (
     <div className="space-y-1.5 text-xs">
-      {error ? (
+      {showError ? (
         <div className="flex items-center gap-1.5 text-[11px] text-destructive py-1.5">
           <AlertCircle size={10} />
           <span>Error fetching quote</span>
         </div>
-      ) : quote ? (
+      ) : activeQuote ? (
         <>
           <div className="flex justify-between items-center">
             <span className="text-[11px] text-muted-foreground">Expected Output</span>
-            <span className="text-xs font-medium text-foreground tabular-nums">
-              {formatQuoteAmount(quote.amountOutFormatted)} {tokenOut}
+            <span
+              className={cn(
+                "text-xs font-medium text-foreground tabular-nums",
+                isExpiringSoon && "animate-pulse text-yellow-400"
+              )}
+            >
+              {formatQuoteAmount(activeQuote.amountOutFormatted)} {tokenOut}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[11px] text-muted-foreground">Price</span>
-            <span className="text-[11px] text-foreground/70 tabular-nums">
-              1 {tokenIn} = {quote.exchangeRate.toFixed(6)} {tokenOut}
+            <span
+              className={cn(
+                "text-[11px] text-foreground/70 tabular-nums",
+                isExpiringSoon && "animate-pulse text-yellow-400/70"
+              )}
+            >
+              1 {tokenIn} = {activeQuote.exchangeRate.toFixed(6)} {tokenOut}
             </span>
           </div>
-          {quote.priceImpact < -0.01 && (
+          {activeQuote.priceImpact < -0.01 && (
             <div className="flex justify-between items-center">
               <span className="text-[11px] text-muted-foreground">Price Impact</span>
               <span
@@ -100,14 +159,19 @@ export default function SwapQuoter({
                       : "text-foreground/70"
                 )}
               >
-                {formatPriceImpact(quote.priceImpact)}
+                {formatPriceImpact(activeQuote.priceImpact)}
               </span>
             </div>
           )}
           <div className="flex justify-between items-center pt-1.5 border-t border-border/20">
             <span className="text-[11px] text-muted-foreground">Minimum Received</span>
-            <span className="text-[11px] text-foreground/60 tabular-nums">
-              {formatQuoteAmount(quote.minOutFormatted)} {tokenOut}
+            <span
+              className={cn(
+                "text-[11px] text-foreground/60 tabular-nums",
+                isExpiringSoon && "animate-pulse text-yellow-400/60"
+              )}
+            >
+              {formatQuoteAmount(activeQuote.minOutFormatted)} {tokenOut}
             </span>
           </div>
           <div className="flex justify-between items-center pt-1">
@@ -115,10 +179,10 @@ export default function SwapQuoter({
             <div
               className={cn(
                 "flex items-center gap-1 text-[11px] font-mono",
-                timeLeft < 5 ? "text-destructive" : "text-muted-foreground"
+                isExpiringSoon ? "text-destructive" : "text-muted-foreground"
               )}
             >
-              <Timer size={10} className={cn(timeLeft < 5 && "text-destructive animate-pulse")} />
+              <Timer size={10} className={cn(isExpiringSoon && "text-destructive animate-pulse")} />
               <span className="tabular-nums">{timeLeft}s</span>
             </div>
           </div>
@@ -133,7 +197,7 @@ export default function SwapQuoter({
         </div>
       )}
 
-      {isLoading && (
+      {isLoading && activeQuote && (
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground pt-1.5 border-t border-border/20">
           <RefreshCw size={10} className="animate-spin" />
           <span>Updating...</span>

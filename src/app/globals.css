@@ -170,6 +170,38 @@ All colors MUST be HSL.
       transform: translateX(-50%);
     }
   }
+
+  @keyframes pulse-3 {
+    0% {
+      opacity: 1;
+    }
+    8% {
+      opacity: 0.3;
+    }
+    16% {
+      opacity: 1;
+    }
+    24% {
+      opacity: 0.3;
+    }
+    32% {
+      opacity: 1;
+    }
+    40% {
+      opacity: 0.3;
+    }
+    48% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  .animate-pulse-3 {
+    animation: pulse-3 6s cubic-bezier(0.4, 0, 0.6, 1);
+    will-change: opacity;
+  }
 }
 
 /* Ensure inactive tab content is hidden on mobile (but not tab triggers) */
