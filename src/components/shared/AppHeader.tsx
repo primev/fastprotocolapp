@@ -67,8 +67,8 @@ export const AppHeader = ({
 
   return (
     <>
-      <header className="border-b border-border/50 backdrop-blur-sm bg-background/80">
-        <div className="container mx-auto px-4 py-2.5 flex items-center justify-between">
+      <header className="border-b border-border/50 backdrop-blur-sm bg-background/80 relative">
+        <div className="mx-5 px-4 py-2.5 flex items-center justify-between">
           <Link href="/dashboard" className="relative">
             <Image
               src="/assets/fast-icon.png"
@@ -86,11 +86,11 @@ export const AppHeader = ({
             />
           </Link>
 
-          {/* Tab Bar - Centered (conditional based on route) */}
+          {/* Tab Bar - Dead Center (absolute positioning) */}
           {(pathname?.startsWith("/dashboard") ||
             pathname?.startsWith("/leaderboard") ||
-            pathname?.startsWith("/swap")) && (
-            <div className="hidden md:flex items-center justify-center flex-1 mx-8">
+            pathname?.startsWith("/")) && (
+            <div className="hidden md:flex items-center justify-center absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
               <div className="inline-flex items-center rounded-full bg-muted/50 p-1 gap-1">
                 <Link
                   href="/dashboard"
@@ -119,12 +119,12 @@ export const AppHeader = ({
                   Leaders
                 </Link>
                 <Link
-                  href="/swap"
+                  href="/"
                   prefetch={false}
                   onMouseEnter={handleSwapHover(address)}
                   className={cn(
                     "px-4 py-2 rounded-full text-sm font-medium transition-all",
-                    pathname?.startsWith("/swap")
+                    pathname === "/" || pathname?.startsWith("/swap")
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   )}
