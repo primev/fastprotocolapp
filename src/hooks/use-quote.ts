@@ -36,7 +36,10 @@ export const TOKEN_DECIMALS: Record<string, number> = {
   // FAST: 18,
 }
 
-// Uniswap V3 Quoter V2 ABI (only the function we need)
+// Stablecoin symbols for decimal formatting
+const STABLECOIN_SYMBOLS = ["USDC", "USDT", "DAI", "BUSD", "TUSD", "FRAX", "USDP", "LUSD"]
+
+// Uniswap V3 Quoter V2 ABI (supports both exact input and exact output)
 const QUOTER_V2_ABI = [
   {
     inputs: [
@@ -62,6 +65,30 @@ const QUOTER_V2_ABI = [
     stateMutability: "nonpayable",
     type: "function",
   },
+  {
+    inputs: [
+      {
+        components: [
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amount", type: "uint256" },
+          { name: "fee", type: "uint24" },
+          { name: "sqrtPriceLimitX96", type: "uint160" },
+        ],
+        name: "params",
+        type: "tuple",
+      },
+    ],
+    name: "quoteExactOutputSingle",
+    outputs: [
+      { name: "amountIn", type: "uint256" },
+      { name: "sqrtPriceX96After", type: "uint160" },
+      { name: "initializedTicksCrossed", type: "uint32" },
+      { name: "gasEstimate", type: "uint256" },
+    ],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
 ] as const
 
 // Common fee tiers in Uniswap V3 (in hundredths of a bip)
@@ -70,6 +97,8 @@ const FEE_TIERS = [500, 3000, 10000] as const // 0.05%, 0.3%, 1%
 export interface QuoteResult {
   amountOut: bigint
   amountOutFormatted: string
+  amountIn: bigint
+  amountInFormatted: string
   minOut: bigint
   minOutFormatted: string
   priceImpact: number // as percentage, e.g., -0.02
@@ -78,6 +107,8 @@ export interface QuoteResult {
   fee: number // fee tier used
 }
 
+export type TradeType = "exactIn" | "exactOut"
+
 export interface UseQuoteProps {
   tokenIn: string
   tokenOut: string
@@ -85,6 +116,7 @@ export interface UseQuoteProps {
   slippage: string // e.g., "0.5" for 0.5%
   enabled?: boolean
   debounceMs?: number
+  tradeType?: TradeType // "exactIn" when typing sell amount, "exactOut" when typing buy amount
 }
 
 export interface UseQuoteReturn {
@@ -115,6 +147,21 @@ function getTokenAddress(symbol: string): Address | null {
 // Get token decimals
 function getTokenDecimals(symbol: string): number {
   return TOKEN_DECIMALS[symbol] || 18
+}
+
+/**
+ * Check if a token symbol is a stablecoin
+ */
+function isStablecoin(symbol: string): boolean {
+  return STABLECOIN_SYMBOLS.includes(symbol.toUpperCase())
+}
+
+/**
+ * Format amount based on token type (stablecoins get 2 decimals, others get 6)
+ */
+function formatAmountByToken(amount: number, tokenSymbol: string): string {
+  const decimals = isStablecoin(tokenSymbol) ? 2 : 6
+  return amount.toFixed(decimals).replace(/\.?0+$/, "")
 }
 
 /**
@@ -167,6 +214,7 @@ export function useQuote({
   slippage,
   enabled = true,
   debounceMs = 500,
+  tradeType = "exactIn",
 }: UseQuoteProps): UseQuoteReturn {
   const [quote, setQuote] = useState<QuoteResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -177,8 +225,8 @@ export function useQuote({
 
   // Memoize inputs to prevent unnecessary refetches
   const inputKey = useMemo(
-    () => `${tokenIn}-${tokenOut}-${amountIn}-${slippage}`,
-    [tokenIn, tokenOut, amountIn, slippage]
+    () => `${tokenIn}-${tokenOut}-${amountIn}-${slippage}-${tradeType}`,
+    [tokenIn, tokenOut, amountIn, slippage, tradeType]
   )
 
   const fetchQuote = useCallback(async () => {
@@ -208,16 +256,47 @@ export function useQuote({
 
     if (!tokenInAddress || !tokenOutAddress) {
       // For tokens we don't have addresses for (like FAST), use mock quote
-      const mockRate = tokenIn === "ETH" ? 2300 : tokenOut === "ETH" ? 0.000435 : 1
-      const mockAmountOut = amountInNum * mockRate
+      const mockRate = tokenIn === "ETH" ? 2300 : tokenOut === "ETH" ? 1 / 2300 : 1
       const slippagePercent = parseFloat(slippage) || 0.5
-      const minOutNum = mockAmountOut * (1 - slippagePercent / 100)
+
+      let amountOut: bigint
+      let amountOutFormatted: string
+      let amountIn: bigint
+      let amountInFormatted: string
+      let minOut: bigint
+      let minOutFormatted: string
+
+      if (tradeType === "exactIn") {
+        // Lead is SELL box: we know amountIn (what user typed), calculate amountOut
+        const calculatedOut = amountInNum * mockRate
+        amountIn = BigInt(Math.floor(amountInNum * 1e18))
+        amountInFormatted = formatAmountByToken(amountInNum, tokenIn)
+        amountOut = BigInt(Math.floor(calculatedOut * 1e18))
+        amountOutFormatted = formatAmountByToken(calculatedOut, tokenOut)
+        const minOutNum = calculatedOut * (1 - slippagePercent / 100)
+        minOut = BigInt(Math.floor(minOutNum * 1e18))
+        minOutFormatted = formatAmountByToken(minOutNum, tokenOut)
+      } else {
+        // Lead is BUY box: amountInNum is the desired OUTPUT (what user typed)
+        // Calculate how much INPUT we need to get that output
+        const calculatedIn = amountInNum / mockRate
+        amountIn = BigInt(Math.floor(calculatedIn * 1e18))
+        amountInFormatted = formatAmountByToken(calculatedIn, tokenIn)
+        amountOut = BigInt(Math.floor(amountInNum * 1e18))
+        amountOutFormatted = formatAmountByToken(amountInNum, tokenOut) // The number typed is the target
+        // For exact output, maxIn is amountIn * (1 + slippage/100)
+        const maxInNum = calculatedIn * (1 + slippagePercent / 100)
+        minOut = BigInt(Math.floor(maxInNum * 1e18))
+        minOutFormatted = formatAmountByToken(maxInNum, tokenIn)
+      }
 
       setQuote({
-        amountOut: BigInt(Math.floor(mockAmountOut * 1e18)),
-        amountOutFormatted: mockAmountOut.toFixed(6),
-        minOut: BigInt(Math.floor(minOutNum * 1e18)),
-        minOutFormatted: minOutNum.toFixed(6),
+        amountOut,
+        amountOutFormatted,
+        amountIn,
+        amountInFormatted,
+        minOut,
+        minOutFormatted,
         priceImpact: -0.01, // Mock small impact
         exchangeRate: mockRate,
         gasEstimate: BigInt(150000),
@@ -233,40 +312,79 @@ export function useQuote({
     try {
       const tokenInDecimals = getTokenDecimals(tokenIn)
       const tokenOutDecimals = getTokenDecimals(tokenOut)
-      const amountInWei = parseUnits(amountIn, tokenInDecimals)
 
       let bestQuote: {
         amountOut: bigint
+        amountIn: bigint
         gasEstimate: bigint
         fee: number
       } | null = null
 
       // Try each fee tier and pick the best quote
-      const clients = [createClient(RPC_ENDPOINT), createClient(FALLBACK_RPC_ENDPOINT)]
+      const clients = [createClient(FALLBACK_RPC_ENDPOINT)]
 
       for (const client of clients) {
         try {
           for (const fee of FEE_TIERS) {
             try {
-              const result = await client.simulateContract({
-                address: QUOTER_V2_ADDRESS,
-                abi: QUOTER_V2_ABI,
-                functionName: "quoteExactInputSingle",
-                args: [
-                  {
-                    tokenIn: tokenInAddress,
-                    tokenOut: tokenOutAddress,
-                    amountIn: amountInWei,
-                    fee,
-                    sqrtPriceLimitX96: BigInt(0),
-                  },
-                ],
-              })
+              let result
 
-              const [amountOut, , , gasEstimate] = result.result as [bigint, bigint, number, bigint]
+              if (tradeType === "exactIn") {
+                // Exact input: we know amountIn, calculate amountOut
+                const amountInWei = parseUnits(amountIn, tokenInDecimals)
+                result = await client.simulateContract({
+                  address: QUOTER_V2_ADDRESS,
+                  abi: QUOTER_V2_ABI,
+                  functionName: "quoteExactInputSingle",
+                  args: [
+                    {
+                      tokenIn: tokenInAddress,
+                      tokenOut: tokenOutAddress,
+                      amountIn: amountInWei,
+                      fee,
+                      sqrtPriceLimitX96: BigInt(0),
+                    },
+                  ],
+                })
 
-              if (!bestQuote || amountOut > bestQuote.amountOut) {
-                bestQuote = { amountOut, gasEstimate, fee }
+                const [amountOut, , , gasEstimate] = result.result as [
+                  bigint,
+                  bigint,
+                  number,
+                  bigint,
+                ]
+
+                if (!bestQuote || amountOut > bestQuote.amountOut) {
+                  bestQuote = { amountOut, amountIn: amountInWei, gasEstimate, fee }
+                }
+              } else {
+                // Exact output: we know amountOut (from amountIn), calculate amountIn needed
+                const amountOutWei = parseUnits(amountIn, tokenOutDecimals)
+                result = await client.simulateContract({
+                  address: QUOTER_V2_ADDRESS,
+                  abi: QUOTER_V2_ABI,
+                  functionName: "quoteExactOutputSingle",
+                  args: [
+                    {
+                      tokenIn: tokenInAddress,
+                      tokenOut: tokenOutAddress,
+                      amount: amountOutWei,
+                      fee,
+                      sqrtPriceLimitX96: BigInt(0),
+                    },
+                  ],
+                })
+
+                const [amountInWei, , , gasEstimate] = result.result as [
+                  bigint,
+                  bigint,
+                  number,
+                  bigint,
+                ]
+
+                if (!bestQuote || amountInWei < bestQuote.amountIn) {
+                  bestQuote = { amountOut: amountOutWei, amountIn: amountInWei, gasEstimate, fee }
+                }
               }
             } catch (feeError) {
               // This fee tier might not have a pool, continue to next
@@ -285,32 +403,57 @@ export function useQuote({
       }
 
       // Calculate formatted amounts
-      const amountOutFormatted = formatUnits(bestQuote.amountOut, tokenOutDecimals)
-      const amountOutNum = parseFloat(amountOutFormatted)
+      const amountOutRaw = formatUnits(bestQuote.amountOut, tokenOutDecimals)
+      const amountOutNum = parseFloat(amountOutRaw)
+      const amountInRaw = formatUnits(bestQuote.amountIn, tokenInDecimals)
+      const amountInNum = parseFloat(amountInRaw)
 
-      // Calculate minOut based on slippage (with validation)
+      // Format based on token type (stablecoins get 2 decimals, others get 6)
+      const amountOutFormatted = formatAmountByToken(amountOutNum, tokenOut)
+      const amountInFormatted = formatAmountByToken(amountInNum, tokenIn)
+
+      // Calculate minOut/maxIn based on slippage (with validation)
       const slippagePercent = validateSlippage(slippage)
       const slippageBps = BigInt(Math.floor(slippagePercent * 100)) // Convert to basis points
-      const minOut = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
-      const minOutFormatted = formatUnits(minOut, tokenOutDecimals)
 
-      // Calculate exchange rate
+      let minOut: bigint
+      let minOutFormatted: string
+
+      if (tradeType === "exactIn") {
+        // For exact input: minOut = amountOut * (1 - slippage/100)
+        minOut = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
+        const minOutNum = parseFloat(formatUnits(minOut, tokenOutDecimals))
+        minOutFormatted = formatAmountByToken(minOutNum, tokenOut)
+      } else {
+        // For exact output: maxIn = amountIn * (1 + slippage/100)
+        minOut = (bestQuote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
+        const minOutNum = parseFloat(formatUnits(minOut, tokenInDecimals))
+        minOutFormatted = formatAmountByToken(minOutNum, tokenIn)
+      }
+
+      // Calculate exchange rate (always output/input)
       const exchangeRate = amountOutNum / amountInNum
 
       // Estimate price impact (simplified - comparing to spot price would require additional call)
       // For now, estimate based on trade size relative to typical pool liquidity
-      const priceImpact = -0.01 * Math.log10(amountInNum + 1) // Rough estimate
-      console.log("bestQuote.amountOut", bestQuote.amountOut)
-      setQuote({
+      const tradeAmount = tradeType === "exactIn" ? amountInNum : amountOutNum
+      const priceImpact = -0.01 * Math.log10(tradeAmount + 1) // Rough estimate
+
+      // Create new quote object to ensure state update
+      const newQuote: QuoteResult = {
         amountOut: bestQuote.amountOut,
         amountOutFormatted,
+        amountIn: bestQuote.amountIn,
+        amountInFormatted,
         minOut,
         minOutFormatted,
         priceImpact: Math.max(priceImpact, -5), // Cap at -5%
         exchangeRate,
         gasEstimate: bestQuote.gasEstimate,
         fee: bestQuote.fee,
-      })
+      }
+
+      setQuote(newQuote)
       setError(null)
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err))
@@ -320,12 +463,13 @@ export function useQuote({
     } finally {
       setIsLoading(false)
     }
-  }, [tokenIn, tokenOut, amountIn, slippage])
+  }, [tokenIn, tokenOut, amountIn, slippage, tradeType])
 
   // Debounced fetch
   useEffect(() => {
     if (!enabled) {
-      setQuote(null)
+      // Preserve previous quote when disabled (e.g., during switch) to prevent UI flicker
+      // Don't setQuote(null) - keep the existing quote state
       return
     }
 
@@ -348,7 +492,7 @@ export function useQuote({
         clearTimeout(debounceRef.current)
       }
     }
-  }, [inputKey, enabled, debounceMs, fetchQuote])
+  }, [inputKey, enabled, debounceMs]) // Removed fetchQuote - inputKey already captures all dependencies
 
   // Cleanup on unmount
   useEffect(() => {
