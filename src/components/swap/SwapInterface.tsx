@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useQuote, formatQuoteAmount } from "@/hooks/use-quote"
 import tokenList from "@/lib/token-list.json"
 import type { Token } from "@/types/swap"
+import NumberFlow from "@number-flow/react"
 
 // Stablecoin symbols (2 decimals)
 const STABLECOIN_SYMBOLS = ["USDC", "USDT", "DAI", "BUSD", "TUSD", "FRAX", "USDP", "LUSD"]
@@ -150,6 +151,7 @@ export default function SwapInterface() {
   const lastQuoteAmountRef = useRef<string | null>(null) // Track last quote amount to detect changes
   const quoteTimestampRef = useRef<number>(0) // Track when quote was last updated
   const isSwitchingRef = useRef(false) // Track if we're currently switching to prevent hook from triggering
+  const sellInputRef = useRef<HTMLInputElement>(null) // Ref for sell input to focus on load
   const [insufficientBalance, setInsufficientBalance] = useState(false) // Track if amount exceeds balance
   const [editingSide, setEditingSide] = useState<"sell" | "buy">("sell") // Track which side is being edited
 
@@ -524,6 +526,17 @@ export default function SwapInterface() {
     displayQuote,
   ])
 
+  // Focus sell input on component mount
+  useEffect(() => {
+    if (sellInputRef.current) {
+      // Small delay to ensure component is fully rendered
+      const timer = setTimeout(() => {
+        sellInputRef.current?.focus()
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [])
+
   // Common tokens for quick select: ETH, USDC, USDT, WBTC, WETH
   const commonTokens = useMemo(() => {
     const symbols = ["ETH", "USDC", "USDT", "WBTC", "WETH"]
@@ -626,44 +639,58 @@ export default function SwapInterface() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex-1 relative">
-                        <input
-                          key={`sell-input-${pulseAnimationKey}`}
-                          type="text"
-                          value={displayValue}
-                          onChange={(e) => {
-                            // Force direction to sell when typing in sell input
-                            setEditingSide("sell")
-                            // Allow user to type freely, store raw value
-                            const value = e.target.value.replace(/[^0-9.]/g, "")
-                            // Prevent multiple decimal points
-                            const parts = value.split(".")
-                            const cleaned =
-                              parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : value
-                            setAmount(cleaned)
-                          }}
-                          onFocus={() => {
-                            setIsInputFocused(true)
-                            setEditingSide("sell")
-                          }}
-                          onBlur={() => {
-                            setIsInputFocused(false)
-                            // Format on blur if needed
-                            if (amount) {
-                              const num = parseFloat(amount)
-                              if (!isNaN(num)) {
-                                setAmount(num.toString())
+                        {isActive ? (
+                          <input
+                            ref={sellInputRef}
+                            key={`sell-input-${pulseAnimationKey}`}
+                            type="text"
+                            value={displayValue}
+                            onChange={(e) => {
+                              // Force direction to sell when typing in sell input
+                              setEditingSide("sell")
+                              // Allow user to type freely, store raw value
+                              const value = e.target.value.replace(/[^0-9.]/g, "")
+                              // Prevent multiple decimal points
+                              const parts = value.split(".")
+                              const cleaned =
+                                parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : value
+                              setAmount(cleaned)
+                            }}
+                            onFocus={() => {
+                              setIsInputFocused(true)
+                              setEditingSide("sell")
+                            }}
+                            onBlur={() => {
+                              setIsInputFocused(false)
+                              // Format on blur if needed
+                              if (amount) {
+                                const num = parseFloat(amount)
+                                if (!isNaN(num)) {
+                                  setAmount(num.toString())
+                                }
                               }
-                            }
-                          }}
-                          placeholder="0"
-                          className={cn(
-                            "bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text",
-                            insufficientBalance && isActive && "text-destructive",
-                            // Only pulse if we are in BUY mode (making this the follower)
-                            !isActive && isQuoteLoading && "animate-pulse-3-loop"
-                          )}
-                          disabled={!isConnected}
-                        />
+                            }}
+                            placeholder="0"
+                            className={cn(
+                              "bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white",
+                              insufficientBalance && isActive && "text-destructive"
+                            )}
+                            disabled={!isConnected}
+                          />
+                        ) : (
+                          <div
+                            className={cn(
+                              "text-4xl font-medium leading-none cursor-text",
+                              !isActive && isQuoteLoading && "animate-pulse-3-loop"
+                            )}
+                          >
+                            <NumberFlow
+                              value={parseFloat(displayValue) || 0}
+                              format={{ minimumFractionDigits: 0, maximumFractionDigits: 6 }}
+                              spinTiming={{ duration: 600, easing: "ease-out" }}
+                            />
+                          </div>
+                        )}
                       </div>
                     </TooltipTrigger>
                     <TooltipContent
@@ -685,6 +712,7 @@ export default function SwapInterface() {
             return (
               <div className="flex-1 relative">
                 <input
+                  ref={sellInputRef}
                   key={`sell-input-simple-${pulseAnimationKey}`}
                   type="text"
                   value={displayValue}
@@ -715,7 +743,7 @@ export default function SwapInterface() {
                   }}
                   placeholder="0"
                   className={cn(
-                    "bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text",
+                    "bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white",
                     insufficientBalance && isActive && "text-destructive",
                     !isActive && shouldPulseLoop && "animate-pulse-3-loop",
                     !isActive && shouldPulse && !shouldPulseLoop && "animate-pulse-3"
@@ -955,43 +983,54 @@ export default function SwapInterface() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex-1 relative">
-                        <input
-                          key={`buy-input-tooltip-${pulseAnimationKey}`}
-                          type="text"
-                          value={displayValue}
-                          onChange={(e) => {
-                            // Force direction to buy when typing in buy input
-                            setEditingSide("buy")
-                            // Allow user to type freely, store raw value
-                            const value = e.target.value.replace(/[^0-9.]/g, "")
-                            // Prevent multiple decimal points
-                            const parts = value.split(".")
-                            const cleaned =
-                              parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : value
-                            setAmount(cleaned)
-                          }}
-                          onFocus={() => {
-                            setIsInputFocused(true)
-                            setEditingSide("buy")
-                          }}
-                          onBlur={() => {
-                            setIsInputFocused(false)
-                            // Format on blur if needed
-                            if (amount) {
-                              const num = parseFloat(amount)
-                              if (!isNaN(num)) {
-                                setAmount(num.toString())
+                        {isActive ? (
+                          <input
+                            key={`buy-input-tooltip-${pulseAnimationKey}`}
+                            type="text"
+                            value={displayValue}
+                            onChange={(e) => {
+                              // Force direction to buy when typing in buy input
+                              setEditingSide("buy")
+                              // Allow user to type freely, store raw value
+                              const value = e.target.value.replace(/[^0-9.]/g, "")
+                              // Prevent multiple decimal points
+                              const parts = value.split(".")
+                              const cleaned =
+                                parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : value
+                              setAmount(cleaned)
+                            }}
+                            onFocus={() => {
+                              setIsInputFocused(true)
+                              setEditingSide("buy")
+                            }}
+                            onBlur={() => {
+                              setIsInputFocused(false)
+                              // Format on blur if needed
+                              if (amount) {
+                                const num = parseFloat(amount)
+                                if (!isNaN(num)) {
+                                  setAmount(num.toString())
+                                }
                               }
-                            }
-                          }}
-                          placeholder="0"
-                          className={cn(
-                            "bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text",
-
-                            !isActive && isQuoteLoading && "animate-pulse-3-loop"
-                          )}
-                          disabled={!isConnected}
-                        />
+                            }}
+                            placeholder="0"
+                            className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white"
+                            disabled={!isConnected}
+                          />
+                        ) : (
+                          <div
+                            className={cn(
+                              "text-4xl font-medium leading-none cursor-text",
+                              !isActive && isQuoteLoading && "animate-pulse-3-loop"
+                            )}
+                          >
+                            <NumberFlow
+                              value={parseFloat(displayValue) || 0}
+                              format={{ minimumFractionDigits: 0, maximumFractionDigits: 6 }}
+                              spinTiming={{ duration: 600, easing: "ease-out" }}
+                            />
+                          </div>
+                        )}
                       </div>
                     </TooltipTrigger>
                     <TooltipContent
@@ -1012,43 +1051,55 @@ export default function SwapInterface() {
 
             return (
               <div className="flex-1 relative">
-                <input
-                  key={`buy-input-simple-${pulseAnimationKey}`}
-                  type="text"
-                  value={displayValue}
-                  onChange={(e) => {
-                    // Force direction to buy when typing in buy input
-                    setEditingSide("buy")
-                    // Allow user to type freely, store raw value
-                    const value = e.target.value.replace(/[^0-9.]/g, "")
-                    // Prevent multiple decimal points
-                    const parts = value.split(".")
-                    const cleaned =
-                      parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : value
-                    setAmount(cleaned)
-                  }}
-                  onFocus={() => {
-                    setIsInputFocused(true)
-                    setEditingSide("buy")
-                  }}
-                  onBlur={() => {
-                    setIsInputFocused(false)
-                    // Format on blur if needed
-                    if (amount) {
-                      const num = parseFloat(amount)
-                      if (!isNaN(num)) {
-                        setAmount(num.toString())
+                {isActive ? (
+                  <input
+                    key={`buy-input-simple-${pulseAnimationKey}`}
+                    type="text"
+                    value={displayValue}
+                    onChange={(e) => {
+                      // Force direction to buy when typing in buy input
+                      setEditingSide("buy")
+                      // Allow user to type freely, store raw value
+                      const value = e.target.value.replace(/[^0-9.]/g, "")
+                      // Prevent multiple decimal points
+                      const parts = value.split(".")
+                      const cleaned =
+                        parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : value
+                      setAmount(cleaned)
+                    }}
+                    onFocus={() => {
+                      setIsInputFocused(true)
+                      setEditingSide("buy")
+                    }}
+                    onBlur={() => {
+                      setIsInputFocused(false)
+                      // Format on blur if needed
+                      if (amount) {
+                        const num = parseFloat(amount)
+                        if (!isNaN(num)) {
+                          setAmount(num.toString())
+                        }
                       }
-                    }
-                  }}
-                  placeholder="0"
-                  className={cn(
-                    "bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text",
-                    !isActive && shouldPulseLoop && "animate-pulse-3-loop",
-                    !isActive && shouldPulse && !shouldPulseLoop && "animate-pulse-3"
-                  )}
-                  disabled={!isConnected}
-                />
+                    }}
+                    placeholder="0"
+                    className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white"
+                    disabled={!isConnected}
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      "text-4xl font-medium leading-none cursor-text",
+                      !isActive && shouldPulseLoop && "animate-pulse-3-loop",
+                      !isActive && shouldPulse && !shouldPulseLoop && "animate-pulse-3"
+                    )}
+                  >
+                    <NumberFlow
+                      value={parseFloat(displayValue) || 0}
+                      format={{ minimumFractionDigits: 0, maximumFractionDigits: 6 }}
+                      spinTiming={{ duration: 600, easing: "ease-out" }}
+                    />
+                  </div>
+                )}
               </div>
             )
           })()}
