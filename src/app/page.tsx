@@ -185,13 +185,13 @@ const IndexPage = () => {
         <section className="min-h-[calc(100vh-80px)] w-full flex flex-col items-center justify-center px-4 relative pt-12 pb-24">
           <div className="text-center mb-12 space-y-4 animate-in fade-in slide-in-from-top-6 duration-1000">
             <h1 className="text-6xl sm:text-8xl font-bold tracking-tighter text-foreground leading-[1.05]">
-              Trade with{" "}
+              Lightning fast{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-400">
-                Intent.
+                swaps.
               </span>
             </h1>
             <p className="max-w-2xl mx-auto text-base sm:text-lg text-muted-foreground font-medium leading-relaxed">
-              Fast Protocol is Ethereum’s first coordinated rewards engine.
+              Trade crypto on Ethereum with fast execution and mev rewards
             </p>
           </div>
 
