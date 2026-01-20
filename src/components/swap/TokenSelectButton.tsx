@@ -12,7 +12,7 @@ interface TokenSelectButtonProps {
 
 export default function TokenSelectButton({ token, onClick }: TokenSelectButtonProps) {
   return (
-    <button 
+    <button
       onClick={onClick}
       className={cn(
         "flex items-center rounded-full transition-all",
@@ -25,7 +25,11 @@ export default function TokenSelectButton({ token, onClick }: TokenSelectButtonP
         <>
           {token.logoURI ? (
             <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center">
-              <img src={token.logoURI} alt={token.symbol} className="w-full h-full object-contain" />
+              <img
+                src={token.logoURI}
+                alt={token.symbol}
+                className="w-full h-full object-contain"
+              />
             </div>
           ) : (
             <div className="w-7 h-7 rounded-full bg-white/10 overflow-hidden flex items-center justify-center">
