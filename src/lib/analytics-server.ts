@@ -97,6 +97,73 @@ export async function getEthPrice(): Promise<number | null> {
 }
 
 /**
+ * Server-side function to fetch token price from Alchemy by symbol
+ */
+export async function getTokenPrice(symbol: string): Promise<number | null> {
+  try {
+    const apiKey = env.ALCHEMY_API_KEY
+
+    if (!apiKey) {
+      console.error("ALCHEMY_API_KEY not configured")
+      return null
+    }
+
+    if (!symbol) {
+      return null
+    }
+
+    const response = await fetch(
+      `https://api.g.alchemy.com/prices/v1/${apiKey}/tokens/by-symbol?symbols=${encodeURIComponent(symbol.toUpperCase())}`,
+      {
+        method: "GET",
+        headers: {
+          accept: "application/json",
+        },
+        cache: "no-store",
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Failed to fetch ${symbol} price:`, response.status, errorText)
+      return null
+    }
+
+    const data = await response.json()
+
+    // Alchemy returns data in format:
+    // {
+    //   "data": [
+    //     {
+    //       "symbol": "USDC",
+    //       "prices": [
+    //         {
+    //           "currency": "usd",
+    //           "value": "1.0001",
+    //           "lastUpdatedAt": "2025-12-29T16:38:25Z"
+    //         }
+    //       ]
+    //     }
+    //   ]
+    // }
+    if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+      const tokenData = data.data.find((item: any) => item.symbol.toUpperCase() === symbol.toUpperCase())
+      if (tokenData && tokenData.prices && Array.isArray(tokenData.prices) && tokenData.prices.length > 0) {
+        const usdPrice = tokenData.prices.find((price: any) => price.currency === "usd")
+        if (usdPrice && usdPrice.value) {
+          return Number(usdPrice.value)
+        }
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.error(`Error fetching ${symbol} price:`, error)
+    return null
+  }
+}
+
+/**
  * Server-side function to fetch cumulative swap volume from analytics API
  * Calls the internal API route which handles the external API call
  */

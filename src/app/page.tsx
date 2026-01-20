@@ -17,7 +17,6 @@ import { AnimatedBackground } from "@/components/AnimatedBackground"
 import { SocialIcon } from "react-social-icons"
 import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL, TWITTER_INVITE_URL } from "@/lib/constants"
 import SwapInterface from "@/components/swap/SwapInterface"
-import { useTokenList } from "@/hooks/use-token-list"
 import { AppHeader } from "@/components/shared/AppHeader"
 import { useWalletInfo } from "@/hooks/use-wallet-info"
 import { isMetaMaskWallet, isRabbyWallet } from "@/lib/onboarding-utils"
@@ -68,8 +67,6 @@ const IndexPage = () => {
   const isRabby = isRabbyWallet(connector)
 
   useEffect(() => { setIsMounted(true) }, [])
-
-  const { data: tokens, isLoading: isLoadingTokens } = useTokenList()
 
   const [metrics, setMetrics] = useState({
     swapVolumeEth: null as number | null,
@@ -138,13 +135,12 @@ const IndexPage = () => {
               Trade with <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-400">Intent.</span>
             </h1>
             <p className="max-w-2xl mx-auto text-base sm:text-lg text-muted-foreground font-medium leading-relaxed">
-              Fast Protocol is Ethereum’s first coordinated rewards engine. <br className="hidden md:block" />
-              Transforming MEV from a PvP game into a shared sanctuary of value.
+              Fast Protocol is Ethereum’s first coordinated rewards engine. 
             </p>
           </div>
 
-          <div className="w-full max-w-[440px] z-10 animate-in fade-in zoom-in-95 duration-1000 delay-200 drop-shadow-[0_35px_35px_rgba(0,0,0,0.1)]">
-            <SwapInterface tokens={tokens || []} isLoading={isLoadingTokens} />
+          <div className="w-full max-w-[500px] z-10 animate-in fade-in zoom-in-95 duration-1000 delay-200 drop-shadow-[0_35px_35px_rgba(0,0,0,0.1)]">
+            <SwapInterface />
           </div>
 
           <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 text-muted-foreground/30 hover:text-primary transition-all duration-500 cursor-default">
