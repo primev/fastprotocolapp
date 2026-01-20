@@ -8,6 +8,7 @@ import { formatUnits } from "viem"
 import { cn, formatCurrency } from "@/lib/utils"
 import TokenSelector from "./TokenSelector"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useSwapQuote } from "@/hooks/use-swap-quote"
 import tokenList from "@/lib/token-list.json"
 import type { Token } from "@/types/swap"
 
@@ -117,8 +118,20 @@ export default function SwapInterface() {
   const [toToken, setToToken] = useState<Token | undefined>(undefined)
   const [isFromTokenSelectorOpen, setIsFromTokenSelectorOpen] = useState(false)
   const [isToTokenSelectorOpen, setIsToTokenSelectorOpen] = useState(false)
-  const [tokenPrice, setTokenPrice] = useState<number | null>(null)
-  const [isLoadingPrice, setIsLoadingPrice] = useState(false)
+  const [fromTokenPrice, setFromTokenPrice] = useState<number | null>(null)
+  const [toTokenPrice, setToTokenPrice] = useState<number | null>(null)
+  const [isLoadingFromPrice, setIsLoadingFromPrice] = useState(false)
+  const [isLoadingToPrice, setIsLoadingToPrice] = useState(false)
+
+  // Use swap quote hook to calculate output amount
+  const { quote, isRefreshing: isQuoteLoading } = useSwapQuote({
+    tokenIn: fromToken,
+    tokenOut: toToken,
+    amountIn: amount,
+  })
+
+  // Output amount from quote
+  const outputAmount = quote?.output || "0"
 
   // Default to ETH when wallet is not connected or when tokens load
   useEffect(() => {
@@ -136,31 +149,57 @@ export default function SwapInterface() {
   // Fetch token price when fromToken changes
   useEffect(() => {
     if (!fromToken?.symbol) {
-      setTokenPrice(null)
+      setFromTokenPrice(null)
       return
     }
 
-    setIsLoadingPrice(true)
+    setIsLoadingFromPrice(true)
     fetch(`/api/token-price?symbol=${encodeURIComponent(fromToken.symbol)}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.price) {
-          setTokenPrice(data.price)
+          setFromTokenPrice(data.price)
         } else {
-          setTokenPrice(null)
+          setFromTokenPrice(null)
         }
       })
       .catch((error) => {
-        console.error("Error fetching token price:", error)
-        setTokenPrice(null)
+        console.error("Error fetching fromToken price:", error)
+        setFromTokenPrice(null)
       })
       .finally(() => {
-        setIsLoadingPrice(false)
+        setIsLoadingFromPrice(false)
       })
   }, [fromToken])
 
-  // Fetch balance for native ETH or ERC20 token
-  const { data: balance, isLoading: isLoadingBalance } = useBalance({
+  // Fetch token price when toToken changes
+  useEffect(() => {
+    if (!toToken?.symbol) {
+      setToTokenPrice(null)
+      return
+    }
+
+    setIsLoadingToPrice(true)
+    fetch(`/api/token-price?symbol=${encodeURIComponent(toToken.symbol)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.price) {
+          setToTokenPrice(data.price)
+        } else {
+          setToTokenPrice(null)
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching toToken price:", error)
+        setToTokenPrice(null)
+      })
+      .finally(() => {
+        setIsLoadingToPrice(false)
+      })
+  }, [toToken])
+
+  // Fetch balance for fromToken (native ETH or ERC20)
+  const { data: fromBalance, isLoading: isLoadingFromBalance } = useBalance({
     address: isConnected && address ? address : undefined,
     token: fromToken?.address && fromToken.address !== "0x0000000000000000000000000000000000000000" 
       ? fromToken.address as `0x${string}` 
@@ -170,12 +209,30 @@ export default function SwapInterface() {
     },
   })
 
-  // Format balance for display using smart formatter
-  const balanceValue = balance && fromToken
-    ? parseFloat(formatUnits(balance.value, fromToken.decimals))
+  // Fetch balance for toToken (native ETH or ERC20)
+  const { data: toBalance, isLoading: isLoadingToBalance } = useBalance({
+    address: isConnected && address ? address : undefined,
+    token: toToken?.address && toToken.address !== "0x0000000000000000000000000000000000000000" 
+      ? toToken.address as `0x${string}` 
+      : undefined,
+    query: {
+      enabled: isConnected && !!address && !!toToken,
+    },
+  })
+
+  // Format balances for display using smart formatter
+  const fromBalanceValue = fromBalance && fromToken
+    ? parseFloat(formatUnits(fromBalance.value, fromToken.decimals))
     : 0
-  const formattedBalance = balanceValue > 0 
-    ? formatDisplayAmount(balanceValue, fromToken)
+  const formattedFromBalance = fromBalanceValue > 0 
+    ? formatDisplayAmount(fromBalanceValue, fromToken)
+    : "0"
+
+  const toBalanceValue = toBalance && toToken
+    ? parseFloat(formatUnits(toBalance.value, toToken.decimals))
+    : 0
+  const formattedToBalance = toBalanceValue > 0 
+    ? formatDisplayAmount(toBalanceValue, toToken)
     : "0"
 
   // Common tokens for quick select: ETH, USDC, USDT, WBTC, WETH
@@ -212,13 +269,13 @@ export default function SwapInterface() {
         <div className="flex justify-between items-center">
           <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Sell</span>
           {/* Quick Select Percentages - Only visible on hover */}
-          {isConnected && balance && fromToken && (
+          {isConnected && fromBalance && fromToken && (
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               {['25%', '50%', '75%', 'Max'].map((pct) => {
                 const handlePercentageClick = () => {
-                  if (!balance || !fromToken) return
+                  if (!fromBalance || !fromToken) return
                   
-                  const balanceValue = parseFloat(formatUnits(balance.value, fromToken.decimals))
+                  const balanceValue = parseFloat(formatUnits(fromBalance.value, fromToken.decimals))
                   
                   if (pct === 'Max') {
                     setAmount(balanceValue.toString())
@@ -230,16 +287,16 @@ export default function SwapInterface() {
                 }
                 
                 return (
-                  <button 
-                    key={pct}
+              <button 
+                key={pct}
                     onClick={handlePercentageClick}
-                    className="px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-bold text-muted-foreground hover:bg-white/10 hover:text-white transition-colors"
-                  >
-                    {pct}
-                  </button>
+                className="px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-bold text-muted-foreground hover:bg-white/10 hover:text-white transition-colors"
+              >
+                {pct}
+              </button>
                 )
               })}
-            </div>
+          </div>
           )}
         </div>
 
@@ -302,8 +359,8 @@ export default function SwapInterface() {
             
             return (
               <div className="flex-1 relative">
-                <input 
-                  type="text" 
+          <input 
+            type="text" 
                   value={displayValue}
                   onChange={(e) => {
                     // Allow user to type freely, store raw value
@@ -326,8 +383,8 @@ export default function SwapInterface() {
                       }
                     }
                   }}
-                  placeholder="0"
-                  className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20"
+            placeholder="0"
+            className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20"
                   disabled={!isConnected}
                 />
               </div>
@@ -348,9 +405,9 @@ export default function SwapInterface() {
                     <img src={fromToken.logoURI} alt={fromToken.symbol} className="w-full h-full object-contain" />
                   </div>
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-white/10 overflow-hidden flex items-center justify-center">
+            <div className="w-7 h-7 rounded-full bg-white/10 overflow-hidden flex items-center justify-center">
                     <span className="text-xs font-bold">{fromToken.symbol[0]}</span>
-                  </div>
+            </div>
                 )}
                 <span className="font-bold text-lg">{fromToken.symbol}</span>
               </>
@@ -363,34 +420,34 @@ export default function SwapInterface() {
 
         <div className="flex justify-between items-center text-xs font-medium text-muted-foreground">
           <span>
-            {amount && parseFloat(amount) > 0 && tokenPrice
+            {amount && parseFloat(amount) > 0 && fromTokenPrice
               ? (() => {
-                  const usdValue = parseFloat(amount) * tokenPrice
+                  const usdValue = parseFloat(amount) * fromTokenPrice
                   return `$${usdValue.toLocaleString('en-US', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                     useGrouping: true
                   })}`
                 })()
-              : amount && parseFloat(amount) > 0 && isLoadingPrice
+              : amount && parseFloat(amount) > 0 && isLoadingFromPrice
               ? "—"
               : "—"}
           </span>
-          {isConnected && address && fromToken && balance && (
+          {isConnected && address && fromToken && fromBalance && (
             <TooltipProvider delayDuration={300}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex items-center gap-1 cursor-help">
-                    <Wallet size={12} className="opacity-40" />
+            <Wallet size={12} className="opacity-40" />
                     <span>
-                      {isLoadingBalance ? "—" : `${formattedBalance} ${fromToken.symbol}`}
+                      {isLoadingFromBalance ? "—" : `${formattedFromBalance} ${fromToken.symbol}`}
                     </span>
-                  </div>
+          </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs font-mono bg-zinc-900 border-zinc-700">
                   <p className="text-white/90">Full balance:</p>
                   <p className="text-white/70">
-                    {balanceValue.toLocaleString('en-US', { 
+                    {fromBalanceValue.toLocaleString('en-US', { 
                       maximumFractionDigits: 18,
                       useGrouping: false
                     })} {fromToken.symbol}
@@ -406,10 +463,28 @@ export default function SwapInterface() {
       <div className="relative h-2 w-full flex justify-center z-20">
         <button 
           onClick={() => {
-            const temp = fromToken
-            setFromToken(toToken)
-            setToToken(temp)
-            setAmount("")
+            // Store current values before swapping
+            const tempFromToken = fromToken
+            const tempToToken = toToken
+            const currentOutputAmount = quote?.output || outputAmount || ""
+            
+            // Swap tokens
+            setFromToken(tempToToken)
+            setToToken(tempFromToken)
+            
+            // Swap the amount - use current output amount as new input
+            // If we have a quote output, use it; otherwise use the displayed output amount
+            if (currentOutputAmount && parseFloat(currentOutputAmount) > 0) {
+              setAmount(currentOutputAmount)
+            } else {
+              setAmount("")
+            }
+            
+            // Swap prices
+            const tempFromPrice = fromTokenPrice
+            const tempToPrice = toTokenPrice
+            setFromTokenPrice(tempToPrice)
+            setToTokenPrice(tempFromPrice)
           }}
           className="absolute -top-4 p-2 bg-[#1B1B1B] border-[4px] border-[#131313] rounded-xl hover:scale-110 transition-transform text-white shadow-lg"
         >
@@ -456,7 +531,11 @@ export default function SwapInterface() {
         </div>
 
         <div className="flex justify-between items-center mt-1">
-          <span className="text-4xl font-medium text-white/40">0</span>
+          <span className="text-4xl font-medium text-white/40">
+            {isQuoteLoading ? "—" : outputAmount && parseFloat(outputAmount) > 0 
+              ? formatDisplayAmount(outputAmount, toToken)
+              : "0"}
+          </span>
           <button 
             onClick={(e) => {
               e.preventDefault()
@@ -481,7 +560,45 @@ export default function SwapInterface() {
           </button>
         </div>
 
-        <div className="h-4" /> {/* Spacer to match height */}
+        <div className="flex justify-between items-center text-xs font-medium text-muted-foreground">
+          <span>
+            {outputAmount && parseFloat(outputAmount) > 0 && toTokenPrice
+              ? (() => {
+                  const usdValue = parseFloat(outputAmount) * toTokenPrice
+                  return `$${usdValue.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                    useGrouping: true
+                  })}`
+                })()
+              : outputAmount && parseFloat(outputAmount) > 0 && isLoadingToPrice
+              ? "—"
+              : "—"}
+          </span>
+          {isConnected && address && toToken && toBalance && (
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 cursor-help">
+                    <Wallet size={12} className="opacity-40" />
+                    <span>
+                      {isLoadingToBalance ? "—" : `${formattedToBalance} ${toToken.symbol}`}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs font-mono bg-zinc-900 border-zinc-700">
+                  <p className="text-white/90">Full balance:</p>
+                  <p className="text-white/70">
+                    {toBalanceValue.toLocaleString('en-US', { 
+                      maximumFractionDigits: 18,
+                      useGrouping: false
+                    })} {toToken.symbol}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
       </div>
 
       {/* ACTION BUTTON */}
