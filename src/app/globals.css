@@ -209,6 +209,27 @@ All colors MUST be HSL.
   }
 }
 
+/* Blinking cursor animation for input fields */
+@keyframes blink-cursor {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Ensure input fields have visible blinking cursor */
+input[type="text"] {
+  caret-color: white;
+}
+
+input[type="text"]:focus {
+  caret-color: white;
+}
+
 /* Ensure inactive tab content is hidden on mobile (but not tab triggers) */
 @media (max-width: 640px) {
   [role="tabpanel"][data-state="inactive"] {
