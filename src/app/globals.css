@@ -202,6 +202,11 @@ All colors MUST be HSL.
     animation: pulse-3 6s cubic-bezier(0.4, 0, 0.6, 1);
     will-change: opacity;
   }
+
+  .animate-pulse-3-loop {
+    animation: pulse-3 6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    will-change: opacity;
+  }
 }
 
 /* Ensure inactive tab content is hidden on mobile (but not tab triggers) */
