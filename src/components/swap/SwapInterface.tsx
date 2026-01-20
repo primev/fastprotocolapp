@@ -1,17 +1,38 @@
 "use client"
 
-import React, { useState } from "react"
-import { ArrowDown, Settings2 } from "lucide-react"
+import React, { useState, useEffect, useMemo } from "react"
+import { ArrowUpDown, Settings2, ChevronDown, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import AmountInput from "./AmountInput"
+import { useBalance, useAccount } from "wagmi"
+import { formatUnits } from "viem"
+import { cn } from "@/lib/utils"
 import TokenSelector from "./TokenSelector"
 import SwapQuoter from "./SwapQuoter"
 import { useSwapQuote } from "@/hooks/use-swap-quote"
 import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
+import { INTENT_DEADLINE_MINUTES } from "@/lib/swap-constants"
 import type { Token } from "@/types/swap"
+
+const DEADLINE_PRESETS = [
+  { label: "15m", value: 15 },
+  { label: "30m", value: 30 },
+  { label: "1h", value: 60 },
+  { label: "12h", value: 720 },
+]
+
+const STORAGE_KEY = "swap-intent-deadline-minutes"
 
 interface SwapInterfaceProps {
   tokens: Token[]
@@ -21,10 +42,35 @@ interface SwapInterfaceProps {
 export default function SwapInterface({ tokens, isLoading = false }: SwapInterfaceProps) {
   const { createIntentSignature } = useSwapIntent()
   const { nonce, refetchNonce } = usePermit2Nonce()
+  const { address } = useAccount()
 
-  // 1. Selection State
+  // Load deadline preference from localStorage
+  const [deadlineMinutes, setDeadlineMinutes] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        const parsed = parseInt(stored, 10)
+        if (!isNaN(parsed) && parsed >= 5 && parsed <= 1440) {
+          return parsed
+        }
+      }
+    }
+    return INTENT_DEADLINE_MINUTES
+  })
+
+  // Save deadline preference to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, deadlineMinutes.toString())
+    }
+  }, [deadlineMinutes])
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [tokenIn, setTokenIn] = useState<Token | undefined>(tokens?.[0])
   const [tokenOut, setTokenOut] = useState<Token | undefined>(tokens?.[1])
+  const [amountIn, setAmountIn] = useState("")
+  const [isSigning, setIsSigning] = useState(false)
+  const [tokenSelectorOpen, setTokenSelectorOpen] = useState<"in" | "out" | null>(null)
 
   // Update tokens when they change
   React.useEffect(() => {
@@ -35,17 +81,27 @@ export default function SwapInterface({ tokens, isLoading = false }: SwapInterfa
       setTokenOut(tokens[1])
     }
   }, [tokens, tokenIn, tokenOut])
-  const [amountIn, setAmountIn] = useState("")
-  const [isSigning, setIsSigning] = useState(false)
 
-  // 2. Quote Logic
-  const { quote, timeLeft, isRefreshing } = useSwapQuote({
-    tokenIn,
-    tokenOut,
-    amountIn,
+  // Fetch token balance for the selected input token
+  const { data: tokenBalance } = useBalance({
+    address,
+    token: tokenIn?.address as `0x${string}` | undefined,
   })
 
-  // 3. Action Handler
+  // Calculate balance in token units
+  const balance = useMemo(() => {
+    if (!tokenBalance || !tokenIn) return "0"
+    try {
+      return formatUnits(tokenBalance.value, tokenIn.decimals)
+    } catch {
+      return "0"
+    }
+  }, [tokenBalance, tokenIn])
+
+  // Swap quote logic
+  const { quote, timeLeft, isRefreshing } = useSwapQuote({ tokenIn, tokenOut, amountIn })
+
+  // Action Handler
   const handleSwap = async () => {
     if (!tokenIn || !tokenOut || !quote || !nonce) {
       toast.error("Please fill in all swap details")
@@ -68,10 +124,15 @@ export default function SwapInterface({ tokens, isLoading = false }: SwapInterfa
         quote.output, // minAmountOut
         nonce,
         tokenIn.decimals,
-        tokenOut.decimals
+        tokenOut.decimals,
+        deadlineMinutes
       )
 
-      // 4. Send to Backend Relayer
+      // Log the signature that will be passed to the API
+      console.log("=== Signature to be sent to API ===")
+      console.log("Signature:", signature)
+      console.log("===================================")
+
       // Serialize bigint values to strings for JSON
       const serializedIntent = {
         ...intent,
@@ -91,16 +152,22 @@ export default function SwapInterface({ tokens, isLoading = false }: SwapInterfa
         deadline: permit.deadline.toString(),
       }
 
+      // Log the full payload being sent to the API
+      const apiPayload = {
+        signature,
+        intent: serializedIntent,
+        permit: serializedPermit,
+      }
+      console.log("=== Full API Payload ===")
+      console.log(JSON.stringify(apiPayload, null, 2))
+      console.log("=========================")
+
       const response = await fetch("/api/relay", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          signature,
-          intent: serializedIntent,
-          permit: serializedPermit,
-        }),
+        body: JSON.stringify(apiPayload),
       })
 
       const data = await response.json()
@@ -130,70 +197,196 @@ export default function SwapInterface({ tokens, isLoading = false }: SwapInterfa
     setAmountIn("")
   }
 
-  const isSwapDisabled = !amountIn || isRefreshing || isLoading || isSigning || !quote
+  // Format balance safely
+  const formattedBalance = useMemo(() => {
+    const num = parseFloat(balance)
+    if (isNaN(num) || num === 0) return "0"
+    return num.toLocaleString(undefined, { maximumFractionDigits: 4 })
+  }, [balance])
 
   return (
-    <Card className="w-full max-w-[480px] p-4 bg-background/60 backdrop-blur-xl border-white/10 shadow-2xl mx-auto">
-      <div className="flex justify-between items-center mb-4 px-2">
-        <h2 className="text-xl font-bold tracking-tight">Swap</h2>
-        <Button variant="ghost" size="icon" className="text-muted-foreground">
-          <Settings2 size={18} />
-        </Button>
-      </div>
-
-      <div className="space-y-1 relative">
-        {/* Sell Section */}
-        <AmountInput
-          label="Sell"
-          value={amountIn}
-          onChange={setAmountIn}
-          selectedToken={tokenIn}
-          onTokenSelect={setTokenIn}
-          tokens={tokens}
-        />
-
-        {/* Switch Button */}
-        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+    <div className="w-full max-w-[440px] mx-auto">
+      <Card className="relative p-0 bg-card/95 backdrop-blur-xl border-border/40 shadow-lg rounded-3xl overflow-hidden">
+        
+        {/* Top Navigation / Header */}
+        <div className="flex justify-between items-center px-5 pt-4 pb-1">
+          <span className="text-xs font-medium text-muted-foreground tracking-tight">Swap</span>
           <Button
+            variant="ghost"
             size="icon"
-            variant="secondary"
-            className="rounded-xl border-4 border-background h-10 w-10 hover:scale-110 transition-transform"
-            onClick={switchTokens}
+            className="rounded-full h-7 w-7 hover:bg-muted/40 transition-colors"
+            onClick={() => setIsSettingsOpen(true)}
           >
-            <ArrowDown size={16} />
+            <Settings2 size={16} className="text-muted-foreground" />
           </Button>
         </div>
 
-        {/* Buy Section */}
-        <AmountInput
-          label="Buy"
-          value={quote?.output || ""}
-          readOnly
-          selectedToken={tokenOut}
-          onTokenSelect={setTokenOut}
-          tokens={tokens}
-        />
-      </div>
+        <div className="px-4 pb-2 space-y-0">
+          {/* Input Module: Minimal Google Style */}
+          <div className="group relative p-4 bg-muted/20 rounded-2xl border border-border/20 focus-within:border-border/40 transition-all duration-200">
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-xs font-medium text-muted-foreground">Sell</label>
+              {address && tokenIn && (
+                <div className="flex gap-2 items-center">
+                  <span className="text-[10px] text-muted-foreground/80 tabular-nums">Balance: {formattedBalance}</span>
+                  <button 
+                    onClick={() => setAmountIn(balance)}
+                    className="text-[10px] font-semibold text-foreground/80 hover:text-foreground uppercase tracking-wider transition-colors"
+                  >
+                    Max
+                  </button>
+                </div>
+              )}
+            </div>
 
-      {/* Pricing & Logic Details */}
-      <div className="mt-4">
-        <SwapQuoter
-          quote={quote}
-          timeLeft={timeLeft}
-          isRefreshing={isRefreshing}
-          tokenInSymbol={tokenIn?.symbol}
-          tokenOutSymbol={tokenOut?.symbol}
-        />
-      </div>
+            <div className="flex items-center gap-3">
+              <Input
+                type="text"
+                inputMode="decimal"
+                placeholder="0"
+                value={amountIn}
+                onChange={(e) => setAmountIn(e.target.value)}
+                className="flex-1 text-3xl font-light tracking-tight border-0 bg-transparent focus-visible:ring-0 p-0 h-auto placeholder:text-muted-foreground/20 text-foreground"
+              />
+              <Button
+                variant="outline"
+                onClick={() => setTokenSelectorOpen("in")}
+                className="flex items-center gap-1.5 pr-2.5 pl-2 h-10 border-border/30 bg-background/80 hover:bg-background transition-all rounded-xl min-w-[100px]"
+              >
+                {tokenIn?.logoURI && <img src={tokenIn.logoURI} alt={tokenIn.symbol} className="w-5 h-5 rounded-full" />}
+                <span className="font-medium text-xs text-foreground">{tokenIn?.symbol || "Select"}</span>
+                <ChevronDown size={12} className="text-muted-foreground/50" />
+              </Button>
+            </div>
+          </div>
 
-      {/* Main Action */}
-      <Button
-        className="w-full mt-4 h-14 text-lg font-bold rounded-2xl bg-indigo-600 hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
-        disabled={isSwapDisabled}
-        onClick={handleSwap}
-      >
-        {isLoading ? "Loading Tokens..." : isSigning ? "Signing..." : "Swap"}
-      </Button>
-    </Card>
+          {/* Minimal Switcher */}
+          <div className="relative h-1 flex justify-center items-center z-20 -my-0.5">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="absolute rounded-xl h-9 w-9 bg-card border-2 border-card shadow-md hover:scale-105 active:scale-95 transition-all group"
+              onClick={switchTokens}
+            >
+              <ArrowUpDown size={16} className="text-foreground/60 group-hover:rotate-180 transition-transform duration-300" />
+            </Button>
+          </div>
+
+          {/* Output Module */}
+          <div className="p-4 bg-muted/10 rounded-2xl border border-border/15 transition-all duration-200">
+            <div className="flex justify-between items-center mb-2 text-xs font-medium text-muted-foreground">
+              <span>Buy</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 text-3xl font-light tracking-tight text-foreground/80 tabular-nums overflow-hidden text-ellipsis">
+                {quote?.output || "0"}
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setTokenSelectorOpen("out")}
+                className="flex items-center gap-1.5 pr-2.5 pl-2 h-10 border-border/30 bg-background/80 hover:bg-background transition-all rounded-xl min-w-[100px]"
+              >
+                {tokenOut?.logoURI && <img src={tokenOut.logoURI} alt={tokenOut.symbol} className="w-5 h-5 rounded-full" />}
+                <span className="font-medium text-xs text-foreground">{tokenOut?.symbol || "Select"}</span>
+                <ChevronDown size={12} className="text-muted-foreground/50" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Info & Quote Section - More Compact */}
+        <div className="px-5 py-3">
+          <SwapQuoter
+            quote={quote}
+            timeLeft={timeLeft}
+            isRefreshing={isRefreshing}
+            tokenInSymbol={tokenIn?.symbol}
+            tokenOutSymbol={tokenOut?.symbol}
+          />
+        </div>
+
+        {/* Main Action: Minimal Google Button */}
+        <div className="px-4 pb-4">
+          <Button
+            className={cn(
+              "w-full h-12 rounded-xl text-sm font-medium transition-all duration-200",
+              "bg-foreground text-background shadow-sm",
+              "hover:bg-foreground/90 hover:shadow-md",
+              "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-sm"
+            )}
+            disabled={!amountIn || isRefreshing || isSigning || isLoading || !quote}
+            onClick={handleSwap}
+          >
+            {isSigning ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                <span>Signing...</span>
+              </div>
+            ) : isLoading ? (
+              "Loading..."
+            ) : (
+              "Review Swap"
+            )}
+          </Button>
+        </div>
+      </Card>
+
+      {/* Settings Modal */}
+      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+        <DialogContent className="rounded-[32px] border-border/50 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-semibold tracking-tight">Settings</DialogTitle>
+            <DialogDescription className="text-base text-muted-foreground">
+              Configure how your intent is executed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="space-y-3">
+              <Label className="text-sm font-bold text-foreground ml-1">Signature Deadline</Label>
+              <div className="flex flex-wrap gap-2">
+                {DEADLINE_PRESETS.map((p) => (
+                  <Button
+                    key={p.value}
+                    variant={deadlineMinutes === p.value ? "default" : "secondary"}
+                    className="rounded-2xl px-5 h-10 transition-all"
+                    onClick={() => setDeadlineMinutes(p.value)}
+                  >
+                    {p.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="p-3 bg-muted/30 border border-border/30 rounded-xl flex gap-2.5 items-start">
+              <Info size={16} className="text-muted-foreground mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Short deadlines protect you from market volatility. We recommend 30 minutes for the best balance of security and execution reliability.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modals */}
+      <TokenSelector
+        open={tokenSelectorOpen === "in"}
+        onOpenChange={(open) => setTokenSelectorOpen(open ? "in" : null)}
+        tokens={tokens}
+        selectedToken={tokenIn}
+        onSelect={(token) => {
+          setTokenIn(token)
+          setTokenSelectorOpen(null)
+        }}
+      />
+      <TokenSelector
+        open={tokenSelectorOpen === "out"}
+        onOpenChange={(open) => setTokenSelectorOpen(open ? "out" : null)}
+        tokens={tokens}
+        selectedToken={tokenOut}
+        onSelect={(token) => {
+          setTokenOut(token)
+          setTokenSelectorOpen(null)
+        }}
+      />
+    </div>
   )
 }
