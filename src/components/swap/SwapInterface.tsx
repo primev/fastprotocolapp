@@ -542,6 +542,21 @@ export default function SwapInterface({
       })
   }, [toToken])
 
+  // Fetch ETH price for network cost calculation
+  const [ethPrice, setEthPrice] = useState<number | null>(null)
+  useEffect(() => {
+    fetch(`/api/token-price?symbol=ETH`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.price) {
+          setEthPrice(data.price)
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching ETH price:", error)
+      })
+  }, [])
+
   // Fetch balance for fromToken (native ETH or ERC20)
   const { data: fromBalance, isLoading: isLoadingFromBalance } = useBalance({
     address: isConnected && address ? address : undefined,
@@ -907,23 +922,31 @@ export default function SwapInterface({
           {/* Shine Line */}
           <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.1] to-transparent" />
 
-          {/* <div className="flex-1">
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20">
-              Fast Protocol
+          <div className="flex-1">
+            <span className="text-[12px] font-bold uppercase tracking-[0.2em] text-white/20">
+              Fast Swap
             </span>
-          </div> */}
+          </div>
 
-          <div className="px-4 py-1 rounded-full bg-white/[0.03] border border-white/5">
+          {/* <div className="px-4 py-1 rounded-full bg-white/[0.03] border border-white/5">
             <span className="text-xs font-semibold text-white/90 uppercase tracking-widest">
               Swap
             </span>
-          </div>
+          </div> */}
 
           <div className="flex-1 flex justify-end">
             <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
               <PopoverTrigger asChild>
-                <button className="p-1.5 rounded-lg hover:bg-white/5 text-white/40 hover:text-white transition-colors">
-                  <Settings size={16} />
+                <button
+                  className={cn(
+                    "p-2 rounded-full transition-transform duration-300 ease-in-out",
+                    "text-white/60",
+                    "hover:rotate-90",
+                    "focus:outline-none",
+                    isSettingsOpen && "rotate-90"
+                  )}
+                >
+                  <Settings size={18} strokeWidth={2} />
                 </button>
               </PopoverTrigger>
               <PopoverContent
@@ -1036,7 +1059,7 @@ export default function SwapInterface({
         {/* SELL SECTION */}
         <div
           className={cn(
-            "group/sell rounded-[20px] p-4 flex flex-col gap-2 transition-all",
+            "group/sell rounded-[20px] p-4 flex flex-col gap-2 transition-all min-h-[140px]",
             editingSide === "sell" ? "bg-[#222] shadow-2xl" : "bg-[#1B1B1B]/50"
           )}
         >
@@ -1380,7 +1403,7 @@ export default function SwapInterface({
         {/* BUY SECTION */}
         <div
           className={cn(
-            "group/buy relative rounded-[20px] p-4 flex flex-col gap-2 transition-all",
+            "group/buy relative rounded-[20px] p-4 flex flex-col gap-2 transition-all min-h-[140px]",
             editingSide === "buy" ? "bg-[#222] shadow-2xl" : "bg-[#1B1B1B]/50"
           )}
         >
@@ -1636,7 +1659,7 @@ export default function SwapInterface({
         {/* REVIEW SECTION - Only show if started */}
         {hasStarted && quote && fromToken && toToken && (
           <div className="px-4 py-2 border-t border-white/5 mt-1">
-            {/* EXCHANGE RATE HEADER - Clickable to toggle accordion */}
+            {/* HEADER: Exchange rate, Show less */}
             {exchangeRate > 0 && (
               <div className="w-full flex justify-between items-center text-xs py-0.5">
                 <button
@@ -1654,8 +1677,9 @@ export default function SwapInterface({
                 </button>
                 <button
                   onClick={() => setIsReviewAccordionOpen(!isReviewAccordionOpen)}
-                  className="text-white/60 hover:text-white/80 transition-colors"
+                  className="text-white/60 hover:text-white/80 transition-colors flex items-center gap-1"
                 >
+                  <span className="text-xs">Show {isReviewAccordionOpen ? "less" : "more"}</span>
                   {isReviewAccordionOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </button>
               </div>
@@ -1671,8 +1695,43 @@ export default function SwapInterface({
               )}
             >
               <div className="space-y-1.5 mt-2 pt-2 border-t border-white/5">
+                {/* Fee */}
                 <div className="flex justify-between items-center text-xs py-0.5">
-                  <span className="text-white/60">Price Impact</span>
+                  <span className="text-white/60">Fee</span>
+                  <span className="text-white/80 font-medium">Free</span>
+                </div>
+
+                {/* Network cost */}
+                {quote.gasEstimate && ethPrice && (
+                  <div className="flex justify-between items-center text-xs py-0.5">
+                    <span className="text-white/60">Network cost</span>
+                    <span className="text-white/80 font-medium">
+                      ${((Number(quote.gasEstimate) / 1e18) * ethPrice).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Max slippage */}
+                <div className="flex justify-between items-center text-xs py-0.5">
+                  <span className="text-white/60">Max slippage</span>
+                  <button
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="text-white/80 font-medium underline decoration-dotted decoration-white/40 underline-offset-2 hover:text-white hover:decoration-white/60 transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <span>Auto</span>
+                    <span>{slippage}%</span>
+                  </button>
+                </div>
+
+                {/* Order routing */}
+                <div className="flex justify-between items-center text-xs py-0.5">
+                  <span className="text-white/60">Order routing</span>
+                  <span className="text-white/80 font-medium">Fast Protocol</span>
+                </div>
+
+                {/* Price Impact */}
+                <div className="flex justify-between items-center text-xs py-0.5">
+                  <span className="text-white/60">Price impact</span>
                   <span
                     className={cn(
                       "font-medium",
@@ -1684,23 +1743,16 @@ export default function SwapInterface({
                     {formatPriceImpact(quote.priceImpact)}
                   </span>
                 </div>
+
+                {/* Minimum received */}
                 <div className="flex justify-between items-center text-xs py-0.5">
-                  <span className="text-white/60">Slippage Tolerance</span>
-                  <button
-                    onClick={() => setIsSettingsOpen(true)}
-                    className="text-white/80 font-medium underline decoration-dotted decoration-white/40 underline-offset-2 hover:text-white hover:decoration-white/60 transition-colors cursor-pointer"
-                  >
-                    {slippage}%
-                  </button>
+                  <span className="text-white/60">Minimum received</span>
+                  <span className="text-white/80 font-medium">
+                    {minAmountOut} {toToken.symbol}
+                  </span>
                 </div>
-                {quote.gasEstimate && (
-                  <div className="flex justify-between items-center text-xs py-0.5">
-                    <span className="text-white/60">Network Fee</span>
-                    <span className="text-white/80 font-medium">
-                      ~{(Number(quote.gasEstimate) / 1e18).toFixed(6)} ETH
-                    </span>
-                  </div>
-                )}
+
+                {/* Quote Refresh */}
                 {displayQuote && timeLeft > 0 && (
                   <>
                     <div className="border-t border-white/5 my-1" />
@@ -1717,6 +1769,7 @@ export default function SwapInterface({
                     </div>
                   </>
                 )}
+
                 {hasHighPriceImpact && (
                   <div className="flex items-start gap-2 p-2.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20 mt-2">
                     <AlertTriangle size={14} className="text-yellow-400 mt-0.5 flex-shrink-0" />
@@ -1847,6 +1900,8 @@ export default function SwapInterface({
             priceImpact={quote?.priceImpact || 0}
             slippage={slippage}
             gasEstimate={quote?.gasEstimate || null}
+            ethPrice={ethPrice}
+            timeLeft={timeLeft}
             isLoading={isSigning || isSubmitting}
           />
         )}
