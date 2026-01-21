@@ -213,6 +213,9 @@ export function useQuote({
     [tokenInKey, tokenOutKey, amountIn, slippage, tradeType]
   )
 
+  // Track previous amount to detect amount changes
+  const prevAmountInRef = useRef(amountIn)
+
   const fetchQuote = useCallback(async () => {
     // Increment request ID to track this request
     const currentRequestId = ++requestIdRef.current
@@ -648,14 +651,19 @@ export function useQuote({
       prevTokenKeysForFetchRef.current.tokenInKey !== tokenInKey ||
       prevTokenKeysForFetchRef.current.tokenOutKey !== tokenOutKey
 
-    if (tokensChanged) {
-      // Tokens changed - fetch immediately (no debounce)
-      // Update refs now so next render knows tokens have changed
+    // Check if amount changed
+    const amountChanged = prevAmountInRef.current !== amountIn
+
+    if (tokensChanged || amountChanged) {
+      // Tokens or amount changed - fetch immediately (no debounce)
+      // Update refs now so next render knows what changed
       prevTokenKeysForFetchRef.current = { tokenInKey, tokenOutKey }
+      prevAmountInRef.current = amountIn
       fetchQuote()
     } else {
-      // Amount or other input changed - use debounce
+      // Other input changed (slippage, tradeType) - use debounce
       prevTokenKeysForFetchRef.current = { tokenInKey, tokenOutKey }
+      prevAmountInRef.current = amountIn
       debounceRef.current = setTimeout(() => {
         fetchQuote()
       }, debounceMs)

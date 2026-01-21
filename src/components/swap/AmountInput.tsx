@@ -63,7 +63,6 @@ export default React.memo(function AmountInput({
               {isActive ? (
                 <input
                   ref={inputRef}
-                  key={`input-tooltip-${pulseAnimationKey}`}
                   type="text"
                   value={value}
                   onChange={handleChange}
@@ -110,7 +109,6 @@ export default React.memo(function AmountInput({
       {isActive ? (
         <input
           ref={inputRef}
-          key={`input-simple-${pulseAnimationKey}`}
           type="text"
           value={value}
           onChange={handleChange}
