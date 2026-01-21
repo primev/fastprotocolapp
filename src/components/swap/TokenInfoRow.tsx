@@ -34,10 +34,13 @@ export default React.memo(function TokenInfoRow({
   address,
   showError,
 }: TokenInfoRowProps) {
-  const usdValue =
-    displayAmount && parseFloat(displayAmount) > 0 && tokenPrice
-      ? parseFloat(displayAmount) * tokenPrice
-      : null
+  // Remove commas from displayAmount before parsing (formatTokenAmount returns values like "3,017.65")
+  const cleanDisplayAmount = displayAmount ? displayAmount.replace(/,/g, "") : ""
+  const numericDisplayAmount =
+    cleanDisplayAmount && !isNaN(parseFloat(cleanDisplayAmount))
+      ? parseFloat(cleanDisplayAmount)
+      : 0
+  const usdValue = numericDisplayAmount > 0 && tokenPrice ? numericDisplayAmount * tokenPrice : null
 
   return (
     <div className="flex justify-between items-center text-xs font-medium text-muted-foreground">
@@ -48,7 +51,7 @@ export default React.memo(function TokenInfoRow({
               maximumFractionDigits: 2,
               useGrouping: true,
             })}`
-          : displayAmount && parseFloat(displayAmount) > 0 && isLoadingPrice
+          : numericDisplayAmount > 0 && isLoadingPrice
             ? "—"
             : "—"}
       </span>

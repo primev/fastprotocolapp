@@ -34,8 +34,18 @@ export default React.memo(function AmountInput({
   pulseAnimationKey,
   inputRef,
 }: AmountInputProps) {
-  const fullValue = value && parseFloat(value) > 0 ? parseFloat(value).toString() : null
-  const isTrimmed = isActive && fullValue && value !== fullValue
+  // Remove commas and other formatting from value for parsing
+  // formatTokenAmount returns values like "3,016.86" which parseFloat can't handle
+  const cleanValue = value ? value.replace(/,/g, "") : ""
+  const parsedValue = cleanValue && !isNaN(parseFloat(cleanValue)) ? parseFloat(cleanValue) : 0
+  const numericValue = parsedValue >= 0 ? parsedValue : 0
+
+  // Preserve decimal precision from original value to maintain trailing zeros (e.g., 13.50)
+  const decimalPlaces = cleanValue.includes(".") ? cleanValue.split(".")[1]?.length || 0 : 0
+  const minFractionDigits = decimalPlaces > 0 ? Math.min(decimalPlaces, 6) : 0
+
+  const fullValue = numericValue > 0 ? numericValue.toString() : null
+  const isTrimmed = isActive && fullValue && cleanValue !== fullValue
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value.replace(/[^0-9.]/g, "")
@@ -74,8 +84,8 @@ export default React.memo(function AmountInput({
                   )}
                 >
                   <NumberFlow
-                    value={parseFloat(value) || 0}
-                    format={{ minimumFractionDigits: 0, maximumFractionDigits: 6 }}
+                    value={numericValue || 0}
+                    format={{ minimumFractionDigits: minFractionDigits, maximumFractionDigits: 6 }}
                     spinTiming={{ duration: 600, easing: "ease-out" }}
                   />
                 </div>
@@ -84,10 +94,10 @@ export default React.memo(function AmountInput({
           </TooltipTrigger>
           <TooltipContent side="top" className="text-xs font-mono bg-zinc-900 border-zinc-700">
             <p className="text-white/70">
-              {parseFloat(value).toLocaleString("en-US", {
+              {numericValue?.toLocaleString("en-US", {
                 maximumFractionDigits: 18,
                 useGrouping: false,
-              })}
+              }) || "0"}
             </p>
           </TooltipContent>
         </Tooltip>
@@ -124,8 +134,8 @@ export default React.memo(function AmountInput({
           )}
         >
           <NumberFlow
-            value={parseFloat(value) || 0}
-            format={{ minimumFractionDigits: 0, maximumFractionDigits: 6 }}
+            value={numericValue || 0}
+            format={{ minimumFractionDigits: minFractionDigits, maximumFractionDigits: 6 }}
             spinTiming={{ duration: 600, easing: "ease-out" }}
           />
         </div>

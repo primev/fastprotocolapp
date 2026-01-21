@@ -36,6 +36,22 @@ export default React.memo(function SwapActionButton({
   onSwap,
 }: SwapActionButtonProps) {
   if (!hasStarted) {
+    // Check for missing sell token first
+    if (!fromToken) {
+      return (
+        <button
+          disabled={true}
+          onClick={onGetStarted}
+          className={cn(
+            "mt-1 w-full py-4 rounded-[20px] font-bold text-lg transition-all border border-white/10",
+            "bg-zinc-900/50 text-zinc-600 cursor-not-allowed"
+          )}
+        >
+          Select Tokens
+        </button>
+      )
+    }
+
     return (
       <button
         disabled={insufficientBalance}
@@ -47,9 +63,7 @@ export default React.memo(function SwapActionButton({
             : "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
         )}
       >
-        {insufficientBalance
-          ? `Not enough ${editingSide === "sell" ? fromToken?.symbol || "" : toToken?.symbol || ""}`
-          : "Get Started"}
+        {insufficientBalance ? `Not enough ${fromToken.symbol}` : "Get Started"}
       </button>
     )
   }
@@ -66,23 +80,35 @@ export default React.memo(function SwapActionButton({
     isSigning ||
     isSubmitting
 
+  // Priority order for button text:
+  // 1. Loading states (signing/submitting)
+  // 2. Connection state
+  // 3. Missing sell token (fromToken) - most important for user
+  // 4. Missing buy token (toToken)
+  // 5. Insufficient balance (always reference sell token)
+  // 6. Amount validation
+  // 7. Quote loading
+  // 8. Price impact
+  // 9. Ready to swap
   const buttonText = isSigning
     ? "Signing..."
     : isSubmitting
       ? "Submitting..."
       : !isConnected
         ? "Connect Wallet"
-        : insufficientBalance
-          ? `Not enough ${editingSide === "sell" ? fromToken?.symbol || "" : toToken?.symbol || ""}`
-          : !fromToken || !toToken
+        : !fromToken
+          ? "Select Tokens"
+          : !toToken
             ? "Select Tokens"
-            : !amount || parseFloat(amount) <= 0
-              ? "Enter Amount"
-              : !quote
-                ? "Loading Quote..."
-                : hasVeryHighPriceImpact
-                  ? "Price Impact Too High"
-                  : "Swap"
+            : insufficientBalance
+              ? `Not enough ${fromToken.symbol}`
+              : !amount || parseFloat(amount) <= 0
+                ? "Enter Amount"
+                : !quote
+                  ? "Loading Quote..."
+                  : hasVeryHighPriceImpact
+                    ? "Price Impact Too High"
+                    : "Swap"
 
   return (
     <button
