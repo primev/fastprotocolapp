@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { formatPriceImpact, getPriceImpactSeverity } from "@/hooks/use-quote"
+import { useGasPrice } from "@/hooks/use-gas-price"
 import { AlertTriangle, ArrowDown, Timer, Zap, ShieldCheck } from "lucide-react"
 import type { Token } from "@/types/swap"
 
@@ -50,13 +51,17 @@ function SwapConfirmationModal({
 }: SwapConfirmationModalProps) {
   const priceImpactSeverity = getPriceImpactSeverity(priceImpact)
   const hasHighPriceImpact = Math.abs(priceImpact) > 3
+  const { gasPrice } = useGasPrice()
 
-  const gasEstimateUsd =
-    gasEstimate && ethPrice
-      ? `$${((Number(gasEstimate) / 1e18) * ethPrice).toFixed(2)}`
-      : gasEstimate
-        ? `~$${((Number(gasEstimate) / 1e18) * 3000).toFixed(2)}`
-        : "—"
+  // Calculate gas cost in USD: (gasEstimate * gasPrice) / 1e18 * ethPrice
+  const gasCostUsd =
+    gasEstimate && gasPrice && ethPrice
+      ? (Number(gasEstimate) * Number(gasPrice) * ethPrice) / 1e18
+      : gasEstimate && gasPrice
+        ? (Number(gasEstimate) * Number(gasPrice) * 3000) / 1e18 // Fallback to 3000 ETH price if not available
+        : null
+
+  const gasEstimateUsd = gasCostUsd !== null ? `$${gasCostUsd.toFixed(2)}` : "—"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
