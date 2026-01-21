@@ -5,37 +5,11 @@ import { createPublicClient, http, parseUnits, formatUnits, type Address } from 
 import { mainnet } from "wagmi/chains"
 import { RPC_ENDPOINT, FALLBACK_RPC_ENDPOINT } from "@/lib/network-config"
 import { sanitizeAmountInput, formatTokenAmount } from "@/lib/utils"
+import { resolveTokenAddress, resolveTokenDecimals, getTokenSymbol } from "@/lib/token-resolver"
+import type { Token } from "@/types/swap"
 
 // Uniswap V3 Quoter V2 on Ethereum mainnet
 const QUOTER_V2_ADDRESS = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e" as const
-
-// Common token addresses on mainnet
-export const TOKEN_ADDRESSES: Record<string, Address> = {
-  ETH: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Placeholder for native ETH
-  WETH: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-  USDC: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-  USDT: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-  DAI: "0x6B175474E89094C44Da98b954EedeCB5e",
-  WBTC: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
-  LINK: "0x514910771AF9Ca656af840dff83E8264EcF986CA",
-  UNI: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
-  AAVE: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9",
-}
-
-// Token decimals
-export const TOKEN_DECIMALS: Record<string, number> = {
-  ETH: 18,
-  WETH: 18,
-  USDC: 6,
-  USDT: 6,
-  DAI: 18,
-  WBTC: 8,
-  LINK: 18,
-  UNI: 18,
-  AAVE: 18,
-  // TODO: Uncomment when FAST token is available
-  // FAST: 18,
-}
 
 // Uniswap V3 Quoter V2 ABI (supports both exact input and exact output)
 const QUOTER_V2_ABI = [
@@ -108,13 +82,14 @@ export interface QuoteResult {
 export type TradeType = "exactIn" | "exactOut"
 
 export interface UseQuoteProps {
-  tokenIn: string
-  tokenOut: string
+  tokenIn: Token | undefined // Changed from string to Token object
+  tokenOut: Token | undefined // Changed from string to Token object
   amountIn: string
   slippage: string // e.g., "0.5" for 0.5%
   enabled?: boolean
   debounceMs?: number
   tradeType?: TradeType // "exactIn" when typing sell amount, "exactOut" when typing buy amount
+  tokenList?: Token[] // Token list for fallback lookup
 }
 
 export interface UseQuoteReturn {
@@ -134,19 +109,6 @@ function createClient(rpcUrl: string) {
   })
 }
 
-// Get token address, treating ETH as WETH for quoting
-function getTokenAddress(symbol: string): Address | null {
-  if (symbol === "ETH") {
-    return TOKEN_ADDRESSES.WETH
-  }
-  return TOKEN_ADDRESSES[symbol] || null
-}
-
-// Get token decimals
-function getTokenDecimals(symbol: string): number {
-  return TOKEN_DECIMALS[symbol] || 18
-}
-
 /**
  * Validate slippage input
  * @param slippage Raw slippage string
@@ -157,6 +119,66 @@ function validateSlippage(slippage: string): number {
   if (isNaN(num) || num < 0) return 0.5 // Default to 0.5%
   if (num > 50) return 50 // Cap at 50%
   return num
+}
+
+/**
+ * Calculate auto slippage based on trade characteristics
+ * Returns a value between 0.1% and 5% based on:
+ * - Trade size (larger trades need more slippage tolerance)
+ * - Token type (stablecoins need less, volatile tokens need more)
+ * - Network conditions (higher gas = more slippage tolerance)
+ * @param tradeAmount - Trade amount in token units
+ * @param tokenIn - Input token object or symbol
+ * @param tokenOut - Output token object or symbol
+ * @param gasPriceGwei - Current gas price in gwei (optional)
+ * @returns Auto slippage percentage
+ */
+export function calculateAutoSlippage(
+  tradeAmount: number,
+  tokenIn: Token | string,
+  tokenOut: Token | string,
+  gasPriceGwei?: number | null
+): number {
+  // Base slippage for small trades
+  let slippage = 0.1
+
+  // Get token symbols for comparison
+  const tokenInSymbol = getTokenSymbol(tokenIn)?.toUpperCase() || ""
+  const tokenOutSymbol = getTokenSymbol(tokenOut)?.toUpperCase() || ""
+
+  // Check if tokens are stablecoins (need less slippage)
+  const STABLECOINS = ["USDC", "USDT", "DAI", "BUSD", "TUSD", "FRAX", "USDP", "LUSD"]
+  const isStablecoinPair =
+    STABLECOINS.includes(tokenInSymbol) || STABLECOINS.includes(tokenOutSymbol)
+
+  // Adjust based on trade size
+  // Larger trades need more slippage tolerance
+  if (tradeAmount > 100000) {
+    slippage += 1.0 // Large trades: +1%
+  } else if (tradeAmount > 10000) {
+    slippage += 0.5 // Medium trades: +0.5%
+  } else if (tradeAmount > 1000) {
+    slippage += 0.2 // Small-medium trades: +0.2%
+  }
+
+  // Adjust based on token volatility
+  if (!isStablecoinPair) {
+    slippage += 0.3 // Volatile pairs need more slippage
+  }
+
+  // Adjust based on gas prices (higher gas = more slippage tolerance to avoid reverts)
+  if (gasPriceGwei) {
+    if (gasPriceGwei > 100) {
+      slippage += 0.5 // Very high gas
+    } else if (gasPriceGwei > 50) {
+      slippage += 0.3 // High gas
+    } else if (gasPriceGwei > 20) {
+      slippage += 0.1 // Medium gas
+    }
+  }
+
+  // Clamp between 0.1% and 5%
+  return Math.max(0.1, Math.min(5.0, slippage))
 }
 
 /**
@@ -172,6 +194,7 @@ export function useQuote({
   enabled = true,
   debounceMs = 500,
   tradeType = "exactIn",
+  tokenList = [],
 }: UseQuoteProps): UseQuoteReturn {
   const [quote, setQuote] = useState<QuoteResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -179,14 +202,28 @@ export function useQuote({
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const requestIdRef = useRef(0) // Track request IDs to prevent stale quotes
 
   // Memoize inputs to prevent unnecessary refetches
+  // Use token addresses for comparison instead of symbols
+  const tokenInKey = tokenIn ? `${tokenIn.address}-${tokenIn.symbol}` : ""
+  const tokenOutKey = tokenOut ? `${tokenOut.address}-${tokenOut.symbol}` : ""
   const inputKey = useMemo(
-    () => `${tokenIn}-${tokenOut}-${amountIn}-${slippage}-${tradeType}`,
-    [tokenIn, tokenOut, amountIn, slippage, tradeType]
+    () => `${tokenInKey}-${tokenOutKey}-${amountIn}-${slippage}-${tradeType}`,
+    [tokenInKey, tokenOutKey, amountIn, slippage, tradeType]
   )
 
   const fetchQuote = useCallback(async () => {
+    // Increment request ID to track this request
+    const currentRequestId = ++requestIdRef.current
+
+    // Capture current values to ensure we use the latest ones
+    const currentTokenIn = tokenIn
+    const currentTokenOut = tokenOut
+    const currentAmountIn = amountIn
+    const currentTradeType = tradeType
+    const currentTokenList = tokenList
+
     // Cancel any pending request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -194,81 +231,99 @@ export function useQuote({
     abortControllerRef.current = new AbortController()
 
     // Validate token inputs
-    if (!tokenIn || !tokenOut || tokenIn === tokenOut) {
-      setQuote(null)
-      setError(null)
+    if (!currentTokenIn || !currentTokenOut) {
+      // Only clear if this is still the latest request
+      if (currentRequestId === requestIdRef.current) {
+        setQuote(null)
+        setError(null)
+        setIsLoading(false)
+      }
+      return
+    }
+
+    // Check if tokens are the same (by address)
+    if (currentTokenIn.address === currentTokenOut.address) {
+      if (currentRequestId === requestIdRef.current) {
+        setError(new Error("Cannot swap a token for itself. Please select different tokens."))
+        setQuote(null)
+        setIsLoading(false)
+      }
       return
     }
 
     // Sanitize and validate amount input
-    const amountInNum = sanitizeAmountInput(amountIn)
+    const amountInNum = sanitizeAmountInput(currentAmountIn)
     if (amountInNum === null || amountInNum <= 0) {
-      setQuote(null)
-      setError(null)
+      if (currentRequestId === requestIdRef.current) {
+        setQuote(null)
+        setError(null)
+        setIsLoading(false)
+      }
       return
     }
 
-    const tokenInAddress = getTokenAddress(tokenIn)
-    const tokenOutAddress = getTokenAddress(tokenOut)
+    // Debug logging
+    console.log("[useQuote] Fetching quote:", {
+      requestId: currentRequestId,
+      tokenIn: getTokenSymbol(currentTokenIn),
+      tokenOut: getTokenSymbol(currentTokenOut),
+      amountIn: currentAmountIn,
+      tradeType: currentTradeType,
+      amountInNum,
+    })
+
+    // Validate amount is not too large (prevent overflow)
+    // Maximum safe value: 1e21 (1 billion tokens with 18 decimals)
+    const MAX_AMOUNT = 1e21
+    if (amountInNum > MAX_AMOUNT) {
+      setError(new Error("Amount is too large. Please enter a smaller amount."))
+      setQuote(null)
+      setIsLoading(false)
+      return
+    }
+
+    // Resolve token addresses using token resolver
+    const tokenInAddress = resolveTokenAddress(currentTokenIn, currentTokenList)
+    const tokenOutAddress = resolveTokenAddress(currentTokenOut, currentTokenList)
 
     if (!tokenInAddress || !tokenOutAddress) {
-      // For tokens we don't have addresses for (like FAST), use mock quote
-      const mockRate = tokenIn === "ETH" ? 2300 : tokenOut === "ETH" ? 1 / 2300 : 1
-      const slippagePercent = parseFloat(slippage) || 0.5
-
-      let amountOut: bigint
-      let amountOutFormatted: string
-      let amountIn: bigint
-      let amountInFormatted: string
-      let minOut: bigint
-      let minOutFormatted: string
-
-      if (tradeType === "exactIn") {
-        // Lead is SELL box: we know amountIn (what user typed), calculate amountOut
-        const calculatedOut = amountInNum * mockRate
-        amountIn = BigInt(Math.floor(amountInNum * 1e18))
-        amountInFormatted = formatTokenAmount(amountInNum, tokenIn)
-        amountOut = BigInt(Math.floor(calculatedOut * 1e18))
-        amountOutFormatted = formatTokenAmount(calculatedOut, tokenOut)
-        const minOutNum = calculatedOut * (1 - slippagePercent / 100)
-        minOut = BigInt(Math.floor(minOutNum * 1e18))
-        minOutFormatted = formatTokenAmount(minOutNum, tokenOut)
-      } else {
-        // Lead is BUY box: amountInNum is the desired OUTPUT (what user typed)
-        // Calculate how much INPUT we need to get that output
-        const calculatedIn = amountInNum / mockRate
-        amountIn = BigInt(Math.floor(calculatedIn * 1e18))
-        amountInFormatted = formatTokenAmount(calculatedIn, tokenIn)
-        amountOut = BigInt(Math.floor(amountInNum * 1e18))
-        amountOutFormatted = formatTokenAmount(amountInNum, tokenOut) // The number typed is the target
-        // For exact output, maxIn is amountIn * (1 + slippage/100)
-        const maxInNum = calculatedIn * (1 + slippagePercent / 100)
-        minOut = BigInt(Math.floor(maxInNum * 1e18))
-        minOutFormatted = formatTokenAmount(maxInNum, tokenIn)
+      const missingToken = !tokenInAddress ? currentTokenIn : currentTokenOut
+      const tokenSymbol = getTokenSymbol(missingToken) || "Unknown"
+      if (currentRequestId === requestIdRef.current) {
+        setError(
+          new Error(`Token address not found for ${tokenSymbol}. This token may not be supported.`)
+        )
+        setQuote(null)
+        setIsLoading(false)
       }
+      return
+    }
 
-      setQuote({
-        amountOut,
-        amountOutFormatted,
-        amountIn,
-        amountInFormatted,
-        minOut,
-        minOutFormatted,
-        priceImpact: -0.01, // Mock small impact
-        exchangeRate: mockRate,
-        gasEstimate: BigInt(150000),
-        fee: 3000,
-      })
-      setError(null)
+    // Only proceed if this is still the latest request
+    if (currentRequestId !== requestIdRef.current) {
+      console.log(
+        "[useQuote] Request outdated, aborting:",
+        currentRequestId,
+        "current:",
+        requestIdRef.current
+      )
       return
     }
 
     setIsLoading(true)
     setError(null)
 
+    // Request timeout (15 seconds)
+    const timeoutId = setTimeout(() => {
+      if (abortControllerRef.current && currentRequestId === requestIdRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }, 15000)
+
     try {
-      const tokenInDecimals = getTokenDecimals(tokenIn)
-      const tokenOutDecimals = getTokenDecimals(tokenOut)
+      // Resolve token decimals using token resolver
+      const tokenInDecimals = resolveTokenDecimals(currentTokenIn, currentTokenList)
+      const tokenOutDecimals = resolveTokenDecimals(currentTokenOut, currentTokenList)
 
       let bestQuote: {
         amountOut: bigint
@@ -279,6 +334,7 @@ export function useQuote({
 
       // Try each fee tier and pick the best quote
       const clients = [createClient(FALLBACK_RPC_ENDPOINT)]
+      let workingClient = clients[0] // Store the client that worked for spot price calculation
 
       for (const client of clients) {
         try {
@@ -286,9 +342,9 @@ export function useQuote({
             try {
               let result
 
-              if (tradeType === "exactIn") {
+              if (currentTradeType === "exactIn") {
                 // Exact input: we know amountIn, calculate amountOut
-                const amountInWei = parseUnits(amountIn, tokenInDecimals)
+                const amountInWei = parseUnits(currentAmountIn, tokenInDecimals)
                 result = await client.simulateContract({
                   address: QUOTER_V2_ADDRESS,
                   abi: QUOTER_V2_ABI,
@@ -313,10 +369,12 @@ export function useQuote({
 
                 if (!bestQuote || amountOut > bestQuote.amountOut) {
                   bestQuote = { amountOut, amountIn: amountInWei, gasEstimate, fee }
+                  workingClient = client // Store the working client
                 }
               } else {
                 // Exact output: we know amountOut (from amountIn), calculate amountIn needed
-                const amountOutWei = parseUnits(amountIn, tokenOutDecimals)
+                // IMPORTANT: amountIn parameter represents the desired OUTPUT amount in exactOut mode
+                const amountOutWei = parseUnits(currentAmountIn, tokenOutDecimals)
                 result = await client.simulateContract({
                   address: QUOTER_V2_ADDRESS,
                   abi: QUOTER_V2_ABI,
@@ -341,6 +399,7 @@ export function useQuote({
 
                 if (!bestQuote || amountInWei < bestQuote.amountIn) {
                   bestQuote = { amountOut: amountOutWei, amountIn: amountInWei, gasEstimate, fee }
+                  workingClient = client // Store the working client
                 }
               }
             } catch (feeError) {
@@ -356,7 +415,22 @@ export function useQuote({
       }
 
       if (!bestQuote) {
-        throw new Error("No liquidity found for this pair")
+        const tokenInSymbol = getTokenSymbol(currentTokenIn) || "Unknown"
+        const tokenOutSymbol = getTokenSymbol(currentTokenOut) || "Unknown"
+        throw new Error(
+          `No liquidity found for ${tokenInSymbol}/${tokenOutSymbol} pair. This pair may not have an active pool.`
+        )
+      }
+
+      // Check again if this is still the latest request before processing
+      if (currentRequestId !== requestIdRef.current) {
+        console.log(
+          "[useQuote] Request outdated before processing result:",
+          currentRequestId,
+          "current:",
+          requestIdRef.current
+        )
+        return
       }
 
       // Calculate formatted amounts
@@ -366,8 +440,10 @@ export function useQuote({
       const amountInNum = parseFloat(amountInRaw)
 
       // Format based on token type (stablecoins get 2 decimals, others get 6)
-      const amountOutFormatted = formatTokenAmount(amountOutNum, tokenOut)
-      const amountInFormatted = formatTokenAmount(amountInNum, tokenIn)
+      const tokenOutSymbol = getTokenSymbol(currentTokenOut) || ""
+      const tokenInSymbol = getTokenSymbol(currentTokenIn) || ""
+      const amountOutFormatted = formatTokenAmount(amountOutNum, tokenOutSymbol)
+      const amountInFormatted = formatTokenAmount(amountInNum, tokenInSymbol)
 
       // Calculate minOut/maxIn based on slippage (with validation)
       const slippagePercent = validateSlippage(slippage)
@@ -376,25 +452,62 @@ export function useQuote({
       let minOut: bigint
       let minOutFormatted: string
 
-      if (tradeType === "exactIn") {
+      if (currentTradeType === "exactIn") {
         // For exact input: minOut = amountOut * (1 - slippage/100)
         minOut = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
         const minOutNum = parseFloat(formatUnits(minOut, tokenOutDecimals))
-        minOutFormatted = formatTokenAmount(minOutNum, tokenOut)
+        minOutFormatted = formatTokenAmount(minOutNum, tokenOutSymbol)
       } else {
         // For exact output: maxIn = amountIn * (1 + slippage/100)
         minOut = (bestQuote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
         const minOutNum = parseFloat(formatUnits(minOut, tokenInDecimals))
-        minOutFormatted = formatTokenAmount(minOutNum, tokenIn)
+        minOutFormatted = formatTokenAmount(minOutNum, tokenInSymbol)
       }
 
       // Calculate exchange rate (always output/input)
       const exchangeRate = amountOutNum / amountInNum
 
-      // Estimate price impact (simplified - comparing to spot price would require additional call)
-      // For now, estimate based on trade size relative to typical pool liquidity
-      const tradeAmount = tradeType === "exactIn" ? amountInNum : amountOutNum
-      const priceImpact = -0.01 * Math.log10(tradeAmount + 1) // Rough estimate
+      // Calculate price impact by comparing execution price to spot price
+      // Fetch spot price using a very small amount (1 wei equivalent)
+      let priceImpact = 0
+      try {
+        const spotAmountIn = parseUnits("0.000001", tokenInDecimals) // Very small amount for spot price
+        const spotResult = await workingClient.simulateContract({
+          address: QUOTER_V2_ADDRESS,
+          abi: QUOTER_V2_ABI,
+          functionName: "quoteExactInputSingle",
+          args: [
+            {
+              tokenIn: tokenInAddress,
+              tokenOut: tokenOutAddress,
+              amountIn: spotAmountIn,
+              fee: bestQuote.fee, // Use same fee tier as best quote
+              sqrtPriceLimitX96: BigInt(0),
+            },
+          ],
+        })
+
+        const [spotAmountOut] = spotResult.result as [bigint, bigint, number, bigint]
+        const spotAmountOutNum = parseFloat(formatUnits(spotAmountOut, tokenOutDecimals))
+        const spotAmountInNum = parseFloat(formatUnits(spotAmountIn, tokenInDecimals))
+        const spotPrice = spotAmountOutNum / spotAmountInNum
+
+        // Execution price is the exchange rate we calculated
+        const executionPrice = exchangeRate
+
+        // Calculate price impact: (executionPrice - spotPrice) / spotPrice * 100
+        if (spotPrice > 0) {
+          priceImpact = ((executionPrice - spotPrice) / spotPrice) * 100
+        }
+      } catch (spotError) {
+        // If spot price fetch fails, fall back to rough estimate
+        console.debug("Failed to fetch spot price, using estimate:", spotError)
+        const tradeAmount = currentTradeType === "exactIn" ? amountInNum : amountOutNum
+        priceImpact = -0.01 * Math.log10(tradeAmount + 1)
+      }
+
+      // Cap price impact at reasonable bounds
+      priceImpact = Math.max(Math.min(priceImpact, 0), -50) // Between 0% and -50%
 
       // Create new quote object to ensure state update
       const newQuote: QuoteResult = {
@@ -404,23 +517,111 @@ export function useQuote({
         amountInFormatted,
         minOut,
         minOutFormatted,
-        priceImpact: Math.max(priceImpact, -5), // Cap at -5%
+        priceImpact,
         exchangeRate,
         gasEstimate: bestQuote.gasEstimate,
         fee: bestQuote.fee,
       }
 
-      setQuote(newQuote)
-      setError(null)
+      // Only set quote if this is still the latest request
+      if (currentRequestId === requestIdRef.current) {
+        // Debug logging
+        console.log("[useQuote] Quote result:", {
+          requestId: currentRequestId,
+          tokenIn: getTokenSymbol(currentTokenIn),
+          tokenOut: getTokenSymbol(currentTokenOut),
+          tradeType: currentTradeType,
+          amountIn: currentAmountIn,
+          amountInFormatted: newQuote.amountInFormatted,
+          amountOutFormatted: newQuote.amountOutFormatted,
+          amountInNum,
+          amountOutNum,
+          tokenInDecimals,
+          tokenOutDecimals,
+        })
+
+        setQuote(newQuote)
+        setError(null)
+      } else {
+        console.log(
+          "[useQuote] Ignoring stale quote:",
+          currentRequestId,
+          "current:",
+          requestIdRef.current
+        )
+      }
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err))
-      setError(error)
-      setQuote(null)
-      console.error("Quote fetch error:", error)
+      let errorMessage = "Failed to fetch quote"
+
+      if (err instanceof Error) {
+        // Check for specific error types
+        if (err.message.includes("aborted") || err.name === "AbortError") {
+          errorMessage = "Quote request was cancelled"
+        } else if (err.message.includes("timeout") || err.message.includes("time")) {
+          errorMessage = "Quote request timed out. Please try again."
+        } else if (err.message.includes("liquidity")) {
+          errorMessage = err.message
+        } else if (err.message.includes("network") || err.message.includes("fetch")) {
+          errorMessage = "Network error. Please check your connection and try again."
+        } else {
+          errorMessage = err.message || errorMessage
+        }
+      } else {
+        errorMessage = String(err)
+      }
+
+      // Only set error if this is still the latest request
+      if (currentRequestId === requestIdRef.current) {
+        const error = new Error(errorMessage)
+        setError(error)
+        setQuote(null)
+        console.error("Quote fetch error:", error, {
+          requestId: currentRequestId,
+          tokenIn: getTokenSymbol(currentTokenIn),
+          tokenOut: getTokenSymbol(currentTokenOut),
+        })
+      }
     } finally {
+      clearTimeout(timeoutId)
+      // Only update loading state if this is still the latest request
+      if (currentRequestId === requestIdRef.current) {
+        setIsLoading(false)
+      }
+    }
+  }, [tokenIn, tokenOut, amountIn, slippage, tradeType, tokenList])
+
+  // Clear quote when key inputs change significantly (token changes)
+  const prevTokenInKeyRef = useRef(tokenInKey)
+  const prevTokenOutKeyRef = useRef(tokenOutKey)
+  const prevTradeTypeRef = useRef(tradeType)
+  const prevTokenKeysForFetchRef = useRef({ tokenInKey, tokenOutKey })
+
+  useEffect(() => {
+    // If tokens or trade type changed, clear the quote immediately to prevent stale data
+    const tokensChanged =
+      prevTokenInKeyRef.current !== tokenInKey || prevTokenOutKeyRef.current !== tokenOutKey
+    const tradeTypeChanged = prevTradeTypeRef.current !== tradeType
+
+    if (tokensChanged || tradeTypeChanged) {
+      // Cancel any pending requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+        debounceRef.current = null
+      }
+
+      setQuote(null)
+      setError(null)
       setIsLoading(false)
     }
-  }, [tokenIn, tokenOut, amountIn, slippage, tradeType])
+
+    // Always update refs to track current state
+    prevTokenInKeyRef.current = tokenInKey
+    prevTokenOutKeyRef.current = tokenOutKey
+    prevTradeTypeRef.current = tradeType
+  }, [tokenInKey, tokenOutKey, tradeType])
 
   // Debounced fetch
   useEffect(() => {
@@ -433,6 +634,7 @@ export function useQuote({
     // Clear previous debounce
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
+      debounceRef.current = null
     }
 
     // Set loading state immediately for UX feedback
@@ -440,16 +642,31 @@ export function useQuote({
       setIsLoading(true)
     }
 
-    debounceRef.current = setTimeout(() => {
+    // Check if tokens changed by comparing current keys with previous refs
+    // Use separate refs to avoid race condition with the clear quote effect
+    const tokensChanged =
+      prevTokenKeysForFetchRef.current.tokenInKey !== tokenInKey ||
+      prevTokenKeysForFetchRef.current.tokenOutKey !== tokenOutKey
+
+    if (tokensChanged) {
+      // Tokens changed - fetch immediately (no debounce)
+      // Update refs now so next render knows tokens have changed
+      prevTokenKeysForFetchRef.current = { tokenInKey, tokenOutKey }
       fetchQuote()
-    }, debounceMs)
+    } else {
+      // Amount or other input changed - use debounce
+      prevTokenKeysForFetchRef.current = { tokenInKey, tokenOutKey }
+      debounceRef.current = setTimeout(() => {
+        fetchQuote()
+      }, debounceMs)
+    }
 
     return () => {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current)
       }
     }
-  }, [inputKey, enabled, debounceMs]) // Removed fetchQuote - inputKey already captures all dependencies
+  }, [inputKey, enabled, debounceMs, fetchQuote, tokenInKey, tokenOutKey])
 
   // Cleanup on unmount
   useEffect(() => {

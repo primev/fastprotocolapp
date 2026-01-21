@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronUp, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatPriceImpact, getPriceImpactSeverity } from "@/hooks/use-quote"
+import { useGasPrice } from "@/hooks/use-gas-price"
 import type { Token } from "@/types/swap"
 import type { QuoteResult } from "@/hooks/use-quote"
 
@@ -40,6 +41,13 @@ export default function SwapReview({
   onTokenSwap,
 }: SwapReviewProps) {
   const priceImpactSeverity = getPriceImpactSeverity(quote.priceImpact)
+  const { gasPrice } = useGasPrice()
+
+  // Calculate gas cost in USD: (gasEstimate * gasPrice) / 1e18 * ethPrice
+  const gasCostUsd =
+    quote.gasEstimate && gasPrice && ethPrice
+      ? (Number(quote.gasEstimate) * Number(gasPrice) * ethPrice) / 1e18
+      : null
 
   return (
     <div className="px-4 py-2 border-t border-white/5 mt-1">
@@ -80,12 +88,10 @@ export default function SwapReview({
           </div>
 
           {/* Network cost */}
-          {quote.gasEstimate && ethPrice && (
+          {gasCostUsd !== null && (
             <div className="flex justify-between items-center text-xs py-0.5">
               <span className="text-white/60">Network cost</span>
-              <span className="text-white/80 font-medium">
-                ${((Number(quote.gasEstimate) / 1e18) * ethPrice).toFixed(2)}
-              </span>
+              <span className="text-white/80 font-medium">${gasCostUsd.toFixed(2)}</span>
             </div>
           )}
 

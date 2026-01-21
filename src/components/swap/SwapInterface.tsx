@@ -15,10 +15,11 @@ import SwitchButton from "./SwitchButton"
 import SwapActionButton from "./SwapActionButton"
 import QuoteErrorDisplay from "./QuoteErrorDisplay"
 import { useTokenSwitch } from "@/hooks/use-token-switch"
-import { useQuote, getPriceImpactSeverity } from "@/hooks/use-quote"
+import { useQuote, getPriceImpactSeverity, calculateAutoSlippage } from "@/hooks/use-quote"
 import { useToast } from "@/hooks/use-toast"
 import { useTokenPrice } from "@/hooks/use-token-price"
 import { useSwapConfirmation } from "@/hooks/use-swap-confirmation"
+import { useGasPrice } from "@/hooks/use-gas-price"
 import tokenList from "@/lib/token-list.json"
 import type { Token } from "@/types/swap"
 import { INTENT_DEADLINE_MINUTES, ZERO_ADDRESS } from "@/lib/swap-constants"
@@ -62,6 +63,12 @@ export default function SwapInterface({
     }
     return "0.5"
   })
+  const [isAutoSlippage, setIsAutoSlippage] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("swapSlippageAuto") === "true"
+    }
+    return false
+  })
   const [internalDeadline, setInternalDeadline] = useState<number>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("swapDeadline")
@@ -88,6 +95,11 @@ export default function SwapInterface({
       setInternalDeadline(newDeadline)
       localStorage.setItem("swapDeadline", newDeadline.toString())
     }
+  }
+
+  const handleAutoSlippageChange = (isAuto: boolean) => {
+    setIsAutoSlippage(isAuto)
+    localStorage.setItem("swapSlippageAuto", isAuto.toString())
   }
 
   useEffect(() => {
@@ -118,113 +130,179 @@ export default function SwapInterface({
   )
   const { price: toTokenPrice, isLoading: isLoadingToPrice } = useTokenPrice(toToken?.symbol || "")
   const { price: ethPrice } = useTokenPrice("ETH")
+  const { gasPrice, gasPriceGwei } = useGasPrice()
+
+  // Calculate auto slippage if enabled
+  const calculatedAutoSlippage = useMemo(() => {
+    if (!isAutoSlippage || !amount || parseFloat(amount) <= 0 || !fromToken || !toToken) {
+      return null
+    }
+    const tradeAmount = parseFloat(amount)
+    return calculateAutoSlippage(tradeAmount, fromToken, toToken, gasPriceGwei)
+  }, [isAutoSlippage, amount, fromToken, toToken, gasPriceGwei])
+
+  // Use auto slippage if enabled, otherwise use manual slippage
+  const effectiveSlippage =
+    isAutoSlippage && calculatedAutoSlippage !== null ? calculatedAutoSlippage.toFixed(2) : slippage
+
   const [timeLeft, setTimeLeft] = useState(15)
-  const [displayQuote, setDisplayQuote] = useState<string | null>(null)
-  const [pendingQuote, setPendingQuote] = useState<string | null>(null)
-  const hasRefetchedRef = useRef(false)
   const [pulseKey, setPulseKey] = useState(0)
   const [pulseAnimationKey, setPulseAnimationKey] = useState(0)
-  const pulseTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastQuoteAmountRef = useRef<string | null>(null)
-  const isSwitchingRef = useRef(false)
+  const hasRefetchedRef = useRef(false)
   const sellInputRef = useRef<HTMLInputElement>(null)
+  const buyInputRef = useRef<HTMLInputElement>(null)
   const [insufficientBalance, setInsufficientBalance] = useState(false)
   const [editingSide, setEditingSide] = useState<"sell" | "buy">("sell")
+  const [isSwitching, setIsSwitching] = useState(false)
+  const [preservedDisplayQuote, setPreservedDisplayQuote] = useState<string | null>(null)
+
   const {
     quote,
     isLoading: isQuoteLoading,
     error: quoteError,
     refetch,
   } = useQuote({
-    tokenIn: fromToken?.symbol || "",
-    tokenOut: toToken?.symbol || "",
+    tokenIn: fromToken,
+    tokenOut: toToken,
     amountIn: amount,
-    slippage: slippage,
+    slippage: effectiveSlippage,
     debounceMs: 100,
     tradeType: editingSide === "sell" ? "exactIn" : "exactOut",
-    enabled:
-      !isSwitchingRef.current &&
-      !!amount &&
-      parseFloat(amount) > 0 &&
-      !!fromToken &&
-      !!toToken &&
-      !!fromToken?.symbol &&
-      !!toToken?.symbol,
+    tokenList: tokens,
+    enabled: !isSwitching && !!amount && parseFloat(amount) > 0 && !!fromToken && !!toToken,
   })
 
   const handleFromTokenSelect = useCallback(
     (token: Token | undefined) => {
+      // Only clear amount if invalid pair (same token for both sides)
+      if (token?.address === toToken?.address) {
+        // Invalid pair: same token for both from and to
+        setAmount("")
+        setEditingSide("sell")
+        setFromToken(token)
+        return
+      }
+      // If token is undefined (clearing selection), also clear amount
+      if (!token) {
+        setAmount("")
+        setFromToken(token)
+        return
+      }
+
+      // When editing buy side and changing fromToken:
+      // - amount is in toToken units (correct for exactOut calculation)
+      // - We're changing the input token, so the quote needs to recalculate
+      // - The amount should stay the same (it's the desired output)
+      // When editing sell side and changing fromToken:
+      // - amount is in fromToken units (correct for exactIn calculation)
+      // - We're changing the input token, so we should preserve amount
+      // In both cases, preserve amount and let quote recalculate
+      // But we need to ensure the quote hook recalculates with the new token
+      const oldFromToken = fromToken
       setFromToken(token)
-      setTimeout(() => {
-        refetch()
-      }, 0)
+
+      // If the token actually changed, force a quote refresh by temporarily disabling and re-enabling
+      if (oldFromToken?.address !== token.address) {
+        // The quote hook will automatically recalculate when fromToken changes
+        // because it's in the inputKey dependencies
+      }
     },
-    [refetch]
+    [toToken, editingSide, fromToken]
   )
 
   const handleToTokenSelect = useCallback(
     (token: Token | undefined) => {
+      // Only clear amount if invalid pair (same token for both sides)
+      if (token?.address === fromToken?.address) {
+        // Invalid pair: same token for both from and to
+        setAmount("")
+        setEditingSide("sell")
+        setToToken(token)
+        return
+      }
+      // If token is undefined (clearing selection), also clear amount
+      if (!token) {
+        setAmount("")
+        setToToken(token)
+        return
+      }
+
+      // When editing buy side and changing toToken:
+      // - amount is in toToken units (the desired output)
+      // - We're changing the output token, so amount needs to stay the same
+      // When editing sell side and changing toToken:
+      // - amount is in fromToken units (correct for exactIn calculation)
+      // - We're changing the output token, amount stays the same
+      // In both cases, preserve amount and let quote recalculate
       setToToken(token)
-      setTimeout(() => {
-        refetch()
-      }, 0)
     },
-    [refetch]
+    [fromToken, editingSide]
   )
 
+  // Clear quote when tokens change to prevent stale data
+  // Also track for insufficientBalance reset
+  const prevFromTokenRef = useRef<Token | undefined>(fromToken)
+  const prevToTokenRef = useRef<Token | undefined>(toToken)
+  const prevEditingSideRef = useRef<"sell" | "buy">(editingSide)
+
   useEffect(() => {
-    if (isSwitchingRef.current) {
-      return
+    // If tokens changed, we need to wait for new quote
+    // The quote hook will handle the recalculation
+    const fromTokenChanged = prevFromTokenRef.current?.address !== fromToken?.address
+    const toTokenChanged = prevToTokenRef.current?.address !== toToken?.address
+    const editingSideChanged = prevEditingSideRef.current !== editingSide
+
+    // Reset insufficientBalance when tokens or editing side changes
+    if (fromTokenChanged || toTokenChanged || editingSideChanged) {
+      setInsufficientBalance(false)
     }
 
-    if (!quote) {
-      setDisplayQuote(null)
-      setPendingQuote(null)
-      lastQuoteAmountRef.current = null
-      return
-    }
-
-    const quoteValue = editingSide === "sell" ? quote.amountOutFormatted : quote.amountInFormatted
-
-    if (quoteValue) {
-      const quoteId =
-        editingSide === "sell" ? quote.amountOut.toString() : quote.amountIn.toString()
-      const isNewQuote = quoteId !== lastQuoteAmountRef.current
-
-      if (isNewQuote) {
-        if (isQuoteLoading) {
-          setPendingQuote(quoteValue)
-        } else {
-          setDisplayQuote(quoteValue)
-          setPendingQuote(null)
-        }
-
-        if (isNewQuote) {
-          lastQuoteAmountRef.current = quoteId
-          setTimeLeft(15)
-          hasRefetchedRef.current = false
-        }
+    // If tokens changed, reset timer and trigger immediate quote fetch
+    if (fromTokenChanged || toTokenChanged) {
+      setTimeLeft(15)
+      hasRefetchedRef.current = false
+      // Trigger immediate refetch (quote hook will handle skipping debounce)
+      if (amount && parseFloat(amount) > 0 && fromToken && toToken) {
+        refetch()
       }
-    } else {
-      setDisplayQuote(null)
-      setPendingQuote(null)
-      lastQuoteAmountRef.current = null
     }
-  }, [quote, editingSide, isQuoteLoading])
 
+    prevFromTokenRef.current = fromToken
+    prevToTokenRef.current = toToken
+    prevEditingSideRef.current = editingSide
+  }, [fromToken, toToken, editingSide, amount, refetch])
+
+  // Clear preserved display quote when new quote arrives
   useEffect(() => {
-    if (isSwitchingRef.current) {
-      return
+    if (quote && preservedDisplayQuote) {
+      setPreservedDisplayQuote(null)
     }
+  }, [quote, preservedDisplayQuote])
 
-    if (!amount || parseFloat(amount) <= 0 || !fromToken || !toToken) {
-      setDisplayQuote(null)
-      lastQuoteAmountRef.current = null
+  // Simplified quote display logic - use quote directly
+  // Preserve swapped values during switch to prevent showing "0"
+  const displayQuote = useMemo(() => {
+    if (quote) {
+      return editingSide === "sell" ? quote.amountOutFormatted : quote.amountInFormatted
+    }
+    // If no quote but we have preserved value, use it (during switch transition)
+    if (preservedDisplayQuote) {
+      return preservedDisplayQuote
+    }
+    return null
+  }, [quote, editingSide, preservedDisplayQuote])
+
+  // Reset timer when quote changes
+  useEffect(() => {
+    if (quote) {
+      setTimeLeft(15)
       hasRefetchedRef.current = false
     }
-  }, [amount, fromToken, toToken])
+  }, [quote])
+
+  // Auto-refresh quote timer
   useEffect(() => {
-    if (!displayQuote) {
+    if (!quote || !displayQuote) {
       setTimeLeft(15)
       hasRefetchedRef.current = false
       return
@@ -254,58 +332,18 @@ export default function SwapInterface({
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [displayQuote, refetch, quote])
+  }, [quote, displayQuote, refetch])
 
-  const outputAmount =
-    displayQuote ||
-    (editingSide === "sell" ? quote?.amountOutFormatted || "0" : quote?.amountInFormatted || "0") ||
-    "0"
-  const shouldPulse = (isQuoteLoading || pulseKey > 0) && displayQuote !== null
-  const shouldPulseLoop = isQuoteLoading && displayQuote !== null
-
-  const loadingStartTimeRef = useRef<number | null>(null)
+  // Pulse animation for loading states
   useEffect(() => {
-    if (isQuoteLoading && displayQuote !== null) {
-      loadingStartTimeRef.current = Date.now()
+    if (isQuoteLoading && displayQuote) {
       setPulseAnimationKey((prev) => prev + 1)
     }
   }, [isQuoteLoading, displayQuote])
 
-  useEffect(() => {
-    if (!isQuoteLoading && pendingQuote) {
-      if (pulseTimeoutRef.current) {
-        clearTimeout(pulseTimeoutRef.current)
-      }
-
-      const loadingDuration = loadingStartTimeRef.current
-        ? Date.now() - loadingStartTimeRef.current
-        : 0
-
-      const timeInCurrentCycle = loadingDuration % 6000
-      let waitTime = 0
-
-      if (timeInCurrentCycle < 2880) {
-        waitTime = 2880 - timeInCurrentCycle
-      } else {
-        waitTime = 6000 - timeInCurrentCycle + 2880
-      }
-
-      waitTime = Math.max(waitTime, 100)
-
-      pulseTimeoutRef.current = setTimeout(() => {
-        setDisplayQuote(pendingQuote)
-        setPendingQuote(null)
-        setPulseKey(0)
-        loadingStartTimeRef.current = null
-      }, waitTime)
-    }
-
-    return () => {
-      if (pulseTimeoutRef.current) {
-        clearTimeout(pulseTimeoutRef.current)
-      }
-    }
-  }, [isQuoteLoading, pendingQuote])
+  const outputAmount = displayQuote || "0"
+  const shouldPulse = (isQuoteLoading || pulseKey > 0) && displayQuote !== null
+  const shouldPulseLoop = isQuoteLoading && displayQuote !== null
 
   const [hasExplicitlyClearedFromToken, setHasExplicitlyClearedFromToken] = useState(false)
   const [hasExplicitlyClearedToToken, setHasExplicitlyClearedToToken] = useState(false)
@@ -381,21 +419,48 @@ export default function SwapInterface({
       return
     }
 
-    if (editingSide === "sell") {
-      if (!fromToken || !fromBalance) {
-        setInsufficientBalance(false)
-        return
-      }
-      const exceedsBalance = amountValue > fromBalanceValue + 0.0000001
-      setInsufficientBalance(exceedsBalance)
-    } else {
-      if (!toToken || !toBalance) {
-        setInsufficientBalance(false)
-        return
-      }
-      const exceedsBalance = amountValue > toBalanceValue + 0.0000001
-      setInsufficientBalance(exceedsBalance)
+    // Always check fromToken (sell token) balance, regardless of editingSide
+    // The user is always selling fromToken, so insufficient balance should always reference it
+    if (!fromToken || !fromBalance || isLoadingFromBalance) {
+      // If balance is still loading, don't show insufficient balance error yet
+      setInsufficientBalance(false)
+      return
     }
+
+    // Calculate the amount to check based on editingSide
+    // If editing buy side, amount is in toToken units, so we need to check if we have enough fromToken
+    // If editing sell side, amount is in fromToken units, so we check directly
+    let amountToCheck = amountValue
+
+    if (editingSide === "buy") {
+      // When editing buy side, amount is the desired output (toToken)
+      // We need to check if we have enough fromToken to get that amount
+      // For now, we'll check if the quote's amountIn exceeds our balance
+      // If no quote yet, we can't determine this, so don't show error
+      if (quote?.amountInFormatted) {
+        // Parse the formatted amount (remove commas)
+        const cleanAmountIn = quote.amountInFormatted.replace(/,/g, "")
+        const amountInNeeded = parseFloat(cleanAmountIn)
+        if (!isNaN(amountInNeeded) && amountInNeeded > 0) {
+          amountToCheck = amountInNeeded
+        }
+      } else {
+        // No quote yet, can't determine if we have enough
+        setInsufficientBalance(false)
+        return
+      }
+    }
+
+    // If paying in native ETH, account for gas costs
+    let availableBalance = fromBalanceValue
+    if (fromToken.address === ZERO_ADDRESS && quote?.gasEstimate && gasPrice) {
+      // Subtract estimated gas cost from available balance
+      const gasCostEth = (Number(quote.gasEstimate) * Number(gasPrice)) / 1e18
+      availableBalance = Math.max(0, fromBalanceValue - gasCostEth)
+    }
+
+    const exceedsBalance = amountToCheck > availableBalance + 0.0000001
+    setInsufficientBalance(exceedsBalance)
   }, [
     amount,
     fromBalance,
@@ -406,17 +471,24 @@ export default function SwapInterface({
     isConnected,
     fromBalanceValue,
     toBalanceValue,
+    isLoadingFromBalance,
+    isLoadingToBalance,
     displayQuote,
+    quote,
+    gasPrice,
   ])
 
+  // Focus the appropriate input when editingSide changes (especially after switch)
   useEffect(() => {
-    if (sellInputRef.current) {
-      const timer = setTimeout(() => {
-        sellInputRef.current?.focus()
-      }, 100)
-      return () => clearTimeout(timer)
-    }
-  }, [])
+    const timer = setTimeout(() => {
+      if (editingSide === "sell" && sellInputRef.current) {
+        sellInputRef.current.focus()
+      } else if (editingSide === "buy" && buyInputRef.current) {
+        buyInputRef.current?.focus()
+      }
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [editingSide])
   const commonTokens = useMemo(() => {
     const symbols = ["ETH", "USDC", "USDT", "WBTC", "WETH"]
     const foundTokens: Token[] = []
@@ -439,21 +511,26 @@ export default function SwapInterface({
     return foundTokens
   }, [tokens, fromToken])
 
+  // Use exchange rate from quote if available, otherwise calculate
   const exchangeRate = useMemo(() => {
     if (!quote || !fromToken || !toToken) return 0
+    // Use quote.exchangeRate if available (more accurate)
+    if (quote.exchangeRate && quote.exchangeRate > 0) {
+      return quote.exchangeRate
+    }
+    // Fallback to calculation from formatted amounts
     const amountIn = parseFloat(quote.amountInFormatted)
     const amountOut = parseFloat(quote.amountOutFormatted)
     if (amountIn === 0) return 0
     return amountOut / amountIn
   }, [quote, fromToken, toToken])
 
+  // Use minOutFormatted directly from quote instead of recalculating
   const minAmountOut = useMemo(() => {
-    if (!quote || !toToken) return "0"
-    const slippagePercent = parseFloat(slippage) || 0.5
-    const amountOut = parseFloat(quote.amountOutFormatted)
-    const minOut = amountOut * (1 - slippagePercent / 100)
-    return formatTokenAmount(minOut.toString(), toToken.symbol)
-  }, [quote, slippage, toToken])
+    if (!quote) return "0"
+    // Use the pre-calculated minOutFormatted from the quote hook
+    return quote.minOutFormatted
+  }, [quote])
 
   const { confirmSwap, isSigning, isSubmitting } = useSwapConfirmation({
     fromToken,
@@ -463,9 +540,6 @@ export default function SwapInterface({
     deadline,
     onSuccess: () => {
       setAmount("")
-      setDisplayQuote(null)
-      setPendingQuote(null)
-      lastQuoteAmountRef.current = null
     },
   })
 
@@ -577,29 +651,31 @@ export default function SwapInterface({
         hasExplicitlyClearedFromToken: newHasExplicitlyClearedFromToken,
         hasExplicitlyClearedToToken: newHasExplicitlyClearedToToken,
       }) => {
-        isSwitchingRef.current = true
+        // Preserve the swapped display quote before clearing quote
+        // This prevents showing "0" during the switch transition
+        if (newDisplayQuote && newDisplayQuote !== "0") {
+          setPreservedDisplayQuote(newDisplayQuote)
+        }
+
+        // Disable quote fetching during switch
+        setIsSwitching(true)
         setInsufficientBalance(false)
         setPulseKey(0)
         setPulseAnimationKey(0)
-        if (pulseTimeoutRef.current) {
-          clearTimeout(pulseTimeoutRef.current)
-          pulseTimeoutRef.current = null
-        }
 
+        // Update all state atomically
         setFromToken(newFromToken)
         setToToken(newToToken)
         setHasExplicitlyClearedFromToken(newHasExplicitlyClearedFromToken)
         setHasExplicitlyClearedToToken(newHasExplicitlyClearedToToken)
-        setDisplayQuote(newDisplayQuote)
         setAmount(newAmount)
         setEditingSide(newEditingSide)
 
-        setTimeout(() => {
-          isSwitchingRef.current = false
-        }, 100)
-
-        setPendingQuote(null)
-        lastQuoteAmountRef.current = null
+        // Re-enable quote fetching after state updates
+        // Use requestAnimationFrame to ensure state updates are processed
+        requestAnimationFrame(() => {
+          setIsSwitching(false)
+        })
       },
       []
     ),
@@ -618,12 +694,14 @@ export default function SwapInterface({
         >
           <SwapDock
             isVisible={isDockVisible}
-            slippage={slippage}
+            slippage={effectiveSlippage}
             deadline={deadline}
             onSlippageChange={handleSlippageChange}
             onDeadlineChange={handleDeadlineChange}
             isSettingsOpen={isSettingsOpen}
             onSettingsOpenChange={setIsSettingsOpen}
+            isAutoSlippage={isAutoSlippage}
+            onAutoSlippageChange={handleAutoSlippageChange}
           />
         </div>
       )}
@@ -640,7 +718,7 @@ export default function SwapInterface({
           isActive={editingSide === "sell"}
           token={fromToken}
           amount={amount}
-          displayQuote={displayQuote}
+          displayQuote={displayQuote || null}
           quoteAmount={quote?.amountInFormatted}
           onAmountChange={(value) => {
             setEditingSide("sell")
@@ -681,7 +759,7 @@ export default function SwapInterface({
           isActive={editingSide === "buy"}
           token={toToken}
           amount={amount}
-          displayQuote={displayQuote}
+          displayQuote={displayQuote || null}
           quoteAmount={quote?.amountOutFormatted}
           onAmountChange={(value) => {
             setEditingSide("buy")
@@ -710,6 +788,7 @@ export default function SwapInterface({
           shouldPulseLoop={shouldPulseLoop}
           isQuoteLoading={isQuoteLoading}
           pulseAnimationKey={pulseAnimationKey}
+          inputRef={buyInputRef}
           outputAmount={outputAmount}
           commonTokens={commonTokens}
           onCommonTokenSelect={handleToTokenSelect}
@@ -722,10 +801,10 @@ export default function SwapInterface({
             quote={quote}
             exchangeRate={exchangeRate}
             minAmountOut={minAmountOut}
-            slippage={slippage}
+            slippage={effectiveSlippage}
             ethPrice={ethPrice}
             timeLeft={timeLeft}
-            displayQuote={displayQuote}
+            displayQuote={displayQuote || null}
             hasHighPriceImpact={hasHighPriceImpact}
             isOpen={isReviewAccordionOpen}
             onOpenChange={setIsReviewAccordionOpen}
@@ -799,7 +878,7 @@ export default function SwapInterface({
               minAmountOut={minAmountOut}
               exchangeRate={exchangeRate}
               priceImpact={quote?.priceImpact || 0}
-              slippage={slippage}
+              slippage={effectiveSlippage}
               gasEstimate={quote?.gasEstimate || null}
               ethPrice={ethPrice}
               timeLeft={timeLeft}

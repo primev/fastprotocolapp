@@ -11,6 +11,8 @@ interface SwapSettingsProps {
   onDeadlineChange: (deadline: number) => void
   isOpen: boolean
   onOpenChange: (open: boolean) => void
+  isAutoSlippage?: boolean
+  onAutoSlippageChange?: (isAuto: boolean) => void
 }
 
 export default function SwapSettings({
@@ -20,6 +22,8 @@ export default function SwapSettings({
   onDeadlineChange,
   isOpen,
   onOpenChange,
+  isAutoSlippage = false,
+  onAutoSlippageChange,
 }: SwapSettingsProps) {
   return (
     <Popover open={isOpen} onOpenChange={onOpenChange}>
@@ -59,42 +63,84 @@ export default function SwapSettings({
               <label className="text-xs font-medium text-white">Slippage Tolerance</label>
               <span className="text-xs text-white/60">%</span>
             </div>
-            <div className="flex gap-2">
-              {["0.1", "0.5", "1.0"].map((preset) => (
+            {/* Auto/Custom Toggle */}
+            {onAutoSlippageChange && (
+              <div className="flex gap-2 mb-2">
                 <button
-                  key={preset}
                   onClick={() => {
-                    onSlippageChange(preset)
-                    localStorage.setItem("swapSlippage", preset)
+                    onAutoSlippageChange(true)
+                    localStorage.setItem("swapSlippageAuto", "true")
                   }}
                   className={cn(
                     "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-                    slippage === preset
+                    isAutoSlippage
                       ? "bg-primary text-primary-foreground"
                       : "bg-[#1B1B1B] border border-white/10 text-white hover:bg-[#222]"
                   )}
                 >
-                  {preset}%
+                  Auto
                 </button>
-              ))}
-            </div>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="50"
-              value={slippage}
-              onChange={(e) => {
-                const value = e.target.value
-                const num = parseFloat(value)
-                if (!isNaN(num) && num >= 0 && num <= 50) {
-                  onSlippageChange(value)
-                  localStorage.setItem("swapSlippage", value)
-                }
-              }}
-              placeholder="Custom"
-              className="w-full px-3 py-1.5 text-xs bg-[#1B1B1B] border border-white/10 rounded-md text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+                <button
+                  onClick={() => {
+                    onAutoSlippageChange(false)
+                    localStorage.setItem("swapSlippageAuto", "false")
+                  }}
+                  className={cn(
+                    "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+                    !isAutoSlippage
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-[#1B1B1B] border border-white/10 text-white hover:bg-[#222]"
+                  )}
+                >
+                  Custom
+                </button>
+              </div>
+            )}
+            {!isAutoSlippage && (
+              <>
+                <div className="flex gap-2">
+                  {["0.1", "0.5", "1.0"].map((preset) => (
+                    <button
+                      key={preset}
+                      onClick={() => {
+                        onSlippageChange(preset)
+                        localStorage.setItem("swapSlippage", preset)
+                      }}
+                      className={cn(
+                        "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+                        slippage === preset
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-[#1B1B1B] border border-white/10 text-white hover:bg-[#222]"
+                      )}
+                    >
+                      {preset}%
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="50"
+                  value={slippage}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    const num = parseFloat(value)
+                    if (!isNaN(num) && num >= 0 && num <= 50) {
+                      onSlippageChange(value)
+                      localStorage.setItem("swapSlippage", value)
+                    }
+                  }}
+                  placeholder="Custom"
+                  className="w-full px-3 py-1.5 text-xs bg-[#1B1B1B] border border-white/10 rounded-md text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </>
+            )}
+            {isAutoSlippage && (
+              <div className="px-3 py-1.5 text-xs bg-[#1B1B1B] border border-white/10 rounded-md text-white/60">
+                Auto slippage: {slippage}% (calculated based on trade size and network conditions)
+              </div>
+            )}
           </div>
 
           {/* Transaction Deadline */}

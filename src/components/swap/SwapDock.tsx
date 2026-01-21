@@ -12,6 +12,8 @@ interface SwapDockProps {
   onDeadlineChange: (deadline: number) => void
   isSettingsOpen: boolean
   onSettingsOpenChange: (open: boolean) => void
+  isAutoSlippage?: boolean
+  onAutoSlippageChange?: (isAuto: boolean) => void
 }
 
 export default React.memo(function SwapDock({
@@ -22,6 +24,8 @@ export default React.memo(function SwapDock({
   onDeadlineChange,
   isSettingsOpen,
   onSettingsOpenChange,
+  isAutoSlippage,
+  onAutoSlippageChange,
 }: SwapDockProps) {
   if (!isVisible) return null
 
@@ -48,6 +52,8 @@ export default React.memo(function SwapDock({
           onDeadlineChange={onDeadlineChange}
           isOpen={isSettingsOpen}
           onOpenChange={onSettingsOpenChange}
+          isAutoSlippage={isAutoSlippage}
+          onAutoSlippageChange={onAutoSlippageChange}
         />
       </div>
     </div>
