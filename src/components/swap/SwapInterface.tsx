@@ -14,6 +14,10 @@ import tokenList from "@/lib/token-list.json"
 import type { Token } from "@/types/swap"
 import NumberFlow from "@number-flow/react"
 
+interface SwapInterfaceProps {
+  onGetStarted?: () => void
+}
+
 // Stablecoin symbols (2 decimals)
 const STABLECOIN_SYMBOLS = ["USDC", "USDT", "DAI", "BUSD", "TUSD", "FRAX", "USDP", "LUSD"]
 
@@ -107,7 +111,7 @@ const DEFAULT_ETH_TOKEN: Token = {
   logoURI: "https://token-icons.s3.amazonaws.com/eth.png",
 }
 
-export default function SwapInterface() {
+export default function SwapInterface({ onGetStarted }: SwapInterfaceProps = {}) {
   const { isConnected, address } = useAccount()
   const { openConnectModal } = useConnectModal()
 
@@ -1166,11 +1170,18 @@ export default function SwapInterface() {
       {/* ACTION BUTTON */}
       <button
         disabled={insufficientBalance}
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          if (!insufficientBalance && onGetStarted) {
+            onGetStarted()
+          }
+        }}
         className={cn(
           "mt-1 w-full py-4 rounded-[20px] font-bold text-lg transition-all border border-white/10",
           insufficientBalance
             ? "bg-zinc-900/50 text-zinc-600 cursor-not-allowed"
-            : "bg-primary/10 text-primary hover:bg-primary/20"
+            : "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
         )}
       >
         {insufficientBalance
