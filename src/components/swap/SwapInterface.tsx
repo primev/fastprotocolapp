@@ -1,7 +1,15 @@
 "use client"
 
 import React, { useState, useEffect, useMemo, useRef } from "react"
-import { ArrowDown, Wallet } from "lucide-react"
+import {
+  ArrowDown,
+  Wallet,
+  Settings,
+  AlertTriangle,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react"
 import { useAccount, useBalance } from "wagmi"
 import { useConnectModal } from "@rainbow-me/rainbowkit"
 import { formatUnits } from "viem"
@@ -9,13 +17,29 @@ import { cn, formatCurrency } from "@/lib/utils"
 import TokenSelector from "./TokenSelector"
 import TokenSelectButton from "./TokenSelectButton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { useQuote, formatQuoteAmount } from "@/hooks/use-quote"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  useQuote,
+  formatQuoteAmount,
+  formatPriceImpact,
+  getPriceImpactSeverity,
+} from "@/hooks/use-quote"
+import { useSwapIntent } from "@/hooks/use-swap-intent"
+import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
+import { useToast } from "@/hooks/use-toast"
+import SwapConfirmationModal from "@/components/modals/SwapConfirmationModal"
 import tokenList from "@/lib/token-list.json"
 import type { Token } from "@/types/swap"
 import NumberFlow from "@number-flow/react"
+import { INTENT_DEADLINE_MINUTES } from "@/lib/swap-constants"
 
 interface SwapInterfaceProps {
   onGetStarted?: () => void
+  slippage?: string
+  deadline?: number
+  onSlippageChange?: (slippage: string) => void
+  onDeadlineChange?: (deadline: number) => void
+  onSettingsOpen?: () => void
 }
 
 // Stablecoin symbols (2 decimals)
@@ -111,12 +135,89 @@ const DEFAULT_ETH_TOKEN: Token = {
   logoURI: "https://token-icons.s3.amazonaws.com/eth.png",
 }
 
-export default function SwapInterface({ onGetStarted }: SwapInterfaceProps = {}) {
+export default function SwapInterface({
+  onGetStarted,
+  slippage: externalSlippage,
+  deadline: externalDeadline,
+  onSlippageChange: externalOnSlippageChange,
+  onDeadlineChange: externalOnDeadlineChange,
+  onSettingsOpen,
+}: SwapInterfaceProps = {}) {
   const { isConnected, address } = useAccount()
   const { openConnectModal } = useConnectModal()
+  const { toast } = useToast()
+  const { createIntentSignature } = useSwapIntent()
+  const { nonce } = usePermit2Nonce()
 
   // Use token list from JSON file
   const tokens = tokenList as Token[]
+
+  // Settings state - use external props if provided, otherwise use localStorage
+  const [internalSlippage, setInternalSlippage] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("swapSlippage") || "0.5"
+    }
+    return "0.5"
+  })
+  const [internalDeadline, setInternalDeadline] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("swapDeadline")
+      return saved ? parseInt(saved, 10) : INTENT_DEADLINE_MINUTES
+    }
+    return INTENT_DEADLINE_MINUTES
+  })
+
+  // Use external props if provided, otherwise use internal state
+  const slippage = externalSlippage !== undefined ? externalSlippage : internalSlippage
+  const deadline = externalDeadline !== undefined ? externalDeadline : internalDeadline
+
+  // Wrapper functions to update both internal state and external callbacks
+  const handleSlippageChange = (newSlippage: string) => {
+    if (externalOnSlippageChange) {
+      externalOnSlippageChange(newSlippage)
+    } else {
+      setInternalSlippage(newSlippage)
+      localStorage.setItem("swapSlippage", newSlippage)
+    }
+  }
+
+  const handleDeadlineChange = (newDeadline: number) => {
+    if (externalOnDeadlineChange) {
+      externalOnDeadlineChange(newDeadline)
+    } else {
+      setInternalDeadline(newDeadline)
+      localStorage.setItem("swapDeadline", newDeadline.toString())
+    }
+  }
+
+  // Update internal state when external props change
+  useEffect(() => {
+    if (externalSlippage !== undefined) {
+      setInternalSlippage(externalSlippage)
+    }
+  }, [externalSlippage])
+
+  useEffect(() => {
+    if (externalDeadline !== undefined) {
+      setInternalDeadline(externalDeadline)
+    }
+  }, [externalDeadline])
+
+  // Track if user has clicked "Get Started" to show advanced features
+  const [hasStarted, setHasStarted] = useState(false)
+  // Track if dock should be visible (with delay after hasStarted)
+  const [isDockVisible, setIsDockVisible] = useState(false)
+  // Track if settings tooltip is open (click-only, not hover)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  // Track if review accordion is open
+  const [isReviewAccordionOpen, setIsReviewAccordionOpen] = useState(false)
+
+  // Transaction flow state
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
+  const [isSigning, setIsSigning] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [txHash, setTxHash] = useState<string | null>(null)
+  const [txError, setTxError] = useState<string | null>(null)
 
   const [amount, setAmount] = useState("")
   const [isInputFocused, setIsInputFocused] = useState(false)
@@ -167,6 +268,7 @@ export default function SwapInterface({ onGetStarted }: SwapInterfaceProps = {})
   const {
     quote,
     isLoading: isQuoteLoading,
+    error: quoteError,
     refetch,
   } = useQuote({
     // tokenIn is ALWAYS the "From" token (Top Box/Sell)
@@ -175,7 +277,7 @@ export default function SwapInterface({ onGetStarted }: SwapInterfaceProps = {})
     tokenOut: toToken?.symbol || "",
     // This is the value from the box you are currently typing in
     amountIn: amount,
-    slippage: "0.5",
+    slippage: slippage, // Use settings slippage
     debounceMs: 100, // Lower debounce for real-time updates as user types
     // This tells the engine which box 'amount' refers to
     tradeType: editingSide === "sell" ? "exactIn" : "exactOut",
@@ -567,502 +669,526 @@ export default function SwapInterface({ onGetStarted }: SwapInterfaceProps = {})
     return foundTokens
   }, [tokens, fromToken])
 
+  // Calculate exchange rate
+  const exchangeRate = useMemo(() => {
+    if (!quote || !fromToken || !toToken) return 0
+    const amountIn = parseFloat(quote.amountInFormatted)
+    const amountOut = parseFloat(quote.amountOutFormatted)
+    if (amountIn === 0) return 0
+    return amountOut / amountIn
+  }, [quote, fromToken, toToken])
+
+  // Calculate minAmountOut from quote and slippage
+  const minAmountOut = useMemo(() => {
+    if (!quote || !toToken) return "0"
+    const slippagePercent = parseFloat(slippage) || 0.5
+    const amountOut = parseFloat(quote.amountOutFormatted)
+    const minOut = amountOut * (1 - slippagePercent / 100)
+    return formatDisplayAmount(minOut.toString(), toToken)
+  }, [quote, slippage, toToken])
+
+  // Price impact severity
+  const priceImpactSeverity = quote ? getPriceImpactSeverity(quote.priceImpact) : "low"
+  const hasHighPriceImpact = quote ? Math.abs(quote.priceImpact) > 3 : false
+  const hasVeryHighPriceImpact = quote ? Math.abs(quote.priceImpact) > 10 : false
+
+  // Handle swap button click
+  const handleSwapClick = () => {
+    if (!isConnected) {
+      openConnectModal?.()
+      return
+    }
+
+    if (!fromToken || !toToken) {
+      toast({
+        title: "Select Tokens",
+        description: "Please select both input and output tokens",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!amount || parseFloat(amount) <= 0) {
+      toast({
+        title: "Enter Amount",
+        description: "Please enter an amount to swap",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (insufficientBalance) {
+      toast({
+        title: "Insufficient Balance",
+        description: `You don't have enough ${editingSide === "sell" ? fromToken.symbol : toToken.symbol} to complete this swap`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (quoteError) {
+      toast({
+        title: "Quote Error",
+        description: quoteError.message || "Failed to fetch quote. Please try again.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!quote) {
+      toast({
+        title: "No Quote Available",
+        description: "Please wait for the quote to load or check if liquidity is available",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (hasVeryHighPriceImpact) {
+      toast({
+        title: "Price Impact Too High",
+        description:
+          "Price impact exceeds 10%. This swap may result in significant loss. Please reduce the swap amount.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsConfirmationOpen(true)
+  }
+
+  // Handle swap confirmation
+  const handleConfirmSwap = async () => {
+    if (!isConnected || !address || !fromToken || !toToken || !quote || !amount) {
+      return
+    }
+
+    setIsConfirmationOpen(false)
+    setIsSigning(true)
+    setTxError(null)
+
+    try {
+      // Get token addresses (handle ETH as WETH for permit2)
+      const tokenInAddress =
+        fromToken.address === "0x0000000000000000000000000000000000000000"
+          ? ("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as `0x${string}`) // WETH
+          : (fromToken.address as `0x${string}`)
+      const tokenOutAddress =
+        toToken.address === "0x0000000000000000000000000000000000000000"
+          ? ("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as `0x${string}`) // WETH
+          : (toToken.address as `0x${string}`)
+
+      // Create intent signature
+      const intentData = await createIntentSignature(
+        tokenInAddress,
+        tokenOutAddress,
+        amount,
+        minAmountOut,
+        nonce,
+        fromToken.decimals,
+        toToken.decimals,
+        deadline
+      )
+
+      setIsSigning(false)
+      setIsSubmitting(true)
+
+      // Submit to relay API
+      const response = await fetch("/api/relay", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          signature: intentData.signature,
+          intent: {
+            ...intentData.intent,
+            inputAmt: intentData.intent.inputAmt.toString(),
+            userAmtOut: intentData.intent.userAmtOut.toString(),
+            deadline: intentData.intent.deadline.toString(),
+            nonce: intentData.intent.nonce.toString(),
+          },
+          permit: {
+            ...intentData.permit,
+            permitted: {
+              ...intentData.permit.permitted,
+              amount: intentData.permit.permitted.amount.toString(),
+            },
+            deadline: intentData.permit.deadline.toString(),
+            nonce: intentData.permit.nonce.toString(),
+          },
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.message || "Transaction failed")
+      }
+
+      // Success - show transaction hash if available
+      setIsSubmitting(false)
+      toast({
+        title: "Swap Submitted",
+        description:
+          "Your swap intent has been submitted successfully. The relayer will execute it shortly.",
+      })
+
+      // Reset form
+      setAmount("")
+      setDisplayQuote(null)
+      setPendingQuote(null)
+      lastQuoteAmountRef.current = null
+    } catch (error) {
+      console.error("Swap error:", error)
+      setIsSigning(false)
+      setIsSubmitting(false)
+
+      let errorMessage = "Transaction failed"
+      if (error instanceof Error) {
+        errorMessage = error.message
+        // Provide user-friendly error messages
+        if (error.message.includes("User rejected")) {
+          errorMessage = "Transaction cancelled by user"
+        } else if (error.message.includes("insufficient funds")) {
+          errorMessage = "Insufficient funds for gas fees"
+        } else if (error.message.includes("network")) {
+          errorMessage = "Network error. Please check your connection and try again"
+        } else if (error.message.includes("deadline")) {
+          errorMessage = "Transaction deadline expired. Please try again"
+        }
+      }
+
+      setTxError(errorMessage)
+      toast({
+        title: "Swap Failed",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Handle dock visibility with delay after "Get Started" is clicked
+  useEffect(() => {
+    if (hasStarted) {
+      // We wait 300ms after "Get Started" is clicked
+      const timer = setTimeout(() => {
+        setIsDockVisible(true)
+      }, 300)
+      return () => clearTimeout(timer)
+    } else {
+      // Reset dock visibility when hasStarted becomes false
+      setIsDockVisible(false)
+    }
+  }, [hasStarted])
+
+  // Handle Get Started click
+  const handleGetStarted = () => {
+    setHasStarted(true)
+    if (onGetStarted) {
+      onGetStarted()
+    }
+  }
+
   return (
-    <div className="w-full max-w-[500px] bg-[#131313] border border-white/10 rounded-[24px] p-2 flex flex-col gap-1 shadow-2xl relative z-0">
-      {/* SELL SECTION */}
-      <div
-        className={cn(
-          "group rounded-[20px] p-4 flex flex-col gap-2 transition-all cursor-pointer",
-          editingSide === "sell" ? "bg-[#222] shadow-2xl" : "bg-[#1B1B1B]/50"
-        )}
-        onClick={() => {
-          setEditingSide("sell")
-          setIsInputFocused(true)
-        }}
-      >
-        <div className="flex justify-between items-center">
-          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-            Sell
-          </span>
-          {/* Quick Select Percentages - Always rendered to prevent layout shift */}
-          <div
-            className={cn(
-              "flex gap-1 transition-opacity duration-200",
-              isConnected && fromBalance && fromToken
-                ? "opacity-0 group-hover:opacity-100"
-                : "opacity-0 pointer-events-none"
-            )}
-          >
-            {["25%", "50%", "75%", "Max"].map((pct) => {
-              const handlePercentageClick = () => {
-                if (!fromBalance || !fromToken) return
-
-                const balanceValue = parseFloat(formatUnits(fromBalance.value, fromToken.decimals))
-
-                if (pct === "Max") {
-                  setAmount(balanceValue.toString())
-                } else {
-                  const percent = parseFloat(pct) / 100
-                  const amountValue = balanceValue * percent
-                  setAmount(amountValue.toString())
-                }
-              }
-
-              return (
-                <button
-                  key={pct}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handlePercentageClick()
-                  }}
-                  className="px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-bold text-muted-foreground hover:bg-white/10 hover:text-white transition-colors"
-                >
-                  {pct}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="flex justify-between items-center mt-1">
-          {/* Always show input - editable when editingSide === "sell", shows quote when editingSide === "buy" */}
-          {(() => {
-            const isActive = editingSide === "sell"
-            // Strict Lead-Follow Pattern:
-            // If editing SELL: This is the MASTER (shows raw state)
-            // If editing BUY: This is the FOLLOWER (shows the quote)
-            // Prioritize displayQuote (manually set during switch) over hook quote
-            const displayValue = isActive ? amount : displayQuote || quote?.amountInFormatted || "0"
-            const fullValue =
-              amount && parseFloat(amount) > 0 ? parseFloat(amount).toString() : null
-            const isTrimmed = isActive && fullValue && displayValue !== fullValue
-
-            if (isTrimmed) {
-              return (
-                <TooltipProvider delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex-1 relative">
-                        {isActive ? (
-                          <input
-                            ref={sellInputRef}
-                            key={`sell-input-${pulseAnimationKey}`}
-                            type="text"
-                            value={displayValue}
-                            onChange={(e) => {
-                              // Force direction to sell when typing in sell input
-                              setEditingSide("sell")
-                              // Allow user to type freely, store raw value
-                              const value = e.target.value.replace(/[^0-9.]/g, "")
-                              // Prevent multiple decimal points
-                              const parts = value.split(".")
-                              const cleaned =
-                                parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : value
-                              setAmount(cleaned)
-                            }}
-                            onFocus={() => {
-                              setIsInputFocused(true)
-                              setEditingSide("sell")
-                            }}
-                            onBlur={() => {
-                              setIsInputFocused(false)
-                              // Format on blur if needed
-                              if (amount) {
-                                const num = parseFloat(amount)
-                                if (!isNaN(num)) {
-                                  setAmount(num.toString())
-                                }
-                              }
-                            }}
-                            placeholder="0"
-                            className={cn(
-                              "bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white",
-                              insufficientBalance && isActive && "text-destructive"
-                            )}
-                            disabled={!isConnected}
-                          />
-                        ) : (
-                          <div
-                            className={cn(
-                              "text-4xl font-medium leading-none cursor-text",
-                              !isActive && isQuoteLoading && "animate-pulse-3-loop"
-                            )}
-                          >
-                            <NumberFlow
-                              value={parseFloat(displayValue) || 0}
-                              format={{ minimumFractionDigits: 0, maximumFractionDigits: 6 }}
-                              spinTiming={{ duration: 600, easing: "ease-out" }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      className="text-xs font-mono bg-zinc-900 border-zinc-700"
-                    >
-                      <p className="text-white/70">
-                        {parseFloat(amount).toLocaleString("en-US", {
-                          maximumFractionDigits: 18,
-                          useGrouping: false,
-                        })}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )
-            }
-
-            return (
-              <div className="flex-1 relative">
-                <input
-                  ref={sellInputRef}
-                  key={`sell-input-simple-${pulseAnimationKey}`}
-                  type="text"
-                  value={displayValue}
-                  onChange={(e) => {
-                    // Force direction to sell when typing in sell input
-                    setEditingSide("sell")
-                    // Allow user to type freely, store raw value
-                    const value = e.target.value.replace(/[^0-9.]/g, "")
-                    // Prevent multiple decimal points
-                    const parts = value.split(".")
-                    const cleaned =
-                      parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : value
-                    setAmount(cleaned)
-                  }}
-                  onFocus={() => {
-                    setIsInputFocused(true)
-                    setEditingSide("sell")
-                  }}
-                  onBlur={() => {
-                    setIsInputFocused(false)
-                    // Format on blur if needed
-                    if (amount) {
-                      const num = parseFloat(amount)
-                      if (!isNaN(num)) {
-                        setAmount(num.toString())
-                      }
-                    }
-                  }}
-                  placeholder="0"
-                  className={cn(
-                    "bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white",
-                    insufficientBalance && isActive && "text-destructive",
-                    !isActive && shouldPulseLoop && "animate-pulse-3-loop",
-                    !isActive && shouldPulse && !shouldPulseLoop && "animate-pulse-3"
-                  )}
-                  disabled={!isConnected}
-                />
-              </div>
-            )
-          })()}
-          <TokenSelectButton
-            token={fromToken}
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setIsFromTokenSelectorOpen(true)
-            }}
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <div className="flex justify-between items-center text-xs font-medium text-muted-foreground">
-            <span>
-              {(() => {
-                const displayAmount = editingSide === "sell" ? amount : outputAmount
-                return displayAmount && parseFloat(displayAmount) > 0 && fromTokenPrice
-                  ? (() => {
-                      const usdValue = parseFloat(displayAmount) * fromTokenPrice
-                      return `$${usdValue.toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                        useGrouping: true,
-                      })}`
-                    })()
-                  : displayAmount && parseFloat(displayAmount) > 0 && isLoadingFromPrice
-                    ? "—"
-                    : "—"
-              })()}
-            </span>
-            {isConnected && address && fromToken && fromBalance && (
-              <TooltipProvider delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1 cursor-help">
-                      <Wallet size={12} className="opacity-40" />
-                      <span
-                        className={cn(
-                          editingSide === "sell" && insufficientBalance && "text-destructive"
-                        )}
-                      >
-                        {isLoadingFromBalance ? "—" : `${formattedFromBalance} ${fromToken.symbol}`}
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    className="text-xs font-mono bg-zinc-900 border-zinc-700"
-                  >
-                    <p className="text-white/90">Full balance:</p>
-                    <p className="text-white/70">
-                      {fromBalanceValue.toLocaleString("en-US", {
-                        maximumFractionDigits: 18,
-                        useGrouping: false,
-                      })}{" "}
-                      {fromToken.symbol}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* SWITCH BUTTON (Centered) */}
-      <div className="relative h-2 w-full flex justify-center z-20">
-        <button
-          onClick={() => {
-            // 1. Set switching flag
-            isSwitchingRef.current = true
-
-            // Clear error state immediately on switch
-            setInsufficientBalance(false)
-
-            // Clear pulse state to stop any ongoing animations
-            setPulseKey(0)
-            setPulseAnimationKey(0)
-            if (pulseTimeoutRef.current) {
-              clearTimeout(pulseTimeoutRef.current)
-              pulseTimeoutRef.current = null
-            }
-
-            // 2. Capture the exact values currently visible in the UI
-            // If I'm selling 1 ETH for 2500 USDC:
-            // sellValue = "1" (what's in sell box), buyValue = "2500" (what's in buy box)
-            // Always capture from displayQuote if available (it's the source of truth for follower boxes)
-            const currentSellValue =
-              editingSide === "sell" ? amount : displayQuote || quote?.amountInFormatted || ""
-            const currentBuyValue =
-              editingSide === "buy" ? amount : displayQuote || quote?.amountOutFormatted || ""
-
-            // 3. Store tokens to swap
-            const tempFromToken = fromToken
-            const tempToToken = toToken
-
-            // 4. Swap Tokens
-            setFromToken(tempToToken)
-            setToToken(tempFromToken)
-
-            // If swapping undefined tokens, preserve the "Select token" state
-            if (tempToToken === undefined) {
-              setHasExplicitlyClearedFromToken(true)
-            } else {
-              setHasExplicitlyClearedFromToken(false)
-            }
-
-            if (tempFromToken === undefined) {
-              setHasExplicitlyClearedToToken(true)
-            } else {
-              setHasExplicitlyClearedToToken(false)
-            }
-
-            // 5. Flip Direction and Values Optimistically
-            // IMPORTANT: Update state in correct order to prevent flicker
-            if (editingSide === "sell") {
-              // We were editing the top (sell), now we edit the bottom (buy).
-              // The "1" (sellValue = amount) moves to the bottom and becomes the new buy input.
-              // The "2500" (buyValue = displayQuote) moves to the top and becomes the new sell display.
-              // Order: Set displayQuote first, then amount, then editingSide
-              setDisplayQuote(currentBuyValue || "")
-              setAmount(currentSellValue || "")
-              setEditingSide("buy")
-            } else {
-              // We were editing the bottom (buy), now we edit the top (sell).
-              // The "2500" (buyValue = amount) moves to the top and becomes the new sell input.
-              // The "1" (sellValue = displayQuote) moves to the bottom and becomes the new buy display.
-              setDisplayQuote(currentSellValue || "")
-              setAmount(currentBuyValue || "")
-              setEditingSide("sell")
-            }
-
-            // 6. Reset switching flag after a short delay to allow the hook to "see" the new state
-            setTimeout(() => {
-              isSwitchingRef.current = false
-            }, 100)
-
-            // Clear pending quote to prevent stale updates, but keep displayQuote for instant feedback
-            setPendingQuote(null)
-            lastQuoteAmountRef.current = null
-
-            // Swap prices
-            const tempFromPrice = fromTokenPrice
-            const tempToPrice = toTokenPrice
-            setFromTokenPrice(tempToPrice)
-            setToTokenPrice(tempFromPrice)
-          }}
-          className="absolute -top-4 p-2 bg-[#1B1B1B] border-[4px] border-[#131313] rounded-xl hover:scale-110 transition-transform text-white shadow-lg"
+    /* OUTER WRAPPER: This ensures the dock and interface stay perfectly aligned */
+    <div className="w-full flex flex-col items-stretch group">
+      {/* 1. THE DOCK: It now lives "above" the interface in the DOM */}
+      {hasStarted && (
+        <div
+          className={cn(
+            "relative flex items-center justify-between bg-[#131313] border-x border-t border-white/10 rounded-t-[24px] transition-all duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] overflow-hidden",
+            // Height and Opacity logic
+            isDockVisible
+              ? "h-[54px] opacity-100 py-3 px-5 mb-0"
+              : "h-0 opacity-0 py-0 px-5 -mb-2 scale-[0.98] pointer-events-none"
+          )}
         >
-          <ArrowDown size={18} strokeWidth={3} />
-        </button>
-      </div>
+          {/* Shine Line */}
+          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.1] to-transparent" />
 
-      {/* BUY SECTION */}
+          {/* <div className="flex-1">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20">
+              Fast Protocol
+            </span>
+          </div> */}
+
+          <div className="px-4 py-1 rounded-full bg-white/[0.03] border border-white/5">
+            <span className="text-xs font-semibold text-white/90 uppercase tracking-widest">
+              Swap
+            </span>
+          </div>
+
+          <div className="flex-1 flex justify-end">
+            <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+              <PopoverTrigger asChild>
+                <button className="p-1.5 rounded-lg hover:bg-white/5 text-white/40 hover:text-white transition-colors">
+                  <Settings size={16} />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                side="bottom"
+                align="end"
+                className="w-[320px] p-4 bg-[#131313] border border-white/10 rounded-lg shadow-xl"
+                sideOffset={8}
+                onPointerDownOutside={(e) => {
+                  // Close when clicking outside, but not when clicking the trigger button
+                  const target = e.target as HTMLElement
+                  const triggerButton = target.closest("button")
+                  if (triggerButton && triggerButton.querySelector("svg")) {
+                    // This is the settings button, let Popover handle it
+                    return
+                  }
+                  setIsSettingsOpen(false)
+                }}
+              >
+                <div className="space-y-4">
+                  {/* Slippage Tolerance */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-white">Slippage Tolerance</label>
+                      <span className="text-xs text-white/60">%</span>
+                    </div>
+                    <div className="flex gap-2">
+                      {["0.1", "0.5", "1.0"].map((preset) => (
+                        <button
+                          key={preset}
+                          onClick={() => {
+                            if (externalOnSlippageChange) {
+                              externalOnSlippageChange(preset)
+                            }
+                            localStorage.setItem("swapSlippage", preset)
+                          }}
+                          className={cn(
+                            "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+                            slippage === preset
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-[#1B1B1B] border border-white/10 text-white hover:bg-[#222]"
+                          )}
+                        >
+                          {preset}%
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="50"
+                      value={slippage}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        const num = parseFloat(value)
+                        if (!isNaN(num) && num >= 0 && num <= 50) {
+                          if (externalOnSlippageChange) {
+                            externalOnSlippageChange(value)
+                          }
+                          localStorage.setItem("swapSlippage", value)
+                        }
+                      }}
+                      placeholder="Custom"
+                      className="w-full px-3 py-1.5 text-xs bg-[#1B1B1B] border border-white/10 rounded-md text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+
+                  {/* Transaction Deadline */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-white">Transaction Deadline</label>
+                      <span className="text-xs text-white/60">minutes</span>
+                    </div>
+                    <input
+                      type="number"
+                      step="1"
+                      min="5"
+                      max="1440"
+                      value={deadline}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value, 10)
+                        if (!isNaN(value) && value >= 5 && value <= 1440) {
+                          if (externalOnDeadlineChange) {
+                            externalOnDeadlineChange(value)
+                          }
+                          localStorage.setItem("swapDeadline", value.toString())
+                        }
+                      }}
+                      className="w-full px-3 py-1.5 text-xs bg-[#1B1B1B] border border-white/10 rounded-md text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <p className="text-xs text-white/60">
+                      Transaction will revert if pending longer than this period.
+                    </p>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+      )}
+
+      {/* 2. THE INTERFACE: The core "box" */}
       <div
         className={cn(
-          "group relative rounded-[20px] p-4 flex flex-col gap-2 transition-all cursor-pointer",
-          editingSide === "buy" ? "bg-[#222] shadow-2xl" : "bg-[#1B1B1B]/50"
+          "w-full bg-[#131313] border border-white/10 p-2 flex flex-col gap-1 shadow-2xl relative z-10 transition-all duration-500",
+          // Seamless corner transition
+          isDockVisible ? "rounded-b-[24px] rounded-t-none border-t-0" : "rounded-[24px]"
         )}
-        onClick={() => {
-          setEditingSide("buy")
-          setIsInputFocused(true)
-        }}
       >
-        <div className="flex justify-between items-center">
-          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-            Buy
-          </span>
-          {/* Common Tokens Quick Select - Always rendered to prevent layout shift */}
-          <TooltipProvider delayDuration={0}>
+        {/* SELL SECTION */}
+        <div
+          className={cn(
+            "group/sell rounded-[20px] p-4 flex flex-col gap-2 transition-all",
+            editingSide === "sell" ? "bg-[#222] shadow-2xl" : "bg-[#1B1B1B]/50"
+          )}
+        >
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              Sell
+            </span>
+            {/* Quick Select Percentages - Only show on hover of Sell section */}
             <div
               className={cn(
-                "flex gap-1.5 transition-opacity duration-200",
-                commonTokens.length > 0
-                  ? "opacity-0 group-hover:opacity-100"
+                "flex gap-1 transition-opacity duration-200",
+                isConnected && fromBalance && fromToken
+                  ? "opacity-0 group-hover/sell:opacity-100"
                   : "opacity-0 pointer-events-none"
               )}
             >
-              {commonTokens.map((token) => (
-                <Tooltip key={token.address}>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleToTokenSelect(token)
-                      }}
-                      className="p-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all"
-                    >
-                      {token.logoURI ? (
-                        <img
-                          src={token.logoURI}
-                          alt={token.symbol}
-                          className="w-5 h-5 rounded-full"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-                          <span className="text-[10px] font-bold">{token.symbol[0]}</span>
-                        </div>
-                      )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{token.symbol}</p>
-                  </TooltipContent>
-                </Tooltip>
-              ))}
+              {["25%", "50%", "75%", "Max"].map((pct) => {
+                const handlePercentageClick = () => {
+                  if (!fromBalance || !fromToken) return
+
+                  const balanceValue = parseFloat(
+                    formatUnits(fromBalance.value, fromToken.decimals)
+                  )
+
+                  if (pct === "Max") {
+                    setAmount(balanceValue.toString())
+                  } else {
+                    const percent = parseFloat(pct) / 100
+                    const amountValue = balanceValue * percent
+                    setAmount(amountValue.toString())
+                  }
+                }
+
+                return (
+                  <button
+                    key={pct}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handlePercentageClick()
+                    }}
+                    className="px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-bold text-muted-foreground hover:bg-white/10 hover:text-white transition-colors"
+                  >
+                    {pct}
+                  </button>
+                )
+              })}
             </div>
-          </TooltipProvider>
-        </div>
+          </div>
 
-        <div className="flex justify-between items-center mt-1">
-          {/* Always show input - editable when editingSide === "buy", shows quote when editingSide === "sell" */}
-          {(() => {
-            const isActive = editingSide === "buy"
-            // Strict Lead-Follow Pattern:
-            // If editing BUY: This is the MASTER (shows raw state)
-            // If editing SELL: This is the FOLLOWER (shows the quote)
-            // Prioritize displayQuote (manually set during switch) over hook quote
-            const displayValue = isActive
-              ? amount
-              : displayQuote || quote?.amountOutFormatted || "0"
-            const fullValue =
-              amount && parseFloat(amount) > 0 ? parseFloat(amount).toString() : null
-            const isTrimmed = isActive && fullValue && displayValue !== fullValue
+          <div className="flex justify-between items-center mt-1">
+            {/* Always show input - editable when editingSide === "sell", shows quote when editingSide === "buy" */}
+            {(() => {
+              const isActive = editingSide === "sell"
+              // Strict Lead-Follow Pattern:
+              // If editing SELL: This is the MASTER (shows raw state)
+              // If editing BUY: This is the FOLLOWER (shows the quote)
+              // Prioritize displayQuote (manually set during switch) over hook quote
+              const displayValue = isActive
+                ? amount
+                : displayQuote || quote?.amountInFormatted || "0"
+              const fullValue =
+                amount && parseFloat(amount) > 0 ? parseFloat(amount).toString() : null
+              const isTrimmed = isActive && fullValue && displayValue !== fullValue
 
-            if (isTrimmed) {
-              return (
-                <TooltipProvider delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex-1 relative">
-                        {isActive ? (
-                          <input
-                            key={`buy-input-tooltip-${pulseAnimationKey}`}
-                            type="text"
-                            value={displayValue}
-                            onChange={(e) => {
-                              // Force direction to buy when typing in buy input
-                              setEditingSide("buy")
-                              // Allow user to type freely, store raw value
-                              const value = e.target.value.replace(/[^0-9.]/g, "")
-                              // Prevent multiple decimal points
-                              const parts = value.split(".")
-                              const cleaned =
-                                parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : value
-                              setAmount(cleaned)
-                            }}
-                            onFocus={() => {
-                              setIsInputFocused(true)
-                              setEditingSide("buy")
-                            }}
-                            onBlur={() => {
-                              setIsInputFocused(false)
-                              // Format on blur if needed
-                              if (amount) {
-                                const num = parseFloat(amount)
-                                if (!isNaN(num)) {
-                                  setAmount(num.toString())
+              if (isTrimmed) {
+                return (
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex-1 relative">
+                          {isActive ? (
+                            <input
+                              ref={sellInputRef}
+                              key={`sell-input-${pulseAnimationKey}`}
+                              type="text"
+                              value={displayValue}
+                              onChange={(e) => {
+                                // Force direction to sell when typing in sell input
+                                setEditingSide("sell")
+                                // Allow user to type freely, store raw value
+                                const value = e.target.value.replace(/[^0-9.]/g, "")
+                                // Prevent multiple decimal points
+                                const parts = value.split(".")
+                                const cleaned =
+                                  parts.length > 2
+                                    ? parts[0] + "." + parts.slice(1).join("")
+                                    : value
+                                setAmount(cleaned)
+                              }}
+                              onFocus={() => {
+                                setIsInputFocused(true)
+                                setEditingSide("sell")
+                              }}
+                              onBlur={() => {
+                                setIsInputFocused(false)
+                                // Format on blur if needed
+                                if (amount) {
+                                  const num = parseFloat(amount)
+                                  if (!isNaN(num)) {
+                                    setAmount(num.toString())
+                                  }
                                 }
-                              }
-                            }}
-                            placeholder="0"
-                            className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white"
-                            disabled={!isConnected}
-                          />
-                        ) : (
-                          <div
-                            className={cn(
-                              "text-4xl font-medium leading-none cursor-text",
-                              !isActive && isQuoteLoading && "animate-pulse-3-loop"
-                            )}
-                          >
-                            <NumberFlow
-                              value={parseFloat(displayValue) || 0}
-                              format={{ minimumFractionDigits: 0, maximumFractionDigits: 6 }}
-                              spinTiming={{ duration: 600, easing: "ease-out" }}
+                              }}
+                              placeholder="0"
+                              className={cn(
+                                "bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white",
+                                insufficientBalance && isActive && "text-destructive"
+                              )}
+                              disabled={!isConnected}
                             />
-                          </div>
-                        )}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      className="text-xs font-mono bg-zinc-900 border-zinc-700"
-                    >
-                      <p className="text-white/70">
-                        {parseFloat(amount).toLocaleString("en-US", {
-                          maximumFractionDigits: 18,
-                          useGrouping: false,
-                        })}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )
-            }
+                          ) : (
+                            <div
+                              className={cn(
+                                "text-4xl font-medium leading-none cursor-text",
+                                !isActive && isQuoteLoading && "animate-pulse-3-loop"
+                              )}
+                            >
+                              <NumberFlow
+                                value={parseFloat(displayValue) || 0}
+                                format={{ minimumFractionDigits: 0, maximumFractionDigits: 6 }}
+                                spinTiming={{ duration: 600, easing: "ease-out" }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="top"
+                        className="text-xs font-mono bg-zinc-900 border-zinc-700"
+                      >
+                        <p className="text-white/70">
+                          {parseFloat(amount).toLocaleString("en-US", {
+                            maximumFractionDigits: 18,
+                            useGrouping: false,
+                          })}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )
+              }
 
-            return (
-              <div className="flex-1 relative">
-                {isActive ? (
+              return (
+                <div className="flex-1 relative">
                   <input
-                    key={`buy-input-simple-${pulseAnimationKey}`}
+                    ref={sellInputRef}
+                    key={`sell-input-simple-${pulseAnimationKey}`}
                     type="text"
                     value={displayValue}
                     onChange={(e) => {
-                      // Force direction to buy when typing in buy input
-                      setEditingSide("buy")
+                      // Force direction to sell when typing in sell input
+                      setEditingSide("sell")
                       // Allow user to type freely, store raw value
                       const value = e.target.value.replace(/[^0-9.]/g, "")
                       // Prevent multiple decimal points
@@ -1073,7 +1199,7 @@ export default function SwapInterface({ onGetStarted }: SwapInterfaceProps = {})
                     }}
                     onFocus={() => {
                       setIsInputFocused(true)
-                      setEditingSide("buy")
+                      setEditingSide("sell")
                     }}
                     onBlur={() => {
                       setIsInputFocused(false)
@@ -1086,128 +1212,645 @@ export default function SwapInterface({ onGetStarted }: SwapInterfaceProps = {})
                       }
                     }}
                     placeholder="0"
-                    className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white"
-                    disabled={!isConnected}
-                  />
-                ) : (
-                  <div
                     className={cn(
-                      "text-4xl font-medium leading-none cursor-text",
+                      "bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white",
+                      insufficientBalance && isActive && "text-destructive",
                       !isActive && shouldPulseLoop && "animate-pulse-3-loop",
                       !isActive && shouldPulse && !shouldPulseLoop && "animate-pulse-3"
                     )}
-                  >
-                    <NumberFlow
-                      value={parseFloat(displayValue) || 0}
-                      format={{ minimumFractionDigits: 0, maximumFractionDigits: 6 }}
-                      spinTiming={{ duration: 600, easing: "ease-out" }}
+                    disabled={!isConnected}
+                  />
+                </div>
+              )
+            })()}
+            <TokenSelectButton
+              token={fromToken}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setIsFromTokenSelectorOpen(true)
+              }}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between items-center text-xs font-medium text-muted-foreground">
+              <span>
+                {(() => {
+                  const displayAmount = editingSide === "sell" ? amount : outputAmount
+                  return displayAmount && parseFloat(displayAmount) > 0 && fromTokenPrice
+                    ? (() => {
+                        const usdValue = parseFloat(displayAmount) * fromTokenPrice
+                        return `$${usdValue.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                          useGrouping: true,
+                        })}`
+                      })()
+                    : displayAmount && parseFloat(displayAmount) > 0 && isLoadingFromPrice
+                      ? "—"
+                      : "—"
+                })()}
+              </span>
+              {isConnected && address && fromToken && fromBalance && (
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 cursor-help">
+                        <Wallet size={12} className="opacity-40" />
+                        <span
+                          className={cn(
+                            editingSide === "sell" && insufficientBalance && "text-destructive"
+                          )}
+                        >
+                          {isLoadingFromBalance
+                            ? "—"
+                            : `${formattedFromBalance} ${fromToken.symbol}`}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      className="text-xs font-mono bg-zinc-900 border-zinc-700"
+                    >
+                      <p className="text-white/90">Full balance:</p>
+                      <p className="text-white/70">
+                        {fromBalanceValue.toLocaleString("en-US", {
+                          maximumFractionDigits: 18,
+                          useGrouping: false,
+                        })}{" "}
+                        {fromToken.symbol}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* SWITCH BUTTON (Centered) */}
+        <div className="relative h-2 w-full flex justify-center z-20">
+          <button
+            onClick={() => {
+              // 1. Set switching flag
+              isSwitchingRef.current = true
+
+              // Clear error state immediately on switch
+              setInsufficientBalance(false)
+
+              // Clear pulse state to stop any ongoing animations
+              setPulseKey(0)
+              setPulseAnimationKey(0)
+              if (pulseTimeoutRef.current) {
+                clearTimeout(pulseTimeoutRef.current)
+                pulseTimeoutRef.current = null
+              }
+
+              // 2. Capture the exact values currently visible in the UI
+              // If I'm selling 1 ETH for 2500 USDC:
+              // sellValue = "1" (what's in sell box), buyValue = "2500" (what's in buy box)
+              // Always capture from displayQuote if available (it's the source of truth for follower boxes)
+              const currentSellValue =
+                editingSide === "sell" ? amount : displayQuote || quote?.amountInFormatted || ""
+              const currentBuyValue =
+                editingSide === "buy" ? amount : displayQuote || quote?.amountOutFormatted || ""
+
+              // 3. Store tokens to swap
+              const tempFromToken = fromToken
+              const tempToToken = toToken
+
+              // 4. Swap Tokens
+              setFromToken(tempToToken)
+              setToToken(tempFromToken)
+
+              // If swapping undefined tokens, preserve the "Select token" state
+              if (tempToToken === undefined) {
+                setHasExplicitlyClearedFromToken(true)
+              } else {
+                setHasExplicitlyClearedFromToken(false)
+              }
+
+              if (tempFromToken === undefined) {
+                setHasExplicitlyClearedToToken(true)
+              } else {
+                setHasExplicitlyClearedToToken(false)
+              }
+
+              // 5. Flip Direction and Values Optimistically
+              // IMPORTANT: Update state in correct order to prevent flicker
+              if (editingSide === "sell") {
+                // We were editing the top (sell), now we edit the bottom (buy).
+                // The "1" (sellValue = amount) moves to the bottom and becomes the new buy input.
+                // The "2500" (buyValue = displayQuote) moves to the top and becomes the new sell display.
+                // Order: Set displayQuote first, then amount, then editingSide
+                setDisplayQuote(currentBuyValue || "")
+                setAmount(currentSellValue || "")
+                setEditingSide("buy")
+              } else {
+                // We were editing the bottom (buy), now we edit the top (sell).
+                // The "2500" (buyValue = amount) moves to the top and becomes the new sell input.
+                // The "1" (sellValue = displayQuote) moves to the bottom and becomes the new buy display.
+                setDisplayQuote(currentSellValue || "")
+                setAmount(currentBuyValue || "")
+                setEditingSide("sell")
+              }
+
+              // 6. Reset switching flag after a short delay to allow the hook to "see" the new state
+              setTimeout(() => {
+                isSwitchingRef.current = false
+              }, 100)
+
+              // Clear pending quote to prevent stale updates, but keep displayQuote for instant feedback
+              setPendingQuote(null)
+              lastQuoteAmountRef.current = null
+
+              // Swap prices
+              const tempFromPrice = fromTokenPrice
+              const tempToPrice = toTokenPrice
+              setFromTokenPrice(tempToPrice)
+              setToTokenPrice(tempFromPrice)
+            }}
+            className="absolute -top-4 p-2 bg-[#1B1B1B] border-[4px] border-[#131313] rounded-xl hover:scale-110 transition-transform text-white shadow-lg"
+          >
+            <ArrowDown size={18} strokeWidth={3} />
+          </button>
+        </div>
+
+        {/* BUY SECTION */}
+        <div
+          className={cn(
+            "group/buy relative rounded-[20px] p-4 flex flex-col gap-2 transition-all",
+            editingSide === "buy" ? "bg-[#222] shadow-2xl" : "bg-[#1B1B1B]/50"
+          )}
+        >
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              Buy
+            </span>
+            {/* Common Tokens Quick Select - Only show on hover of Buy section */}
+            <TooltipProvider delayDuration={0}>
+              <div
+                className={cn(
+                  "flex gap-1.5 transition-opacity duration-200",
+                  commonTokens.length > 0
+                    ? "opacity-0 group-hover/buy:opacity-100"
+                    : "opacity-0 pointer-events-none"
+                )}
+              >
+                {commonTokens.map((token) => (
+                  <Tooltip key={token.address}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleToTokenSelect(token)
+                        }}
+                        className="p-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all"
+                      >
+                        {token.logoURI ? (
+                          <img
+                            src={token.logoURI}
+                            alt={token.symbol}
+                            className="w-5 h-5 rounded-full"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                            <span className="text-[10px] font-bold">{token.symbol[0]}</span>
+                          </div>
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{token.symbol}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </TooltipProvider>
+          </div>
+
+          <div className="flex justify-between items-center mt-1">
+            {/* Always show input - editable when editingSide === "buy", shows quote when editingSide === "sell" */}
+            {(() => {
+              const isActive = editingSide === "buy"
+              // Strict Lead-Follow Pattern:
+              // If editing BUY: This is the MASTER (shows raw state)
+              // If editing SELL: This is the FOLLOWER (shows the quote)
+              // Prioritize displayQuote (manually set during switch) over hook quote
+              const displayValue = isActive
+                ? amount
+                : displayQuote || quote?.amountOutFormatted || "0"
+              const fullValue =
+                amount && parseFloat(amount) > 0 ? parseFloat(amount).toString() : null
+              const isTrimmed = isActive && fullValue && displayValue !== fullValue
+
+              if (isTrimmed) {
+                return (
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex-1 relative">
+                          {isActive ? (
+                            <input
+                              key={`buy-input-tooltip-${pulseAnimationKey}`}
+                              type="text"
+                              value={displayValue}
+                              onChange={(e) => {
+                                // Force direction to buy when typing in buy input
+                                setEditingSide("buy")
+                                // Allow user to type freely, store raw value
+                                const value = e.target.value.replace(/[^0-9.]/g, "")
+                                // Prevent multiple decimal points
+                                const parts = value.split(".")
+                                const cleaned =
+                                  parts.length > 2
+                                    ? parts[0] + "." + parts.slice(1).join("")
+                                    : value
+                                setAmount(cleaned)
+                              }}
+                              onFocus={() => {
+                                setIsInputFocused(true)
+                                setEditingSide("buy")
+                              }}
+                              onBlur={() => {
+                                setIsInputFocused(false)
+                                // Format on blur if needed
+                                if (amount) {
+                                  const num = parseFloat(amount)
+                                  if (!isNaN(num)) {
+                                    setAmount(num.toString())
+                                  }
+                                }
+                              }}
+                              placeholder="0"
+                              className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white"
+                              disabled={!isConnected}
+                            />
+                          ) : (
+                            <div
+                              className={cn(
+                                "text-4xl font-medium leading-none cursor-text",
+                                !isActive && isQuoteLoading && "animate-pulse-3-loop"
+                              )}
+                            >
+                              <NumberFlow
+                                value={parseFloat(displayValue) || 0}
+                                format={{ minimumFractionDigits: 0, maximumFractionDigits: 6 }}
+                                spinTiming={{ duration: 600, easing: "ease-out" }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="top"
+                        className="text-xs font-mono bg-zinc-900 border-zinc-700"
+                      >
+                        <p className="text-white/70">
+                          {parseFloat(amount).toLocaleString("en-US", {
+                            maximumFractionDigits: 18,
+                            useGrouping: false,
+                          })}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )
+              }
+
+              return (
+                <div className="flex-1 relative">
+                  {isActive ? (
+                    <input
+                      key={`buy-input-simple-${pulseAnimationKey}`}
+                      type="text"
+                      value={displayValue}
+                      onChange={(e) => {
+                        // Force direction to buy when typing in buy input
+                        setEditingSide("buy")
+                        // Allow user to type freely, store raw value
+                        const value = e.target.value.replace(/[^0-9.]/g, "")
+                        // Prevent multiple decimal points
+                        const parts = value.split(".")
+                        const cleaned =
+                          parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : value
+                        setAmount(cleaned)
+                      }}
+                      onFocus={() => {
+                        setIsInputFocused(true)
+                        setEditingSide("buy")
+                      }}
+                      onBlur={() => {
+                        setIsInputFocused(false)
+                        // Format on blur if needed
+                        if (amount) {
+                          const num = parseFloat(amount)
+                          if (!isNaN(num)) {
+                            setAmount(num.toString())
+                          }
+                        }
+                      }}
+                      placeholder="0"
+                      className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white"
+                      disabled={!isConnected}
                     />
+                  ) : (
+                    <div
+                      className={cn(
+                        "text-4xl font-medium leading-none cursor-text",
+                        !isActive && shouldPulseLoop && "animate-pulse-3-loop",
+                        !isActive && shouldPulse && !shouldPulseLoop && "animate-pulse-3"
+                      )}
+                    >
+                      <NumberFlow
+                        value={parseFloat(displayValue) || 0}
+                        format={{ minimumFractionDigits: 0, maximumFractionDigits: 6 }}
+                        spinTiming={{ duration: 600, easing: "ease-out" }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+            <TokenSelectButton
+              token={toToken}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setIsToTokenSelectorOpen(true)
+              }}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between items-center text-xs font-medium text-muted-foreground">
+              <span>
+                {(() => {
+                  const displayAmount = editingSide === "buy" ? amount : outputAmount
+                  return displayAmount && parseFloat(displayAmount) > 0 && toTokenPrice
+                    ? (() => {
+                        const usdValue = parseFloat(displayAmount) * toTokenPrice
+                        return `$${usdValue.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                          useGrouping: true,
+                        })}`
+                      })()
+                    : displayAmount && parseFloat(displayAmount) > 0 && isLoadingToPrice
+                      ? "—"
+                      : "—"
+                })()}
+              </span>
+              {isConnected && address && toToken && toBalance && (
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 cursor-help">
+                        <Wallet size={12} className="opacity-40" />
+                        <span>
+                          {isLoadingToBalance ? "—" : `${formattedToBalance} ${toToken.symbol}`}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      className="text-xs font-mono bg-zinc-900 border-zinc-700"
+                    >
+                      <p className="text-white/90">Full balance:</p>
+                      <p className="text-white/70">
+                        {toBalanceValue.toLocaleString("en-US", {
+                          maximumFractionDigits: 18,
+                          useGrouping: false,
+                        })}{" "}
+                        {toToken.symbol}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* REVIEW SECTION - Only show if started */}
+        {hasStarted && quote && fromToken && toToken && (
+          <div className="px-4 py-2 border-t border-white/5 mt-1">
+            {/* EXCHANGE RATE HEADER - Clickable to toggle accordion */}
+            {exchangeRate > 0 && (
+              <div className="w-full flex justify-between items-center text-xs py-0.5">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    // Switch tokens when clicking exchange rate
+                    const tempFrom = fromToken
+                    const tempTo = toToken
+                    setFromToken(tempTo)
+                    setToToken(tempFrom)
+                  }}
+                  className="text-white/80 hover:text-white transition-colors cursor-pointer font-medium"
+                >
+                  1 {fromToken.symbol} = {exchangeRate.toFixed(6)} {toToken.symbol}
+                </button>
+                <button
+                  onClick={() => setIsReviewAccordionOpen(!isReviewAccordionOpen)}
+                  className="text-white/60 hover:text-white/80 transition-colors"
+                >
+                  {isReviewAccordionOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+              </div>
+            )}
+
+            {/* ACCORDION CONTENT */}
+            <div
+              className={cn(
+                "overflow-hidden transition-all duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                isReviewAccordionOpen
+                  ? "max-h-[500px] opacity-100 scale-100"
+                  : "max-h-0 opacity-0 scale-[0.98]"
+              )}
+            >
+              <div className="space-y-1.5 mt-2 pt-2 border-t border-white/5">
+                <div className="flex justify-between items-center text-xs py-0.5">
+                  <span className="text-white/60">Price Impact</span>
+                  <span
+                    className={cn(
+                      "font-medium",
+                      priceImpactSeverity === "low" && "text-green-400",
+                      priceImpactSeverity === "medium" && "text-yellow-400",
+                      priceImpactSeverity === "high" && "text-red-400"
+                    )}
+                  >
+                    {formatPriceImpact(quote.priceImpact)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs py-0.5">
+                  <span className="text-white/60">Slippage Tolerance</span>
+                  <button
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="text-white/80 font-medium underline decoration-dotted decoration-white/40 underline-offset-2 hover:text-white hover:decoration-white/60 transition-colors cursor-pointer"
+                  >
+                    {slippage}%
+                  </button>
+                </div>
+                {quote.gasEstimate && (
+                  <div className="flex justify-between items-center text-xs py-0.5">
+                    <span className="text-white/60">Network Fee</span>
+                    <span className="text-white/80 font-medium">
+                      ~{(Number(quote.gasEstimate) / 1e18).toFixed(6)} ETH
+                    </span>
+                  </div>
+                )}
+                {displayQuote && timeLeft > 0 && (
+                  <>
+                    <div className="border-t border-white/5 my-1" />
+                    <div className="flex justify-between items-center text-xs py-0.5">
+                      <span className="text-white/60">Quote Refresh</span>
+                      <span
+                        className={cn(
+                          "font-medium",
+                          timeLeft <= 5 ? "text-yellow-400" : "text-white/80"
+                        )}
+                      >
+                        {timeLeft}s
+                      </span>
+                    </div>
+                  </>
+                )}
+                {hasHighPriceImpact && (
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20 mt-2">
+                    <AlertTriangle size={14} className="text-yellow-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-yellow-400 leading-relaxed">
+                      High price impact. You may receive significantly less than expected.
+                    </p>
                   </div>
                 )}
               </div>
-            )
-          })()}
-          <TokenSelectButton
-            token={toToken}
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setIsToTokenSelectorOpen(true)
-            }}
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <div className="flex justify-between items-center text-xs font-medium text-muted-foreground">
-            <span>
-              {(() => {
-                const displayAmount = editingSide === "buy" ? amount : outputAmount
-                return displayAmount && parseFloat(displayAmount) > 0 && toTokenPrice
-                  ? (() => {
-                      const usdValue = parseFloat(displayAmount) * toTokenPrice
-                      return `$${usdValue.toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                        useGrouping: true,
-                      })}`
-                    })()
-                  : displayAmount && parseFloat(displayAmount) > 0 && isLoadingToPrice
-                    ? "—"
-                    : "—"
-              })()}
-            </span>
-            {isConnected && address && toToken && toBalance && (
-              <TooltipProvider delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1 cursor-help">
-                      <Wallet size={12} className="opacity-40" />
-                      <span>
-                        {isLoadingToBalance ? "—" : `${formattedToBalance} ${toToken.symbol}`}
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    className="text-xs font-mono bg-zinc-900 border-zinc-700"
-                  >
-                    <p className="text-white/90">Full balance:</p>
-                    <p className="text-white/70">
-                      {toBalanceValue.toLocaleString("en-US", {
-                        maximumFractionDigits: 18,
-                        useGrouping: false,
-                      })}{" "}
-                      {toToken.symbol}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
+            </div>
           </div>
-        </div>
-      </div>
-
-      {/* ACTION BUTTON */}
-      <button
-        disabled={insufficientBalance}
-        onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          if (!insufficientBalance && onGetStarted) {
-            onGetStarted()
-          }
-        }}
-        className={cn(
-          "mt-1 w-full py-4 rounded-[20px] font-bold text-lg transition-all border border-white/10",
-          insufficientBalance
-            ? "bg-zinc-900/50 text-zinc-600 cursor-not-allowed"
-            : "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
         )}
-      >
-        {insufficientBalance
-          ? `Not enough ${editingSide === "sell" ? fromToken?.symbol || "" : toToken?.symbol || ""}`
-          : "Get Started"}
-      </button>
 
-      {/* Token Selectors */}
-      <TokenSelector
-        open={isFromTokenSelectorOpen}
-        onOpenChange={setIsFromTokenSelectorOpen}
-        tokens={tokens.length > 0 ? tokens : [DEFAULT_ETH_TOKEN]}
-        selectedToken={fromToken}
-        onSelect={handleFromTokenSelect}
-      />
-      <TokenSelector
-        open={isToTokenSelectorOpen}
-        onOpenChange={setIsToTokenSelectorOpen}
-        tokens={
-          tokens.length > 0
-            ? tokens.filter((t) => t.address !== fromToken?.address)
-            : [DEFAULT_ETH_TOKEN]
-        }
-        selectedToken={toToken}
-        onSelect={handleToTokenSelect}
-      />
+        {/* QUOTE ERROR DISPLAY - Only show if started */}
+        {hasStarted && quoteError && amount && parseFloat(amount) > 0 && fromToken && toToken && (
+          <div className="px-4 py-2">
+            <div className="flex items-start gap-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20">
+              <AlertTriangle size={14} className="text-red-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs font-medium text-red-500">Quote Error</p>
+                <p className="text-xs text-red-500/80 mt-0.5">
+                  {quoteError.message || "Failed to fetch quote. Please try again."}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ACTION BUTTON */}
+        {!hasStarted ? (
+          <button
+            disabled={insufficientBalance}
+            onClick={handleGetStarted}
+            className={cn(
+              "mt-1 w-full py-4 rounded-[20px] font-bold text-lg transition-all border border-white/10",
+              insufficientBalance
+                ? "bg-zinc-900/50 text-zinc-600 cursor-not-allowed"
+                : "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
+            )}
+          >
+            {insufficientBalance
+              ? `Not enough ${editingSide === "sell" ? fromToken?.symbol || "" : toToken?.symbol || ""}`
+              : "Get Started"}
+          </button>
+        ) : (
+          <button
+            disabled={
+              insufficientBalance ||
+              !isConnected ||
+              !fromToken ||
+              !toToken ||
+              !amount ||
+              parseFloat(amount) <= 0 ||
+              !quote ||
+              hasVeryHighPriceImpact ||
+              isSigning ||
+              isSubmitting
+            }
+            onClick={handleSwapClick}
+            className={cn(
+              "mt-2 mx-2 mb-2 w-[calc(100%-1rem)] py-4 rounded-[16px] font-semibold text-base transition-all duration-200",
+              insufficientBalance ||
+                !isConnected ||
+                !fromToken ||
+                !toToken ||
+                !amount ||
+                parseFloat(amount) <= 0 ||
+                !quote ||
+                hasVeryHighPriceImpact ||
+                isSigning ||
+                isSubmitting
+                ? "bg-[#1B1B1B] text-white/40 cursor-not-allowed border border-white/5"
+                : "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-[1.01]"
+            )}
+          >
+            {isSigning
+              ? "Signing..."
+              : isSubmitting
+                ? "Submitting..."
+                : !isConnected
+                  ? "Connect Wallet"
+                  : insufficientBalance
+                    ? `Not enough ${editingSide === "sell" ? fromToken?.symbol || "" : toToken?.symbol || ""}`
+                    : !fromToken || !toToken
+                      ? "Select Tokens"
+                      : !amount || parseFloat(amount) <= 0
+                        ? "Enter Amount"
+                        : !quote
+                          ? "Loading Quote..."
+                          : hasVeryHighPriceImpact
+                            ? "Price Impact Too High"
+                            : "Swap"}
+          </button>
+        )}
+
+        {/* Token Selectors */}
+        <TokenSelector
+          open={isFromTokenSelectorOpen}
+          onOpenChange={setIsFromTokenSelectorOpen}
+          tokens={tokens.length > 0 ? tokens : [DEFAULT_ETH_TOKEN]}
+          selectedToken={fromToken}
+          onSelect={handleFromTokenSelect}
+        />
+        <TokenSelector
+          open={isToTokenSelectorOpen}
+          onOpenChange={setIsToTokenSelectorOpen}
+          tokens={
+            tokens.length > 0
+              ? tokens.filter((t) => t.address !== fromToken?.address)
+              : [DEFAULT_ETH_TOKEN]
+          }
+          selectedToken={toToken}
+          onSelect={handleToTokenSelect}
+        />
+
+        {/* Confirmation Modal - Only show if started */}
+        {hasStarted && (
+          <SwapConfirmationModal
+            open={isConfirmationOpen}
+            onOpenChange={setIsConfirmationOpen}
+            onConfirm={handleConfirmSwap}
+            tokenIn={fromToken}
+            tokenOut={toToken}
+            amountIn={amount}
+            amountOut={quote?.amountOutFormatted || "0"}
+            minAmountOut={minAmountOut}
+            exchangeRate={exchangeRate}
+            priceImpact={quote?.priceImpact || 0}
+            slippage={slippage}
+            gasEstimate={quote?.gasEstimate || null}
+            isLoading={isSigning || isSubmitting}
+          />
+        )}
+      </div>
     </div>
   )
 }

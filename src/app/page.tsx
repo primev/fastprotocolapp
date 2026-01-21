@@ -17,7 +17,7 @@ import {
 import { AnimatedBackground } from "@/components/AnimatedBackground"
 import { SocialIcon } from "react-social-icons"
 import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL, TWITTER_INVITE_URL } from "@/lib/constants"
-import SwapInterface from "@/components/swap/SwapInterface"
+import SwapContainer from "@/components/swap/SwapContainer"
 import { AppHeader } from "@/components/shared/AppHeader"
 import { useWalletInfo } from "@/hooks/use-wallet-info"
 import { isMetaMaskWallet, isRabbyWallet } from "@/lib/onboarding-utils"
@@ -234,7 +234,7 @@ const IndexPage = () => {
             id="swap-interface"
             className="w-full max-w-[500px] z-10 animate-in fade-in zoom-in-95 duration-1000 delay-200 drop-shadow-[0_35px_35px_rgba(0,0,0,0.1)]"
           >
-            <SwapInterface onGetStarted={handleGetStarted} />
+            <SwapContainer onGetStarted={handleGetStarted} />
           </div>
 
           {!isSwapFocused && (
