@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {
     Ownable2StepUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
@@ -20,7 +20,7 @@ contract FastSettlementV3 is
     Initializable,
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
-    ReentrancyGuard,
+    ReentrancyGuardTransient,
     IFastSettlementV3,
     FastSettlementV3Storage
 {
@@ -79,7 +79,7 @@ contract FastSettlementV3 is
         Intent calldata intent,
         bytes calldata signature,
         SwapCall calldata swapData
-    ) external payable onlyExecutor nonReentrant returns (uint256 received, uint256 surplus) {
+    ) external onlyExecutor nonReentrant returns (uint256 received, uint256 surplus) {
         // Validate constraints
         if (block.timestamp > intent.deadline) revert IntentExpired();
         if (intent.inputToken == address(0)) revert BadInputToken();
@@ -114,16 +114,19 @@ contract FastSettlementV3 is
             signature
         );
 
+        // Cache output token
+        address outputToken = intent.outputToken;
+
         // Approve swap contract
         IERC20(intent.inputToken).forceApprove(swapData.to, intent.inputAmt);
 
         // Execute swap
-        uint256 outputBalBefore = _getBalance(intent.outputToken);
+        uint256 outputBalBefore = _getBalance(outputToken);
 
         (bool success, ) = swapData.to.call(swapData.data);
         if (!success) revert BadCallTarget();
 
-        uint256 outputBalAfter = _getBalance(intent.outputToken);
+        uint256 outputBalAfter = _getBalance(outputToken);
         received = outputBalAfter - outputBalBefore;
 
         // Verify output, quote must account for fees
@@ -133,18 +136,18 @@ contract FastSettlementV3 is
         surplus = received - intent.userAmtOut;
 
         // Pay user
-        if (intent.outputToken == address(0)) {
+        if (outputToken == address(0)) {
             payable(intent.recipient).sendValue(intent.userAmtOut);
         } else {
-            IERC20(intent.outputToken).safeTransfer(intent.recipient, intent.userAmtOut);
+            IERC20(outputToken).safeTransfer(intent.recipient, intent.userAmtOut);
         }
 
         // Pay treasury
         if (surplus > 0) {
-            if (intent.outputToken == address(0)) {
+            if (outputToken == address(0)) {
                 payable(treasury).sendValue(surplus);
             } else {
-                IERC20(intent.outputToken).safeTransfer(treasury, surplus);
+                IERC20(outputToken).safeTransfer(treasury, surplus);
             }
         }
 
@@ -162,7 +165,7 @@ contract FastSettlementV3 is
         emit IntentExecuted(
             intent.user,
             intent.inputToken,
-            intent.outputToken,
+            outputToken,
             intent.inputAmt,
             intent.userAmtOut,
             received,

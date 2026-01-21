@@ -65,7 +65,7 @@ interface IFastSettlementV3 {
         Intent calldata intent,
         bytes calldata signature,
         SwapCall calldata details
-    ) external payable returns (uint256 received, uint256 surplus);
+    ) external returns (uint256 received, uint256 surplus);
 
     /// @notice Sets the authorized executor who can call execute().
     /// @param _newExecutor The new executor address.
