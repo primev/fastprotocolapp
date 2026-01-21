@@ -10,7 +10,7 @@ interface TokenSelectButtonProps {
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void
 }
 
-export default function TokenSelectButton({ token, onClick }: TokenSelectButtonProps) {
+function TokenSelectButton({ token, onClick }: TokenSelectButtonProps) {
   return (
     <button
       onClick={onClick}
@@ -45,3 +45,5 @@ export default function TokenSelectButton({ token, onClick }: TokenSelectButtonP
     </button>
   )
 }
+
+export default React.memo(TokenSelectButton)
