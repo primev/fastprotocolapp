@@ -292,13 +292,21 @@ export default function SwapInterface({
     return null
   }, [quote, editingSide, preservedDisplayQuote])
 
-  // Reset timer when quote changes
+  // Reset timer when quote changes or amount changes
+  const prevAmountRef = useRef(amount)
   useEffect(() => {
+    const amountChanged = prevAmountRef.current !== amount
     if (quote) {
       setTimeLeft(15)
       hasRefetchedRef.current = false
+    } else if (amountChanged && amount && parseFloat(amount) > 0) {
+      // Amount changed but no quote yet - reset timer when quote arrives
+      // This ensures timer resets even if quote is still loading
+      setTimeLeft(15)
+      hasRefetchedRef.current = false
     }
-  }, [quote])
+    prevAmountRef.current = amount
+  }, [quote, amount])
 
   // Auto-refresh quote timer
   useEffect(() => {
