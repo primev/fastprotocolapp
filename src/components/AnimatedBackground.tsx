@@ -17,17 +17,17 @@ export const AnimatedBackground = () => {
   const BEAM_SPEED_INCREMENT = isMobile ? 0.05 : 0.1
   const BEAM_Y_POSITIONS = isMobile ? [0.01, 0.2, 0.1] : [0.3, 0.5, 0.7] // relative height multipliers
 
-  useEffect(() => {
-    if (isMobile) {
-      return
-    }
-    const handleMouseMove = (e: MouseEvent) => {
-      mousePosRef.current = { x: e.clientX, y: e.clientY }
-    }
+  // useEffect(() => {
+  //   if (isMobile) {
+  //     return
+  //   }
+  //   const handleMouseMove = (e: MouseEvent) => {
+  //     mousePosRef.current = { x: e.clientX, y: e.clientY }
+  //   }
 
-    window.addEventListener("mousemove", handleMouseMove)
-    return () => window.removeEventListener("mousemove", handleMouseMove)
-  }, [isMobile])
+  //   window.addEventListener("mousemove", handleMouseMove)
+  //   return () => window.removeEventListener("mousemove", handleMouseMove)
+  // }, [isMobile])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -68,21 +68,21 @@ export const AnimatedBackground = () => {
       gridOffset = (gridOffset + gridSpeed) % gridSize
 
       // Calculate the single grid cell under the mouse
-      const mouseX = mousePosRef.current.x
-      const mouseY = mousePosRef.current.y
-      const mouseGridX = Math.floor(mouseX / gridSize) * gridSize
-      const mouseGridY = Math.floor(mouseY / gridSize) * gridSize
+      // const mouseX = mousePosRef.current.x
+      // const mouseY = mousePosRef.current.y
+      // const mouseGridX = Math.floor(mouseX / gridSize) * gridSize
+      // const mouseGridY = Math.floor(mouseY / gridSize) * gridSize
 
       // Draw the highlighted square first (under the grid) when not on mobile
-      if (!isMobile) {
-        ctx.fillStyle = "rgba(58, 147, 238, 0.2)"
-        ctx.fillRect(mouseGridX, mouseGridY, gridSize, gridSize)
+      // if (!isMobile) {
+      //   ctx.fillStyle = "rgba(58, 147, 238, 0.2)"
+      //   ctx.fillRect(mouseGridX, mouseGridY, gridSize, gridSize)
 
-        // Add glow to highlighted square
-        ctx.strokeStyle = "rgba(58, 147, 238, 0.6)"
-        ctx.lineWidth = 2
-        ctx.strokeRect(mouseGridX, mouseGridY, gridSize, gridSize)
-      }
+      //   // Add glow to highlighted square
+      //   ctx.strokeStyle = "rgba(58, 147, 238, 0.6)"
+      //   ctx.lineWidth = 2
+      //   ctx.strokeRect(mouseGridX, mouseGridY, gridSize, gridSize)
+      // }
 
       // Draw grid lines
       ctx.strokeStyle = "rgba(58, 147, 238, 0.08)"

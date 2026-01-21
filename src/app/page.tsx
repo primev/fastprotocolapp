@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useAccount } from "wagmi"
 import { useConnectModal } from "@rainbow-me/rainbowkit"
 import { toast } from "sonner"
+import Lenis from "lenis"
 import {
   Dialog,
   DialogContent,
@@ -85,6 +86,9 @@ const IndexPage = () => {
   const [isMetaMaskModalOpen, setIsMetaMaskModalOpen] = useState(false)
   const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false)
   const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false)
+  const [isSwapFocused, setIsSwapFocused] = useState(false)
+  const swapInterfaceRef = useRef<HTMLDivElement>(null)
+  const lenisRef = useRef<Lenis | null>(null)
 
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected)
   const isMetaMask = isMetaMaskWallet(connector)
@@ -92,6 +96,29 @@ const IndexPage = () => {
 
   useEffect(() => {
     setIsMounted(true)
+  }, [])
+
+  // Initialize Lenis
+  useEffect(() => {
+    const lenis = new Lenis({
+      lerp: 0.1,
+      wheelMultiplier: 1,
+    })
+
+    lenisRef.current = lenis
+
+    // Animation frame loop
+    function raf(time: number) {
+      lenis.raf(time)
+      requestAnimationFrame(raf)
+    }
+
+    requestAnimationFrame(raf)
+
+    // Cleanup
+    return () => {
+      lenis.destroy()
+    }
   }, [])
 
   const [metrics, setMetrics] = useState({
@@ -164,11 +191,16 @@ const IndexPage = () => {
         : setIsBrowserWalletModalOpen(true)
   }
 
+  const handleGetStarted = () => {
+    // Trigger staggered exit animation for other elements
+    setIsSwapFocused(true)
+  }
+
   return (
     <div className="relative min-h-screen flex flex-col bg-[#FDFCFE] dark:bg-[#0A0A0B] selection:bg-primary/20 transition-colors duration-500 overflow-x-hidden">
       <AnimatedBackground />
 
-      <header className="sticky top-0 z-50 w-full border-b border-border/40 backdrop-blur-xl bg-background/40">
+      <header className="fixed top-0 left-0 right-0 z-50 w-full border-b border-border/40 backdrop-blur-xl bg-background/40">
         <AppHeader
           isConnected={isConnected}
           status={status}
@@ -180,273 +212,297 @@ const IndexPage = () => {
         />
       </header>
 
-      <main className="relative flex flex-col items-center">
+      <main className="relative flex flex-col items-center pt-[80px]">
         {/* SECTION 1: HERO (THE SANCTUARY) */}
         <section className="min-h-[calc(100vh-80px)] w-full flex flex-col items-center justify-center px-4 relative pt-12 pb-24">
-          <div className="text-center mb-12 space-y-4 animate-in fade-in slide-in-from-top-6 duration-1000">
-            <h1 className="text-6xl sm:text-8xl font-bold tracking-tighter text-foreground leading-[1.05]">
-              Lightning fast{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-400">
-                swaps.
+          {!isSwapFocused && (
+            <div className="text-center mb-12 space-y-4 animate-in fade-in slide-in-from-top-6 duration-1000">
+              <h1 className="text-6xl sm:text-8xl font-bold tracking-tighter text-foreground leading-[1.05]">
+                Lightning fast{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-400">
+                  swaps.
+                </span>
+              </h1>
+              <p className="max-w-2xl mx-auto text-base sm:text-lg text-muted-foreground font-medium leading-relaxed">
+                Trade crypto on Ethereum with fast execution and mev rewards
+              </p>
+            </div>
+          )}
+
+          <div
+            ref={swapInterfaceRef}
+            id="swap-interface"
+            className="w-full max-w-[500px] z-10 animate-in fade-in zoom-in-95 duration-1000 delay-200 drop-shadow-[0_35px_35px_rgba(0,0,0,0.1)]"
+          >
+            <SwapInterface onGetStarted={handleGetStarted} />
+          </div>
+
+          {!isSwapFocused && (
+            <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 text-muted-foreground/30 hover:text-primary transition-all duration-500 cursor-default">
+              <span className="text-[10px] font-black tracking-[0.4em] uppercase">
+                The First Tokenized MEV Layer
               </span>
-            </h1>
-            <p className="max-w-2xl mx-auto text-base sm:text-lg text-muted-foreground font-medium leading-relaxed">
-              Trade crypto on Ethereum with fast execution and mev rewards
-            </p>
-          </div>
-
-          <div className="w-full max-w-[500px] z-10 animate-in fade-in zoom-in-95 duration-1000 delay-200 drop-shadow-[0_35px_35px_rgba(0,0,0,0.1)]">
-            <SwapInterface />
-          </div>
-
-          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 text-muted-foreground/30 hover:text-primary transition-all duration-500 cursor-default">
-            <span className="text-[10px] font-black tracking-[0.4em] uppercase">
-              The First Tokenized MEV Layer
-            </span>
-            <ChevronDown size={20} className="animate-bounce" />
-          </div>
+              <ChevronDown size={20} className="animate-bounce" />
+            </div>
+          )}
         </section>
 
         {/* SECTION 2: PROTOCOLFlywheel & STATS (UNISWAP STYLE) */}
-        <section className="w-full max-w-7xl py-32 px-6 md:px-10 flex flex-col lg:flex-row gap-20 items-center">
-          <div className="flex-1 space-y-8 animate-in fade-in slide-in-from-left-8 duration-1000">
-            <h2 className="text-5xl md:text-7xl font-bold tracking-tight text-foreground leading-[1.02]">
-              90%+ MEV <br />
-              <span className="text-muted-foreground/30 italic">Returned.</span>
-            </h2>
-            <div className="space-y-6 max-w-lg">
-              <p className="text-xl text-muted-foreground font-semibold leading-snug">
-                By construction, Fast Protocol is mathematically constrained to pay back the highest
-                level of MEV rebates to users.
-              </p>
-              <p className="text-muted-foreground/60 leading-relaxed font-medium">
-                We capture MEV via FAST RPC backruns, accumulate value in the protocol treasury, and
-                redistribute it in $FAST. It's more than a swap—it's a programmable revenue stream.
-              </p>
-            </div>
-            <div className="flex gap-6">
-              <button className="px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm transition-transform hover:scale-105">
-                Launch Portal
-              </button>
-              <button className="group flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
-                Read the Math{" "}
-                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 w-full max-w-2xl bg-[#0D0D0E] rounded-[48px] overflow-hidden shadow-3xl border border-white/5">
-            <div className="px-10 py-6 bg-white/[0.03] border-b border-white/5 flex justify-between items-center">
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">
-                Protocol Vital Signs
-              </span>
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-[0.2em]">
-                  Real-Time Flow
-                </span>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-px bg-white/5">
-              <MetricTile
-                label="Treasury Accrual"
-                value={formatCurrency(metrics.swapVolumeUsd)}
-                isLoading={isLoadingMetrics}
-              />
-              <MetricTile
-                label="MEV Backrun (ETH)"
-                value={formatEth(metrics.swapVolumeEth)}
-                isLoading={isLoadingMetrics}
-              />
-              <MetricTile label="Active Solvers" value="Managed" isLoading={isLoadingMetrics} />
-              <MetricTile
-                label="User Rebates"
-                value=">100%"
-                accent="text-[#21C95E]"
-                isLoading={isLoadingMetrics}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 3: THE REWARDS FLYWHEEL */}
-        <section className="w-full max-w-7xl py-40 px-6 border-t border-border/10">
-          <div className="text-center mb-24 space-y-4">
-            <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">
-              The Architecture
-            </h2>
-            <h3 className="text-4xl md:text-5xl font-bold tracking-tight">
-              Turning PvP into Alignment.
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <FlywheelCard
-              step="01"
-              title="Simulation"
-              desc="FAST RPC auctions your transaction directly to staked blockbuilders over mev-commit."
-            />
-            <FlywheelCard
-              step="02"
-              title="Treasury"
-              desc="MEV value from backruns accumulates in ETH within the protocol treasury."
-            />
-            <FlywheelCard
-              step="03"
-              title="Tokenize"
-              desc="The protocol converts ETH value into $FAST token rewards for the transaction supply chain."
-            />
-            <FlywheelCard
-              step="04"
-              title="Equilibrium"
-              desc="Increased usage strengthens token utility, driving deeper liquidity and better rebates."
-            />
-          </div>
-        </section>
-
-        {/* SECTION 4: VALIDATOR RATIONALITY TABLE */}
-        <section className="w-full max-w-7xl py-32 px-6 border-t border-border/10 bg-zinc-950/[0.02] rounded-[64px] my-20">
-          <div className="flex flex-col lg:flex-row gap-16 items-center">
-            <div className="flex-1 space-y-6">
-              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
-                <BarChart3 size={24} />
-              </div>
-              <h3 className="text-4xl font-bold tracking-tight">
-                The Validator <br /> Strictly Rational Move.
-              </h3>
-              <p className="text-muted-foreground font-medium leading-relaxed">
-                Opted-in validators earn significantly higher yields by capturing MEV directed to
-                them via FAST RPC slots.
-              </p>
-              <ul className="space-y-4">
-                {[
-                  "Earn normal mev-boost yield",
-                  "Plus 95% of incremental FAST MEV",
-                  "Priority routing for intent-rich flow",
-                ].map((text) => (
-                  <li key={text} className="flex items-center gap-3 text-sm font-semibold">
-                    <CheckCircle2 size={18} className="text-emerald-500" /> {text}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="flex-[1.2] w-full border border-border/40 rounded-[32px] bg-background overflow-hidden shadow-xl">
-              <div className="p-8 border-b border-border/40 flex justify-between items-center">
-                <span className="font-bold tracking-tight">Yield Comparison</span>
-                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                  Model Equilibrium
-                </span>
-              </div>
-              <div className="p-0">
-                <div className="flex justify-between p-8 border-b border-border/10 items-center">
-                  <div>
-                    <p className="font-bold">Opted-in Validators</p>
-                    <p className="text-xs text-muted-foreground">
-                      Integrated with mev-commit chain
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-emerald-500">~95% MEV</p>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500/50">
-                      Profit Share
-                    </p>
-                  </div>
-                </div>
-                <div className="flex justify-between p-8 bg-muted/20 items-center">
-                  <div>
-                    <p className="font-bold text-muted-foreground">Standard OFAs</p>
-                    <p className="text-xs text-muted-foreground/50">Traditional MEV-boost relays</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-muted-foreground">~5% MEV</p>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/30">
-                      Standard Rate
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 5: TECHNICAL CORE FEATURES */}
-        <section className="w-full max-w-7xl py-40 px-6 border-t border-border/10">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-24">
-            <FeatureItem
-              icon={<Coins className="text-blue-500" size={32} />}
-              title="Token Exposure"
-              desc="The first protocol to gain direct exposure to Ethereum-wide MEV through a tokenized treasury model."
-            />
-            <FeatureItem
-              icon={<Zap className="text-emerald-500" size={32} />}
-              title="Decaying Bids"
-              desc="Transactions utilize decaying bids instead of priority gas fees, improving inclusion speed and builder logic."
-            />
-            <FeatureItem
-              icon={<Shield className="text-indigo-500" size={32} />}
-              title="MEV Sanctuary"
-              desc="Integrates with mev-commit to ensure transaction privacy and atomic preconfirmations in milliseconds."
-            />
-          </div>
-        </section>
-
-        {/* FOOTER */}
-        <footer className="w-full py-24 px-6 bg-zinc-50 dark:bg-[#080809] border-t border-border/10">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-wrap justify-center items-center gap-16 grayscale opacity-30 hover:opacity-100 transition-all duration-700 mb-20">
-              {footerLogos.map((l) => (
-                <Image
-                  key={l.alt}
-                  src={l.src}
-                  alt={l.alt}
-                  width={l.width}
-                  height={l.height}
-                  className={l.className}
-                />
-              ))}
-            </div>
-
-            <div className="flex flex-col md:flex-row justify-between items-center gap-12 pt-16 border-t border-border/10">
-              <div className="text-center md:text-left">
-                <h3 className="text-2xl font-black tracking-tighter uppercase italic text-foreground">
-                  Fast Protocol
-                </h3>
-                <p className="text-sm text-muted-foreground font-medium">
-                  The intent execution layer for the onchain economy.
+        {!isSwapFocused && (
+          <section className="w-full max-w-7xl py-32 px-6 md:px-10 flex flex-col lg:flex-row gap-20 items-center">
+            <div className="flex-1 space-y-8 animate-in fade-in slide-in-from-left-8 duration-1000">
+              <h2 className="text-5xl md:text-7xl font-bold tracking-tight text-foreground leading-[1.02]">
+                90%+ MEV <br />
+                <span className="text-muted-foreground/30 italic">Returned.</span>
+              </h2>
+              <div className="space-y-6 max-w-lg">
+                <p className="text-xl text-muted-foreground font-semibold leading-snug">
+                  By construction, Fast Protocol is mathematically constrained to pay back the
+                  highest level of MEV rebates to users.
+                </p>
+                <p className="text-muted-foreground/60 leading-relaxed font-medium">
+                  We capture MEV via FAST RPC backruns, accumulate value in the protocol treasury,
+                  and redistribute it in $FAST. It's more than a swap—it's a programmable revenue
+                  stream.
                 </p>
               </div>
-
-              <div className="flex gap-10 text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
-                <button
-                  onClick={() => setIsHelpDialogOpen(true)}
-                  className="hover:text-primary transition-colors"
-                >
-                  Documentation
+              <div className="flex gap-6">
+                <button className="px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm transition-transform hover:scale-105">
+                  Launch Portal
                 </button>
-                <a
-                  href={TWITTER_INVITE_URL}
-                  target="_blank"
-                  className="hover:text-primary transition-colors"
-                >
-                  Twitter
-                </a>
-                <a
-                  href={DISCORD_INVITE_URL}
-                  target="_blank"
-                  className="hover:text-primary transition-colors"
-                >
-                  Discord
-                </a>
+                <button className="group flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
+                  Read the Math{" "}
+                  <ArrowRight
+                    size={16}
+                    className="group-hover:translate-x-1 transition-transform"
+                  />
+                </button>
               </div>
             </div>
-            <div className="mt-20 text-center">
-              <p className="text-[9px] text-muted-foreground/20 uppercase tracking-[0.5em]">
-                © 2026 FAST PROTOCOL INC. ALL RIGHTS RESERVED.
-              </p>
+
+            <div className="flex-1 w-full max-w-2xl bg-[#0D0D0E] rounded-[48px] overflow-hidden shadow-3xl border border-white/5">
+              <div className="px-10 py-6 bg-white/[0.03] border-b border-white/5 flex justify-between items-center">
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">
+                  Protocol Vital Signs
+                </span>
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-[0.2em]">
+                    Real-Time Flow
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-px bg-white/5">
+                <MetricTile
+                  label="Treasury Accrual"
+                  value={formatCurrency(metrics.swapVolumeUsd)}
+                  isLoading={isLoadingMetrics}
+                />
+                <MetricTile
+                  label="MEV Backrun (ETH)"
+                  value={formatEth(metrics.swapVolumeEth)}
+                  isLoading={isLoadingMetrics}
+                />
+                <MetricTile label="Active Solvers" value="Managed" isLoading={isLoadingMetrics} />
+                <MetricTile
+                  label="User Rebates"
+                  value=">100%"
+                  accent="text-[#21C95E]"
+                  isLoading={isLoadingMetrics}
+                />
+              </div>
             </div>
-          </div>
-        </footer>
+          </section>
+        )}
+
+        {/* SECTION 3: THE REWARDS FLYWHEEL */}
+        {!isSwapFocused && (
+          <section className="w-full max-w-7xl py-40 px-6 border-t border-border/10">
+            <div className="text-center mb-24 space-y-4">
+              <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">
+                The Architecture
+              </h2>
+              <h3 className="text-4xl md:text-5xl font-bold tracking-tight">
+                Turning PvP into Alignment.
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              <FlywheelCard
+                step="01"
+                title="Simulation"
+                desc="FAST RPC auctions your transaction directly to staked blockbuilders over mev-commit."
+              />
+              <FlywheelCard
+                step="02"
+                title="Treasury"
+                desc="MEV value from backruns accumulates in ETH within the protocol treasury."
+              />
+              <FlywheelCard
+                step="03"
+                title="Tokenize"
+                desc="The protocol converts ETH value into $FAST token rewards for the transaction supply chain."
+              />
+              <FlywheelCard
+                step="04"
+                title="Equilibrium"
+                desc="Increased usage strengthens token utility, driving deeper liquidity and better rebates."
+              />
+            </div>
+          </section>
+        )}
+
+        {/* SECTION 4: VALIDATOR RATIONALITY TABLE */}
+        {!isSwapFocused && (
+          <section className="w-full max-w-7xl py-32 px-6 border-t border-border/10 bg-zinc-950/[0.02] rounded-[64px] my-20">
+            <div className="flex flex-col lg:flex-row gap-16 items-center">
+              <div className="flex-1 space-y-6">
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                  <BarChart3 size={24} />
+                </div>
+                <h3 className="text-4xl font-bold tracking-tight">
+                  The Validator <br /> Strictly Rational Move.
+                </h3>
+                <p className="text-muted-foreground font-medium leading-relaxed">
+                  Opted-in validators earn significantly higher yields by capturing MEV directed to
+                  them via FAST RPC slots.
+                </p>
+                <ul className="space-y-4">
+                  {[
+                    "Earn normal mev-boost yield",
+                    "Plus 95% of incremental FAST MEV",
+                    "Priority routing for intent-rich flow",
+                  ].map((text) => (
+                    <li key={text} className="flex items-center gap-3 text-sm font-semibold">
+                      <CheckCircle2 size={18} className="text-emerald-500" /> {text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="flex-[1.2] w-full border border-border/40 rounded-[32px] bg-background overflow-hidden shadow-xl">
+                <div className="p-8 border-b border-border/40 flex justify-between items-center">
+                  <span className="font-bold tracking-tight">Yield Comparison</span>
+                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                    Model Equilibrium
+                  </span>
+                </div>
+                <div className="p-0">
+                  <div className="flex justify-between p-8 border-b border-border/10 items-center">
+                    <div>
+                      <p className="font-bold">Opted-in Validators</p>
+                      <p className="text-xs text-muted-foreground">
+                        Integrated with mev-commit chain
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-emerald-500">~95% MEV</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500/50">
+                        Profit Share
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between p-8 bg-muted/20 items-center">
+                    <div>
+                      <p className="font-bold text-muted-foreground">Standard OFAs</p>
+                      <p className="text-xs text-muted-foreground/50">
+                        Traditional MEV-boost relays
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-muted-foreground">~5% MEV</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/30">
+                        Standard Rate
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* SECTION 5: TECHNICAL CORE FEATURES */}
+        {!isSwapFocused && (
+          <section className="w-full max-w-7xl py-40 px-6 border-t border-border/10">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-24">
+              <FeatureItem
+                icon={<Coins className="text-blue-500" size={32} />}
+                title="Token Exposure"
+                desc="The first protocol to gain direct exposure to Ethereum-wide MEV through a tokenized treasury model."
+              />
+              <FeatureItem
+                icon={<Zap className="text-emerald-500" size={32} />}
+                title="Decaying Bids"
+                desc="Transactions utilize decaying bids instead of priority gas fees, improving inclusion speed and builder logic."
+              />
+              <FeatureItem
+                icon={<Shield className="text-indigo-500" size={32} />}
+                title="MEV Sanctuary"
+                desc="Integrates with mev-commit to ensure transaction privacy and atomic preconfirmations in milliseconds."
+              />
+            </div>
+          </section>
+        )}
+
+        {/* FOOTER */}
+        {!isSwapFocused && (
+          <footer className="w-full py-24 px-6 bg-zinc-50 dark:bg-[#080809] border-t border-border/10">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex flex-wrap justify-center items-center gap-16 grayscale opacity-30 hover:opacity-100 transition-all duration-700 mb-20">
+                {footerLogos.map((l) => (
+                  <Image
+                    key={l.alt}
+                    src={l.src}
+                    alt={l.alt}
+                    width={l.width}
+                    height={l.height}
+                    className={l.className}
+                  />
+                ))}
+              </div>
+
+              <div className="flex flex-col md:flex-row justify-between items-center gap-12 pt-16 border-t border-border/10">
+                <div className="text-center md:text-left">
+                  <h3 className="text-2xl font-black tracking-tighter uppercase italic text-foreground">
+                    Fast Protocol
+                  </h3>
+                  <p className="text-sm text-muted-foreground font-medium">
+                    The intent execution layer for the onchain economy.
+                  </p>
+                </div>
+
+                <div className="flex gap-10 text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
+                  <button
+                    onClick={() => setIsHelpDialogOpen(true)}
+                    className="hover:text-primary transition-colors"
+                  >
+                    Documentation
+                  </button>
+                  <a
+                    href={TWITTER_INVITE_URL}
+                    target="_blank"
+                    className="hover:text-primary transition-colors"
+                  >
+                    Twitter
+                  </a>
+                  <a
+                    href={DISCORD_INVITE_URL}
+                    target="_blank"
+                    className="hover:text-primary transition-colors"
+                  >
+                    Discord
+                  </a>
+                </div>
+              </div>
+              <div className="mt-20 text-center">
+                <p className="text-[9px] text-muted-foreground/20 uppercase tracking-[0.5em]">
+                  © 2026 FAST PROTOCOL INC. ALL RIGHTS RESERVED.
+                </p>
+              </div>
+            </div>
+          </footer>
+        )}
       </main>
 
       {/* HELP DIALOG */}
