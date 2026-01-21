@@ -1,121 +1,135 @@
 "use client"
 
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { ChevronDown } from "lucide-react"
-import type { Token } from "@/types/swap"
-import TokenSelector from "./TokenSelector"
-import { useState } from "react"
+import React from "react"
 import { cn } from "@/lib/utils"
+import NumberFlow from "@number-flow/react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface AmountInputProps {
-  label: string
   value: string
-  onChange?: (value: string) => void
-  selectedToken: Token | undefined
-  onTokenSelect: (token: Token) => void
-  tokens: Token[]
-  // NEW: distinguish between the side being typed in and the side being quoted
-  isFollower?: boolean
-  onMaxClick?: () => void
-  showMax?: boolean
-  // NEW: notify parent when this box is clicked/focused
-  onFocus?: () => void
+  onChange: (value: string) => void
+  onFocus: () => void
+  onBlur: () => void
+  isActive: boolean
+  isDisabled: boolean
+  showError: boolean
+  shouldPulse: boolean
+  shouldPulseLoop: boolean
+  isQuoteLoading?: boolean
+  pulseAnimationKey: number
+  inputRef?: React.RefObject<HTMLInputElement>
 }
 
-export default function AmountInput({
-  label,
+export default React.memo(function AmountInput({
   value,
   onChange,
-  selectedToken,
-  onTokenSelect,
-  tokens,
-  isFollower = false,
-  onMaxClick,
-  showMax = false,
   onFocus,
+  onBlur,
+  isActive,
+  isDisabled,
+  showError,
+  shouldPulse,
+  shouldPulseLoop,
+  isQuoteLoading,
+  pulseAnimationKey,
+  inputRef,
 }: AmountInputProps) {
-  const [isTokenSelectorOpen, setIsTokenSelectorOpen] = useState(false)
+  const fullValue = value && parseFloat(value) > 0 ? parseFloat(value).toString() : null
+  const isTrimmed = isActive && fullValue && value !== fullValue
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value.replace(/[^0-9.]/g, "")
+    const parts = inputValue.split(".")
+    const cleaned = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : inputValue
+    onChange(cleaned)
+  }
+
+  if (isTrimmed) {
+    return (
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex-1 relative">
+              {isActive ? (
+                <input
+                  ref={inputRef}
+                  key={`input-tooltip-${pulseAnimationKey}`}
+                  type="text"
+                  value={value}
+                  onChange={handleChange}
+                  onFocus={onFocus}
+                  onBlur={onBlur}
+                  placeholder="0"
+                  className={cn(
+                    "bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white",
+                    showError && "text-destructive"
+                  )}
+                  disabled={isDisabled}
+                />
+              ) : (
+                <div
+                  className={cn(
+                    "text-4xl font-medium leading-none cursor-text",
+                    !isActive && isQuoteLoading && "animate-pulse-3-loop"
+                  )}
+                >
+                  <NumberFlow
+                    value={parseFloat(value) || 0}
+                    format={{ minimumFractionDigits: 0, maximumFractionDigits: 6 }}
+                    spinTiming={{ duration: 600, easing: "ease-out" }}
+                  />
+                </div>
+              )}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs font-mono bg-zinc-900 border-zinc-700">
+            <p className="text-white/70">
+              {parseFloat(value).toLocaleString("en-US", {
+                maximumFractionDigits: 18,
+                useGrouping: false,
+              })}
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }
 
   return (
-    <div
-      className={cn(
-        "p-3 border rounded-xl transition-all duration-200",
-        !isFollower
-          ? "bg-[#222] border-white/20 shadow-lg"
-          : "bg-muted/30 border-border/50 hover:bg-muted/50"
-      )}
-      onClick={onFocus} // Ensure clicking the container sets the editing side
-    >
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-          {label}
-        </span>
-        {showMax && !isFollower && onMaxClick && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation()
-              onMaxClick()
-            }}
-            className="h-6 text-[10px] font-bold bg-white/5 hover:bg-white/10"
-          >
-            MAX
-          </Button>
-        )}
-      </div>
-
-      <div className="flex gap-3 items-center">
-        <Input
+    <div className="flex-1 relative">
+      {isActive ? (
+        <input
+          ref={inputRef}
+          key={`input-simple-${pulseAnimationKey}`}
           type="text"
-          inputMode="decimal"
-          placeholder="0.0"
           value={value}
-          // Only allow typing if this is NOT the follower side
-          onChange={(e) => {
-            const val = e.target.value.replace(/[^0-9.]/g, "")
-            if (!isFollower) onChange?.(val)
-          }}
+          onChange={handleChange}
           onFocus={onFocus}
-          // We use readOnly instead of disabled to keep the UI clean
-          readOnly={isFollower}
+          onBlur={onBlur}
+          placeholder="0"
           className={cn(
-            "flex-1 text-2xl font-semibold tabular-nums border-0 bg-transparent focus-visible:ring-0 p-0 h-auto placeholder:text-muted-foreground/20",
-            // Add a subtle pulse to the value if it's a quote being fetched
-            isFollower && value === "" && "animate-pulse"
+            "bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white",
+            showError && "text-destructive",
+            !isActive && shouldPulseLoop && "animate-pulse-3-loop",
+            !isActive && shouldPulse && !shouldPulseLoop && "animate-pulse-3"
           )}
+          disabled={isDisabled}
         />
-
-        <Button
-          variant="outline"
-          onClick={(e) => {
-            e.stopPropagation()
-            setIsTokenSelectorOpen(true)
-          }}
-          className="flex items-center gap-2 px-3 h-10 border-border/50 bg-[#1B1B1B] hover:border-primary/50 rounded-xl"
-        >
-          {selectedToken ? (
-            <>
-              {selectedToken.logoURI && (
-                <img src={selectedToken.logoURI} alt="" className="w-5 h-5 rounded-full" />
-              )}
-              <span className="font-bold text-sm">{selectedToken.symbol}</span>
-            </>
-          ) : (
-            <span className="text-muted-foreground text-sm font-bold">Select</span>
+      ) : (
+        <div
+          className={cn(
+            "text-4xl font-medium leading-none cursor-text",
+            !isActive && shouldPulseLoop && "animate-pulse-3-loop",
+            !isActive && shouldPulse && !shouldPulseLoop && "animate-pulse-3"
           )}
-          <ChevronDown size={14} className="text-muted-foreground" />
-        </Button>
-      </div>
-
-      <TokenSelector
-        open={isTokenSelectorOpen}
-        onOpenChange={setIsTokenSelectorOpen}
-        tokens={tokens}
-        selectedToken={selectedToken}
-        onSelect={onTokenSelect}
-      />
+        >
+          <NumberFlow
+            value={parseFloat(value) || 0}
+            format={{ minimumFractionDigits: 0, maximumFractionDigits: 6 }}
+            spinTiming={{ duration: 600, easing: "ease-out" }}
+          />
+        </div>
+      )}
     </div>
   )
-}
+})

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { createPublicClient, http, parseUnits, formatUnits, type Address } from "viem"
 import { mainnet } from "wagmi/chains"
 import { RPC_ENDPOINT, FALLBACK_RPC_ENDPOINT } from "@/lib/network-config"
+import { sanitizeAmountInput, formatTokenAmount } from "@/lib/utils"
 
 // Uniswap V3 Quoter V2 on Ethereum mainnet
 const QUOTER_V2_ADDRESS = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e" as const
@@ -35,9 +36,6 @@ export const TOKEN_DECIMALS: Record<string, number> = {
   // TODO: Uncomment when FAST token is available
   // FAST: 18,
 }
-
-// Stablecoin symbols for decimal formatting
-const STABLECOIN_SYMBOLS = ["USDC", "USDT", "DAI", "BUSD", "TUSD", "FRAX", "USDP", "LUSD"]
 
 // Uniswap V3 Quoter V2 ABI (supports both exact input and exact output)
 const QUOTER_V2_ABI = [
@@ -150,47 +148,6 @@ function getTokenDecimals(symbol: string): number {
 }
 
 /**
- * Check if a token symbol is a stablecoin
- */
-function isStablecoin(symbol: string): boolean {
-  return STABLECOIN_SYMBOLS.includes(symbol.toUpperCase())
-}
-
-/**
- * Format amount based on token type (stablecoins get 2 decimals, others get 6)
- */
-function formatAmountByToken(amount: number, tokenSymbol: string): string {
-  const decimals = isStablecoin(tokenSymbol) ? 2 : 6
-  return amount.toFixed(decimals).replace(/\.?0+$/, "")
-}
-
-/**
- * Sanitize and validate amount input
- * @param input Raw input string
- * @returns Sanitized number or null if invalid
- */
-function sanitizeAmountInput(input: string): number | null {
-  if (!input || typeof input !== "string") return null
-
-  // Remove any non-numeric characters except decimal point
-  const sanitized = input.replace(/[^0-9.]/g, "")
-
-  // Ensure only one decimal point
-  const parts = sanitized.split(".")
-  const cleanedAmount = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join("")}` : sanitized
-
-  const num = parseFloat(cleanedAmount)
-
-  // Validate the number
-  if (isNaN(num) || num < 0 || !isFinite(num)) return null
-
-  // Reject numbers that are too large (potential overflow)
-  if (num > Number.MAX_SAFE_INTEGER) return null
-
-  return num
-}
-
-/**
  * Validate slippage input
  * @param slippage Raw slippage string
  * @returns Validated slippage percentage or default
@@ -270,24 +227,24 @@ export function useQuote({
         // Lead is SELL box: we know amountIn (what user typed), calculate amountOut
         const calculatedOut = amountInNum * mockRate
         amountIn = BigInt(Math.floor(amountInNum * 1e18))
-        amountInFormatted = formatAmountByToken(amountInNum, tokenIn)
+        amountInFormatted = formatTokenAmount(amountInNum, tokenIn)
         amountOut = BigInt(Math.floor(calculatedOut * 1e18))
-        amountOutFormatted = formatAmountByToken(calculatedOut, tokenOut)
+        amountOutFormatted = formatTokenAmount(calculatedOut, tokenOut)
         const minOutNum = calculatedOut * (1 - slippagePercent / 100)
         minOut = BigInt(Math.floor(minOutNum * 1e18))
-        minOutFormatted = formatAmountByToken(minOutNum, tokenOut)
+        minOutFormatted = formatTokenAmount(minOutNum, tokenOut)
       } else {
         // Lead is BUY box: amountInNum is the desired OUTPUT (what user typed)
         // Calculate how much INPUT we need to get that output
         const calculatedIn = amountInNum / mockRate
         amountIn = BigInt(Math.floor(calculatedIn * 1e18))
-        amountInFormatted = formatAmountByToken(calculatedIn, tokenIn)
+        amountInFormatted = formatTokenAmount(calculatedIn, tokenIn)
         amountOut = BigInt(Math.floor(amountInNum * 1e18))
-        amountOutFormatted = formatAmountByToken(amountInNum, tokenOut) // The number typed is the target
+        amountOutFormatted = formatTokenAmount(amountInNum, tokenOut) // The number typed is the target
         // For exact output, maxIn is amountIn * (1 + slippage/100)
         const maxInNum = calculatedIn * (1 + slippagePercent / 100)
         minOut = BigInt(Math.floor(maxInNum * 1e18))
-        minOutFormatted = formatAmountByToken(maxInNum, tokenIn)
+        minOutFormatted = formatTokenAmount(maxInNum, tokenIn)
       }
 
       setQuote({
@@ -409,8 +366,8 @@ export function useQuote({
       const amountInNum = parseFloat(amountInRaw)
 
       // Format based on token type (stablecoins get 2 decimals, others get 6)
-      const amountOutFormatted = formatAmountByToken(amountOutNum, tokenOut)
-      const amountInFormatted = formatAmountByToken(amountInNum, tokenIn)
+      const amountOutFormatted = formatTokenAmount(amountOutNum, tokenOut)
+      const amountInFormatted = formatTokenAmount(amountInNum, tokenIn)
 
       // Calculate minOut/maxIn based on slippage (with validation)
       const slippagePercent = validateSlippage(slippage)
@@ -423,12 +380,12 @@ export function useQuote({
         // For exact input: minOut = amountOut * (1 - slippage/100)
         minOut = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
         const minOutNum = parseFloat(formatUnits(minOut, tokenOutDecimals))
-        minOutFormatted = formatAmountByToken(minOutNum, tokenOut)
+        minOutFormatted = formatTokenAmount(minOutNum, tokenOut)
       } else {
         // For exact output: maxIn = amountIn * (1 + slippage/100)
         minOut = (bestQuote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
         const minOutNum = parseFloat(formatUnits(minOut, tokenInDecimals))
-        minOutFormatted = formatAmountByToken(minOutNum, tokenIn)
+        minOutFormatted = formatTokenAmount(minOutNum, tokenIn)
       }
 
       // Calculate exchange rate (always output/input)

@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,7 @@ interface SwapConfirmationModalProps {
   isLoading?: boolean
 }
 
-export default function SwapConfirmationModal({
+function SwapConfirmationModal({
   open,
   onOpenChange,
   onConfirm,
@@ -220,3 +221,5 @@ function TelemetryBox({
     </div>
   )
 }
+
+export default React.memo(SwapConfirmationModal)

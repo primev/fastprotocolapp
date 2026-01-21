@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { Search } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -18,7 +18,7 @@ interface TokenSelectorProps {
 // Popular tokens (ETH, USDC, USDT, DAI, WBTC)
 const POPULAR_TOKEN_SYMBOLS = ["ETH", "USDC", "USDT", "DAI", "WBTC"]
 
-export default function TokenSelector({
+function TokenSelector({
   open,
   onOpenChange,
   tokens,
@@ -130,3 +130,5 @@ export default function TokenSelector({
     </Dialog>
   )
 }
+
+export default React.memo(TokenSelector)
