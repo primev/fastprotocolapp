@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from "react"
-import { ArrowDown, Wallet, AlertTriangle } from "lucide-react"
 import { useAccount, useBalance } from "wagmi"
 import { useConnectModal } from "@rainbow-me/rainbowkit"
 import { formatUnits } from "viem"
@@ -10,9 +9,12 @@ import TokenSelector from "./TokenSelector"
 import TokenSelectButton from "./TokenSelectButton"
 import SwapSettings from "./SwapSettings"
 import SwapReview from "./SwapReview"
-import AmountInput from "./AmountInput"
-import PercentageButtons from "./PercentageButtons"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import SwapDock from "./SwapDock"
+import TokenSwapSection from "./TokenSwapSection"
+import SwitchButton from "./SwitchButton"
+import SwapActionButton from "./SwapActionButton"
+import QuoteErrorDisplay from "./QuoteErrorDisplay"
+import { useTokenSwitch } from "@/hooks/use-token-switch"
 import { useQuote, getPriceImpactSeverity } from "@/hooks/use-quote"
 import { useToast } from "@/hooks/use-toast"
 import { useTokenPrice } from "@/hooks/use-token-price"
@@ -558,41 +560,71 @@ export default function SwapInterface({
     }
   }
 
+  const { handleSwitch } = useTokenSwitch({
+    fromToken,
+    toToken,
+    amount,
+    displayQuote,
+    editingSide,
+    quote,
+    onSwitch: useCallback(
+      ({
+        newFromToken,
+        newToToken,
+        newAmount,
+        newDisplayQuote,
+        newEditingSide,
+        hasExplicitlyClearedFromToken: newHasExplicitlyClearedFromToken,
+        hasExplicitlyClearedToToken: newHasExplicitlyClearedToToken,
+      }) => {
+        isSwitchingRef.current = true
+        setInsufficientBalance(false)
+        setPulseKey(0)
+        setPulseAnimationKey(0)
+        if (pulseTimeoutRef.current) {
+          clearTimeout(pulseTimeoutRef.current)
+          pulseTimeoutRef.current = null
+        }
+
+        setFromToken(newFromToken)
+        setToToken(newToToken)
+        setHasExplicitlyClearedFromToken(newHasExplicitlyClearedFromToken)
+        setHasExplicitlyClearedToToken(newHasExplicitlyClearedToToken)
+        setDisplayQuote(newDisplayQuote)
+        setAmount(newAmount)
+        setEditingSide(newEditingSide)
+
+        setTimeout(() => {
+          isSwitchingRef.current = false
+        }, 100)
+
+        setPendingQuote(null)
+        lastQuoteAmountRef.current = null
+      },
+      []
+    ),
+  })
+
   return (
     <div className="w-full flex flex-col items-stretch group">
       {hasStarted && (
         <div
           className={cn(
-            "relative flex items-center justify-between bg-[#131313] border-x border-t border-white/10 rounded-t-[24px] transition-all duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] overflow-hidden",
+            "transition-all duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)]",
             isDockVisible
-              ? "h-[54px] opacity-100 py-3 px-5 mb-0"
-              : "h-0 opacity-0 py-0 px-5 -mb-2 scale-[0.98] pointer-events-none"
+              ? "h-[54px] opacity-100 mb-0"
+              : "h-0 opacity-0 -mb-2 scale-[0.98] pointer-events-none"
           )}
         >
-          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.1] to-transparent" />
-
-          <div className="flex-1">
-            <span className="text-[12px] font-bold uppercase tracking-[0.2em] text-white/20">
-              Fast Swap
-            </span>
-          </div>
-
-          {/* <div className="px-4 py-1 rounded-full bg-white/[0.03] border border-white/5">
-            <span className="text-xs font-semibold text-white/90 uppercase tracking-widest">
-              Swap
-            </span>
-          </div> */}
-
-          <div className="flex-1 flex justify-end">
-            <SwapSettings
-              slippage={slippage}
-              deadline={deadline}
-              onSlippageChange={handleSlippageChange}
-              onDeadlineChange={handleDeadlineChange}
-              isOpen={isSettingsOpen}
-              onOpenChange={setIsSettingsOpen}
-            />
-          </div>
+          <SwapDock
+            isVisible={isDockVisible}
+            slippage={slippage}
+            deadline={deadline}
+            onSlippageChange={handleSlippageChange}
+            onDeadlineChange={handleDeadlineChange}
+            isSettingsOpen={isSettingsOpen}
+            onSettingsOpenChange={setIsSettingsOpen}
+          />
         </div>
       )}
 
@@ -602,311 +634,86 @@ export default function SwapInterface({
           isDockVisible ? "rounded-b-[24px] rounded-t-none border-t-0" : "rounded-[24px]"
         )}
       >
-        <div
-          className={cn(
-            "group/sell rounded-[20px] p-4 flex flex-col gap-2 transition-all min-h-[140px]",
-            editingSide === "sell" ? "bg-[#222] shadow-2xl" : "bg-[#1B1B1B]/50"
-          )}
-        >
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Sell
-            </span>
-            <PercentageButtons
-              balance={fromBalance}
-              token={fromToken}
-              isConnected={isConnected}
-              onSelect={setAmount}
-            />
-          </div>
-
-          <div className="flex justify-between items-center mt-1">
-            <AmountInput
-              value={
-                editingSide === "sell" ? amount : displayQuote || quote?.amountInFormatted || "0"
+        <TokenSwapSection
+          side="sell"
+          label="Sell"
+          isActive={editingSide === "sell"}
+          token={fromToken}
+          amount={amount}
+          displayQuote={displayQuote}
+          quoteAmount={quote?.amountInFormatted}
+          onAmountChange={(value) => {
+            setEditingSide("sell")
+            setAmount(value)
+          }}
+          onAmountFocus={() => setEditingSide("sell")}
+          onAmountBlur={() => {
+            if (amount) {
+              const num = parseFloat(amount)
+              if (!isNaN(num)) {
+                setAmount(num.toString())
               }
-              onChange={(value) => {
-                setEditingSide("sell")
-                setAmount(value)
-              }}
-              onFocus={() => setEditingSide("sell")}
-              onBlur={() => {
-                if (amount) {
-                  const num = parseFloat(amount)
-                  if (!isNaN(num)) {
-                    setAmount(num.toString())
-                  }
-                }
-              }}
-              isActive={editingSide === "sell"}
-              isDisabled={!isConnected}
-              showError={insufficientBalance && editingSide === "sell"}
-              shouldPulse={shouldPulse}
-              shouldPulseLoop={shouldPulseLoop}
-              isQuoteLoading={isQuoteLoading}
-              pulseAnimationKey={pulseAnimationKey}
-              inputRef={sellInputRef}
-            />
-            <TokenSelectButton
-              token={fromToken}
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                setIsFromTokenSelectorOpen(true)
-              }}
-            />
-          </div>
+            }
+          }}
+          onTokenSelect={() => setIsFromTokenSelectorOpen(true)}
+          balance={fromBalance}
+          balanceValue={fromBalanceValue}
+          formattedBalance={formattedFromBalance}
+          isLoadingBalance={isLoadingFromBalance}
+          tokenPrice={fromTokenPrice}
+          isLoadingPrice={isLoadingFromPrice}
+          isConnected={isConnected}
+          address={address}
+          insufficientBalance={insufficientBalance}
+          shouldPulse={shouldPulse}
+          shouldPulseLoop={shouldPulseLoop}
+          isQuoteLoading={isQuoteLoading}
+          pulseAnimationKey={pulseAnimationKey}
+          inputRef={sellInputRef}
+          outputAmount={outputAmount}
+        />
 
-          <div className="flex flex-col gap-1">
-            <div className="flex justify-between items-center text-xs font-medium text-muted-foreground">
-              <span>
-                {(() => {
-                  const displayAmount = editingSide === "sell" ? amount : outputAmount
-                  return displayAmount && parseFloat(displayAmount) > 0 && fromTokenPrice
-                    ? (() => {
-                        const usdValue = parseFloat(displayAmount) * fromTokenPrice
-                        return `$${usdValue.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                          useGrouping: true,
-                        })}`
-                      })()
-                    : displayAmount && parseFloat(displayAmount) > 0 && isLoadingFromPrice
-                      ? "—"
-                      : "—"
-                })()}
-              </span>
-              {isConnected && address && fromToken && fromBalance && (
-                <TooltipProvider delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1 cursor-help">
-                        <Wallet size={12} className="opacity-40" />
-                        <span
-                          className={cn(
-                            editingSide === "sell" && insufficientBalance && "text-destructive"
-                          )}
-                        >
-                          {isLoadingFromBalance
-                            ? "—"
-                            : `${formattedFromBalance} ${fromToken.symbol}`}
-                        </span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      className="text-xs font-mono bg-zinc-900 border-zinc-700"
-                    >
-                      <p className="text-white/90">Full balance:</p>
-                      <p className="text-white/70">
-                        {fromBalanceValue.toLocaleString("en-US", {
-                          maximumFractionDigits: 18,
-                          useGrouping: false,
-                        })}{" "}
-                        {fromToken.symbol}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-          </div>
-        </div>
+        <SwitchButton onSwitch={handleSwitch} />
 
-        <div className="relative h-2 w-full flex justify-center z-20">
-          <button
-            onClick={() => {
-              isSwitchingRef.current = true
-              setInsufficientBalance(false)
-              setPulseKey(0)
-              setPulseAnimationKey(0)
-              if (pulseTimeoutRef.current) {
-                clearTimeout(pulseTimeoutRef.current)
-                pulseTimeoutRef.current = null
+        <TokenSwapSection
+          side="buy"
+          label="Buy"
+          isActive={editingSide === "buy"}
+          token={toToken}
+          amount={amount}
+          displayQuote={displayQuote}
+          quoteAmount={quote?.amountOutFormatted}
+          onAmountChange={(value) => {
+            setEditingSide("buy")
+            setAmount(value)
+          }}
+          onAmountFocus={() => setEditingSide("buy")}
+          onAmountBlur={() => {
+            if (amount) {
+              const num = parseFloat(amount)
+              if (!isNaN(num)) {
+                setAmount(num.toString())
               }
-
-              const currentSellValue =
-                editingSide === "sell" ? amount : displayQuote || quote?.amountInFormatted || ""
-              const currentBuyValue =
-                editingSide === "buy" ? amount : displayQuote || quote?.amountOutFormatted || ""
-
-              const tempFromToken = fromToken
-              const tempToToken = toToken
-
-              setFromToken(tempToToken)
-              setToToken(tempFromToken)
-
-              if (tempToToken === undefined) {
-                setHasExplicitlyClearedFromToken(true)
-              } else {
-                setHasExplicitlyClearedFromToken(false)
-              }
-
-              if (tempFromToken === undefined) {
-                setHasExplicitlyClearedToToken(true)
-              } else {
-                setHasExplicitlyClearedToToken(false)
-              }
-
-              if (editingSide === "sell") {
-                setDisplayQuote(currentBuyValue || "")
-                setAmount(currentSellValue || "")
-                setEditingSide("buy")
-              } else {
-                setDisplayQuote(currentSellValue || "")
-                setAmount(currentBuyValue || "")
-                setEditingSide("sell")
-              }
-
-              setTimeout(() => {
-                isSwitchingRef.current = false
-              }, 100)
-
-              setPendingQuote(null)
-              lastQuoteAmountRef.current = null
-            }}
-            className="absolute -top-4 p-2 bg-[#1B1B1B] border-[4px] border-[#131313] rounded-xl hover:scale-110 transition-transform text-white shadow-lg"
-          >
-            <ArrowDown size={18} strokeWidth={3} />
-          </button>
-        </div>
-
-        <div
-          className={cn(
-            "group/buy relative rounded-[20px] p-4 flex flex-col gap-2 transition-all min-h-[140px]",
-            editingSide === "buy" ? "bg-[#222] shadow-2xl" : "bg-[#1B1B1B]/50"
-          )}
-        >
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Buy
-            </span>
-            <TooltipProvider delayDuration={0}>
-              <div
-                className={cn(
-                  "flex gap-1.5 transition-opacity duration-200",
-                  commonTokens.length > 0
-                    ? "opacity-0 group-hover/buy:opacity-100"
-                    : "opacity-0 pointer-events-none"
-                )}
-              >
-                {commonTokens.map((token) => (
-                  <Tooltip key={token.address}>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleToTokenSelect(token)
-                        }}
-                        className="p-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all"
-                      >
-                        {token.logoURI ? (
-                          <img
-                            src={token.logoURI}
-                            alt={token.symbol}
-                            className="w-5 h-5 rounded-full"
-                          />
-                        ) : (
-                          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-                            <span className="text-[10px] font-bold">{token.symbol[0]}</span>
-                          </div>
-                        )}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{token.symbol}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </div>
-            </TooltipProvider>
-          </div>
-
-          <div className="flex justify-between items-center mt-1">
-            <AmountInput
-              value={
-                editingSide === "buy" ? amount : displayQuote || quote?.amountOutFormatted || "0"
-              }
-              onChange={(value) => {
-                setEditingSide("buy")
-                setAmount(value)
-              }}
-              onFocus={() => setEditingSide("buy")}
-              onBlur={() => {
-                if (amount) {
-                  const num = parseFloat(amount)
-                  if (!isNaN(num)) {
-                    setAmount(num.toString())
-                  }
-                }
-              }}
-              isActive={editingSide === "buy"}
-              isDisabled={!isConnected}
-              showError={false}
-              shouldPulse={shouldPulse}
-              shouldPulseLoop={shouldPulseLoop}
-              isQuoteLoading={isQuoteLoading}
-              pulseAnimationKey={pulseAnimationKey}
-            />
-            <TokenSelectButton
-              token={toToken}
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                setIsToTokenSelectorOpen(true)
-              }}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <div className="flex justify-between items-center text-xs font-medium text-muted-foreground">
-              <span>
-                {(() => {
-                  const displayAmount = editingSide === "buy" ? amount : outputAmount
-                  return displayAmount && parseFloat(displayAmount) > 0 && toTokenPrice
-                    ? (() => {
-                        const usdValue = parseFloat(displayAmount) * toTokenPrice
-                        return `$${usdValue.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                          useGrouping: true,
-                        })}`
-                      })()
-                    : displayAmount && parseFloat(displayAmount) > 0 && isLoadingToPrice
-                      ? "—"
-                      : "—"
-                })()}
-              </span>
-              {isConnected && address && toToken && toBalance && (
-                <TooltipProvider delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1 cursor-help">
-                        <Wallet size={12} className="opacity-40" />
-                        <span>
-                          {isLoadingToBalance ? "—" : `${formattedToBalance} ${toToken.symbol}`}
-                        </span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      className="text-xs font-mono bg-zinc-900 border-zinc-700"
-                    >
-                      <p className="text-white/90">Full balance:</p>
-                      <p className="text-white/70">
-                        {toBalanceValue.toLocaleString("en-US", {
-                          maximumFractionDigits: 18,
-                          useGrouping: false,
-                        })}{" "}
-                        {toToken.symbol}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-          </div>
-        </div>
+            }
+          }}
+          onTokenSelect={() => setIsToTokenSelectorOpen(true)}
+          balance={toBalance}
+          balanceValue={toBalanceValue}
+          formattedBalance={formattedToBalance}
+          isLoadingBalance={isLoadingToBalance}
+          tokenPrice={toTokenPrice}
+          isLoadingPrice={isLoadingToPrice}
+          isConnected={isConnected}
+          address={address}
+          insufficientBalance={false}
+          shouldPulse={shouldPulse}
+          shouldPulseLoop={shouldPulseLoop}
+          isQuoteLoading={isQuoteLoading}
+          pulseAnimationKey={pulseAnimationKey}
+          outputAmount={outputAmount}
+          commonTokens={commonTokens}
+          onCommonTokenSelect={handleToTokenSelect}
+        />
 
         {hasStarted && quote && fromToken && toToken && (
           <SwapReview
@@ -932,85 +739,33 @@ export default function SwapInterface({
           />
         )}
 
-        {hasStarted && quoteError && amount && parseFloat(amount) > 0 && fromToken && toToken && (
-          <div className="px-4 py-2">
-            <div className="flex items-start gap-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20">
-              <AlertTriangle size={14} className="text-red-500 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-xs font-medium text-red-500">Quote Error</p>
-                <p className="text-xs text-red-500/80 mt-0.5">
-                  {quoteError.message || "Failed to fetch quote. Please try again."}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        <QuoteErrorDisplay
+          error={quoteError}
+          show={
+            hasStarted &&
+            !!quoteError &&
+            !!amount &&
+            parseFloat(amount) > 0 &&
+            !!fromToken &&
+            !!toToken
+          }
+        />
 
-        {!hasStarted ? (
-          <button
-            disabled={insufficientBalance}
-            onClick={handleGetStarted}
-            className={cn(
-              "mt-1 w-full py-4 rounded-[20px] font-bold text-lg transition-all border border-white/10",
-              insufficientBalance
-                ? "bg-zinc-900/50 text-zinc-600 cursor-not-allowed"
-                : "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
-            )}
-          >
-            {insufficientBalance
-              ? `Not enough ${editingSide === "sell" ? fromToken?.symbol || "" : toToken?.symbol || ""}`
-              : "Get Started"}
-          </button>
-        ) : (
-          <button
-            disabled={
-              insufficientBalance ||
-              !isConnected ||
-              !fromToken ||
-              !toToken ||
-              !amount ||
-              parseFloat(amount) <= 0 ||
-              !quote ||
-              hasVeryHighPriceImpact ||
-              isSigning ||
-              isSubmitting
-            }
-            onClick={handleSwapClick}
-            className={cn(
-              "mt-2 mx-2 mb-2 w-[calc(100%-1rem)] py-4 rounded-[16px] font-semibold text-base transition-all duration-200",
-              insufficientBalance ||
-                !isConnected ||
-                !fromToken ||
-                !toToken ||
-                !amount ||
-                parseFloat(amount) <= 0 ||
-                !quote ||
-                hasVeryHighPriceImpact ||
-                isSigning ||
-                isSubmitting
-                ? "bg-[#1B1B1B] text-white/40 cursor-not-allowed border border-white/5"
-                : "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-[1.01]"
-            )}
-          >
-            {isSigning
-              ? "Signing..."
-              : isSubmitting
-                ? "Submitting..."
-                : !isConnected
-                  ? "Connect Wallet"
-                  : insufficientBalance
-                    ? `Not enough ${editingSide === "sell" ? fromToken?.symbol || "" : toToken?.symbol || ""}`
-                    : !fromToken || !toToken
-                      ? "Select Tokens"
-                      : !amount || parseFloat(amount) <= 0
-                        ? "Enter Amount"
-                        : !quote
-                          ? "Loading Quote..."
-                          : hasVeryHighPriceImpact
-                            ? "Price Impact Too High"
-                            : "Swap"}
-          </button>
-        )}
+        <SwapActionButton
+          hasStarted={hasStarted}
+          insufficientBalance={insufficientBalance}
+          isConnected={isConnected}
+          fromToken={fromToken}
+          toToken={toToken}
+          amount={amount}
+          quote={quote}
+          hasVeryHighPriceImpact={hasVeryHighPriceImpact}
+          isSigning={isSigning}
+          isSubmitting={isSubmitting}
+          editingSide={editingSide}
+          onGetStarted={handleGetStarted}
+          onSwap={handleSwapClick}
+        />
 
         <TokenSelector
           open={isFromTokenSelectorOpen}
