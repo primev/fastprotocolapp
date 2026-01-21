@@ -1,6 +1,6 @@
 # Fast Protocol App
 
-The official web application for [Fast Protocol](https://fastprotocol.xyz) - a coordinated rewards layer providing lightning-fast transactions on Ethereum L1 with tokenized MEV rewards.
+The official web application for [Fast Protocol](https://fastprotocol.xyz) - a coordinated rewards layer providing lightning-fast transactions on Ethereum L1 with tokenized mev rewards.
 
 ## Overview
 
