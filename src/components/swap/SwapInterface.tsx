@@ -840,185 +840,201 @@ export default function SwapInterface({
         </div>
       )}
 
-      <div
-        className={cn(
-          "w-full bg-[#131313] border border-white/10 p-2 flex flex-col  shadow-2xl relative z-10 transition-all duration-500",
-          isDockVisible ? "rounded-b-[24px] rounded-t-none border-t-0" : "rounded-[24px]"
-        )}
-      >
-        <TokenSwapSection
-          side="sell"
-          label="Sell"
-          isActive={editingSide === "sell"}
-          token={fromToken}
-          amount={amount}
-          displayQuote={
-            noLiquidity && editingSide === "buy" ? "No liquidity" : displayQuote || null
-          }
-          quoteAmount={activeQuote?.amountInFormatted}
-          onAmountChange={(value) => {
-            setEditingSide("sell")
-            setAmount(value)
-          }}
-          onAmountFocus={() => setEditingSide("sell")}
-          onAmountBlur={() => {
-            if (amount) {
-              const num = parseFloat(amount)
-              if (!isNaN(num)) {
-                setAmount(num.toString())
-              }
-            }
-          }}
-          onTokenSelect={() => setIsFromTokenSelectorOpen(true)}
-          balance={fromBalance}
-          balanceValue={fromBalanceValue}
-          formattedBalance={formattedFromBalance}
-          isLoadingBalance={isLoadingFromBalance}
-          tokenPrice={activeFromTokenPrice}
-          isLoadingPrice={isLoadingFromPrice && swappedFromTokenPrice === null}
-          isConnected={isConnected}
-          address={address}
-          insufficientBalance={insufficientBalance}
-          shouldPulse={shouldPulse}
-          shouldPulseLoop={shouldPulseLoop}
-          isQuoteLoading={isQuoteLoading}
-          pulseAnimationKey={pulseAnimationKey}
-          inputRef={sellInputRef}
-          outputAmount={outputAmount}
-          commonTokens={commonTokens}
-          onCommonTokenSelect={handleFromTokenSelect}
+      <div className="relative">
+        {/* Bleeding edge effect */}
+        <div
+          className={cn(
+            "absolute inset-0 bg-gradient-to-br from-[#131313]/40 via-[#131313]/20 to-transparent backdrop-blur-2xl -z-10 scale-105",
+            isDockVisible ? "rounded-b-[24px] rounded-t-none" : "rounded-[24px]"
+          )}
         />
 
-        <SwitchButton onSwitch={handleSwitch} />
-
-        <TokenSwapSection
-          side="buy"
-          label="Buy"
-          isActive={editingSide === "buy"}
-          token={toToken}
-          amount={amount}
-          displayQuote={
-            noLiquidity && editingSide === "sell" ? "No liquidity" : displayQuote || null
-          }
-          quoteAmount={activeQuote?.amountOutFormatted}
-          onAmountChange={(value) => {
-            setEditingSide("buy")
-            setAmount(value)
-          }}
-          onAmountFocus={() => setEditingSide("buy")}
-          onAmountBlur={() => {
-            if (amount) {
-              const num = parseFloat(amount)
-              if (!isNaN(num)) {
-                setAmount(num.toString())
-              }
+        {/* Main interface */}
+        <div
+          className={cn(
+            "w-full bg-[#131313]/60 backdrop-blur-xl border border-white/[0.08] p-2 flex flex-col relative z-10 transition-all duration-500",
+            "shadow-[inset_0_0_40px_rgba(255,255,255,0.01)]",
+            "before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/[0.03] before:via-transparent before:to-black/[0.02] before:rounded-[24px] before:pointer-events-none before:opacity-60",
+            "after:absolute after:inset-0 after:bg-gradient-to-tr after:from-transparent after:via-white/[0.02] after:to-transparent after:opacity-0 group-hover:after:opacity-100 after:transition-opacity after:duration-1000 after:pointer-events-none after:rounded-[24px]",
+            isDockVisible
+              ? "rounded-b-[24px] rounded-t-none border-t-0 before:rounded-b-[24px] before:rounded-t-none after:rounded-b-[24px] after:rounded-t-none"
+              : "rounded-[24px]"
+          )}
+        >
+          <TokenSwapSection
+            side="sell"
+            label="Sell"
+            isActive={editingSide === "sell"}
+            token={fromToken}
+            amount={amount}
+            displayQuote={
+              noLiquidity && editingSide === "buy" ? "No liquidity" : displayQuote || null
             }
-          }}
-          onTokenSelect={() => setIsToTokenSelectorOpen(true)}
-          balance={toBalance}
-          balanceValue={toBalanceValue}
-          formattedBalance={formattedToBalance}
-          isLoadingBalance={isLoadingToBalance}
-          tokenPrice={activeToTokenPrice}
-          isLoadingPrice={isLoadingToPrice && swappedToTokenPrice === null}
-          isConnected={isConnected}
-          address={address}
-          insufficientBalance={false}
-          shouldPulse={shouldPulse}
-          shouldPulseLoop={shouldPulseLoop}
-          isQuoteLoading={isQuoteLoading}
-          pulseAnimationKey={pulseAnimationKey}
-          inputRef={buyInputRef}
-          outputAmount={outputAmount}
-          commonTokens={commonTokens}
-          onCommonTokenSelect={handleToTokenSelect}
-        />
-
-        {hasStarted && activeQuote && fromToken && toToken && (
-          <SwapReview
-            fromToken={fromToken}
-            toToken={toToken}
-            quote={quote}
-            exchangeRate={exchangeRate}
-            minAmountOut={minAmountOut}
-            slippage={effectiveSlippage}
-            ethPrice={ethPrice}
-            timeLeft={timeLeft}
-            displayQuote={displayQuote || null}
-            hasHighPriceImpact={hasHighPriceImpact}
-            isOpen={isReviewAccordionOpen}
-            onOpenChange={setIsReviewAccordionOpen}
-            onSettingsOpen={() => setIsSettingsOpen(true)}
-            onTokenSwap={() => {
-              const tempFrom = fromToken
-              const tempTo = toToken
-              setFromToken(tempTo)
-              setToToken(tempFrom)
+            quoteAmount={activeQuote?.amountInFormatted}
+            onAmountChange={(value) => {
+              setEditingSide("sell")
+              setAmount(value)
             }}
+            onAmountFocus={() => setEditingSide("sell")}
+            onAmountBlur={() => {
+              if (amount) {
+                const num = parseFloat(amount)
+                if (!isNaN(num)) {
+                  setAmount(num.toString())
+                }
+              }
+            }}
+            onTokenSelect={() => setIsFromTokenSelectorOpen(true)}
+            balance={fromBalance}
+            balanceValue={fromBalanceValue}
+            formattedBalance={formattedFromBalance}
+            isLoadingBalance={isLoadingFromBalance}
+            tokenPrice={activeFromTokenPrice}
+            isLoadingPrice={isLoadingFromPrice && swappedFromTokenPrice === null}
+            isConnected={isConnected}
+            address={address}
+            insufficientBalance={insufficientBalance}
+            shouldPulse={shouldPulse}
+            shouldPulseLoop={shouldPulseLoop}
+            isQuoteLoading={isQuoteLoading}
+            pulseAnimationKey={pulseAnimationKey}
+            inputRef={sellInputRef}
+            outputAmount={outputAmount}
+            commonTokens={commonTokens}
+            onCommonTokenSelect={handleFromTokenSelect}
           />
-        )}
 
-        <QuoteErrorDisplay
-          error={quoteError}
-          show={!!quoteError && !!amount && parseFloat(amount) > 0 && !!fromToken && !!toToken}
-        />
+          <SwitchButton onSwitch={handleSwitch} />
 
-        <SwapActionButton
-          hasStarted={hasStarted || hasEverStartedRef.current}
-          insufficientBalance={insufficientBalance}
-          isConnected={isConnected}
-          fromToken={fromToken}
-          toToken={toToken}
-          amount={amount}
-          quote={quote}
-          hasVeryHighPriceImpact={hasVeryHighPriceImpact}
-          isSigning={isSigning}
-          isSubmitting={isSubmitting}
-          editingSide={editingSide}
-          onGetStarted={handleGetStarted}
-          onSwap={handleSwapClick}
-        />
+          <TokenSwapSection
+            side="buy"
+            label="Buy"
+            isActive={editingSide === "buy"}
+            token={toToken}
+            amount={amount}
+            displayQuote={
+              noLiquidity && editingSide === "sell" ? "No liquidity" : displayQuote || null
+            }
+            quoteAmount={activeQuote?.amountOutFormatted}
+            onAmountChange={(value) => {
+              setEditingSide("buy")
+              setAmount(value)
+            }}
+            onAmountFocus={() => setEditingSide("buy")}
+            onAmountBlur={() => {
+              if (amount) {
+                const num = parseFloat(amount)
+                if (!isNaN(num)) {
+                  setAmount(num.toString())
+                }
+              }
+            }}
+            onTokenSelect={() => setIsToTokenSelectorOpen(true)}
+            balance={toBalance}
+            balanceValue={toBalanceValue}
+            formattedBalance={formattedToBalance}
+            isLoadingBalance={isLoadingToBalance}
+            tokenPrice={activeToTokenPrice}
+            isLoadingPrice={isLoadingToPrice && swappedToTokenPrice === null}
+            isConnected={isConnected}
+            address={address}
+            insufficientBalance={false}
+            shouldPulse={shouldPulse}
+            shouldPulseLoop={shouldPulseLoop}
+            isQuoteLoading={isQuoteLoading}
+            pulseAnimationKey={pulseAnimationKey}
+            inputRef={buyInputRef}
+            outputAmount={outputAmount}
+            commonTokens={commonTokens}
+            onCommonTokenSelect={handleToTokenSelect}
+          />
 
-        <TokenSelector
-          open={isFromTokenSelectorOpen}
-          onOpenChange={setIsFromTokenSelectorOpen}
-          tokens={tokens.length > 0 ? tokens : [DEFAULT_ETH_TOKEN]}
-          selectedToken={fromToken}
-          onSelect={handleFromTokenSelect}
-        />
-        <TokenSelector
-          open={isToTokenSelectorOpen}
-          onOpenChange={setIsToTokenSelectorOpen}
-          tokens={
-            tokens.length > 0
-              ? tokens.filter((t) => t.address !== fromToken?.address)
-              : [DEFAULT_ETH_TOKEN]
-          }
-          selectedToken={toToken}
-          onSelect={handleToTokenSelect}
-        />
-
-        {hasStarted && (
-          <Suspense fallback={null}>
-            <SwapConfirmationModal
-              open={isConfirmationOpen}
-              onOpenChange={setIsConfirmationOpen}
-              onConfirm={handleConfirmSwap}
-              tokenIn={fromToken}
-              tokenOut={toToken}
-              amountIn={amount}
-              amountOut={activeQuote?.amountOutFormatted || "0"}
-              minAmountOut={minAmountOut}
+          {hasStarted && activeQuote && fromToken && toToken && (
+            <SwapReview
+              fromToken={fromToken}
+              toToken={toToken}
+              quote={quote}
               exchangeRate={exchangeRate}
-              priceImpact={activeQuote?.priceImpact || 0}
+              minAmountOut={minAmountOut}
               slippage={effectiveSlippage}
-              gasEstimate={activeQuote?.gasEstimate || null}
               ethPrice={ethPrice}
               timeLeft={timeLeft}
-              isLoading={isSigning || isSubmitting}
+              displayQuote={displayQuote || null}
+              hasHighPriceImpact={hasHighPriceImpact}
+              isOpen={isReviewAccordionOpen}
+              onOpenChange={setIsReviewAccordionOpen}
+              onSettingsOpen={() => setIsSettingsOpen(true)}
+              onTokenSwap={() => {
+                const tempFrom = fromToken
+                const tempTo = toToken
+                setFromToken(tempTo)
+                setToToken(tempFrom)
+              }}
             />
-          </Suspense>
-        )}
+          )}
+
+          <QuoteErrorDisplay
+            error={quoteError}
+            show={!!quoteError && !!amount && parseFloat(amount) > 0 && !!fromToken && !!toToken}
+          />
+
+          <SwapActionButton
+            hasStarted={hasStarted || hasEverStartedRef.current}
+            insufficientBalance={insufficientBalance}
+            isConnected={isConnected}
+            fromToken={fromToken}
+            toToken={toToken}
+            amount={amount}
+            quote={quote}
+            hasVeryHighPriceImpact={hasVeryHighPriceImpact}
+            isSigning={isSigning}
+            isSubmitting={isSubmitting}
+            editingSide={editingSide}
+            onGetStarted={handleGetStarted}
+            onSwap={handleSwapClick}
+          />
+
+          <TokenSelector
+            open={isFromTokenSelectorOpen}
+            onOpenChange={setIsFromTokenSelectorOpen}
+            tokens={tokens.length > 0 ? tokens : [DEFAULT_ETH_TOKEN]}
+            selectedToken={fromToken}
+            onSelect={handleFromTokenSelect}
+          />
+          <TokenSelector
+            open={isToTokenSelectorOpen}
+            onOpenChange={setIsToTokenSelectorOpen}
+            tokens={
+              tokens.length > 0
+                ? tokens.filter((t) => t.address !== fromToken?.address)
+                : [DEFAULT_ETH_TOKEN]
+            }
+            selectedToken={toToken}
+            onSelect={handleToTokenSelect}
+          />
+
+          {hasStarted && (
+            <Suspense fallback={null}>
+              <SwapConfirmationModal
+                open={isConfirmationOpen}
+                onOpenChange={setIsConfirmationOpen}
+                onConfirm={handleConfirmSwap}
+                tokenIn={fromToken}
+                tokenOut={toToken}
+                amountIn={amount}
+                amountOut={activeQuote?.amountOutFormatted || "0"}
+                minAmountOut={minAmountOut}
+                exchangeRate={exchangeRate}
+                priceImpact={activeQuote?.priceImpact || 0}
+                slippage={effectiveSlippage}
+                gasEstimate={activeQuote?.gasEstimate || null}
+                ethPrice={ethPrice}
+                timeLeft={timeLeft}
+                isLoading={isSigning || isSubmitting}
+              />
+            </Suspense>
+          )}
+        </div>
       </div>
     </div>
   )
