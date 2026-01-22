@@ -1,18 +1,11 @@
 "use client"
 
 import React from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogOverlay } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { formatPriceImpact, getPriceImpactSeverity } from "@/hooks/use-quote"
 import { useGasPrice } from "@/hooks/use-gas-price"
-import { AlertTriangle, ArrowDown, Timer, Zap, ShieldCheck } from "lucide-react"
+import { AlertTriangle, ArrowDown, X } from "lucide-react"
 import type { Token } from "@/types/swap"
 
 interface SwapConfirmationModalProps {
@@ -42,6 +35,7 @@ function SwapConfirmationModal({
   amountIn,
   amountOut,
   minAmountOut,
+  exchangeRate,
   priceImpact,
   slippage,
   gasEstimate,
@@ -53,24 +47,54 @@ function SwapConfirmationModal({
   const hasHighPriceImpact = Math.abs(priceImpact) > 3
   const { gasPrice } = useGasPrice()
 
-  // Calculate gas cost in USD: (gasEstimate * gasPrice) / 1e18 * ethPrice
   const gasCostUsd =
     gasEstimate && gasPrice && ethPrice
       ? (Number(gasEstimate) * Number(gasPrice) * ethPrice) / 1e18
       : gasEstimate && gasPrice
-        ? (Number(gasEstimate) * Number(gasPrice) * 3000) / 1e18 // Fallback to 3000 ETH price if not available
+        ? (Number(gasEstimate) * Number(gasPrice) * 3000) / 1e18
         : null
 
   const gasEstimateUsd = gasCostUsd !== null ? `$${gasCostUsd.toFixed(2)}` : "—"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[500px] bg-[#0D0D0D] border-white/[0.08] shadow-[0_0_50px_rgba(0,0,0,0.8)] p-0 overflow-hidden gap-0">
-        {/* TOP STATUS BAR - Race Aesthetic */}
-        <div className="h-1.5 w-full bg-[#1B1B1B] overflow-hidden relative">
+      <DialogOverlay className="bg-black/20" />
+      <DialogContent className="max-w-[500px] bg-[#131313] backdrop-blur-xl p-2 overflow-hidden gap-0 rounded-[24px] [&>button]:hidden focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none border-0 outline-none ring-0 ring-offset-0">
+        {/* Modal Header */}
+        <div className="relative flex items-center justify-between bg-[#131313]/50 backdrop-blur-sm h-[54px] py-3 px-2 mb-4 overflow-hidden">
+          <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent"></div>
+          <div className="flex-1">
+            <span className="text-[12px] font-bold uppercase tracking-[0.2em] text-white/20">
+              Swap Confirmation
+            </span>
+          </div>
+          <div className="flex-1 flex justify-end">
+            <button
+              onClick={() => onOpenChange(false)}
+              className="flex items-center justify-center w-6 h-6 rounded-full hover:bg-white/10 transition-colors"
+              aria-label="Close modal"
+            >
+              <X size={16} className="text-white/60 hover:text-white/80" />
+            </button>
+          </div>
+        </div>
+
+        {/* Quote Refresh Status */}
+        <div className="flex items-center justify-between mb-4 px-2">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            <span className="text-xs font-medium text-white/60 uppercase tracking-wider">
+              Live Quote
+            </span>
+          </div>
+          <span className="text-xs font-mono text-white/40">{timeLeft || 15}s</span>
+        </div>
+
+        {/* Quote Refresh Progress Bar */}
+        <div className="h-1.5 bg-[#1B1B1B] overflow-hidden relative rounded-full mb-6 mx-2">
           <div
             className={cn(
-              "h-full transition-all duration-1000 ease-linear",
+              "h-full transition-all duration-1000 ease-linear rounded-full",
               timeLeft && timeLeft <= 5
                 ? "bg-red-500 shadow-[0_0_10px_#ef4444]"
                 : "bg-emerald-500 shadow-[0_0_10px_#10b981]"
@@ -79,151 +103,166 @@ function SwapConfirmationModal({
           />
         </div>
 
-        <div className="p-6 space-y-6">
-          <DialogHeader className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Zap size={14} className="text-emerald-500 fill-emerald-500" />
-              <DialogTitle className="text-[13px] font-bold uppercase tracking-[0.25em] text-white/40">
-                Transaction Review
-              </DialogTitle>
-            </div>
-            <DialogDescription className="text-lg font-medium text-white">
-              Confirm Asset Exchange
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* ASSET FLOW - Minimalist Performance Look */}
-          <div className="relative space-y-1">
-            {/* SELL CARD */}
-            <div className="group p-4 rounded-2xl bg-[#131313] border border-white/[0.04] flex items-center justify-between transition-colors hover:border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="p-1 rounded-full bg-white/[0.02] border border-white/[0.05]">
-                  {tokenIn?.logoURI && (
+        {/* Main Content Container */}
+        <div className="space-y-6">
+          {/* Token Swap Display */}
+          <div className="relative">
+            {/* From Token (Sell) */}
+            <div className="bg-[#131313]/50 backdrop-blur-sm border border-white/[0.06] rounded-2xl p-4 flex items-center justify-between mb-1">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl flex items-center justify-center overflow-hidden">
+                  {tokenIn?.logoURI ? (
                     <img
                       src={tokenIn.logoURI}
                       alt={tokenIn.symbol}
-                      className="w-7 h-7 rounded-full grayscale-[0.2]"
+                      className="h-10 w-10 rounded-lg object-cover"
                     />
+                  ) : (
+                    <div className="h-10 w-10 rounded-lg bg-primary/20" />
                   )}
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
-                    Pay
-                  </span>
-                  <span className="text-sm font-semibold text-white tracking-tight">
-                    {tokenIn?.symbol}
-                  </span>
+                  <span className="text-lg font-bold text-white">{tokenIn?.symbol}</span>
+                  {tokenIn?.name && (
+                    <span className="text-xs text-white/50 truncate max-w-[120px]">
+                      {tokenIn.name}
+                    </span>
+                  )}
                 </div>
               </div>
-              <span className="text-xl font-bold tracking-tighter text-white">{amountIn}</span>
-            </div>
-
-            {/* CONNECTION INDICATOR */}
-            <div className="absolute left-1/2 -translate-x-1/2 top-[44%] -translate-y-1/2 z-10">
-              <div className="p-2 rounded-xl bg-[#0D0D0D] border-4 border-[#0D0D0D] shadow-xl">
-                <div className="p-1.5 rounded-lg bg-[#1B1B1B] border border-white/10">
-                  <ArrowDown size={14} className="text-emerald-500" />
-                </div>
+              <div className="text-right">
+                <span className="text-xl font-bold text-white tabular-nums block">{amountIn}</span>
+                <span className="text-xs text-white/50 uppercase tracking-wide">Amount</span>
               </div>
             </div>
 
-            {/* BUY CARD */}
-            <div className="group p-4 rounded-2xl bg-[#131313] border border-white/[0.04] flex items-center justify-between transition-colors hover:border-white/10 pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-1 rounded-full bg-white/[0.02] border border-white/[0.05]">
-                  {tokenOut?.logoURI && (
+            {/* Swap Arrow */}
+            <div className="relative h-2 w-full flex justify-center z-20 -mt-2 mb-2">
+              <div className="absolute -top-5 p-3 bg-[#1B1B1B] border-[5px] border-[#131313] rounded-2xl shadow-lg">
+                <ArrowDown size={24} strokeWidth={3} />
+              </div>
+            </div>
+
+            {/* To Token (Buy) */}
+            <div className="bg-[#131313]/50 backdrop-blur-sm border border-white/[0.06] rounded-2xl p-4 flex items-center justify-between -mt-1">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl flex items-center justify-center overflow-hidden">
+                  {tokenOut?.logoURI ? (
                     <img
                       src={tokenOut.logoURI}
                       alt={tokenOut.symbol}
-                      className="w-7 h-7 rounded-full"
+                      className="h-10 w-10 rounded-lg object-cover"
                     />
+                  ) : (
+                    <div className="h-10 w-10 rounded-lg bg-primary/20" />
                   )}
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-emerald-500/50 uppercase tracking-widest">
-                    Receive
-                  </span>
-                  <span className="text-sm font-semibold text-white tracking-tight">
-                    {tokenOut?.symbol}
-                  </span>
+                  <span className="text-lg font-bold text-white">{tokenOut?.symbol}</span>
+                  {tokenOut?.name && (
+                    <span className="text-xs text-white/50 truncate max-w-[120px]">
+                      {tokenOut.name}
+                    </span>
+                  )}
                 </div>
               </div>
-              <span className="text-xl font-bold tracking-tighter text-emerald-500">
-                {amountOut}
-              </span>
+              <div className="text-right">
+                <span className="text-xl font-bold text-emerald-500 tabular-nums block">
+                  {minAmountOut}
+                </span>
+                <span className="text-xs text-emerald-400/70 uppercase tracking-wide">
+                  Guaranteed
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* TELEMETRY DATA - The "Technical" Section */}
-          <div className="grid grid-cols-2 gap-2">
-            <TelemetryBox label="Gas Fee" value={gasEstimateUsd} icon={<Zap size={10} />} />
-            <TelemetryBox
-              label="Slippage"
-              value={`${slippage}%`}
-              icon={<ShieldCheck size={10} />}
-            />
-            <TelemetryBox
-              label="Price Impact"
-              value={formatPriceImpact(priceImpact)}
-              color={priceImpactSeverity === "low" ? "text-emerald-400" : "text-red-400"}
-            />
-            <TelemetryBox label="Route" value="Fast Protocol" />
+          {/* Transaction Details */}
+          <div className="bg-[#131313]/50 backdrop-blur-sm border border-white/[0.05] rounded-xl p-4 space-y-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-white/40 block">
+              Details
+            </span>
+            <div className="space-y-1.5 pt-2 border-t border-white/5">
+              <div className="flex justify-between items-center text-xs py-0.5">
+                <span className="text-white/60">Fee</span>
+                <span className="text-white/80 font-medium">Free</span>
+              </div>
+
+              {gasCostUsd !== null && (
+                <div className="flex justify-between items-center text-xs py-0.5">
+                  <span className="text-white/60">Network cost</span>
+                  <span className="text-white/80 font-medium">${gasCostUsd.toFixed(2)}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center text-xs py-0.5">
+                <span className="text-white/60">Max slippage</span>
+                <span className="text-white/80 font-medium">{slippage}%</span>
+              </div>
+
+              <div className="flex justify-between items-center text-xs py-0.5">
+                <span className="text-white/60">Order routing</span>
+                <span className="text-white/80 font-medium">Fast Protocol</span>
+              </div>
+
+              <div className="flex justify-between items-center text-xs py-0.5">
+                <span className="text-white/60">Price impact</span>
+                <span
+                  className={cn(
+                    "font-medium",
+                    priceImpactSeverity === "low" && "text-green-400",
+                    priceImpactSeverity === "medium" && "text-yellow-400",
+                    priceImpactSeverity === "high" && "text-red-400"
+                  )}
+                >
+                  {formatPriceImpact(priceImpact)}
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* HIGH IMPACT ALERT */}
+          {/* High Price Impact Warning */}
           {hasHighPriceImpact && (
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-red-500/5 border border-red-500/20 animate-pulse">
-              <AlertTriangle size={16} className="text-red-500 flex-shrink-0" />
-              <p className="text-[11px] font-medium text-red-500 leading-tight">
-                CRITICAL PRICE IMPACT: You are losing {formatPriceImpact(priceImpact)} on this
-                trade.
-              </p>
+            <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-3 animate-pulse">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={14} className="text-red-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1">
+                    High Price Impact
+                  </p>
+                  <p className="text-[11px] font-medium text-red-400 leading-tight">
+                    This swap has {formatPriceImpact(priceImpact)} price impact. Consider reducing
+                    the amount.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* ACTIONS */}
-          <div className="flex flex-col gap-2 pt-2">
-            <Button
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3">
+            <button
               onClick={onConfirm}
-              className="w-full h-12 bg-white text-black font-bold uppercase tracking-[0.2em] text-[11px] rounded-xl hover:bg-emerald-500 hover:text-white transition-all duration-300 active:scale-[0.98]"
               disabled={isLoading}
+              className={cn(
+                "w-full h-12 bg-primary text-primary-foreground font-bold uppercase tracking-[0.15em] text-sm rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed",
+                isLoading
+                  ? "bg-[#1B1B1B] text-white/40 cursor-not-allowed border border-white/5"
+                  : "hover:bg-primary/90 cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-[1.01]"
+              )}
             >
-              {isLoading ? "Executing..." : "Confirm Intent"}
-            </Button>
+              {isLoading ? "Executing Transaction..." : "Confirm Swap"}
+            </button>
             <button
               onClick={() => onOpenChange(false)}
-              className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-white/20 hover:text-white/40 transition-colors"
+              className="w-full py-3 text-xs font-bold uppercase tracking-wider text-white/40 hover:text-white/60 transition-colors rounded-lg hover:bg-white/5"
             >
-              Abandon Transaction
+              Cancel
             </button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
-
-function TelemetryBox({
-  label,
-  value,
-  icon,
-  color = "text-white/90",
-}: {
-  label: string
-  value: string
-  icon?: React.ReactNode
-  color?: string
-}) {
-  return (
-    <div className="flex flex-col p-3 rounded-xl bg-white/[0.02] border border-white/[0.03]">
-      <div className="flex items-center gap-1.5 mb-1">
-        {icon && <span className="text-white/20">{icon}</span>}
-        <span className="text-[9px] font-bold uppercase tracking-widest text-white/20">
-          {label}
-        </span>
-      </div>
-      <span className={cn("text-xs font-mono font-medium", color)}>{value}</span>
-    </div>
   )
 }
 
