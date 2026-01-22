@@ -538,7 +538,9 @@ export default function SwapInterface({
       availableBalance = Math.max(0, fromBalanceValue - gasCostEth)
     }
 
-    const tolerance = Math.max(availableBalance * 0.0001, Math.pow(10, -fromToken.decimals))
+    // More generous tolerance for precision issues and small differences
+    const tolerance = Math.max(availableBalance * 0.01, Math.pow(10, -fromToken.decimals), 0.000001)
+    // Allow amounts within tolerance of the balance (handles precision issues)
     const exceedsBalance = amountToCheck > availableBalance + tolerance
     setInsufficientBalance(exceedsBalance)
   }, [
@@ -902,6 +904,9 @@ export default function SwapInterface({
             outputAmount={outputAmount}
             commonTokens={commonTokens}
             onCommonTokenSelect={handleFromTokenSelect}
+            gasEstimate={activeQuote?.gasEstimate?.toString()}
+            gasPrice={gasPrice?.toString()}
+            isNativeETH={fromToken?.address === ZERO_ADDRESS}
           />
 
           <SwitchButton onSwitch={handleSwitch} />

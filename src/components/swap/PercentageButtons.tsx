@@ -11,6 +11,9 @@ interface PercentageButtonsProps {
   token: Token | undefined
   isConnected: boolean
   onSelect: (percentage: string) => void
+  gasEstimate?: string
+  gasPrice?: string
+  isNativeETH?: boolean
 }
 
 export default React.memo(function PercentageButtons({
@@ -18,6 +21,9 @@ export default React.memo(function PercentageButtons({
   token,
   isConnected,
   onSelect,
+  gasEstimate,
+  gasPrice,
+  isNativeETH,
 }: PercentageButtonsProps) {
   if (!isConnected || !balance || !token) {
     return null
@@ -29,6 +35,12 @@ export default React.memo(function PercentageButtons({
 
     if (pct === "Max") {
       amountValue = balanceValue
+
+      // For native ETH, subtract estimated gas cost to prevent insufficient balance errors
+      if (isNativeETH && gasEstimate && gasPrice) {
+        const gasCostEth = (Number(gasEstimate) * Number(gasPrice)) / 1e18
+        amountValue = Math.max(0, balanceValue - gasCostEth - 0.0001) // Small buffer
+      }
     } else {
       const percent = parseFloat(pct) / 100
       amountValue = balanceValue * percent
