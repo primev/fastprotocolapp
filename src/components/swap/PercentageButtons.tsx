@@ -37,8 +37,8 @@ export default React.memo(function PercentageButtons({
   return (
     <div
       className={cn(
-        "flex gap-1 transition-opacity duration-200",
-        "opacity-0 group-hover:opacity-100"
+        "flex gap-1.5 transition-opacity duration-200",
+        "opacity-0 group-hover:opacity-100 h-[30px]"
       )}
     >
       {["25%", "50%", "75%", "Max"].map((pct) => (
@@ -48,7 +48,7 @@ export default React.memo(function PercentageButtons({
             e.stopPropagation()
             handlePercentageClick(pct)
           }}
-          className="px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-bold text-muted-foreground hover:bg-white/10 hover:text-white transition-colors"
+          className="px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[12px] font-bold text-muted-foreground hover:bg-white/10 hover:text-white transition-colors"
         >
           {pct}
         </button>
