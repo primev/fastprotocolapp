@@ -38,7 +38,11 @@ import {
   Info,
   CheckCircle2,
   ArrowUpRight,
+  Settings,
 } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@radix-ui/react-popover"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@radix-ui/react-tooltip"
+import { SwapForm } from "@/components/swap/SwapForm"
 
 const socialLinks = [
   { name: "Discord", network: "discord", url: DISCORD_INVITE_URL },
@@ -191,53 +195,19 @@ const IndexPage = () => {
         : setIsBrowserWalletModalOpen(true)
   }
 
-  const handleGetStarted = () => {
-    // Trigger staggered exit animation for other elements
-    setIsSwapFocused(true)
-  }
-
   return (
-    <div className="relative min-h-screen flex flex-col bg-[#FDFCFE] dark:bg-[#0A0A0B] selection:bg-primary/20 transition-colors duration-500 overflow-x-hidden">
-      <AnimatedBackground />
-
-      <header className="fixed top-0 left-0 right-0 z-50 w-full border-b border-border/40 backdrop-blur-xl bg-background/40">
-        <AppHeader
-          isConnected={isConnected}
-          status={status}
-          isMounted={isMounted}
-          isMetaMask={isMetaMask}
-          onAddNetwork={handleAddNetwork}
-          onRpcSetup={handleRpcSetup}
-          onTestRpc={() => setIsTestModalOpen(true)}
-        />
-      </header>
-
-      <main className="relative flex flex-col items-center pt-[70px]">
-        <section className="min-h-[calc(100vh-70px)] w-full flex flex-col items-center justify-center px-4 relative pt-4 pb-24">
-          {!isSwapFocused && (
-            <div className="text-center mb-12 space-y-4 animate-in fade-in slide-in-from-top-6 duration-1000">
-              <h1 className="text-6xl sm:text-8xl font-bold tracking-tighter text-foreground leading-[1.05]">
-                Lightning fast{" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-400 inline-block pr-2">
-                  swaps
-                </span>
-              </h1>
-              <p className="max-w-2xl mx-auto text-base sm:text-lg text-muted-foreground font-medium leading-relaxed">
-                Trade crypto on Ethereum with fast execution and mev rewards
-              </p>
-            </div>
-          )}
-
-          <div
-            ref={swapInterfaceRef}
-            id="swap-interface"
-            className="w-full max-w-[500px] z-10 animate-in fade-in zoom-in-95 duration-1000 delay-200 drop-shadow-[0_35px_35px_rgba(0,0,0,0.1)]"
-          >
-            <SwapContainer onGetStarted={handleGetStarted} />
-          </div>
-        </section>
-      </main>
-    </div>
+    <>
+      <AppHeader
+        isConnected={isConnected}
+        status={status}
+        isMounted={isMounted}
+        isMetaMask={isMetaMask}
+        onAddNetwork={handleAddNetwork}
+        onRpcSetup={handleRpcSetup}
+        onTestRpc={() => setIsTestModalOpen(true)}
+      />
+      <SwapForm />
+    </>
   )
 }
 
