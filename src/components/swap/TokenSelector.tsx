@@ -121,12 +121,16 @@ function TokenSelector({
         {/* SCROLLABLE AREA: Improved scrolling with proper CSS */}
         <div
           ref={scrollContainerRef}
-          className="flex-1 min-h-0 overflow-y-auto py-2 px-2"
-          style={{
-            overscrollBehavior: "contain",
-            WebkitOverflowScrolling: "touch",
-            scrollBehavior: "smooth",
-          }}
+          className="flex-1 min-h-0 overflow-y-auto py-2 px-2 scrollbar-hide"
+          style={
+            {
+              overscrollBehavior: "contain",
+              WebkitOverflowScrolling: "touch",
+              scrollBehavior: "smooth",
+              scrollbarWidth: "none", // Firefox
+              msOverflowStyle: "none", // IE/Edge
+            } as React.CSSProperties
+          }
           onWheel={(e) => {
             // Ensure wheel events work for scrolling
             e.stopPropagation()
