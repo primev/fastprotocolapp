@@ -168,6 +168,7 @@ export default function SwapInterface({
     quote,
     isLoading: isQuoteLoading,
     error: quoteError,
+    noLiquidity,
     refetch,
   } = useQuote({
     tokenIn: fromToken,
@@ -225,10 +226,14 @@ export default function SwapInterface({
       const oldFromToken = fromToken
       setFromToken(token)
 
-      // If the token actually changed, force a quote refresh by temporarily disabling and re-enabling
+      // If the token actually changed, ensure immediate quote fetch and timer restart
       if (oldFromToken?.address !== token.address) {
+        // Reset timer immediately when token changes
+        setTimeLeft(15)
+        hasRefetchedRef.current = false
+
         // The quote hook will automatically recalculate when fromToken changes
-        // because it's in the inputKey dependencies
+        // because it's in the inputKey dependencies, but we ensure it happens immediately
       }
     },
     [toToken, editingSide, fromToken]
@@ -258,9 +263,20 @@ export default function SwapInterface({
       // - amount is in fromToken units (correct for exactIn calculation)
       // - We're changing the output token, amount stays the same
       // In both cases, preserve amount and let quote recalculate
+      const oldToToken = toToken
       setToToken(token)
+
+      // If the token actually changed, ensure immediate quote fetch and timer restart
+      if (oldToToken?.address !== token.address) {
+        // Reset timer immediately when token changes
+        setTimeLeft(15)
+        hasRefetchedRef.current = false
+
+        // The quote hook will automatically recalculate when toToken changes
+        // because it's in the inputKey dependencies, but we ensure it happens immediately
+      }
     },
-    [fromToken, editingSide]
+    [fromToken, editingSide, toToken]
   )
 
   // Clear quote when tokens change to prevent stale data
@@ -557,23 +573,31 @@ export default function SwapInterface({
     const symbols = ["ETH", "USDC", "USDT", "WBTC", "WETH"]
     const foundTokens: Token[] = []
 
-    if (!fromToken || fromToken.symbol.toUpperCase() !== "ETH") {
-      const ethToken = tokens.find((t) => t.symbol.toUpperCase() === "ETH") || DEFAULT_ETH_TOKEN
-      foundTokens.push(ethToken)
-    }
-
     symbols.forEach((symbol) => {
-      if (symbol.toUpperCase() === "ETH") return
-
       const token = tokens.find((t) => t.symbol.toUpperCase() === symbol.toUpperCase())
 
-      if (token && token.address !== fromToken?.address) {
-        foundTokens.push(token)
+      if (token) {
+        // Include the token if it's not currently selected on either side
+        if (token.address !== fromToken?.address && token.address !== toToken?.address) {
+          foundTokens.push(token)
+        }
       }
     })
 
-    return foundTokens
-  }, [tokens, fromToken])
+    // If no ETH is included but we have room, add ETH (unless it's selected)
+    if (
+      foundTokens.length < 5 &&
+      (!fromToken || fromToken.symbol.toUpperCase() !== "ETH") &&
+      (!toToken || toToken.symbol.toUpperCase() !== "ETH")
+    ) {
+      const ethToken = tokens.find((t) => t.symbol.toUpperCase() === "ETH") || DEFAULT_ETH_TOKEN
+      if (!foundTokens.some((t) => t.address === ethToken.address)) {
+        foundTokens.unshift(ethToken)
+      }
+    }
+
+    return foundTokens.slice(0, 5) // Limit to 5 tokens
+  }, [tokens, fromToken, toToken])
 
   // Use exchange rate from quote if available, otherwise calculate
   const exchangeRate = useMemo(() => {
@@ -828,7 +852,9 @@ export default function SwapInterface({
           isActive={editingSide === "sell"}
           token={fromToken}
           amount={amount}
-          displayQuote={displayQuote || null}
+          displayQuote={
+            noLiquidity && editingSide === "buy" ? "No liquidity" : displayQuote || null
+          }
           quoteAmount={activeQuote?.amountInFormatted}
           onAmountChange={(value) => {
             setEditingSide("sell")
@@ -859,6 +885,8 @@ export default function SwapInterface({
           pulseAnimationKey={pulseAnimationKey}
           inputRef={sellInputRef}
           outputAmount={outputAmount}
+          commonTokens={commonTokens}
+          onCommonTokenSelect={handleFromTokenSelect}
         />
 
         <SwitchButton onSwitch={handleSwitch} />
@@ -869,7 +897,9 @@ export default function SwapInterface({
           isActive={editingSide === "buy"}
           token={toToken}
           amount={amount}
-          displayQuote={displayQuote || null}
+          displayQuote={
+            noLiquidity && editingSide === "sell" ? "No liquidity" : displayQuote || null
+          }
           quoteAmount={activeQuote?.amountOutFormatted}
           onAmountChange={(value) => {
             setEditingSide("buy")
@@ -930,14 +960,7 @@ export default function SwapInterface({
 
         <QuoteErrorDisplay
           error={quoteError}
-          show={
-            hasStarted &&
-            !!quoteError &&
-            !!amount &&
-            parseFloat(amount) > 0 &&
-            !!fromToken &&
-            !!toToken
-          }
+          show={!!quoteError && !!amount && parseFloat(amount) > 0 && !!fromToken && !!toToken}
         />
 
         <SwapActionButton

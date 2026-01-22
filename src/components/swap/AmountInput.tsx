@@ -34,11 +34,14 @@ export default React.memo(function AmountInput({
   pulseAnimationKey,
   inputRef,
 }: AmountInputProps) {
+  // Check if this is a special non-numeric value like "No liquidity"
+  const isSpecialValue = value === "No liquidity"
+
   // Remove commas and other formatting from value for parsing
   // formatTokenAmount returns values like "3,016.86" which parseFloat can't handle
   // If value is null, preserve previous display value to avoid showing "0"
   // If value is "0", display 0 as the default
-  const cleanValue = value ? value.replace(/,/g, "") : ""
+  const cleanValue = value && !isSpecialValue ? value.replace(/,/g, "") : ""
   const parsedValue = cleanValue && !isNaN(parseFloat(cleanValue)) ? parseFloat(cleanValue) : null
   const numericValue = parsedValue !== null && parsedValue >= 0 ? parsedValue : null
 
@@ -152,7 +155,12 @@ export default React.memo(function AmountInput({
           : "opacity-100 blur-0 scale-100"
       )}
     >
-      {isActive ? (
+      {isSpecialValue ? (
+        // Special case for "No liquidity" - show as disabled-looking text
+        <div className="h-[54px] flex items-center text-2xl font-bold text-white/30 leading-none tracking-tighter cursor-not-allowed">
+          {value}
+        </div>
+      ) : isActive ? (
         <input
           ref={inputRef}
           type="text"
