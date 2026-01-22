@@ -28,6 +28,9 @@ interface TokenSwapSectionProps {
   isLoadingBalance: boolean
   tokenPrice: number | null
   isLoadingPrice: boolean
+  gasEstimate?: string
+  gasPrice?: string
+  isNativeETH?: boolean
   isConnected: boolean
   address: string | undefined
   insufficientBalance: boolean
@@ -70,6 +73,9 @@ export default React.memo(function TokenSwapSection({
   outputAmount,
   commonTokens,
   onCommonTokenSelect,
+  gasEstimate,
+  gasPrice,
+  isNativeETH,
 }: TokenSwapSectionProps) {
   const displayValue =
     side === "sell"
@@ -106,6 +112,9 @@ export default React.memo(function TokenSwapSection({
             token={token}
             isConnected={isConnected}
             onSelect={onAmountChange}
+            gasEstimate={gasEstimate}
+            gasPrice={gasPrice}
+            isNativeETH={isNativeETH}
           />
         ) : commonTokens && commonTokens.length > 0 && onCommonTokenSelect ? (
           <CommonTokenButtons tokens={commonTokens} onSelect={onCommonTokenSelect} />
