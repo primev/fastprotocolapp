@@ -25,13 +25,19 @@ export default React.memo(function PercentageButtons({
 
   const handlePercentageClick = (pct: string) => {
     const balanceValue = parseFloat(formatUnits(balance.value, token.decimals))
+    let amountValue: number
+
     if (pct === "Max") {
-      onSelect(balanceValue.toString())
+      amountValue = balanceValue
     } else {
       const percent = parseFloat(pct) / 100
-      const amountValue = balanceValue * percent
-      onSelect(amountValue.toString())
+      amountValue = balanceValue * percent
     }
+
+    // Limit to 6 decimal places maximum and remove trailing zeros
+    // const formattedValue = Number(amountValue.toFixed(6))
+    const formattedValue = amountValue
+    onSelect(formattedValue.toString())
   }
 
   return (

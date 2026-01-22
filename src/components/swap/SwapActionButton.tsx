@@ -44,7 +44,7 @@ export default React.memo(function SwapActionButton({
           disabled={true}
           onClick={onGetStarted}
           className={cn(
-            "mt-1 w-full py-4 rounded-[20px] font-bold text-lg transition-all border border-white/10",
+            "mt-2 w-full py-4 rounded-[20px] font-bold text-lg transition-all border border-white/10",
             "bg-zinc-900/50 text-zinc-600 cursor-not-allowed"
           )}
         >
@@ -58,7 +58,7 @@ export default React.memo(function SwapActionButton({
         disabled={false}
         onClick={onGetStarted}
         className={cn(
-          "mt-1 w-full py-3 rounded-[20px] font-bold text-lg transition-all border border-white/10",
+          "mt-2 w-full py-3 rounded-[20px] font-bold text-lg transition-all border border-white/10",
           "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
         )}
       >
