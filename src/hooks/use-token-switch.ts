@@ -44,12 +44,12 @@ export function useTokenSwitch({
     const sellDisplayed =
       editingSide === "sell"
         ? amount // Sell side is active, shows amount
-        : displayQuote || quote?.amountInFormatted || "0" // Sell side is inactive, shows quote
+        : displayQuote || quote?.amountInFormatted || null // Sell side is inactive, shows quote
 
     const buyDisplayed =
       editingSide === "buy"
         ? amount // Buy side is active, shows amount
-        : displayQuote || quote?.amountOutFormatted || "0" // Buy side is inactive, shows quote
+        : displayQuote || quote?.amountOutFormatted || null // Buy side is inactive, shows quote
 
     // Swap token references
     const newFromToken = toToken
@@ -65,6 +65,7 @@ export function useTokenSwitch({
     // Following Uniswap's pattern:
     // - The value from the currently active side becomes the new amount (for the new active side)
     // - The value from the currently inactive side becomes the display quote (for the new inactive side)
+    // IMPORTANT: Always use the active side's amount, never use "0" from inactive side
     if (editingSide === "sell") {
       // Switching from sell to buy:
       // - Buy becomes active, so it gets the old sell value (amount)
@@ -72,8 +73,8 @@ export function useTokenSwitch({
       onSwitch({
         newFromToken,
         newToToken,
-        newAmount: sellDisplayed, // Old sell value → new buy (active)
-        newDisplayQuote: buyDisplayed, // Old buy value → new sell (inactive)
+        newAmount: amount || "", // Always use the active side's amount (sell side)
+        newDisplayQuote: buyDisplayed || "", // Old buy value → new sell (inactive)
         newEditingSide,
         hasExplicitlyClearedFromToken,
         hasExplicitlyClearedToToken,
@@ -85,8 +86,8 @@ export function useTokenSwitch({
       onSwitch({
         newFromToken,
         newToToken,
-        newAmount: buyDisplayed, // Old buy value → new sell (active)
-        newDisplayQuote: sellDisplayed, // Old sell value → new buy (inactive)
+        newAmount: amount || "", // Always use the active side's amount (buy side)
+        newDisplayQuote: sellDisplayed || "", // Old sell value → new buy (inactive)
         newEditingSide,
         hasExplicitlyClearedFromToken,
         hasExplicitlyClearedToToken,

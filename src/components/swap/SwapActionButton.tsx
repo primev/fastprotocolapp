@@ -54,16 +54,14 @@ export default React.memo(function SwapActionButton({
 
     return (
       <button
-        disabled={insufficientBalance}
+        disabled={false}
         onClick={onGetStarted}
         className={cn(
           "mt-1 w-full py-4 rounded-[20px] font-bold text-lg transition-all border border-white/10",
-          insufficientBalance
-            ? "bg-zinc-900/50 text-zinc-600 cursor-not-allowed"
-            : "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
+          "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
         )}
       >
-        {insufficientBalance ? `Not enough ${fromToken.symbol}` : "Get Started"}
+        Get Started
       </button>
     )
   }
