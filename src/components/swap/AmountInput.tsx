@@ -34,31 +34,21 @@ export default React.memo(function AmountInput({
   pulseAnimationKey,
   inputRef,
 }: AmountInputProps) {
-  // Check if this is a special non-numeric value like "No liquidity"
   const isSpecialValue = value === "No liquidity"
 
-  // Remove commas and other formatting from value for parsing
-  // formatTokenAmount returns values like "3,016.86" which parseFloat can't handle
-  // If value is null, preserve previous display value to avoid showing "0"
-  // If value is "0", display 0 as the default
   const cleanValue = value && !isSpecialValue ? value.replace(/,/g, "") : ""
   const parsedValue = cleanValue && !isNaN(parseFloat(cleanValue)) ? parseFloat(cleanValue) : null
   const numericValue = parsedValue !== null && parsedValue >= 0 ? parsedValue : null
 
-  // Preserve decimal precision from original value to maintain trailing zeros (e.g., 13.50)
   const decimalPlaces = cleanValue.includes(".") ? cleanValue.split(".")[1]?.length || 0 : 0
   const minFractionDigits = decimalPlaces > 0 ? Math.min(decimalPlaces, 6) : 0
 
   const fullValue = numericValue > 0 ? numericValue.toString() : null
   const isTrimmed = isActive && fullValue && cleanValue !== fullValue
 
-  // Track previous value and manage display value for smart starting point
-  // Preserve previous value when new value is null to avoid showing "0"
   const previousValueRef = useRef<number | null>(numericValue)
   const [displayValue, setDisplayValue] = React.useState<number | null>(numericValue)
 
-  // Calculate a smart starting value that's close to the target
-  // For big numbers, round down to nearest significant digit to avoid spinning from 0
   const getSmartStartValue = (target: number, previous: number | null): number => {
     if (target === 0) return 0
     if (
@@ -66,37 +56,30 @@ export default React.memo(function AmountInput({
       previous > 0 &&
       Math.abs(target - previous) / Math.max(target, previous) < 0.5
     ) {
-      // If change is less than 50%, use previous value
       return previous
     }
 
-    // For large numbers, round down to nearest significant digit
     if (target >= 1000) {
       const magnitude = Math.floor(Math.log10(target))
-      const factor = Math.pow(10, Math.max(0, magnitude - 2)) // Round to nearest 100th
+      const factor = Math.pow(10, Math.max(0, magnitude - 2))
       return Math.floor(target / factor) * factor
     } else if (target >= 100) {
-      return Math.floor(target / 10) * 10 // Round to nearest 10
+      return Math.floor(target / 10) * 10
     } else if (target >= 10) {
-      return Math.floor(target) // Round to nearest 1
+      return Math.floor(target)
     }
-    return Math.max(0, target * 0.9) // Start at 90% for small numbers
+    return Math.max(0, target * 0.9)
   }
 
-  // Update display value with smart starting point for big jumps
   useEffect(() => {
     if (!isActive) {
       const prev = previousValueRef.current
 
-      // If new value is null, preserve previous display value to avoid showing "0"
-      // Exception: if value is explicitly "0", display 0
       if (numericValue === null) {
-        // If value is "0", display 0; otherwise preserve previous
         if (value === "0") {
           setDisplayValue(0)
           previousValueRef.current = 0
         }
-        // Otherwise keep previous display value, don't update
         return
       }
 
@@ -108,20 +91,17 @@ export default React.memo(function AmountInput({
 
       if (isBigJump && numericValue !== prev) {
         const startValue = prev !== null ? getSmartStartValue(numericValue, prev) : numericValue
-        // Set to start value first, then animate to target
         setDisplayValue(startValue)
         const timeoutId = setTimeout(() => {
           setDisplayValue(numericValue)
-        }, 0) // Use setTimeout(0) to ensure it happens on next tick
+        }, 0)
         return () => clearTimeout(timeoutId)
       } else {
-        // Small changes, animate directly from previous
         setDisplayValue(numericValue)
       }
 
       previousValueRef.current = numericValue
     } else if (isActive) {
-      // When user is typing, update immediately (even if null, to clear input)
       setDisplayValue(numericValue)
       previousValueRef.current = numericValue
     }
@@ -134,30 +114,20 @@ export default React.memo(function AmountInput({
     onChange(cleaned)
   }
 
-  // ELEGANT REFRESH STATE:
-  // We want to distinguish between "User is typing" and "System is calculating"
-  // If the user isn't active and the quote is loading, we apply the "Racey Fade"
-  // But only if we're not pulsing (pulse takes precedence for quote updates)
   const isRefreshing = !isActive && isQuoteLoading && !shouldPulse && !shouldPulseLoop
   const isPulsing = !isActive && (shouldPulse || shouldPulseLoop)
 
   const inputContent = (
     <div
       className={cn(
-        // Only apply transition when refreshing (not when pulsing, to avoid interference)
         isRefreshing && "transition-all duration-500 ease-in-out",
-        // The "Fade to Black" logic:
-        // We drop opacity significantly and add a slight blur/scale
-        // to make the value look like it's "receding" into the background
-        // Only apply when refreshing (token change) and not pulsing (quote update)
         isRefreshing
           ? "opacity-10 shadow-none scale-[0.99] filter blur-[1px]"
           : "opacity-100 blur-0 scale-100"
       )}
     >
       {isSpecialValue ? (
-        // Special case for "No liquidity" - show as disabled-looking text
-        <div className="h-[54px] flex items-center text-2xl font-bold text-white/30 leading-none tracking-tighter cursor-not-allowed">
+        <div className="h-[54px] flex items-center text-[16px] font-bold uppercase tracking-[0.1em] text-white/20 cursor-not-allowed">
           {value}
         </div>
       ) : isActive ? (
@@ -191,7 +161,6 @@ export default React.memo(function AmountInput({
                 minimumFractionDigits: minFractionDigits,
                 maximumFractionDigits: 6,
               }}
-              // Fast timing for a "mechanical" feel
               spinTiming={{ duration: 400, easing: "cubic-bezier(0.4, 0, 0.2, 1)" }}
               opacityTiming={{ duration: 200 }}
             />
@@ -210,7 +179,6 @@ export default React.memo(function AmountInput({
           <TooltipTrigger asChild>
             <div className="flex-1 relative">
               {inputContent}
-              {/* SHIMMER OVERLAY: Optional "racey" detail */}
               {isRefreshing && (
                 <div className="absolute inset-0 pointer-events-none flex items-center">
                   <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
@@ -234,7 +202,6 @@ export default React.memo(function AmountInput({
   return (
     <div className="flex-1 relative">
       {inputContent}
-      {/* SHIMMER OVERLAY: Optional "racey" detail */}
       {isRefreshing && (
         <div className="absolute inset-0 pointer-events-none flex items-center">
           <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />

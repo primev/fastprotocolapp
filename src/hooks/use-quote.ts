@@ -142,8 +142,8 @@ async function getBestQuoteFromFeeTiers(
         }
       })()
 
-      // Add 2 second timeout to each contract call
-      return await withTimeout(contractCall, 2000)
+      // Add 3 second timeout to each contract call
+      return await withTimeout(contractCall, 3000)
     } catch (error) {
       // Fee tier failed or timed out, return failure indicator
       console.debug(`No pool for fee tier ${fee}:`, error)
@@ -188,6 +188,13 @@ async function getBestQuoteFromFeeTiers(
       }
     }
   }
+
+  console.log("[useQuote] Best quote selected:", {
+    fee: bestQuote.fee,
+    amountOut: bestQuote.amountOut.toString(),
+    successfulQuotesCount: successfulQuotes.length,
+    successfulFees: successfulQuotes.map((q) => q.fee),
+  })
 
   return bestQuote
 }
@@ -372,7 +379,10 @@ export function useQuote({
     // Cancel any pending request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
-      console.debug(`[useQuote] Cancelled previous request for new request ${currentRequestId}`)
+      // Only log cancellation in development/debug mode
+      if (process.env.NODE_ENV === "development") {
+        console.debug(`[useQuote] Cancelled previous request for new request ${currentRequestId}`)
+      }
     }
     abortControllerRef.current = new AbortController()
 
