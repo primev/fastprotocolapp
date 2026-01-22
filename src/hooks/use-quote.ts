@@ -66,6 +66,132 @@ const QUOTER_V2_ABI = [
 // Common fee tiers in Uniswap V3 (in hundredths of a bip)
 const FEE_TIERS = [500, 3000, 10000] as const // 0.05%, 0.3%, 1%
 
+/**
+ * Create a promise that resolves with the result or rejects after timeout
+ */
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), timeoutMs)),
+  ])
+}
+
+/**
+ * Fetch quotes for all fee tiers in parallel with timeout for faster failure
+ */
+async function getBestQuoteFromFeeTiers(
+  client: any,
+  tokenInAddress: Address,
+  tokenOutAddress: Address,
+  amountIn: string,
+  tradeType: TradeType,
+  tokenInDecimals: number,
+  tokenOutDecimals: number
+): Promise<{
+  amountOut: bigint
+  amountIn: bigint
+  gasEstimate: bigint
+  fee: number
+} | null> {
+  // Create promises for all fee tiers with 2 second timeout each
+  const feeTierPromises = FEE_TIERS.map(async (fee) => {
+    try {
+      const contractCall = (async () => {
+        let result
+
+        if (tradeType === "exactIn") {
+          const amountInWei = parseUnits(amountIn, tokenInDecimals)
+          result = await client.simulateContract({
+            address: QUOTER_V2_ADDRESS,
+            abi: QUOTER_V2_ABI,
+            functionName: "quoteExactInputSingle",
+            args: [
+              {
+                tokenIn: tokenInAddress,
+                tokenOut: tokenOutAddress,
+                amountIn: amountInWei,
+                fee,
+                sqrtPriceLimitX96: BigInt(0),
+              },
+            ],
+          })
+
+          const [amountOut, , , gasEstimate] = result.result as [bigint, bigint, number, bigint]
+
+          return { amountOut, amountIn: amountInWei, gasEstimate, fee, success: true }
+        } else {
+          const amountOutWei = parseUnits(amountIn, tokenOutDecimals)
+          result = await client.simulateContract({
+            address: QUOTER_V2_ADDRESS,
+            abi: QUOTER_V2_ABI,
+            functionName: "quoteExactOutputSingle",
+            args: [
+              {
+                tokenIn: tokenInAddress,
+                tokenOut: tokenOutAddress,
+                amount: amountOutWei,
+                fee,
+                sqrtPriceLimitX96: BigInt(0),
+              },
+            ],
+          })
+
+          const [amountInWei, , , gasEstimate] = result.result as [bigint, bigint, number, bigint]
+
+          return { amountOut: amountOutWei, amountIn: amountInWei, gasEstimate, fee, success: true }
+        }
+      })()
+
+      // Add 2 second timeout to each contract call
+      return await withTimeout(contractCall, 2000)
+    } catch (error) {
+      // Fee tier failed or timed out, return failure indicator
+      console.debug(`No pool for fee tier ${fee}:`, error)
+      return { success: false, fee }
+    }
+  })
+
+  // Wait for all fee tier promises to settle (with timeouts)
+  const results = await Promise.allSettled(feeTierPromises)
+
+  // Collect all successful quotes
+  const successfulQuotes: Array<{
+    amountOut: bigint
+    amountIn: bigint
+    gasEstimate: bigint
+    fee: number
+  }> = []
+
+  for (const result of results) {
+    if (result.status === "fulfilled" && result.value && (result.value as any).success) {
+      successfulQuotes.push(result.value as any)
+    }
+  }
+
+  if (successfulQuotes.length === 0) {
+    return null // No fee tiers worked
+  }
+
+  // Return the best quote among successful ones
+  let bestQuote = successfulQuotes[0]
+  for (let i = 1; i < successfulQuotes.length; i++) {
+    const quote = successfulQuotes[i]
+    if (tradeType === "exactIn") {
+      // For exact input, we want maximum output
+      if (quote.amountOut > bestQuote.amountOut) {
+        bestQuote = quote
+      }
+    } else {
+      // For exact output, we want minimum input
+      if (quote.amountIn < bestQuote.amountIn) {
+        bestQuote = quote
+      }
+    }
+  }
+
+  return bestQuote
+}
+
 export interface QuoteResult {
   amountOut: bigint
   amountOutFormatted: string
@@ -96,6 +222,7 @@ export interface UseQuoteReturn {
   quote: QuoteResult | null
   isLoading: boolean
   error: Error | null
+  noLiquidity: boolean
   refetch: () => Promise<void>
 }
 
@@ -199,6 +326,7 @@ export function useQuote({
   const [quote, setQuote] = useState<QuoteResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const [noLiquidity, setNoLiquidity] = useState(false)
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -244,6 +372,7 @@ export function useQuote({
     // Cancel any pending request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
+      console.debug(`[useQuote] Cancelled previous request for new request ${currentRequestId}`)
     }
     abortControllerRef.current = new AbortController()
 
@@ -278,7 +407,8 @@ export function useQuote({
       return
     }
 
-    // Debug logging
+    // Debug logging with timing
+    const startTime = performance.now()
     console.log("[useQuote] Refetching quote:", {
       requestId: currentRequestId,
       tokenIn: getTokenSymbol(currentTokenIn),
@@ -286,6 +416,7 @@ export function useQuote({
       amountIn: currentAmountIn,
       tradeType: currentTradeType,
       amountInNum,
+      timestamp: startTime,
     })
 
     // Validate amount is not too large
@@ -327,6 +458,7 @@ export function useQuote({
 
     setIsLoading(true)
     setError(null)
+    setNoLiquidity(false)
 
     // Request timeout (15 seconds)
     const timeoutId = setTimeout(() => {
@@ -347,90 +479,46 @@ export function useQuote({
         fee: number
       } | null = null
 
-      // Try each fee tier and pick the best quote
+      // Try each RPC client and get best quote with parallel fee tier checking
       const clients = [createClient(FALLBACK_RPC_ENDPOINT)]
       let workingClient = clients[0]
 
       for (const client of clients) {
         try {
-          for (const fee of FEE_TIERS) {
-            try {
-              let result
+          // Use parallel fee tier checking
+          const quote = await getBestQuoteFromFeeTiers(
+            client,
+            tokenInAddress,
+            tokenOutAddress,
+            currentAmountIn,
+            currentTradeType,
+            tokenInDecimals,
+            tokenOutDecimals
+          )
 
-              if (currentTradeType === "exactIn") {
-                const amountInWei = parseUnits(currentAmountIn, tokenInDecimals)
-                result = await client.simulateContract({
-                  address: QUOTER_V2_ADDRESS,
-                  abi: QUOTER_V2_ABI,
-                  functionName: "quoteExactInputSingle",
-                  args: [
-                    {
-                      tokenIn: tokenInAddress,
-                      tokenOut: tokenOutAddress,
-                      amountIn: amountInWei,
-                      fee,
-                      sqrtPriceLimitX96: BigInt(0),
-                    },
-                  ],
-                })
-
-                const [amountOut, , , gasEstimate] = result.result as [
-                  bigint,
-                  bigint,
-                  number,
-                  bigint,
-                ]
-
-                if (!bestQuote || amountOut > bestQuote.amountOut) {
-                  bestQuote = { amountOut, amountIn: amountInWei, gasEstimate, fee }
-                  workingClient = client
-                }
-              } else {
-                const amountOutWei = parseUnits(currentAmountIn, tokenOutDecimals)
-                result = await client.simulateContract({
-                  address: QUOTER_V2_ADDRESS,
-                  abi: QUOTER_V2_ABI,
-                  functionName: "quoteExactOutputSingle",
-                  args: [
-                    {
-                      tokenIn: tokenInAddress,
-                      tokenOut: tokenOutAddress,
-                      amount: amountOutWei,
-                      fee,
-                      sqrtPriceLimitX96: BigInt(0),
-                    },
-                  ],
-                })
-
-                const [amountInWei, , , gasEstimate] = result.result as [
-                  bigint,
-                  bigint,
-                  number,
-                  bigint,
-                ]
-
-                if (!bestQuote || amountInWei < bestQuote.amountIn) {
-                  bestQuote = { amountOut: amountOutWei, amountIn: amountInWei, gasEstimate, fee }
-                  workingClient = client
-                }
-              }
-            } catch (feeError) {
-              console.debug(`No pool for fee tier ${fee}:`, feeError)
-            }
+          if (quote) {
+            bestQuote = quote
+            workingClient = client
+            break // Found a working quote, no need to try other clients
           }
-
-          if (bestQuote) break
         } catch (clientError) {
           console.warn("RPC client error, trying next:", clientError)
         }
       }
 
       if (!bestQuote) {
-        const tokenInSymbol = getTokenSymbol(currentTokenIn) || "Unknown"
-        const tokenOutSymbol = getTokenSymbol(currentTokenOut) || "Unknown"
-        throw new Error(
-          `No liquidity found for ${tokenInSymbol}/${tokenOutSymbol} pair. This pair may not have an active pool.`
-        )
+        // Instead of throwing an error, set noLiquidity state
+        if (currentRequestId === requestIdRef.current) {
+          setNoLiquidity(true)
+          setQuote(null)
+          setError(null)
+          console.log("[useQuote] No liquidity found:", {
+            requestId: currentRequestId,
+            tokenIn: getTokenSymbol(currentTokenIn),
+            tokenOut: getTokenSymbol(currentTokenOut),
+          })
+        }
+        return
       }
 
       // Check again if this is still the latest request
@@ -528,6 +616,8 @@ export function useQuote({
 
       // Only set quote if this is still the latest request
       if (currentRequestId === requestIdRef.current) {
+        const endTime = performance.now()
+        const duration = endTime - startTime
         console.log("[useQuote] Refetch quote result:", {
           requestId: currentRequestId,
           tokenIn: getTokenSymbol(currentTokenIn),
@@ -536,6 +626,7 @@ export function useQuote({
           amountIn: currentAmountIn,
           amountInFormatted: newQuote.amountInFormatted,
           amountOutFormatted: newQuote.amountOutFormatted,
+          duration: `${duration.toFixed(2)}ms`,
         })
 
         setQuote(newQuote)
@@ -634,7 +725,8 @@ export function useQuote({
       return
     }
 
-    // Debug logging
+    // Debug logging with timing
+    const startTime = performance.now()
     console.log("[useQuote] Fetching quote:", {
       requestId: currentRequestId,
       tokenIn: getTokenSymbol(currentTokenIn),
@@ -642,6 +734,7 @@ export function useQuote({
       amountIn: currentAmountIn,
       tradeType: currentTradeType,
       amountInNum,
+      timestamp: startTime,
     })
 
     // Validate amount is not too large (prevent overflow)
@@ -684,6 +777,7 @@ export function useQuote({
 
     setIsLoading(true)
     setError(null)
+    setNoLiquidity(false)
 
     // Request timeout (15 seconds)
     const timeoutId = setTimeout(() => {
@@ -704,94 +798,46 @@ export function useQuote({
         fee: number
       } | null = null
 
-      // Try each fee tier and pick the best quote
+      // Try each RPC client and get best quote with parallel fee tier checking
       const clients = [createClient(FALLBACK_RPC_ENDPOINT)]
       let workingClient = clients[0] // Store the client that worked for spot price calculation
 
       for (const client of clients) {
         try {
-          for (const fee of FEE_TIERS) {
-            try {
-              let result
+          // Use parallel fee tier checking
+          const quote = await getBestQuoteFromFeeTiers(
+            client,
+            tokenInAddress,
+            tokenOutAddress,
+            currentAmountIn,
+            currentTradeType,
+            tokenInDecimals,
+            tokenOutDecimals
+          )
 
-              if (currentTradeType === "exactIn") {
-                // Exact input: we know amountIn, calculate amountOut
-                const amountInWei = parseUnits(currentAmountIn, tokenInDecimals)
-                result = await client.simulateContract({
-                  address: QUOTER_V2_ADDRESS,
-                  abi: QUOTER_V2_ABI,
-                  functionName: "quoteExactInputSingle",
-                  args: [
-                    {
-                      tokenIn: tokenInAddress,
-                      tokenOut: tokenOutAddress,
-                      amountIn: amountInWei,
-                      fee,
-                      sqrtPriceLimitX96: BigInt(0),
-                    },
-                  ],
-                })
-
-                const [amountOut, , , gasEstimate] = result.result as [
-                  bigint,
-                  bigint,
-                  number,
-                  bigint,
-                ]
-
-                if (!bestQuote || amountOut > bestQuote.amountOut) {
-                  bestQuote = { amountOut, amountIn: amountInWei, gasEstimate, fee }
-                  workingClient = client // Store the working client
-                }
-              } else {
-                // Exact output: we know amountOut (from amountIn), calculate amountIn needed
-                // IMPORTANT: amountIn parameter represents the desired OUTPUT amount in exactOut mode
-                const amountOutWei = parseUnits(currentAmountIn, tokenOutDecimals)
-                result = await client.simulateContract({
-                  address: QUOTER_V2_ADDRESS,
-                  abi: QUOTER_V2_ABI,
-                  functionName: "quoteExactOutputSingle",
-                  args: [
-                    {
-                      tokenIn: tokenInAddress,
-                      tokenOut: tokenOutAddress,
-                      amount: amountOutWei,
-                      fee,
-                      sqrtPriceLimitX96: BigInt(0),
-                    },
-                  ],
-                })
-
-                const [amountInWei, , , gasEstimate] = result.result as [
-                  bigint,
-                  bigint,
-                  number,
-                  bigint,
-                ]
-
-                if (!bestQuote || amountInWei < bestQuote.amountIn) {
-                  bestQuote = { amountOut: amountOutWei, amountIn: amountInWei, gasEstimate, fee }
-                  workingClient = client // Store the working client
-                }
-              }
-            } catch (feeError) {
-              // This fee tier might not have a pool, continue to next
-              console.debug(`No pool for fee tier ${fee}:`, feeError)
-            }
+          if (quote) {
+            bestQuote = quote
+            workingClient = client // Store the working client
+            break // Found a working quote, no need to try other clients
           }
-
-          if (bestQuote) break // Got a quote, no need to try fallback RPC
         } catch (clientError) {
           console.warn("RPC client error, trying next:", clientError)
         }
       }
 
       if (!bestQuote) {
-        const tokenInSymbol = getTokenSymbol(currentTokenIn) || "Unknown"
-        const tokenOutSymbol = getTokenSymbol(currentTokenOut) || "Unknown"
-        throw new Error(
-          `No liquidity found for ${tokenInSymbol}/${tokenOutSymbol} pair. This pair may not have an active pool.`
-        )
+        // Instead of throwing an error, set noLiquidity state
+        if (currentRequestId === requestIdRef.current) {
+          setNoLiquidity(true)
+          setQuote(null)
+          setError(null)
+          console.log("[useQuote] No liquidity found:", {
+            requestId: currentRequestId,
+            tokenIn: getTokenSymbol(currentTokenIn),
+            tokenOut: getTokenSymbol(currentTokenOut),
+          })
+        }
+        return
       }
 
       // Check again if this is still the latest request before processing
@@ -897,6 +943,8 @@ export function useQuote({
 
       // Only set quote if this is still the latest request
       if (currentRequestId === requestIdRef.current) {
+        const endTime = performance.now()
+        const duration = endTime - startTime
         // Debug logging
         console.log("[useQuote] Quote result:", {
           requestId: currentRequestId,
@@ -910,6 +958,7 @@ export function useQuote({
           amountOutNum,
           tokenInDecimals,
           tokenOutDecimals,
+          duration: `${duration.toFixed(2)}ms`,
         })
 
         setQuote(newQuote)
@@ -1060,6 +1109,7 @@ export function useQuote({
     quote,
     isLoading,
     error,
+    noLiquidity,
     refetch, // Use the stable refetch function that always works
   }
 }
