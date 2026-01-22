@@ -4,10 +4,8 @@ import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspens
 import { useAccount, useBalance } from "wagmi"
 import { useConnectModal } from "@rainbow-me/rainbowkit"
 import { formatUnits } from "viem"
-import { cn, formatTokenAmount, formatBalance } from "@/lib/utils"
+import { cn, formatBalance } from "@/lib/utils"
 import TokenSelector from "./TokenSelector"
-import TokenSelectButton from "./TokenSelectButton"
-import SwapSettings from "./SwapSettings"
 import SwapReview from "./SwapReview"
 import SwapDock from "./SwapDock"
 import TokenSwapSection from "./TokenSwapSection"
@@ -181,6 +179,14 @@ export default function SwapInterface({
     tokenList: tokens,
     enabled: !isSwitching && !!amount && parseFloat(amount) > 0 && !!fromToken && !!toToken,
   })
+
+  // Store refetch in a ref so timer always has latest version
+  const refetchRef = useRef(refetch)
+
+  // Keep refetch ref up to date whenever refetch changes
+  useEffect(() => {
+    refetchRef.current = refetch
+  }, [refetch])
 
   // Use swapped quote if available (for same-token-pair switches), otherwise use fetched quote
   const activeQuote = swappedQuote || quote
@@ -365,13 +371,16 @@ export default function SwapInterface({
         const newTime = prev - 1
 
         if (newTime === 1) {
-          // Only refetch if not switching
-          if (!isSwitching) {
+          // Always refetch at 1 second mark - use ref to get latest refetch function
+          // Check isSwitching from state, not closure
+          const currentIsSwitching = isSwitching
+          if (!currentIsSwitching) {
             hasRefetchedRef.current = true
             setPulseKey((k) => k + 1)
-            setTimeout(() => {
-              refetch()
-            }, 0)
+            // Call refetch directly using ref to ensure we have latest version
+            refetchRef.current().catch((err) => {
+              console.error("Timer refetch error:", err)
+            })
           }
         }
 
@@ -386,7 +395,7 @@ export default function SwapInterface({
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [displayQuote, refetch, isSwitching])
+  }, [displayQuote, isSwitching]) // Remove refetch from deps, use ref instead
 
   // Pulse animation for loading states
   useEffect(() => {
