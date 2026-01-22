@@ -18,6 +18,8 @@ interface SwapActionButtonProps {
   editingSide: "sell" | "buy"
   onGetStarted: () => void
   onSwap: () => void
+  isWrap?: boolean
+  isUnwrap?: boolean
 }
 
 export default React.memo(function SwapActionButton({
@@ -34,7 +36,10 @@ export default React.memo(function SwapActionButton({
   editingSide,
   onGetStarted,
   onSwap,
+  isWrap = false,
+  isUnwrap = false,
 }: SwapActionButtonProps) {
+  const isWrapUnwrap = isWrap || isUnwrap
   if (!hasStarted) {
     // When not started, show "Get Started" if there's any token selected
     // Don't let switching affect this - if either token exists, show "Get Started"
@@ -74,8 +79,8 @@ export default React.memo(function SwapActionButton({
     !toToken ||
     !amount ||
     parseFloat(amount) <= 0 ||
-    !quote ||
-    hasVeryHighPriceImpact ||
+    (!isWrapUnwrap && !quote) || // For wrap/unwrap, quote is not needed
+    (!isWrapUnwrap && hasVeryHighPriceImpact) || // Price impact doesn't apply to wrap/unwrap
     isSigning ||
     isSubmitting
 
@@ -86,9 +91,9 @@ export default React.memo(function SwapActionButton({
   // 4. Missing buy token (toToken)
   // 5. Insufficient balance (always reference sell token)
   // 6. Amount validation
-  // 7. Quote loading
-  // 8. Price impact
-  // 9. Ready to swap
+  // 7. Quote loading (only for regular swaps, not wrap/unwrap)
+  // 8. Price impact (only for regular swaps)
+  // 9. Ready to swap/wrap/unwrap
   const buttonText = isSigning
     ? "Signing..."
     : isSubmitting
@@ -103,11 +108,17 @@ export default React.memo(function SwapActionButton({
               ? `Not enough ${fromToken.symbol}`
               : !amount || parseFloat(amount) <= 0
                 ? "Enter Amount"
-                : !quote
-                  ? "Loading Quote..."
-                  : hasVeryHighPriceImpact
-                    ? "Price Impact Too High"
-                    : "Swap"
+                : isWrapUnwrap
+                  ? isWrap
+                    ? "Wrap ETH"
+                    : isUnwrap
+                      ? "Unwrap WETH"
+                      : "Swap"
+                  : !quote
+                    ? "Loading Quote..."
+                    : hasVeryHighPriceImpact
+                      ? "Price Impact Too High"
+                      : "Swap"
 
   return (
     <button

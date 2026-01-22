@@ -144,7 +144,7 @@ export function formatTokenAmount(
   }
 
   // Stablecoins: 2 decimals
-  if (STABLECOIN_SYMBOLS.includes(symbol)) {
+  if (STABLECOIN_SYMBOLS.includes(symbol as (typeof STABLECOIN_SYMBOLS)[number])) {
     return new Intl.NumberFormat("en-US", {
       maximumFractionDigits: 2,
       minimumFractionDigits: 2,
@@ -152,7 +152,7 @@ export function formatTokenAmount(
   }
 
   // Major assets: 4-6 decimals based on value
-  if (MAJOR_ASSET_SYMBOLS.includes(symbol)) {
+  if (MAJOR_ASSET_SYMBOLS.includes(symbol as (typeof MAJOR_ASSET_SYMBOLS)[number])) {
     const decimals = num >= 1 ? 4 : 6
     return new Intl.NumberFormat("en-US", {
       maximumFractionDigits: decimals,
