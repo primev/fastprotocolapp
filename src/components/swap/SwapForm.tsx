@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { ArrowDown, ChevronDown, Loader2, Settings, Info, Search, X, Plus } from "lucide-react"
-import { useAccount } from "wagmi"
+import { useAccount, useBalance } from "wagmi"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 
-import { cn } from "@/lib/utils"
+import { cn, formatBalance } from "@/lib/utils"
+import { formatUnits } from "viem"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -18,122 +19,54 @@ import {
   formatPriceImpact,
   getPriceImpactSeverity,
 } from "@/hooks/use-quote"
+import tokenList from "@/lib/token-list.json"
 
-// Token Icons
-const ETH_ICON = (
-  <svg className="h-full w-full fill-current" viewBox="0 0 320 512">
-    <path d="M311.9 260.8L160 353.6 8 260.8 160 0l151.9 260.8zM160 383.4L8 290.6 160 512l152-221.4-152 92.8z" />
-  </svg>
-)
+// Token setup
+// Popular tokens for quick access
+const POPULAR_TOKEN_SYMBOLS = ["ETH", "USDC", "USDT", "WBTC", "DAI"]
 
-// TODO: Uncomment when FAST token is available
-// const FAST_ICON = (
-//   <svg className="h-full w-full" viewBox="0 0 98 95" fill="none">
-//     <path
-//       d="M0.344727 0.226562L36.7147 94.6165H59.9647L26.0747 0.226562H0.344727Z"
-//       className="fill-primary"
-//     />
-//     <path
-//       d="M72.8246 0.226562L52.5447 56.5766H76.2947L97.8146 0.226562H72.8246Z"
-//       fill="#E97D25"
-//     />
-//   </svg>
-// )
+// Create tokens from the JSON list
+const createTokensFromList = (tokenList: any[]): Record<string, Token> => {
+  const tokens: Record<string, Token> = {}
 
-const USDC_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#2775CA" />
-    <path
-      d="M20.5 18.5c0-2-1.5-2.75-4.5-3.25-2-.5-2.5-1-2.5-2s1-1.75 2.5-1.75c1.5 0 2.25.5 2.5 1.5h2c-.25-1.75-1.5-3-3.5-3.25V8h-2v1.75c-2 .25-3.5 1.5-3.5 3.5 0 2 1.5 2.75 4.5 3.25 2 .5 2.5 1 2.5 2s-1 1.75-2.5 1.75c-1.75 0-2.5-.75-2.75-1.75h-2c.25 2 1.75 3.25 3.75 3.5V24h2v-1.75c2-.25 3.5-1.5 3.5-3.75z"
-      fill="white"
-    />
-  </svg>
-)
+  tokenList.forEach((token) => {
+    const isPopular = POPULAR_TOKEN_SYMBOLS.includes(token.symbol)
 
-const USDT_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#26A17B" />
-    <path
-      d="M17.922 17.383v-.002c-.11.008-.677.042-1.942.042-1.01 0-1.721-.03-1.971-.042v.003c-3.888-.171-6.79-.848-6.79-1.658 0-.809 2.902-1.486 6.79-1.66v2.644c.254.018.982.061 1.988.061 1.207 0 1.812-.05 1.925-.06v-2.643c3.88.173 6.775.85 6.775 1.658 0 .81-2.895 1.485-6.775 1.657m0-3.59v-2.366h5.414V7.819H8.595v3.608h5.414v2.365c-4.4.202-7.709 1.074-7.709 2.118 0 1.044 3.309 1.915 7.709 2.118v7.582h3.913v-7.584c4.393-.202 7.694-1.073 7.694-2.116 0-1.043-3.301-1.914-7.694-2.117"
-      fill="white"
-    />
-  </svg>
-)
+    tokens[token.symbol] = {
+      symbol: token.symbol,
+      name: token.name,
+      icon: (
+        <img
+          src={token.logoURI}
+          alt={token.symbol}
+          className="h-full w-full object-contain"
+          onError={(e) => {
+            // Fallback to default icon on error
+            const target = e.target as HTMLImageElement
+            target.style.display = "none"
+            const parent = target.parentElement
+            if (parent) {
+              parent.innerHTML = `
+                <svg class="h-full w-full" viewBox="0 0 32 32" fill="none">
+                  <circle cx="16" cy="16" r="16" fill="#6B7280" />
+                  <text x="16" y="20" text-anchor="middle" fill="white" font-size="12" font-weight="bold">
+                    ${token.symbol.charAt(0)}
+                  </text>
+                </svg>
+              `
+            }
+          }}
+        />
+      ),
+      balance: "0.00", // Will be updated with real balance
+      address: token.address,
+      decimals: token.decimals,
+      popular: isPopular,
+    }
+  })
 
-const WBTC_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#F7931A" />
-    <path
-      d="M22.5 14.7c.3-2-1.2-3.1-3.3-3.8l.7-2.7-1.6-.4-.7 2.6c-.4-.1-.8-.2-1.3-.3l.7-2.7-1.6-.4-.7 2.7c-.3-.1-.7-.2-1-.2l-2.2-.5-.4 1.7s1.2.3 1.2.3c.7.2.8.6.8 1l-.8 3.2c0 0 .1 0 .2.1h-.2l-1.1 4.5c-.1.2-.3.5-.8.4 0 0-1.2-.3-1.2-.3l-.8 1.8 2.1.5c.4.1.8.2 1.2.3l-.7 2.8 1.6.4.7-2.7c.4.1.9.2 1.3.3l-.7 2.7 1.6.4.7-2.8c2.9.5 5.1.3 6-2.3.7-2.1 0-3.3-1.6-4.1 1.1-.3 2-1.1 2.2-2.8zm-4 5.5c-.5 2.1-4.1 1-5.3.7l.9-3.8c1.2.3 4.9.9 4.4 3.1zm.5-5.6c-.5 1.9-3.5.9-4.4.7l.8-3.4c1 .2 4.1.7 3.6 2.7z"
-      fill="white"
-    />
-  </svg>
-)
-
-const DAI_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#F5AC37" />
-    <path d="M16 6l-8 10 8 10 8-10-8-10z" fill="white" />
-  </svg>
-)
-
-const LINK_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#2A5ADA" />
-    <path
-      d="M16 6l-2 1.2-6 3.4-2 1.2v8.4l2 1.2 6 3.4 2 1.2 2-1.2 6-3.4 2-1.2v-8.4l-2-1.2-6-3.4-2-1.2zm0 2.4l6 3.4v6.8l-6 3.4-6-3.4v-6.8l6-3.4z"
-      fill="white"
-    />
-  </svg>
-)
-
-const UNI_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#FF007A" />
-    <path
-      d="M12 10c1.5 0 2.5 1 3 2 .5-1 1.5-2 3-2s2.5 1 3 2v8c-.5 1-1.5 2-3 2s-2.5-1-3-2c-.5 1-1.5 2-3 2s-2.5-1-3-2v-8c.5-1 1.5-2 3-2z"
-      fill="white"
-    />
-  </svg>
-)
-
-const AAVE_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#B6509E" />
-    <path d="M16 8l-6 14h3l1-3h4l1 3h3l-6-14zm0 4l1.5 5h-3l1.5-5z" fill="white" />
-  </svg>
-)
-
-const ARB_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#28A0F0" />
-    <path d="M16 6l8 10-8 10-8-10 8-10z" fill="white" />
-  </svg>
-)
-
-const OP_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#FF0420" />
-    <path
-      d="M10 12h4c2 0 3 1 3 3s-1 3-3 3h-2v4h-2v-10zm2 4h2c.5 0 1-.5 1-1s-.5-1-1-1h-2v2zm8-4h2v10h-2v-10z"
-      fill="white"
-    />
-  </svg>
-)
-
-const MATIC_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#8247E5" />
-    <path d="M20 12l-4-2-4 2v8l4 2 4-2v-8zm-4 7l-2-1v-4l2-1 2 1v4l-2 1z" fill="white" />
-  </svg>
-)
-
-const WETH_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#EC4899" />
-    <path d="M16 6l-6 10 6 4 6-4-6-10zm0 16l-6-4 6 8 6-8-6 4z" fill="white" />
-  </svg>
-)
+  return tokens
+}
 
 type TokenKey =
   | "ETH"
@@ -156,95 +89,12 @@ interface Token {
   icon: React.ReactNode
   balance: string
   address?: string
+  decimals?: number
   popular?: boolean
 }
 
-const TOKENS: Record<string, Token> = {
-  ETH: { symbol: "ETH", name: "Ethereum", icon: ETH_ICON, balance: "0.00", popular: true },
-  // TODO: Uncomment when FAST token is available
-  // FAST: { symbol: "FAST", name: "Fast Token", icon: FAST_ICON, balance: "0.00", popular: true },
-  USDC: {
-    symbol: "USDC",
-    name: "USD Coin",
-    icon: USDC_ICON,
-    balance: "0.00",
-    address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-    popular: true,
-  },
-  USDT: {
-    symbol: "USDT",
-    name: "Tether USD",
-    icon: USDT_ICON,
-    balance: "0.00",
-    address: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-    popular: true,
-  },
-  WBTC: {
-    symbol: "WBTC",
-    name: "Wrapped Bitcoin",
-    icon: WBTC_ICON,
-    balance: "0.00",
-    address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
-    popular: true,
-  },
-  DAI: {
-    symbol: "DAI",
-    name: "Dai Stablecoin",
-    icon: DAI_ICON,
-    balance: "0.00",
-    address: "0x6B175474E89094C44Da98b954EescdeCB5e",
-    popular: true,
-  },
-  LINK: {
-    symbol: "LINK",
-    name: "Chainlink",
-    icon: LINK_ICON,
-    balance: "0.00",
-    address: "0x514910771AF9Ca656af840dff83E8264EcF986CA",
-  },
-  UNI: {
-    symbol: "UNI",
-    name: "Uniswap",
-    icon: UNI_ICON,
-    balance: "0.00",
-    address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
-  },
-  AAVE: {
-    symbol: "AAVE",
-    name: "Aave Token",
-    icon: AAVE_ICON,
-    balance: "0.00",
-    address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9",
-  },
-  ARB: {
-    symbol: "ARB",
-    name: "Arbitrum",
-    icon: ARB_ICON,
-    balance: "0.00",
-    address: "0xB50721BCf8d664c30412Cfbc6cf7a15145234ad1",
-  },
-  OP: {
-    symbol: "OP",
-    name: "Optimism",
-    icon: OP_ICON,
-    balance: "0.00",
-    address: "0x4200000000000000000000000000000000000042",
-  },
-  MATIC: {
-    symbol: "MATIC",
-    name: "Polygon",
-    icon: MATIC_ICON,
-    balance: "0.00",
-    address: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0",
-  },
-  WETH: {
-    symbol: "WETH",
-    name: "Wrapped Ether",
-    icon: WETH_ICON,
-    balance: "0.00",
-    address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-  },
-}
+// Create the TOKENS object from the JSON list
+const TOKENS: Record<string, Token> = createTokensFromList(tokenList)
 
 // Default icon for custom tokens
 const DEFAULT_TOKEN_ICON = (
@@ -549,6 +399,76 @@ export function SwapForm() {
   const [customTokens, setCustomTokens] = useState<Record<string, Token>>({})
   const sellInputRef = useRef<HTMLInputElement>(null)
 
+  // Get tokens that need balance fetching (selected + popular tokens)
+  const tokensToFetchBalance = useMemo(() => {
+    const tokens = new Set<TokenType>()
+
+    // Add selected tokens
+    if (sellToken) tokens.add(sellToken)
+    if (buyToken) tokens.add(buyToken)
+
+    // Add popular tokens
+    POPULAR_TOKEN_SYMBOLS.forEach((symbol) => tokens.add(symbol as TokenType))
+
+    return Array.from(tokens).filter((token) => token && TOKENS[token])
+  }, [sellToken, buyToken])
+
+  // Create balance hooks for each token that needs fetching
+  const balanceQueries = tokensToFetchBalance.map((tokenSymbol) => {
+    const token = TOKENS[tokenSymbol]
+    return {
+      symbol: tokenSymbol,
+      query: useBalance({
+        address: isConnected && address ? address : undefined,
+        token:
+          token?.address && token.address !== "0x0000000000000000000000000000000000000000"
+            ? (token.address as `0x${string}`)
+            : undefined,
+        query: {
+          enabled: isConnected && !!address && !!token,
+        },
+      }),
+    }
+  })
+
+  // Process balance data
+  const tokenBalances = useMemo(() => {
+    const balances: Record<string, string> = {}
+
+    balanceQueries.forEach(({ symbol, query }) => {
+      const { data, isLoading } = query
+      const token = TOKENS[symbol]
+
+      if (isLoading) {
+        balances[symbol] = "Loading..."
+      } else if (data && token) {
+        // Format the balance using formatUnits and token decimals
+        const balanceValue = parseFloat(formatUnits(data.value, token.decimals || 18))
+        balances[symbol] = formatBalance(balanceValue, symbol)
+      } else {
+        balances[symbol] = "0.00"
+      }
+    })
+
+    return balances
+  }, [balanceQueries])
+
+  // Create tokens with real balances
+  const tokensWithBalances = useMemo(() => {
+    const tokens = { ...TOKENS, ...customTokens }
+
+    Object.keys(tokens).forEach((tokenSymbol) => {
+      if (tokenBalances[tokenSymbol]) {
+        tokens[tokenSymbol] = {
+          ...tokens[tokenSymbol],
+          balance: tokenBalances[tokenSymbol],
+        }
+      }
+    })
+
+    return tokens
+  }, [tokenBalances, customTokens])
+
   // Real quote fetching from Uniswap V3
   const {
     quote,
@@ -611,11 +531,12 @@ export function SwapForm() {
         icon: DEFAULT_TOKEN_ICON,
         balance: "0.00",
         address,
+        decimals: 18, // Default to 18 decimals for custom tokens
       },
     }))
   }
 
-  const allTokens = { ...TOKENS, ...customTokens }
+  const allTokens = { ...tokensWithBalances }
 
   const isSwapReady = sellAmount && sellToken && buyToken && isConnected && !isQuoteLoading
   const priceImpactDisplay = quote ? formatPriceImpact(priceImpact) : "-"

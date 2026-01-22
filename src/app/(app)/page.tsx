@@ -3,9 +3,7 @@
 import { SwapForm } from "@/components/swap/SwapForm"
 
 const IndexPage = () => {
-  return (
-      <SwapForm />
-  )
+  return <SwapForm />
 }
 
 export default IndexPage
