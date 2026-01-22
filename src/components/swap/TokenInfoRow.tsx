@@ -69,12 +69,11 @@ export default React.memo(function TokenInfoRow({
     return "—"
   }
 
-  // Format balance to max 4 decimal places
   const formatBalanceDisplay = (value: number): string => {
     return value.toLocaleString("en-US", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 5,
-      useGrouping: true,
+      useGrouping: false,
     })
   }
 

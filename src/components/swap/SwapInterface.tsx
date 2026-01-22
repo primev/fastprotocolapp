@@ -522,7 +522,8 @@ export default function SwapInterface({
       availableBalance = Math.max(0, fromBalanceValue - gasCostEth)
     }
 
-    const exceedsBalance = amountToCheck > availableBalance + 0.0000001
+    const tolerance = Math.max(availableBalance * 0.0001, Math.pow(10, -fromToken.decimals))
+    const exceedsBalance = amountToCheck > availableBalance + tolerance
     setInsufficientBalance(exceedsBalance)
   }, [
     amount,
