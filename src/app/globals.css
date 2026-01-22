@@ -208,6 +208,19 @@ All colors MUST be HSL.
     will-change: opacity;
   }
 
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
   /* Staggered Exit Animation - The Vanishing Act */
   .fade-out-others {
     opacity: 0;
