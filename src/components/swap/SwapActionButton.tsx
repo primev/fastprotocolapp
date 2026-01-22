@@ -36,8 +36,9 @@ export default React.memo(function SwapActionButton({
   onSwap,
 }: SwapActionButtonProps) {
   if (!hasStarted) {
-    // Check for missing sell token first
-    if (!fromToken) {
+    // When not started, show "Get Started" if there's any token selected
+    // Don't let switching affect this - if either token exists, show "Get Started"
+    if (!fromToken && !toToken) {
       return (
         <button
           disabled={true}
