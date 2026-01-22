@@ -17,8 +17,8 @@ function TokenSelectButton({ token, onClick }: TokenSelectButtonProps) {
       className={cn(
         "flex items-center rounded-full transition-all",
         token
-          ? "gap-2 bg-[#131313] hover:bg-[#222] border border-white/10 pl-1 pr-3 py-1 shadow-sm"
-          : "gap-1.5 bg-primary hover:opacity-90 text-primary-foreground px-3 py-1.5 shadow-lg"
+          ? "gap-1.5 bg-[#131313] hover:bg-[#222] border border-white/10 pl-1 pr-3 py-1 shadow-sm"
+          : "gap-1.5 bg-primary hover:opacity-90 border border-white/10 text-primary-foreground px-3 py-1.5 shadow-lg"
       )}
     >
       {token ? (
@@ -36,12 +36,12 @@ function TokenSelectButton({ token, onClick }: TokenSelectButtonProps) {
               <span className="text-xs font-bold">{token.symbol[0]}</span>
             </div>
           )}
-          <span className="font-bold text-lg">{token.symbol}</span>
+          <span className="font-bold text-sm">{token.symbol}</span>
         </>
       ) : (
-        <span className="font-bold text-sm">Select token</span>
+        <span className="font-bold text-sm my-0.5">Select token</span>
       )}
-      <ChevronDown size={token ? 16 : 14} className={token ? "text-white/40" : ""} />
+      <ChevronDown size={16} className={token ? "text-white/40" : ""} />
     </button>
   )
 }

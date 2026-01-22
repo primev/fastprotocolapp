@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { createPublicClient, http, parseUnits, formatUnits, type Address } from "viem"
 import { mainnet } from "wagmi/chains"
 import { RPC_ENDPOINT, FALLBACK_RPC_ENDPOINT } from "@/lib/network-config"
@@ -204,17 +204,386 @@ export function useQuote({
   const abortControllerRef = useRef<AbortController | null>(null)
   const requestIdRef = useRef(0) // Track request IDs to prevent stale quotes
 
-  // Memoize inputs to prevent unnecessary refetches
-  // Use token addresses for comparison instead of symbols
-  const tokenInKey = tokenIn ? `${tokenIn.address}-${tokenIn.symbol}` : ""
-  const tokenOutKey = tokenOut ? `${tokenOut.address}-${tokenOut.symbol}` : ""
-  const inputKey = useMemo(
-    () => `${tokenInKey}-${tokenOutKey}-${amountIn}-${slippage}-${tradeType}`,
-    [tokenInKey, tokenOutKey, amountIn, slippage, tradeType]
-  )
+  // Track previous values to detect changes
+  const prevTokenInRef = useRef<Token | undefined>(tokenIn)
+  const prevTokenOutRef = useRef<Token | undefined>(tokenOut)
+  const prevAmountInRef = useRef<string>(amountIn)
+  const prevSlippageRef = useRef<string>(slippage)
+  const prevTradeTypeRef = useRef<TradeType>(tradeType)
 
-  // Track previous amount to detect amount changes
-  const prevAmountInRef = useRef(amountIn)
+  // Store latest values in refs so refetch can always access them
+  const latestTokenInRef = useRef<Token | undefined>(tokenIn)
+  const latestTokenOutRef = useRef<Token | undefined>(tokenOut)
+  const latestAmountInRef = useRef<string>(amountIn)
+  const latestSlippageRef = useRef<string>(slippage)
+  const latestTradeTypeRef = useRef<TradeType>(tradeType)
+  const latestTokenListRef = useRef<Token[]>(tokenList)
+
+  // Update latest refs whenever values change
+  useEffect(() => {
+    latestTokenInRef.current = tokenIn
+    latestTokenOutRef.current = tokenOut
+    latestAmountInRef.current = amountIn
+    latestSlippageRef.current = slippage
+    latestTradeTypeRef.current = tradeType
+    latestTokenListRef.current = tokenList
+  }, [tokenIn, tokenOut, amountIn, slippage, tradeType, tokenList])
+
+  // Create a stable refetch function that always works, using latest refs
+  const refetch = useCallback(async () => {
+    // Use latest values from refs to ensure we always fetch with current state
+    const currentTokenIn = latestTokenInRef.current
+    const currentTokenOut = latestTokenOutRef.current
+    const currentAmountIn = latestAmountInRef.current
+    const currentTradeType = latestTradeTypeRef.current
+    const currentTokenList = latestTokenListRef.current
+
+    // Increment request ID to track this request
+    const currentRequestId = ++requestIdRef.current
+
+    // Cancel any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = new AbortController()
+
+    // Validate token inputs
+    if (!currentTokenIn || !currentTokenOut) {
+      if (currentRequestId === requestIdRef.current) {
+        setQuote(null)
+        setError(null)
+        setIsLoading(false)
+      }
+      return
+    }
+
+    // Check if tokens are the same (by address)
+    if (currentTokenIn.address === currentTokenOut.address) {
+      if (currentRequestId === requestIdRef.current) {
+        setError(new Error("Cannot swap a token for itself. Please select different tokens."))
+        setQuote(null)
+        setIsLoading(false)
+      }
+      return
+    }
+
+    // Sanitize and validate amount input
+    const amountInNum = sanitizeAmountInput(currentAmountIn)
+    if (amountInNum === null || amountInNum <= 0) {
+      if (currentRequestId === requestIdRef.current) {
+        setQuote(null)
+        setError(null)
+        setIsLoading(false)
+      }
+      return
+    }
+
+    // Debug logging
+    console.log("[useQuote] Refetching quote:", {
+      requestId: currentRequestId,
+      tokenIn: getTokenSymbol(currentTokenIn),
+      tokenOut: getTokenSymbol(currentTokenOut),
+      amountIn: currentAmountIn,
+      tradeType: currentTradeType,
+      amountInNum,
+    })
+
+    // Validate amount is not too large
+    const MAX_AMOUNT = 1e21
+    if (amountInNum > MAX_AMOUNT) {
+      setError(new Error("Amount is too large. Please enter a smaller amount."))
+      setQuote(null)
+      setIsLoading(false)
+      return
+    }
+
+    // Resolve token addresses
+    const tokenInAddress = resolveTokenAddress(currentTokenIn, currentTokenList)
+    const tokenOutAddress = resolveTokenAddress(currentTokenOut, currentTokenList)
+
+    if (!tokenInAddress || !tokenOutAddress) {
+      const missingToken = !tokenInAddress ? currentTokenIn : currentTokenOut
+      const tokenSymbol = getTokenSymbol(missingToken) || "Unknown"
+      if (currentRequestId === requestIdRef.current) {
+        setError(
+          new Error(`Token address not found for ${tokenSymbol}. This token may not be supported.`)
+        )
+        setQuote(null)
+        setIsLoading(false)
+      }
+      return
+    }
+
+    // Only proceed if this is still the latest request
+    if (currentRequestId !== requestIdRef.current) {
+      console.log(
+        "[useQuote] Request outdated, aborting:",
+        currentRequestId,
+        "current:",
+        requestIdRef.current
+      )
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    // Request timeout (15 seconds)
+    const timeoutId = setTimeout(() => {
+      if (abortControllerRef.current && currentRequestId === requestIdRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }, 15000)
+
+    try {
+      // Resolve token decimals
+      const tokenInDecimals = resolveTokenDecimals(currentTokenIn, currentTokenList)
+      const tokenOutDecimals = resolveTokenDecimals(currentTokenOut, currentTokenList)
+
+      let bestQuote: {
+        amountOut: bigint
+        amountIn: bigint
+        gasEstimate: bigint
+        fee: number
+      } | null = null
+
+      // Try each fee tier and pick the best quote
+      const clients = [createClient(FALLBACK_RPC_ENDPOINT)]
+      let workingClient = clients[0]
+
+      for (const client of clients) {
+        try {
+          for (const fee of FEE_TIERS) {
+            try {
+              let result
+
+              if (currentTradeType === "exactIn") {
+                const amountInWei = parseUnits(currentAmountIn, tokenInDecimals)
+                result = await client.simulateContract({
+                  address: QUOTER_V2_ADDRESS,
+                  abi: QUOTER_V2_ABI,
+                  functionName: "quoteExactInputSingle",
+                  args: [
+                    {
+                      tokenIn: tokenInAddress,
+                      tokenOut: tokenOutAddress,
+                      amountIn: amountInWei,
+                      fee,
+                      sqrtPriceLimitX96: BigInt(0),
+                    },
+                  ],
+                })
+
+                const [amountOut, , , gasEstimate] = result.result as [
+                  bigint,
+                  bigint,
+                  number,
+                  bigint,
+                ]
+
+                if (!bestQuote || amountOut > bestQuote.amountOut) {
+                  bestQuote = { amountOut, amountIn: amountInWei, gasEstimate, fee }
+                  workingClient = client
+                }
+              } else {
+                const amountOutWei = parseUnits(currentAmountIn, tokenOutDecimals)
+                result = await client.simulateContract({
+                  address: QUOTER_V2_ADDRESS,
+                  abi: QUOTER_V2_ABI,
+                  functionName: "quoteExactOutputSingle",
+                  args: [
+                    {
+                      tokenIn: tokenInAddress,
+                      tokenOut: tokenOutAddress,
+                      amount: amountOutWei,
+                      fee,
+                      sqrtPriceLimitX96: BigInt(0),
+                    },
+                  ],
+                })
+
+                const [amountInWei, , , gasEstimate] = result.result as [
+                  bigint,
+                  bigint,
+                  number,
+                  bigint,
+                ]
+
+                if (!bestQuote || amountInWei < bestQuote.amountIn) {
+                  bestQuote = { amountOut: amountOutWei, amountIn: amountInWei, gasEstimate, fee }
+                  workingClient = client
+                }
+              }
+            } catch (feeError) {
+              console.debug(`No pool for fee tier ${fee}:`, feeError)
+            }
+          }
+
+          if (bestQuote) break
+        } catch (clientError) {
+          console.warn("RPC client error, trying next:", clientError)
+        }
+      }
+
+      if (!bestQuote) {
+        const tokenInSymbol = getTokenSymbol(currentTokenIn) || "Unknown"
+        const tokenOutSymbol = getTokenSymbol(currentTokenOut) || "Unknown"
+        throw new Error(
+          `No liquidity found for ${tokenInSymbol}/${tokenOutSymbol} pair. This pair may not have an active pool.`
+        )
+      }
+
+      // Check again if this is still the latest request
+      if (currentRequestId !== requestIdRef.current) {
+        console.log(
+          "[useQuote] Request outdated before processing result:",
+          currentRequestId,
+          "current:",
+          requestIdRef.current
+        )
+        return
+      }
+
+      // Calculate formatted amounts
+      const amountOutRaw = formatUnits(bestQuote.amountOut, tokenOutDecimals)
+      const amountOutNum = parseFloat(amountOutRaw)
+      const amountInRaw = formatUnits(bestQuote.amountIn, tokenInDecimals)
+      const amountInNum = parseFloat(amountInRaw)
+
+      // Format based on token type
+      const tokenOutSymbol = getTokenSymbol(currentTokenOut) || ""
+      const tokenInSymbol = getTokenSymbol(currentTokenIn) || ""
+      const amountOutFormatted = formatTokenAmount(amountOutNum, tokenOutSymbol)
+      const amountInFormatted = formatTokenAmount(amountInNum, tokenInSymbol)
+
+      // Calculate minOut/maxIn based on slippage
+      const slippagePercent = validateSlippage(latestSlippageRef.current)
+      const slippageBps = BigInt(Math.floor(slippagePercent * 100))
+
+      let minOut: bigint
+      let minOutFormatted: string
+
+      if (currentTradeType === "exactIn") {
+        minOut = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
+        const minOutNum = parseFloat(formatUnits(minOut, tokenOutDecimals))
+        minOutFormatted = formatTokenAmount(minOutNum, tokenOutSymbol)
+      } else {
+        minOut = (bestQuote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
+        const minOutNum = parseFloat(formatUnits(minOut, tokenInDecimals))
+        minOutFormatted = formatTokenAmount(minOutNum, tokenInSymbol)
+      }
+
+      // Calculate exchange rate
+      const exchangeRate = amountOutNum / amountInNum
+
+      // Calculate price impact
+      let priceImpact = 0
+      try {
+        const spotAmountIn = parseUnits("0.000001", tokenInDecimals)
+        const spotResult = await workingClient.simulateContract({
+          address: QUOTER_V2_ADDRESS,
+          abi: QUOTER_V2_ABI,
+          functionName: "quoteExactInputSingle",
+          args: [
+            {
+              tokenIn: tokenInAddress,
+              tokenOut: tokenOutAddress,
+              amountIn: spotAmountIn,
+              fee: bestQuote.fee,
+              sqrtPriceLimitX96: BigInt(0),
+            },
+          ],
+        })
+
+        const [spotAmountOut] = spotResult.result as [bigint, bigint, number, bigint]
+        const spotAmountOutNum = parseFloat(formatUnits(spotAmountOut, tokenOutDecimals))
+        const spotAmountInNum = parseFloat(formatUnits(spotAmountIn, tokenInDecimals))
+        const spotPrice = spotAmountOutNum / spotAmountInNum
+        const executionPrice = exchangeRate
+
+        if (spotPrice > 0) {
+          priceImpact = ((executionPrice - spotPrice) / spotPrice) * 100
+        }
+      } catch (spotError) {
+        console.debug("Failed to fetch spot price, using estimate:", spotError)
+        const tradeAmount = currentTradeType === "exactIn" ? amountInNum : amountOutNum
+        priceImpact = -0.01 * Math.log10(tradeAmount + 1)
+      }
+
+      priceImpact = Math.max(Math.min(priceImpact, 0), -50)
+
+      // Create new quote object
+      const newQuote: QuoteResult = {
+        amountOut: bestQuote.amountOut,
+        amountOutFormatted,
+        amountIn: bestQuote.amountIn,
+        amountInFormatted,
+        minOut,
+        minOutFormatted,
+        priceImpact,
+        exchangeRate,
+        gasEstimate: bestQuote.gasEstimate,
+        fee: bestQuote.fee,
+      }
+
+      // Only set quote if this is still the latest request
+      if (currentRequestId === requestIdRef.current) {
+        console.log("[useQuote] Refetch quote result:", {
+          requestId: currentRequestId,
+          tokenIn: getTokenSymbol(currentTokenIn),
+          tokenOut: getTokenSymbol(currentTokenOut),
+          tradeType: currentTradeType,
+          amountIn: currentAmountIn,
+          amountInFormatted: newQuote.amountInFormatted,
+          amountOutFormatted: newQuote.amountOutFormatted,
+        })
+
+        setQuote(newQuote)
+        setError(null)
+      } else {
+        console.log(
+          "[useQuote] Ignoring stale refetch quote:",
+          currentRequestId,
+          "current:",
+          requestIdRef.current
+        )
+      }
+    } catch (err) {
+      let errorMessage = "Failed to fetch quote"
+
+      if (err instanceof Error) {
+        if (err.message.includes("aborted") || err.name === "AbortError") {
+          errorMessage = "Quote request was cancelled"
+        } else if (err.message.includes("timeout") || err.message.includes("time")) {
+          errorMessage = "Quote request timed out. Please try again."
+        } else if (err.message.includes("liquidity")) {
+          errorMessage = err.message
+        } else if (err.message.includes("network") || err.message.includes("fetch")) {
+          errorMessage = "Network error. Please check your connection and try again."
+        } else {
+          errorMessage = err.message || errorMessage
+        }
+      } else {
+        errorMessage = String(err)
+      }
+
+      if (currentRequestId === requestIdRef.current) {
+        const error = new Error(errorMessage)
+        setError(error)
+        setQuote(null)
+        console.error("Refetch quote error:", error, {
+          requestId: currentRequestId,
+          tokenIn: getTokenSymbol(currentTokenIn),
+          tokenOut: getTokenSymbol(currentTokenOut),
+        })
+      }
+    } finally {
+      clearTimeout(timeoutId)
+      if (currentRequestId === requestIdRef.current) {
+        setIsLoading(false)
+      }
+    }
+  }, []) // Empty deps - refetch is stable and always uses latest refs
 
   const fetchQuote = useCallback(async () => {
     // Increment request ID to track this request
@@ -593,18 +962,24 @@ export function useQuote({
     }
   }, [tokenIn, tokenOut, amountIn, slippage, tradeType, tokenList])
 
-  // Clear quote when key inputs change significantly (token changes)
-  const prevTokenInKeyRef = useRef(tokenInKey)
-  const prevTokenOutKeyRef = useRef(tokenOutKey)
-  const prevTradeTypeRef = useRef(tradeType)
-  const prevTokenKeysForFetchRef = useRef({ tokenInKey, tokenOutKey })
-
+  // Main fetch effect - handles all quote fetching logic
   useEffect(() => {
-    // If tokens or trade type changed, clear the quote immediately to prevent stale data
-    const tokensChanged =
-      prevTokenInKeyRef.current !== tokenInKey || prevTokenOutKeyRef.current !== tokenOutKey
+    if (!enabled) {
+      // Preserve previous quote when disabled (e.g., during switch) to prevent UI flicker
+      // Don't setQuote(null) - keep the existing quote state
+      return
+    }
+
+    // Detect changes using direct comparison
+    const tokenInChanged = prevTokenInRef.current?.address !== tokenIn?.address
+    const tokenOutChanged = prevTokenOutRef.current?.address !== tokenOut?.address
+    const amountChanged = prevAmountInRef.current !== amountIn
+    const slippageChanged = prevSlippageRef.current !== slippage
     const tradeTypeChanged = prevTradeTypeRef.current !== tradeType
 
+    const tokensChanged = tokenInChanged || tokenOutChanged
+
+    // If tokens or trade type changed, clear quote immediately to prevent stale data
     if (tokensChanged || tradeTypeChanged) {
       // Cancel any pending requests
       if (abortControllerRef.current) {
@@ -620,24 +995,23 @@ export function useQuote({
       setIsLoading(false)
     }
 
-    // Always update refs to track current state
-    prevTokenInKeyRef.current = tokenInKey
-    prevTokenOutKeyRef.current = tokenOutKey
-    prevTradeTypeRef.current = tradeType
-  }, [tokenInKey, tokenOutKey, tradeType])
-
-  // Debounced fetch
-  useEffect(() => {
-    if (!enabled) {
-      // Preserve previous quote when disabled (e.g., during switch) to prevent UI flicker
-      // Don't setQuote(null) - keep the existing quote state
-      return
-    }
-
     // Clear previous debounce
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
       debounceRef.current = null
+    }
+
+    // Determine if we should fetch
+    const shouldFetch = tokensChanged || amountChanged || slippageChanged || tradeTypeChanged
+
+    if (!shouldFetch) {
+      // No changes, update refs and return
+      prevTokenInRef.current = tokenIn
+      prevTokenOutRef.current = tokenOut
+      prevAmountInRef.current = amountIn
+      prevSlippageRef.current = slippage
+      prevTradeTypeRef.current = tradeType
+      return
     }
 
     // Set loading state immediately for UX feedback
@@ -645,25 +1019,19 @@ export function useQuote({
       setIsLoading(true)
     }
 
-    // Check if tokens changed by comparing current keys with previous refs
-    // Use separate refs to avoid race condition with the clear quote effect
-    const tokensChanged =
-      prevTokenKeysForFetchRef.current.tokenInKey !== tokenInKey ||
-      prevTokenKeysForFetchRef.current.tokenOutKey !== tokenOutKey
+    // Update refs immediately
+    prevTokenInRef.current = tokenIn
+    prevTokenOutRef.current = tokenOut
+    prevAmountInRef.current = amountIn
+    prevSlippageRef.current = slippage
+    prevTradeTypeRef.current = tradeType
 
-    // Check if amount changed
-    const amountChanged = prevAmountInRef.current !== amountIn
-
+    // Fetch immediately for token or amount changes (instant quote)
+    // Debounce only for slippage or tradeType changes
     if (tokensChanged || amountChanged) {
-      // Tokens or amount changed - fetch immediately (no debounce)
-      // Update refs now so next render knows what changed
-      prevTokenKeysForFetchRef.current = { tokenInKey, tokenOutKey }
-      prevAmountInRef.current = amountIn
       fetchQuote()
     } else {
-      // Other input changed (slippage, tradeType) - use debounce
-      prevTokenKeysForFetchRef.current = { tokenInKey, tokenOutKey }
-      prevAmountInRef.current = amountIn
+      // Slippage or tradeType changed - use debounce
       debounceRef.current = setTimeout(() => {
         fetchQuote()
       }, debounceMs)
@@ -674,7 +1042,7 @@ export function useQuote({
         clearTimeout(debounceRef.current)
       }
     }
-  }, [inputKey, enabled, debounceMs, fetchQuote, tokenInKey, tokenOutKey])
+  }, [tokenIn, tokenOut, amountIn, slippage, tradeType, enabled, debounceMs, fetchQuote])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -692,7 +1060,7 @@ export function useQuote({
     quote,
     isLoading,
     error,
-    refetch: fetchQuote,
+    refetch, // Use the stable refetch function that always works
   }
 }
 

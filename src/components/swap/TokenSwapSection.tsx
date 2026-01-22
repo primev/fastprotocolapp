@@ -75,19 +75,19 @@ export default React.memo(function TokenSwapSection({
     side === "sell"
       ? isActive
         ? amount
-        : displayQuote || quoteAmount || null
+        : displayQuote || quoteAmount || "0"
       : isActive
         ? amount
-        : displayQuote || quoteAmount || null
+        : displayQuote || quoteAmount || "0"
 
   const displayAmountForInfo =
     side === "sell"
       ? isActive
         ? amount
-        : outputAmount || null
+        : outputAmount || "0"
       : isActive
         ? amount
-        : outputAmount || null
+        : outputAmount || "0"
 
   return (
     <div

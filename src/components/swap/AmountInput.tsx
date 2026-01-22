@@ -37,6 +37,7 @@ export default React.memo(function AmountInput({
   // Remove commas and other formatting from value for parsing
   // formatTokenAmount returns values like "3,016.86" which parseFloat can't handle
   // If value is null, preserve previous display value to avoid showing "0"
+  // If value is "0", display 0 as the default
   const cleanValue = value ? value.replace(/,/g, "") : ""
   const parsedValue = cleanValue && !isNaN(parseFloat(cleanValue)) ? parseFloat(cleanValue) : null
   const numericValue = parsedValue !== null && parsedValue >= 0 ? parsedValue : null
@@ -85,8 +86,14 @@ export default React.memo(function AmountInput({
       const prev = previousValueRef.current
 
       // If new value is null, preserve previous display value to avoid showing "0"
+      // Exception: if value is explicitly "0", display 0
       if (numericValue === null) {
-        // Keep previous display value, don't update
+        // If value is "0", display 0; otherwise preserve previous
+        if (value === "0") {
+          setDisplayValue(0)
+          previousValueRef.current = 0
+        }
+        // Otherwise keep previous display value, don't update
         return
       }
 
@@ -155,7 +162,7 @@ export default React.memo(function AmountInput({
           onBlur={onBlur}
           placeholder="0"
           className={cn(
-            "bg-transparent text-4xl font-bold outline-none w-full placeholder:text-white/10 leading-none cursor-text caret-white tracking-tighter",
+            "h-[54px] bg-transparent text-4xl font-bold outline-none w-full placeholder:text-white/10 leading-none cursor-text caret-white tracking-tighter",
             showError && "text-red-500"
           )}
           disabled={isDisabled}
@@ -166,7 +173,7 @@ export default React.memo(function AmountInput({
           className={cn(
             "text-4xl font-bold leading-none cursor-default tracking-tighter text-white",
             shouldPulseLoop && "animate-pulse-3-loop",
-            shouldPulse && !shouldPulseLoop && "animate-pulse-3"
+            shouldPulse && !shouldPulseLoop && "animate-pulse-3 p-0"
           )}
         >
           {displayValue !== null ? (
