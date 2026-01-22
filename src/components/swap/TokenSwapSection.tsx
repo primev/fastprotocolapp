@@ -92,7 +92,7 @@ export default React.memo(function TokenSwapSection({
   return (
     <div
       className={cn(
-        `group/${side} rounded-[20px] p-4 flex flex-col gap-2 transition-all min-h-[140px]`,
+        `group/${side} rounded-[20px] p-4 flex flex-col gap-0.5 transition-all min-h-[140px]`,
         isActive ? "bg-[#222] shadow-2xl" : "bg-[#1B1B1B]/50"
       )}
     >
@@ -112,7 +112,7 @@ export default React.memo(function TokenSwapSection({
         ) : null}
       </div>
 
-      <div className="flex justify-between items-center mt-1">
+      <div className="flex justify-between items-center">
         <AmountInput
           value={displayValue}
           onChange={onAmountChange}
@@ -150,6 +150,7 @@ export default React.memo(function TokenSwapSection({
           isConnected={isConnected}
           address={address}
           showError={side === "sell" && insufficientBalance}
+          side={side}
         />
       </div>
     </div>

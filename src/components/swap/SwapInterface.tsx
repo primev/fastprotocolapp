@@ -817,7 +817,7 @@ export default function SwapInterface({
 
       <div
         className={cn(
-          "w-full bg-[#131313] border border-white/10 p-2 flex flex-col gap-1 shadow-2xl relative z-10 transition-all duration-500",
+          "w-full bg-[#131313] border border-white/10 p-2 flex flex-col  shadow-2xl relative z-10 transition-all duration-500",
           isDockVisible ? "rounded-b-[24px] rounded-t-none border-t-0" : "rounded-[24px]"
         )}
       >
