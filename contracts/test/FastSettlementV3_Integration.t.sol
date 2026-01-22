@@ -24,6 +24,24 @@ contract MockERC20 is ERC20 {
     }
 }
 
+contract MockWETH is MockERC20 {
+    constructor() MockERC20("Wrapped Ether", "WETH", 18) {}
+
+    function deposit() external payable {
+        _mint(msg.sender, msg.value);
+    }
+
+    function withdraw(uint256 wad) external {
+        _burn(msg.sender, wad);
+        (bool success, ) = msg.sender.call{value: wad}("");
+        require(success, "MockWETH: ETH transfer failed");
+    }
+
+    receive() external payable {
+        _mint(msg.sender, msg.value);
+    }
+}
+
 contract MockSwapRouter {
     function swap(
         address tokenIn,
@@ -48,6 +66,7 @@ contract FastSettlementV3IntegrationTest is Test {
     FastSettlementV3 public settlement;
     address public permit2; // Deployed via deployCode
     MockSwapRouter public swapRouter;
+    MockWETH public weth;
     MockERC20 public tokenIn;
     MockERC20 public tokenOut;
 
@@ -75,6 +94,7 @@ contract FastSettlementV3IntegrationTest is Test {
         permit2 = deployCode("out/Permit2.sol/Permit2.json");
 
         // 2. Deploy Tokens
+        weth = new MockWETH();
         tokenIn = new MockERC20("Token In", "TIN", 18);
         tokenOut = new MockERC20("Token Out", "TOUT", 18);
 
@@ -82,11 +102,14 @@ contract FastSettlementV3IntegrationTest is Test {
         swapRouter = new MockSwapRouter();
 
         // 4. Deploy Settlement Contract linked to Real Permit2 (via Proxy)
+        address[] memory initialTargets = new address[](1);
+        initialTargets[0] = address(swapRouter);
+
         vm.startPrank(owner);
-        FastSettlementV3 impl = new FastSettlementV3(permit2);
+        FastSettlementV3 impl = new FastSettlementV3(permit2, address(weth));
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
-            abi.encodeCall(FastSettlementV3.initialize, (executor, treasury))
+            abi.encodeCall(FastSettlementV3.initialize, (executor, treasury, initialTargets))
         );
         settlement = FastSettlementV3(payable(address(proxy)));
         vm.stopPrank();
@@ -137,7 +160,7 @@ contract FastSettlementV3IntegrationTest is Test {
 
         // 4. Execute via Executor
         vm.prank(executor);
-        settlement.execute(intent, signature, call);
+        settlement.executeWithPermit(intent, signature, call);
 
         // 5. Verification
         assertEq(tokenIn.balanceOf(user), 1000e18 - amountIn); // User pulled
@@ -183,7 +206,7 @@ contract FastSettlementV3IntegrationTest is Test {
         // 4. Execute
         uint256 recipientEthBefore = recipient.balance;
         vm.prank(executor);
-        settlement.execute(intent, signature, call);
+        settlement.executeWithPermit(intent, signature, call);
 
         // 5. Verification
         assertEq(tokenIn.balanceOf(user), 1000e18 - amountIn);
@@ -226,7 +249,7 @@ contract FastSettlementV3IntegrationTest is Test {
         // Should revert (Permit2 signature validation)
         vm.prank(executor);
         vm.expectRevert(); // Permit2 will revert with InvalidSigner or similar
-        settlement.execute(intent, badSignature, call);
+        settlement.executeWithPermit(intent, badSignature, call);
     }
 
     function test_Integration_RealPermit2_TamperedIntent_Amount() public {
@@ -266,7 +289,7 @@ contract FastSettlementV3IntegrationTest is Test {
         vm.prank(executor);
         // Should revert because signature doesn't match new amount
         vm.expectRevert();
-        settlement.execute(intent, signature, call);
+        settlement.executeWithPermit(intent, signature, call);
     }
 
     function test_Integration_RealPermit2_TamperedIntent_Recipient() public {
@@ -306,7 +329,7 @@ contract FastSettlementV3IntegrationTest is Test {
         vm.prank(executor);
         // Should revert because signature doesn't match new recipient
         vm.expectRevert();
-        settlement.execute(intent, signature, call);
+        settlement.executeWithPermit(intent, signature, call);
     }
 
     function test_Integration_UnauthorizedExecutor() public {
@@ -343,7 +366,7 @@ contract FastSettlementV3IntegrationTest is Test {
         address randomCaller = makeAddr("randomCaller");
         vm.prank(randomCaller);
         vm.expectRevert(IFastSettlementV3.UnauthorizedExecutor.selector);
-        settlement.execute(intent, signature, call);
+        settlement.executeWithPermit(intent, signature, call);
     }
 
     // ============ Helper: Generate Real Permit2 Signature ============

@@ -8,8 +8,8 @@ interface IFastSettlementV3 {
 
     struct Intent {
         address user;
-        address inputToken;
-        address outputToken; // address(0) for ETH
+        address inputToken; // address(0) for native ETH input
+        address outputToken; // address(0) for native ETH output
         uint256 inputAmt;
         uint256 userAmtOut;
         address recipient;
@@ -37,6 +37,7 @@ interface IFastSettlementV3 {
 
     event ExecutorUpdated(address indexed oldExecutor, address indexed newExecutor);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
+    event SwapTargetsUpdated(address[] targets, bool[] allowed);
 
     // ============ Errors ============
 
@@ -52,22 +53,43 @@ interface IFastSettlementV3 {
     error UnauthorizedExecutor();
     error InsufficientOut(uint256 received, uint256 userAmtOut);
     error InvalidPermit2();
+    error InvalidWETH();
+    error UnauthorizedCaller();
+    error ExpectedETHInput();
+    error InvalidETHAmount();
+    error UnauthorizedSwapTarget();
+    error ArrayLengthMismatch();
 
     // ============ Functions ============
 
-    /// @notice Executes a user intent using Permit2 for input pulling and swap router for swapping.
+    /// @notice Executes a user intent using Permit2 for input pulling. Callable only by executor.
     /// @param intent The user's signed intent.
     /// @param signature The Permit2 witness signature.
-    /// @param details The call data for the swap router.
+    /// @param swapData The call data for the swap router.
     /// @return received The amount of output tokens received.
     /// @return surplus The surplus amount sent to treasury.
-    function execute(
+    function executeWithPermit(
         Intent calldata intent,
         bytes calldata signature,
-        SwapCall calldata details
+        SwapCall calldata swapData
     ) external returns (uint256 received, uint256 surplus);
 
-    /// @notice Sets the authorized executor who can call execute().
+    /// @notice Executes a swap using native ETH as input. Callable by anyone (user must be msg.sender).
+    /// @param intent The user's intent (inputToken must be address(0)).
+    /// @param swapData The call data for the swap router.
+    /// @return received The amount of output tokens received.
+    /// @return surplus The surplus amount sent to treasury.
+    function executeWithETH(
+        Intent calldata intent,
+        SwapCall calldata swapData
+    ) external payable returns (uint256 received, uint256 surplus);
+
+    /// @notice Sets allowed swap targets in batch. Only owner.
+    /// @param targets Array of swap target addresses.
+    /// @param allowed Array of boolean values (true = allowed, false = disallowed).
+    function setSwapTargets(address[] calldata targets, bool[] calldata allowed) external;
+
+    /// @notice Sets the authorized executor who can call executeWithPermit().
     /// @param _newExecutor The new executor address.
     function setExecutor(address _newExecutor) external;
 
