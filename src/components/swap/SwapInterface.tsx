@@ -5,6 +5,12 @@ import { useAccount, useBalance } from "wagmi"
 import { useConnectModal } from "@rainbow-me/rainbowkit"
 import { formatUnits } from "viem"
 import { cn, formatBalance } from "@/lib/utils"
+import {
+  isTransactionRejection,
+  getTransactionRejectionMessage,
+  getTransactionErrorMessage,
+  getTransactionErrorTitle,
+} from "@/lib/transaction-errors"
 import TokenSelector from "./TokenSelector"
 import SwapReview from "./SwapReview"
 import SwapDock from "./SwapDock"
@@ -23,6 +29,8 @@ import { useToast } from "@/hooks/use-toast"
 import { useTokenPrice } from "@/hooks/use-token-price"
 import { useSwapConfirmation } from "@/hooks/use-swap-confirmation"
 import { useGasPrice } from "@/hooks/use-gas-price"
+import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
+import { isWrapUnwrapPair } from "@/lib/weth-utils"
 import tokenList from "@/lib/token-list.json"
 import type { Token } from "@/types/swap"
 import { INTENT_DEADLINE_MINUTES, ZERO_ADDRESS } from "@/lib/swap-constants"
@@ -136,6 +144,72 @@ export default function SwapInterface({
   const { price: ethPrice } = useTokenPrice("ETH")
   const { gasPrice, gasPriceGwei } = useGasPrice()
 
+  // Detect wrap/unwrap operations
+  const isWrapUnwrap = isWrapUnwrapPair(fromToken, toToken)
+
+  // Wrap/unwrap hook
+  const {
+    isWrap,
+    isUnwrap,
+    gasEstimate: wrapUnwrapGasEstimate,
+    isLoadingGas: isLoadingWrapUnwrapGas,
+    wrap,
+    unwrap,
+    isPending: isWrapUnwrapPending,
+    isConfirming: isWrapUnwrapConfirming,
+    isSuccess: isWrapUnwrapSuccess,
+    error: wrapUnwrapError,
+    hash: wrapUnwrapHash,
+  } = useWethWrapUnwrap({
+    fromToken,
+    toToken,
+    amount,
+    enabled: isWrapUnwrap && !!amount && parseFloat(amount) > 0,
+  })
+
+  // Handle wrap/unwrap success
+  useEffect(() => {
+    if (isWrapUnwrapSuccess) {
+      toast({
+        title: isWrap ? "ETH Wrapped" : "WETH Unwrapped",
+        description: `Successfully ${isWrap ? "wrapped" : "unwrapped"} ${amount} ${isWrap ? "ETH" : "WETH"}`,
+      })
+      setAmount("")
+    }
+  }, [isWrapUnwrapSuccess, isWrap, amount, toast])
+
+  // Handle wrap/unwrap errors
+  // Only show errors if a transaction was actually attempted (not just validation errors)
+  useEffect(() => {
+    if (wrapUnwrapError && (wrapUnwrapHash || isWrapUnwrapPending || isWrapUnwrapConfirming)) {
+      const operation = isWrap ? "wrap" : isUnwrap ? "unwrap" : "transaction"
+
+      toast({
+        title: getTransactionErrorTitle(wrapUnwrapError, operation),
+        description: getTransactionErrorMessage(wrapUnwrapError, operation),
+        variant: "destructive",
+      })
+    }
+  }, [
+    wrapUnwrapError,
+    wrapUnwrapHash,
+    isWrapUnwrapPending,
+    isWrapUnwrapConfirming,
+    isWrap,
+    isUnwrap,
+    toast,
+  ])
+
+  // Debug wrap/unwrap errors
+  useEffect(() => {
+    if (wrapUnwrapError) {
+      console.log("Wrap/unwrap error detected:", wrapUnwrapError)
+      console.log("Error type:", wrapUnwrapError.constructor.name)
+      console.log("Error message:", wrapUnwrapError.message)
+      console.log("Error details:", wrapUnwrapError)
+    }
+  }, [wrapUnwrapError])
+
   // Calculate auto slippage if enabled
   const calculatedAutoSlippage = useMemo(() => {
     if (!isAutoSlippage || !amount || parseFloat(amount) <= 0 || !fromToken || !toToken) {
@@ -178,7 +252,13 @@ export default function SwapInterface({
     debounceMs: 100,
     tradeType: editingSide === "sell" ? "exactIn" : "exactOut",
     tokenList: tokens,
-    enabled: !isSwitching && !!amount && parseFloat(amount) > 0 && !!fromToken && !!toToken,
+    enabled:
+      !isSwitching &&
+      !!amount &&
+      parseFloat(amount) > 0 &&
+      !!fromToken &&
+      !!toToken &&
+      !isWrapUnwrap, // Disable quote fetching for wrap/unwrap
   })
 
   // Store refetch in a ref so timer always has latest version
@@ -340,7 +420,15 @@ export default function SwapInterface({
   // Simplified quote display logic - use quote directly
   // Preserve swapped values during switch to prevent showing "0"
   // Use swapped quote if available (for same-token-pair switches)
+  // For wrap/unwrap, components will use amount directly (1:1) - return null here
   const displayQuote = useMemo(() => {
+    // For wrap/unwrap, we pass amount directly to components, so return null here
+    // This prevents any quote logic from interfering with wrap/unwrap display
+    if (isWrapUnwrap) {
+      return null
+    }
+
+    // For regular swaps, use quote
     if (activeQuote) {
       return editingSide === "sell" ? activeQuote.amountOutFormatted : activeQuote.amountInFormatted
     }
@@ -349,12 +437,19 @@ export default function SwapInterface({
       return preservedDisplayQuote
     }
     return null
-  }, [activeQuote, editingSide, preservedDisplayQuote])
+  }, [activeQuote, editingSide, preservedDisplayQuote, isWrapUnwrap])
 
   // Reset timer when quote changes or amount changes
   const prevAmountRef = useRef(amount)
   const prevQuoteRef = useRef(quote)
   useEffect(() => {
+    // Don't reset timer for wrap/unwrap operations (no quote needed)
+    if (isWrapUnwrap) {
+      prevAmountRef.current = amount
+      prevQuoteRef.current = quote
+      return
+    }
+
     const amountChanged = prevAmountRef.current !== amount
     const quoteChanged = prevQuoteRef.current !== quote
 
@@ -370,10 +465,17 @@ export default function SwapInterface({
     }
     prevAmountRef.current = amount
     prevQuoteRef.current = quote
-  }, [quote, amount])
+  }, [quote, amount, isWrapUnwrap])
 
   // Auto-refresh quote timer
   useEffect(() => {
+    // Don't run timer for wrap/unwrap operations (no quote needed)
+    if (isWrapUnwrap) {
+      setTimeLeft(15)
+      hasRefetchedRef.current = false
+      return
+    }
+
     // Run timer if we have a displayQuote (either from fetched quote or swapped quote)
     // This ensures timer works even when using swapped quote temporarily
     if (!displayQuote || isSwitching) {
@@ -411,7 +513,7 @@ export default function SwapInterface({
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [displayQuote, isSwitching]) // Remove refetch from deps, use ref instead
+  }, [displayQuote, isSwitching, isWrapUnwrap]) // Add isWrapUnwrap to deps
 
   // Pulse animation for loading states
   useEffect(() => {
@@ -420,9 +522,15 @@ export default function SwapInterface({
     }
   }, [isQuoteLoading, displayQuote])
 
-  const outputAmount = displayQuote || "0"
-  const shouldPulse = (isQuoteLoading || pulseKey > 0) && displayQuote !== null
-  const shouldPulseLoop = isQuoteLoading && displayQuote !== null
+  // For wrap/unwrap, use amount directly (1:1)
+  // For regular swaps, use displayQuote or fallback to "0"
+  const outputAmount = isWrapUnwrap ? amount : displayQuote || "0"
+  // For wrap/unwrap, use wrap/unwrap gas loading state
+  // For wrap/unwrap, no pulse animation needed (no quote loading)
+  const effectiveQuoteLoading = isWrapUnwrap ? isLoadingWrapUnwrapGas : isQuoteLoading
+  const shouldPulse =
+    !isWrapUnwrap && (effectiveQuoteLoading || pulseKey > 0) && displayQuote !== null
+  const shouldPulseLoop = !isWrapUnwrap && effectiveQuoteLoading && displayQuote !== null
 
   const [hasExplicitlyClearedFromToken, setHasExplicitlyClearedFromToken] = useState(false)
   const [hasExplicitlyClearedToToken, setHasExplicitlyClearedToToken] = useState(false)
@@ -500,11 +608,24 @@ export default function SwapInterface({
 
     // Always check fromToken (sell token) balance, regardless of editingSide
     // The user is always selling fromToken, so insufficient balance should always reference it
-    if (!fromToken || !fromBalance || isLoadingFromBalance) {
-      // If balance is still loading, don't show insufficient balance error yet
+    if (!fromToken) {
       setInsufficientBalance(false)
       return
     }
+
+    // If balance is still loading, don't show insufficient balance error yet
+    // But if we have an amount and balance finished loading, we should check
+    if (isLoadingFromBalance) {
+      // Don't set insufficientBalance to false here - keep previous state
+      // This prevents flickering and ensures we check once balance loads
+      return
+    }
+
+    // Ensure we have a balance result (either loaded balance or confirmed 0)
+    // For ERC20 tokens, fromBalance should exist even with 0 balance after loading completes
+    // But handle the case where balance query hasn't started or failed
+    // Use the balance value (will be 0 if fromBalance is undefined or has 0 value)
+    const balanceValue = fromBalanceValue
 
     // Calculate the amount to check based on editingSide
     // If editing buy side, amount is in toToken units, so we need to check if we have enough fromToken
@@ -512,11 +633,12 @@ export default function SwapInterface({
     let amountToCheck = amountValue
 
     if (editingSide === "buy") {
-      // When editing buy side, amount is the desired output (toToken)
-      // We need to check if we have enough fromToken to get that amount
-      // For now, we'll check if the quote's amountIn exceeds our balance
-      // If no quote yet, we can't determine this, so don't show error
-      if (activeQuote?.amountInFormatted) {
+      // For wrap/unwrap pairs, it's 1:1 so use amount directly
+      if (isWrapUnwrap) {
+        amountToCheck = amountValue
+      } else if (activeQuote?.amountInFormatted) {
+        // When editing buy side, amount is the desired output (toToken)
+        // We need to check if we have enough fromToken to get that amount
         // Parse the formatted amount (remove commas)
         const cleanAmountIn = activeQuote.amountInFormatted.replace(/,/g, "")
         const amountInNeeded = parseFloat(cleanAmountIn)
@@ -531,17 +653,42 @@ export default function SwapInterface({
     }
 
     // If paying in native ETH, account for gas costs
-    let availableBalance = fromBalanceValue
-    if (fromToken.address === ZERO_ADDRESS && activeQuote?.gasEstimate && gasPrice) {
-      // Subtract estimated gas cost from available balance
-      const gasCostEth = (Number(activeQuote.gasEstimate) * Number(gasPrice)) / 1e18
-      availableBalance = Math.max(0, fromBalanceValue - gasCostEth)
+    let availableBalance = balanceValue
+    if (fromToken.address === ZERO_ADDRESS && gasPrice) {
+      let gasEstimate: bigint | null = null
+
+      // For wrap/unwrap operations, use wrap/unwrap gas estimate
+      if (isWrapUnwrap && isWrap && wrapUnwrapGasEstimate) {
+        gasEstimate = wrapUnwrapGasEstimate
+      }
+      // For regular swaps, use quote gas estimate
+      else if (!isWrapUnwrap && activeQuote?.gasEstimate) {
+        gasEstimate = activeQuote.gasEstimate
+      }
+
+      if (gasEstimate) {
+        // Subtract estimated gas cost from available balance
+        const gasCostEth = (Number(gasEstimate) * Number(gasPrice)) / 1e18
+        availableBalance = Math.max(0, balanceValue - gasCostEth)
+      }
     }
 
     // More generous tolerance for precision issues and small differences
     const tolerance = Math.max(availableBalance * 0.01, Math.pow(10, -fromToken.decimals), 0.000001)
     // Allow amounts within tolerance of the balance (handles precision issues)
     const exceedsBalance = amountToCheck > availableBalance + tolerance
+
+    // Debug log for insufficient balance
+    if (isWrapUnwrap && exceedsBalance !== insufficientBalance) {
+      console.log("Balance check result:", {
+        exceedsBalance,
+        currentInsufficientBalance: insufficientBalance,
+        amountToCheck,
+        availableBalance,
+        fromToken: fromToken?.symbol,
+      })
+    }
+
     setInsufficientBalance(exceedsBalance)
   }, [
     amount,
@@ -557,7 +704,11 @@ export default function SwapInterface({
     isLoadingToBalance,
     displayQuote,
     quote,
+    activeQuote,
     gasPrice,
+    isWrapUnwrap,
+    isWrap,
+    wrapUnwrapGasEstimate,
   ])
 
   // Focus the appropriate input when editingSide changes (especially after switch)
@@ -670,6 +821,12 @@ export default function SwapInterface({
       return
     }
 
+    // For wrap/unwrap, bypass quote validation
+    if (isWrapUnwrap) {
+      setIsConfirmationOpen(true)
+      return
+    }
+
     if (quoteError) {
       toast({
         title: "Quote Error",
@@ -703,6 +860,18 @@ export default function SwapInterface({
 
   const handleConfirmSwap = async () => {
     setIsConfirmationOpen(false)
+
+    // Handle wrap/unwrap transactions
+    if (isWrapUnwrap) {
+      if (isWrap) {
+        wrap()
+      } else if (isUnwrap) {
+        unwrap()
+      }
+      return
+    }
+
+    // Handle regular swap
     await confirmSwap()
   }
 
@@ -794,7 +963,8 @@ export default function SwapInterface({
 
         // Disable quote fetching during switch
         setIsSwitching(true)
-        setInsufficientBalance(false)
+        // Don't clear insufficientBalance here - let the balance check useEffect handle it
+        // This ensures the error state persists if the new token also has insufficient balance
         setPulseKey(0)
         setPulseAnimationKey(0)
 
@@ -870,7 +1040,11 @@ export default function SwapInterface({
             token={fromToken}
             amount={amount}
             displayQuote={
-              noLiquidity && editingSide === "buy" ? "No liquidity" : displayQuote || null
+              isWrapUnwrap
+                ? amount // Simple 1:1 for wrap/unwrap - bypass quote entirely
+                : noLiquidity && editingSide === "buy"
+                  ? "No liquidity"
+                  : displayQuote || null
             }
             quoteAmount={activeQuote?.amountInFormatted}
             onAmountChange={(value) => {
@@ -898,13 +1072,17 @@ export default function SwapInterface({
             insufficientBalance={insufficientBalance}
             shouldPulse={shouldPulse}
             shouldPulseLoop={shouldPulseLoop}
-            isQuoteLoading={isQuoteLoading}
+            isQuoteLoading={effectiveQuoteLoading}
             pulseAnimationKey={pulseAnimationKey}
             inputRef={sellInputRef}
             outputAmount={outputAmount}
             commonTokens={commonTokens}
             onCommonTokenSelect={handleFromTokenSelect}
-            gasEstimate={activeQuote?.gasEstimate?.toString()}
+            gasEstimate={
+              isWrapUnwrap
+                ? wrapUnwrapGasEstimate?.toString()
+                : activeQuote?.gasEstimate?.toString()
+            }
             gasPrice={gasPrice?.toString()}
             isNativeETH={fromToken?.address === ZERO_ADDRESS}
           />
@@ -918,7 +1096,11 @@ export default function SwapInterface({
             token={toToken}
             amount={amount}
             displayQuote={
-              noLiquidity && editingSide === "sell" ? "No liquidity" : displayQuote || null
+              isWrapUnwrap
+                ? amount // Simple 1:1 for wrap/unwrap - bypass quote entirely
+                : noLiquidity && editingSide === "sell"
+                  ? "No liquidity"
+                  : displayQuote || null
             }
             quoteAmount={activeQuote?.amountOutFormatted}
             onAmountChange={(value) => {
@@ -946,7 +1128,7 @@ export default function SwapInterface({
             insufficientBalance={false}
             shouldPulse={shouldPulse}
             shouldPulseLoop={shouldPulseLoop}
-            isQuoteLoading={isQuoteLoading}
+            isQuoteLoading={effectiveQuoteLoading}
             pulseAnimationKey={pulseAnimationKey}
             inputRef={buyInputRef}
             outputAmount={outputAmount}
@@ -997,6 +1179,8 @@ export default function SwapInterface({
             editingSide={editingSide}
             onGetStarted={handleGetStarted}
             onSwap={handleSwapClick}
+            isWrap={isWrap}
+            isUnwrap={isUnwrap}
           />
 
           <TokenSelector
@@ -1027,15 +1211,23 @@ export default function SwapInterface({
                 tokenIn={fromToken}
                 tokenOut={toToken}
                 amountIn={amount}
-                amountOut={activeQuote?.amountOutFormatted || "0"}
-                minAmountOut={minAmountOut}
-                exchangeRate={exchangeRate}
-                priceImpact={activeQuote?.priceImpact || 0}
+                amountOut={isWrapUnwrap ? amount : activeQuote?.amountOutFormatted || "0"}
+                minAmountOut={isWrapUnwrap ? amount : minAmountOut}
+                exchangeRate={isWrapUnwrap ? 1 : exchangeRate}
+                priceImpact={isWrapUnwrap ? 0 : activeQuote?.priceImpact || 0}
                 slippage={effectiveSlippage}
-                gasEstimate={activeQuote?.gasEstimate || null}
+                gasEstimate={
+                  isWrapUnwrap ? wrapUnwrapGasEstimate || null : activeQuote?.gasEstimate || null
+                }
                 ethPrice={ethPrice}
-                timeLeft={timeLeft}
-                isLoading={isSigning || isSubmitting}
+                timeLeft={isWrapUnwrap ? undefined : timeLeft}
+                isLoading={
+                  isWrapUnwrap
+                    ? isWrapUnwrapPending || isWrapUnwrapConfirming
+                    : isSigning || isSubmitting
+                }
+                isWrap={isWrap}
+                isUnwrap={isUnwrap}
               />
             </Suspense>
           )}

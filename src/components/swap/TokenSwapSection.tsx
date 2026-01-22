@@ -77,14 +77,30 @@ export default React.memo(function TokenSwapSection({
   gasPrice,
   isNativeETH,
 }: TokenSwapSectionProps) {
+  // Debug insufficient balance for sell side
+  React.useEffect(() => {
+    if (side === "sell" && insufficientBalance) {
+      console.log("TokenSwapSection: sell side has insufficientBalance=true", {
+        token: token?.symbol,
+        amount,
+        insufficientBalance,
+      })
+    }
+  }, [side, insufficientBalance, token, amount])
+  // For wrap/unwrap operations, displayQuote will be the amount (1:1)
+  // Don't show "0" for wrap/unwrap when displayQuote is empty string
   const displayValue =
     side === "sell"
       ? isActive
         ? amount
-        : displayQuote || quoteAmount || "0"
+        : displayQuote !== null
+          ? displayQuote
+          : quoteAmount || "0"
       : isActive
         ? amount
-        : displayQuote || quoteAmount || "0"
+        : displayQuote !== null
+          ? displayQuote
+          : quoteAmount || "0"
 
   const displayAmountForInfo =
     side === "sell"
@@ -129,7 +145,8 @@ export default React.memo(function TokenSwapSection({
           onBlur={onAmountBlur}
           isActive={isActive}
           isDisabled={!isConnected}
-          showError={insufficientBalance && isActive}
+          showError={insufficientBalance && side === "sell"}
+          key={`amount-input-${side}-${insufficientBalance}`}
           shouldPulse={shouldPulse}
           shouldPulseLoop={shouldPulseLoop}
           isQuoteLoading={isQuoteLoading}

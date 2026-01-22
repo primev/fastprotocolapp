@@ -20,7 +20,7 @@ interface AmountInputProps {
   inputRef?: React.RefObject<HTMLInputElement>
 }
 
-export default React.memo(function AmountInput({
+export default function AmountInput({
   value,
   onChange,
   onFocus,
@@ -34,6 +34,12 @@ export default React.memo(function AmountInput({
   pulseAnimationKey,
   inputRef,
 }: AmountInputProps) {
+  // Debug showError prop
+  React.useEffect(() => {
+    if (showError) {
+      console.log("AmountInput: showError is true, isActive:", isActive)
+    }
+  }, [showError, isActive])
   const isSpecialValue = value === "No liquidity"
   const cleanValue = value && !isSpecialValue ? value.replace(/,/g, "") : ""
 
@@ -127,13 +133,15 @@ export default React.memo(function AmountInput({
         ) : (
           <div
             className={cn(
-              "font-bold leading-none tracking-tighter text-white whitespace-nowrap pr-1",
+              "font-bold leading-none tracking-tighter whitespace-nowrap pr-1",
+              showError ? "text-red-500" : "text-white",
               shouldPulseLoop && "animate-pulse-3-loop",
               shouldPulse && !shouldPulseLoop && "animate-pulse-3 p-0"
             )}
             style={{
               fontSize: `${fontPx}px`,
               fontVariantNumeric: "tabular-nums",
+              ...(showError ? { color: "#ef4444" } : {}),
             }}
           >
             {numericValue !== null ? (
@@ -141,7 +149,12 @@ export default React.memo(function AmountInput({
                 value={numericValue}
                 format={{ minimumFractionDigits: minFractionDigits, maximumFractionDigits: 6 }}
                 // Continuous ensures the digits roll without jumping widths
-                style={{ "--number-flow-char-gap": "-0.5px" } as React.CSSProperties}
+                style={
+                  {
+                    "--number-flow-char-gap": "-0.5px",
+                    ...(showError ? { color: "#ef4444" } : {}),
+                  } as React.CSSProperties
+                }
               />
             ) : (
               <span className="text-white/10">0</span>
@@ -162,4 +175,4 @@ export default React.memo(function AmountInput({
       )}
     </div>
   )
-})
+}
