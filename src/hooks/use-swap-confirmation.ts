@@ -5,6 +5,11 @@ import { useAccount } from "wagmi"
 import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
 import { useToast } from "@/hooks/use-toast"
+import {
+  isTransactionRejection,
+  getTransactionErrorMessage,
+  getTransactionErrorTitle,
+} from "@/lib/transaction-errors"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import type { Token } from "@/types/swap"
 
@@ -105,23 +110,9 @@ export function useSwapConfirmation({
       setIsSigning(false)
       setIsSubmitting(false)
 
-      let errorMessage = "Transaction failed"
-      if (error instanceof Error) {
-        errorMessage = error.message
-        if (error.message.includes("User rejected")) {
-          errorMessage = "Transaction cancelled by user"
-        } else if (error.message.includes("insufficient funds")) {
-          errorMessage = "Insufficient funds for gas fees"
-        } else if (error.message.includes("network")) {
-          errorMessage = "Network error. Please check your connection and try again"
-        } else if (error.message.includes("deadline")) {
-          errorMessage = "Transaction deadline expired. Please try again"
-        }
-      }
-
       toast({
-        title: "Swap Failed",
-        description: errorMessage,
+        title: getTransactionErrorTitle(error, "swap"),
+        description: getTransactionErrorMessage(error, "swap"),
         variant: "destructive",
       })
     }

@@ -353,6 +353,7 @@ export function useQuote({
   const latestSlippageRef = useRef<string>(slippage)
   const latestTradeTypeRef = useRef<TradeType>(tradeType)
   const latestTokenListRef = useRef<Token[]>(tokenList)
+  const latestEnabledRef = useRef<boolean>(enabled)
 
   // Update latest refs whenever values change
   useEffect(() => {
@@ -362,10 +363,16 @@ export function useQuote({
     latestSlippageRef.current = slippage
     latestTradeTypeRef.current = tradeType
     latestTokenListRef.current = tokenList
-  }, [tokenIn, tokenOut, amountIn, slippage, tradeType, tokenList])
+    latestEnabledRef.current = enabled
+  }, [tokenIn, tokenOut, amountIn, slippage, tradeType, tokenList, enabled])
 
   // Create a stable refetch function that always works, using latest refs
   const refetch = useCallback(async () => {
+    // Respect enabled flag (e.g. disabled for wrap/unwrap pairs)
+    if (!latestEnabledRef.current) {
+      return
+    }
+
     // Use latest values from refs to ensure we always fetch with current state
     const currentTokenIn = latestTokenInRef.current
     const currentTokenOut = latestTokenOutRef.current

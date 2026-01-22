@@ -47,8 +47,8 @@ export default React.memo(function PercentageButtons({
     }
 
     // Limit to 6 decimal places maximum and remove trailing zeros
-    // const formattedValue = Number(amountValue.toFixed(6))
-    const formattedValue = amountValue
+    const formattedValue = Number(amountValue.toFixed(6))
+    // const formattedValue = amountValue
     onSelect(formattedValue.toString())
   }
 
