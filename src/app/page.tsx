@@ -212,9 +212,8 @@ const IndexPage = () => {
         />
       </header>
 
-      <main className="relative flex flex-col items-center pt-[80px]">
-        {/* SECTION 1: HERO (THE SANCTUARY) */}
-        <section className="min-h-[calc(100vh-80px)] w-full flex flex-col items-center justify-center px-4 relative pt-12 pb-24">
+      <main className="relative flex flex-col items-center pt-[70px]">
+        <section className="min-h-[calc(100vh-70px)] w-full flex flex-col items-center justify-center px-4 relative pt-4 pb-24">
           {!isSwapFocused && (
             <div className="text-center mb-12 space-y-4 animate-in fade-in slide-in-from-top-6 duration-1000">
               <h1 className="text-6xl sm:text-8xl font-bold tracking-tighter text-foreground leading-[1.05]">
