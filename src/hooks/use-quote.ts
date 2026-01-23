@@ -186,6 +186,7 @@ export function useQuote({
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const requestIdRef = useRef(0)
 
   // Memoize inputs to prevent unnecessary refetches
   const inputKey = useMemo(
@@ -193,146 +194,170 @@ export function useQuote({
     [tokenIn, tokenOut, amountIn, slippage]
   )
 
-  const fetchQuote = useCallback(async () => {
-    // Cancel any pending request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-    abortControllerRef.current = new AbortController()
+  const fetchQuote = useCallback(
+    async (isAutoRefresh = false) => {
+      const currentRequestId = ++requestIdRef.current
 
-    // Validate token inputs
-    if (!tokenIn || !tokenOut || tokenIn === tokenOut) {
-      setQuote(null)
+      // 1. Immediate UI Feedback
+      setIsLoading(true)
       setError(null)
-      return
-    }
 
-    // Sanitize and validate amount input
-    const amountInNum = sanitizeAmountInput(amountIn)
-    if (amountInNum === null || amountInNum <= 0) {
-      setQuote(null)
-      setError(null)
-      return
-    }
+      try {
+        // Add a minimum "perceived" delay for better UX
+        const minDelay = new Promise((resolve) => setTimeout(resolve, 800))
 
-    const tokenInAddress = getTokenAddress(tokenIn)
-    const tokenOutAddress = getTokenAddress(tokenOut)
+        // 2. The Actual Contract Call
+        const quotePromise = (async () => {
+          // Cancel any pending request
+          if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+          }
+          abortControllerRef.current = new AbortController()
 
-    if (!tokenInAddress || !tokenOutAddress) {
-      // For tokens we don't have addresses for (like FAST), use mock quote
-      const mockRate = tokenIn === "ETH" ? 2300 : tokenOut === "ETH" ? 0.000435 : 1
-      const mockAmountOut = amountInNum * mockRate
-      const slippagePercent = parseFloat(slippage) || 0.5
-      const minOutNum = mockAmountOut * (1 - slippagePercent / 100)
+          // Validate token inputs
+          if (!tokenIn || !tokenOut || tokenIn === tokenOut) {
+            return null
+          }
 
-      setQuote({
-        amountOut: BigInt(Math.floor(mockAmountOut * 1e18)),
-        amountOutFormatted: mockAmountOut.toFixed(6),
-        minOut: BigInt(Math.floor(minOutNum * 1e18)),
-        minOutFormatted: minOutNum.toFixed(6),
-        priceImpact: -0.01, // Mock small impact
-        exchangeRate: mockRate,
-        gasEstimate: BigInt(150000),
-        fee: 3000,
-      })
-      setError(null)
-      return
-    }
+          // Sanitize and validate amount input
+          const amountInNum = sanitizeAmountInput(amountIn)
+          if (amountInNum === null || amountInNum <= 0) {
+            return null
+          }
 
-    setIsLoading(true)
-    setError(null)
+          const tokenInAddress = getTokenAddress(tokenIn)
+          const tokenOutAddress = getTokenAddress(tokenOut)
 
-    try {
-      const tokenInDecimals = getTokenDecimals(tokenIn)
-      const tokenOutDecimals = getTokenDecimals(tokenOut)
-      const amountInWei = parseUnits(amountIn, tokenInDecimals)
+          if (!tokenInAddress || !tokenOutAddress) {
+            // For tokens we don't have addresses for (like FAST), use mock quote
+            const mockRate = tokenIn === "ETH" ? 2300 : tokenOut === "ETH" ? 0.000435 : 1
+            const mockAmountOut = amountInNum * mockRate
+            const slippagePercent = parseFloat(slippage) || 0.5
+            const minOutNum = mockAmountOut * (1 - slippagePercent / 100)
 
-      let bestQuote: {
-        amountOut: bigint
-        gasEstimate: bigint
-        fee: number
-      } | null = null
-
-      // Try each fee tier and pick the best quote
-      const clients = [createClient(RPC_ENDPOINT), createClient(FALLBACK_RPC_ENDPOINT)]
-
-      for (const client of clients) {
-        try {
-          for (const fee of FEE_TIERS) {
-            try {
-              const result = await client.simulateContract({
-                address: QUOTER_V2_ADDRESS,
-                abi: QUOTER_V2_ABI,
-                functionName: "quoteExactInputSingle",
-                args: [
-                  {
-                    tokenIn: tokenInAddress,
-                    tokenOut: tokenOutAddress,
-                    amountIn: amountInWei,
-                    fee,
-                    sqrtPriceLimitX96: BigInt(0),
-                  },
-                ],
-              })
-
-              const [amountOut, , , gasEstimate] = result.result as [bigint, bigint, number, bigint]
-
-              if (!bestQuote || amountOut > bestQuote.amountOut) {
-                bestQuote = { amountOut, gasEstimate, fee }
-              }
-            } catch (feeError) {
-              // This fee tier might not have a pool, continue to next
-              console.debug(`No pool for fee tier ${fee}:`, feeError)
+            return {
+              amountOut: BigInt(Math.floor(mockAmountOut * 1e18)),
+              amountOutFormatted: mockAmountOut.toFixed(6),
+              minOut: BigInt(Math.floor(minOutNum * 1e18)),
+              minOutFormatted: minOutNum.toFixed(6),
+              priceImpact: -0.01, // Mock small impact
+              exchangeRate: mockRate,
+              gasEstimate: BigInt(150000),
+              fee: 3000,
             }
           }
 
-          if (bestQuote) break // Got a quote, no need to try fallback RPC
-        } catch (clientError) {
-          console.warn("RPC client error, trying next:", clientError)
+          const tokenInDecimals = getTokenDecimals(tokenIn)
+          const tokenOutDecimals = getTokenDecimals(tokenOut)
+          const amountInWei = parseUnits(amountIn, tokenInDecimals)
+
+          let bestQuote: {
+            amountOut: bigint
+            gasEstimate: bigint
+            fee: number
+          } | null = null
+
+          // Try each fee tier and pick the best quote
+          const clients = [createClient(RPC_ENDPOINT), createClient(FALLBACK_RPC_ENDPOINT)]
+
+          for (const client of clients) {
+            try {
+              for (const fee of FEE_TIERS) {
+                try {
+                  const result = await client.simulateContract({
+                    address: QUOTER_V2_ADDRESS,
+                    abi: QUOTER_V2_ABI,
+                    functionName: "quoteExactInputSingle",
+                    args: [
+                      {
+                        tokenIn: tokenInAddress,
+                        tokenOut: tokenOutAddress,
+                        amountIn: amountInWei,
+                        fee,
+                        sqrtPriceLimitX96: BigInt(0),
+                      },
+                    ],
+                  })
+
+                  const [amountOut, , , gasEstimate] = result.result as [
+                    bigint,
+                    bigint,
+                    number,
+                    bigint,
+                  ]
+
+                  if (!bestQuote || amountOut > bestQuote.amountOut) {
+                    bestQuote = { amountOut, gasEstimate, fee }
+                  }
+                } catch (feeError) {
+                  // This fee tier might not have a pool, continue to next
+                  console.debug(`No pool for fee tier ${fee}:`, feeError)
+                }
+              }
+
+              if (bestQuote) break // Got a quote, no need to try fallback RPC
+            } catch (clientError) {
+              console.warn("RPC client error, trying next:", clientError)
+            }
+          }
+
+          if (!bestQuote) {
+            throw new Error("No liquidity found for this pair")
+          }
+
+          // Calculate formatted amounts
+          const amountOutFormatted = formatUnits(bestQuote.amountOut, tokenOutDecimals)
+          const amountOutNum = parseFloat(amountOutFormatted)
+
+          // Calculate minOut based on slippage (with validation)
+          const slippagePercent = validateSlippage(slippage)
+          const slippageBps = BigInt(Math.floor(slippagePercent * 100)) // Convert to basis points
+          const minOut = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
+          const minOutFormatted = formatUnits(minOut, tokenOutDecimals)
+
+          // Calculate exchange rate
+          const exchangeRate = amountOutNum / amountInNum
+
+          // Estimate price impact (simplified - comparing to spot price would require additional call)
+          // For now, estimate based on trade size relative to typical pool liquidity
+          const priceImpact = -0.01 * Math.log10(amountInNum + 1) // Rough estimate
+
+          return {
+            amountOut: bestQuote.amountOut,
+            amountOutFormatted,
+            minOut,
+            minOutFormatted,
+            priceImpact: Math.max(priceImpact, -5), // Cap at -5%
+            exchangeRate,
+            gasEstimate: bestQuote.gasEstimate,
+            fee: bestQuote.fee,
+          }
+        })()
+
+        // Wait for both the network and the minimum delay
+        const [processedQuote] = await Promise.all([quotePromise, minDelay])
+
+        if (currentRequestId !== requestIdRef.current) return
+
+        if (!processedQuote) {
+          setQuote(null)
+          return
+        }
+
+        // 3. Update the state with fresh data
+        setQuote(processedQuote)
+      } catch (err) {
+        if (currentRequestId === requestIdRef.current) {
+          setError(err instanceof Error ? err : new Error("Failed to fetch"))
+        }
+      } finally {
+        if (currentRequestId === requestIdRef.current) {
+          setIsLoading(false)
         }
       }
-
-      if (!bestQuote) {
-        throw new Error("No liquidity found for this pair")
-      }
-
-      // Calculate formatted amounts
-      const amountOutFormatted = formatUnits(bestQuote.amountOut, tokenOutDecimals)
-      const amountOutNum = parseFloat(amountOutFormatted)
-
-      // Calculate minOut based on slippage (with validation)
-      const slippagePercent = validateSlippage(slippage)
-      const slippageBps = BigInt(Math.floor(slippagePercent * 100)) // Convert to basis points
-      const minOut = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
-      const minOutFormatted = formatUnits(minOut, tokenOutDecimals)
-
-      // Calculate exchange rate
-      const exchangeRate = amountOutNum / amountInNum
-
-      // Estimate price impact (simplified - comparing to spot price would require additional call)
-      // For now, estimate based on trade size relative to typical pool liquidity
-      const priceImpact = -0.01 * Math.log10(amountInNum + 1) // Rough estimate
-
-      setQuote({
-        amountOut: bestQuote.amountOut,
-        amountOutFormatted,
-        minOut,
-        minOutFormatted,
-        priceImpact: Math.max(priceImpact, -5), // Cap at -5%
-        exchangeRate,
-        gasEstimate: bestQuote.gasEstimate,
-        fee: bestQuote.fee,
-      })
-      setError(null)
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err))
-      setError(error)
-      setQuote(null)
-      console.error("Quote fetch error:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [tokenIn, tokenOut, amountIn, slippage])
+    },
+    [tokenIn, tokenOut, amountIn, slippage]
+  )
 
   // Debounced fetch
   useEffect(() => {

@@ -185,3 +185,12 @@ export function formatBalance(balanceValue: number, tokenSymbol?: string): strin
   if (balanceValue <= 0) return "0"
   return formatTokenAmount(balanceValue, tokenSymbol)
 }
+
+export function isValidAddress(addr: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(addr)
+}
+
+export function truncateAddress(address: string): string {
+  if (!address) return ""
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
+}

@@ -238,6 +238,7 @@ function createClient(rpcUrl: string) {
   return createPublicClient({
     chain: mainnet,
     transport: http(rpcUrl, {
+      batch: true,
       fetchOptions: { cache: "no-store" },
     }),
   })
