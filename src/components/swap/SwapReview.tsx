@@ -2,10 +2,10 @@
 
 import { ChevronDown, ChevronUp, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { formatPriceImpact, getPriceImpactSeverity } from "@/hooks/use-quote"
+import { formatPriceImpact, getPriceImpactSeverity } from "@/hooks/use-quote-v2"
 import { useGasPrice } from "@/hooks/use-gas-price"
 import type { Token } from "@/types/swap"
-import type { QuoteResult } from "@/hooks/use-quote"
+import type { QuoteResult } from "@/hooks/use-quote-v2"
 
 interface SwapReviewProps {
   fromToken: Token
