@@ -24,7 +24,7 @@ import {
   getPriceImpactSeverity,
   calculateAutoSlippage,
   type QuoteResult,
-} from "@/hooks/use-quote"
+} from "@/hooks/use-quote-v2"
 import { useToast } from "@/hooks/use-toast"
 import { useTokenPrice } from "@/hooks/use-token-price"
 import { useSwapConfirmation } from "@/hooks/use-swap-confirmation"

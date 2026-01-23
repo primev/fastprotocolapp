@@ -47,7 +47,7 @@ export default React.memo(function TokenInfoRow({
   // Determine what to show for USD value
   const getUsdDisplay = () => {
     if (usdValue) {
-      return `$${usdValue.toLocaleString("en-US", {
+      return `≈ ${usdValue.toLocaleString("en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
         useGrouping: true,
@@ -57,7 +57,7 @@ export default React.memo(function TokenInfoRow({
     // For sell side: show "$0" when no amount
     // For buy side: show empty string when no amount
     if (numericDisplayAmount === 0 || !displayAmount || displayAmount === "0") {
-      return side === "sell" ? "$0" : ""
+      return side === "sell" ? "$0" : "$0"
     }
 
     // If there's an amount but price is loading, show loading indicator
@@ -80,7 +80,7 @@ export default React.memo(function TokenInfoRow({
   return (
     <div className="flex justify-between items-center text-sm font-medium text-white/70 tracking-tight">
       <span className="font-medium">{getUsdDisplay()}</span>
-      {isConnected && address && token && balance && (
+      {/* {isConnected && address && token && balance && (
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -103,7 +103,7 @@ export default React.memo(function TokenInfoRow({
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-      )}
+      )} */}
     </div>
   )
 })
