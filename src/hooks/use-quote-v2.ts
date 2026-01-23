@@ -11,6 +11,15 @@ import type { Token } from "@/types/swap"
 // Uniswap V3 Quoter V2 on Ethereum mainnet
 const QUOTER_V2_ADDRESS = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e" as const
 
+// Optimization: Memoize the client outside the hook to prevent recreation
+const publicClient = createPublicClient({
+  chain: mainnet,
+  transport: http(FALLBACK_RPC_ENDPOINT, {
+    batch: { wait: 50 }, // Increased from 20 to 50ms to group more fee-tier calls
+    fetchOptions: { cache: "no-store" },
+  }),
+})
+
 // Uniswap V3 Quoter V2 ABI (supports both exact input and exact output)
 const QUOTER_V2_ABI = [
   {
@@ -70,10 +79,12 @@ const FEE_TIERS = [500, 3000, 10000] as const // 0.05%, 0.3%, 1%
  * Create a promise that resolves with the result or rejects after timeout
  */
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), timeoutMs)),
-  ])
+  let timeoutId: NodeJS.Timeout
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error("Timeout")), timeoutMs)
+  })
+
+  return Promise.race([promise.finally(() => clearTimeout(timeoutId)), timeoutPromise])
 }
 
 /**
@@ -93,6 +104,16 @@ async function getBestQuoteFromFeeTiers(
   gasEstimate: bigint
   fee: number
 } | null> {
+  // PERFORMANCE FIX: Wait for the main thread to be idle before starting
+  // This prevents the 'Click' and 'Input' violations from escalating.
+  await new Promise((resolve) => {
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(() => resolve(null))
+    } else {
+      setTimeout(resolve, 1)
+    }
+  })
+
   // Create promises for all fee tiers with 2 second timeout each
   const feeTierPromises = FEE_TIERS.map(async (fee) => {
     try {
@@ -143,7 +164,7 @@ async function getBestQuoteFromFeeTiers(
       })()
 
       // Add 3 second timeout to each contract call
-      return await withTimeout(contractCall, 3000)
+      return await withTimeout(contractCall, 5000)
     } catch (error) {
       // Fee tier failed or timed out, return failure indicator
       console.debug(`No pool for fee tier ${fee}:`, error)
@@ -355,6 +376,10 @@ export function useQuote({
   const latestTradeTypeRef = useRef<TradeType>(tradeType)
   const latestTokenListRef = useRef<Token[]>(tokenList)
   const latestEnabledRef = useRef<boolean>(enabled)
+  const isFetchingRef = useRef(false)
+  const quoteRef = useRef<QuoteResult | null>(null)
+  const prevQuoteRef = useRef<any>(null)
+  const lastInputKeyRef = useRef<string>("")
 
   // Update latest refs whenever values change
   useEffect(() => {
@@ -373,6 +398,9 @@ export function useQuote({
     if (!latestEnabledRef.current) {
       return
     }
+
+    // Exhaustive debouncing: Ignore if a request is already in flight
+    if (isFetchingRef.current) return
 
     // Use latest values from refs to ensure we always fetch with current state
     const currentTokenIn = latestTokenInRef.current
@@ -647,6 +675,18 @@ export function useQuote({
           duration: `${duration.toFixed(2)}ms`,
         })
 
+        // Compare new vs old quote to prevent unnecessary re-renders
+        const isIdentical =
+          prevQuoteRef.current?.amountOut === newQuote.amountOut &&
+          prevQuoteRef.current?.fee === newQuote.fee &&
+          prevQuoteRef.current?.amountIn === newQuote.amountIn
+
+        if (isIdentical) {
+          setIsLoading(false)
+          return // BREAK THE LOOP: Do not update state if the quote is the same
+        }
+
+        prevQuoteRef.current = newQuote
         setQuote(newQuote)
         setError(null)
       } else {
@@ -709,6 +749,9 @@ export function useQuote({
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
+
+    // Set fetching flag
+    isFetchingRef.current = true
     abortControllerRef.current = new AbortController()
 
     // Validate token inputs
@@ -979,6 +1022,18 @@ export function useQuote({
           duration: `${duration.toFixed(2)}ms`,
         })
 
+        // Compare new vs old quote to prevent unnecessary re-renders
+        const isIdentical =
+          prevQuoteRef.current?.amountOut === newQuote.amountOut &&
+          prevQuoteRef.current?.fee === newQuote.fee &&
+          prevQuoteRef.current?.amountIn === newQuote.amountIn
+
+        if (isIdentical) {
+          setIsLoading(false)
+          return // BREAK THE LOOP: Do not update state if the quote is the same
+        }
+
+        prevQuoteRef.current = newQuote
         setQuote(newQuote)
         setError(null)
       } else {
@@ -1026,35 +1081,54 @@ export function useQuote({
       if (currentRequestId === requestIdRef.current) {
         setIsLoading(false)
       }
+      // Clear fetching flag
+      isFetchingRef.current = false
     }
-  }, [tokenIn, tokenOut, amountIn, slippage, tradeType, tokenList])
+  }, [tokenIn?.address, tokenOut?.address, amountIn, slippage, tradeType, tokenList])
 
   // Main fetch effect - handles all quote fetching logic
   useEffect(() => {
-    if (!enabled || !tokenIn || !tokenOut || !amountIn) return
-
-    // Check if ONLY the amount changed (user is typing)
-    const isTyping =
-      prevAmountInRef.current !== amountIn &&
-      prevTokenInRef.current === tokenIn &&
-      prevTokenOutRef.current === tokenOut
-
-    if (isTyping) {
-      // Standard debounced fetch for typing
-      const handler = setTimeout(() => {
-        fetchQuote()
-      }, debounceMs)
-      return () => clearTimeout(handler)
-    } else {
-      // Instant fetch for token selection or trade type switches
-      fetchQuote()
+    if (!enabled || !tokenIn?.address || !tokenOut?.address || !amountIn) {
+      if (!amountIn) setQuote(null)
+      return
     }
 
-    // Update refs
+    // Use a string-based key to check if the input "intent" has actually changed
+    const inputKey = `${tokenIn.address}-${tokenOut.address}-${amountIn}-${tradeType}`
+    if (lastInputKeyRef.current === inputKey) return
+
+    lastInputKeyRef.current = inputKey
+
+    // Determine if this is a structural change (tokens/type) or just typing (amount)
+    const isStructuralChange =
+      prevTokenInRef.current?.address !== tokenIn?.address ||
+      prevTokenOutRef.current?.address !== tokenOut?.address ||
+      prevTradeTypeRef.current !== tradeType
+
+    // Clear any existing debounce timer
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    // PERFORMANCE FIX:
+    // Never fetch "instantly". Even for token switches, wait 100ms
+    // to let the 'click' handler and React render finish.
+    const delay = isStructuralChange ? 400 : debounceMs
+
+    debounceRef.current = setTimeout(() => {
+      // We use refetch() here because it uses the latest Refs
+      // and is more robust against stale closures
+      refetch()
+    }, delay)
+
+    // Update tracking refs
     prevTokenInRef.current = tokenIn
     prevTokenOutRef.current = tokenOut
     prevAmountInRef.current = amountIn
-  }, [tokenIn, tokenOut, amountIn, enabled, tradeType])
+    prevTradeTypeRef.current = tradeType
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [tokenIn?.address, tokenOut?.address, amountIn, tradeType, enabled, debounceMs, refetch])
 
   // Cleanup on unmount
   useEffect(() => {

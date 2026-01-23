@@ -181,6 +181,14 @@ export function formatTokenAmount(
  * @param tokenSymbol - Token symbol for formatting rules
  * @returns Formatted balance string
  */
+export const resolveImageUrl = (url?: string) => {
+  if (!url) return "/fallback-token.png"
+  if (url.startsWith("ipfs://")) {
+    return url.replace("ipfs://", "https://ipfs.io/ipfs/")
+  }
+  return url
+}
+
 export function formatBalance(balanceValue: number, tokenSymbol?: string): string {
   if (balanceValue <= 0) return "0"
   return formatTokenAmount(balanceValue, tokenSymbol)
