@@ -159,6 +159,18 @@ function validateSlippage(slippage: string): number {
  * Hook for fetching real-time quotes from Uniswap V3
  * Includes debouncing, slippage calculation, price impact estimation,
  * and comprehensive input validation/sanitization
+ *
+ * @example
+ * ```tsx
+ * const { quote, isLoading, refetch } = useQuote({
+ *   tokenIn: fromToken,
+ *   tokenOut: toToken,
+ *   amountIn: amount,
+ *   // CRITICAL: This stops the re-fetch during the switch
+ *   enabled: !isSwitching && !isWrapUnwrap && !!amount && parseFloat(amount) > 0,
+ *   // ... other props
+ * });
+ * ```
  */
 export function useQuote({
   tokenIn,
