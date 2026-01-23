@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import SwapInterface from "./SwapInterface"
+import SwapInterface from "./SwapInterface-old"
 import { INTENT_DEADLINE_MINUTES } from "@/lib/swap-constants"
 
 interface SwapContainerProps {

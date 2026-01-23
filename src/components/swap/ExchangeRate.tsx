@@ -41,13 +41,23 @@ export const ExchangeRate: React.FC<ExchangeRateProps> = ({
    * run when the actual quote data changes, keeping the component performant.
    */
   const { priceImpact, severity, formattedImpact } = useMemo(() => {
+    // If we are in manual inversion, we usually want to hide or freeze the impact
+    // because the impact of an inverted quote isn't 100% accurate until re-fetched.
+    if (isManualInversion && !activeQuote) {
+      return {
+        priceImpact: 0,
+        severity: "low" as const,
+        formattedImpact: "...", // Shows a placeholder while switching
+      }
+    }
+
     const impact = activeQuote?.priceImpact ?? 0
     return {
       priceImpact: impact,
       severity: getPriceImpactSeverity(impact),
       formattedImpact: activeQuote ? formatPriceImpact(impact) : "-",
     }
-  }, [activeQuote])
+  }, [activeQuote, isManualInversion])
 
   /**
    * 2. CONDITIONAL RENDER CHECK

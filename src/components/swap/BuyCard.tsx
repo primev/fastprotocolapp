@@ -116,14 +116,6 @@ export const BuyCard: React.FC<BuyCardProps> = ({
             displayAmount={outputAmount || "0"}
             tokenPrice={activeToTokenPrice}
             isLoadingPrice={isLoadingToPrice}
-            token={toToken}
-            balance={toBalance}
-            balanceValue={toBalanceValue}
-            formattedBalance={formattedToBalance}
-            isLoadingBalance={isLoadingToBalance}
-            isConnected={isConnected}
-            address={address}
-            showError={false}
             side="buy"
           />
         </div>

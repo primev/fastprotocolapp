@@ -50,7 +50,9 @@ export function SwapForm() {
         // From Token Props
         fromToken={form.fromToken!}
         formattedFromBalance={formatBalance(form.fromBalanceValue, form.fromToken?.symbol)}
-        sellDisplayValue={form.amount}
+        sellDisplayValue={
+          form.editingSide === "sell" ? form.amount : form.displayQuote?.amountInFormatted || ""
+        }
         fromBalance={form.fromBalance}
         fromBalanceValue={form.fromBalanceValue}
         isLoadingFromBalance={form.isLoadingFromBalance}
@@ -64,7 +66,10 @@ export function SwapForm() {
         buyDisplayValue={
           form.isWrapUnwrap
             ? form.amount
-            : form.displayQuote?.amountOutFormatted || (form.hasNoLiquidity ? "No liquidity" : "0")
+            : form.editingSide === "buy"
+              ? form.amount
+              : form.displayQuote?.amountOutFormatted ||
+                (form.hasNoLiquidity ? "No liquidity" : "0")
         }
         toBalance={form.toBalance}
         toBalanceValue={form.toBalanceValue}

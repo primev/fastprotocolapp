@@ -76,9 +76,7 @@ export const SellCard: React.FC<SellCardProps> = ({
   }, [fromToken?.address])
 
   const handleAmountChange = (value: string) => {
-    // When the user changes the "Sell" amount, we reset inversion and existing quotes
-    setIsManualInversion(false)
-    setSwappedQuote(null)
+    setEditingSide("sell")
     setAmount(value)
   }
 
@@ -112,14 +110,6 @@ export const SellCard: React.FC<SellCardProps> = ({
             displayAmount={amount}
             tokenPrice={activeFromTokenPrice}
             isLoadingPrice={isLoadingFromPrice}
-            token={fromToken}
-            balance={fromBalance}
-            balanceValue={fromBalanceValue}
-            formattedBalance={formattedFromBalance}
-            isLoadingBalance={isLoadingFromBalance}
-            isConnected={isConnected}
-            address={address}
-            showError={insufficientBalance}
             side="sell"
           />
         </div>
