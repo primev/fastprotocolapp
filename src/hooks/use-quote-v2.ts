@@ -1030,85 +1030,30 @@ export function useQuote({
 
   // Main fetch effect - handles all quote fetching logic
   useEffect(() => {
-    if (!enabled) {
-      // Preserve previous quote when disabled (e.g., during switch) to prevent UI flicker
-      // Don't setQuote(null) - keep the existing quote state
-      return
+    if (!enabled || !tokenIn || !tokenOut || !amountIn) return
+
+    // Check if ONLY the amount changed (user is typing)
+    const isTyping =
+      prevAmountInRef.current !== amountIn &&
+      prevTokenInRef.current === tokenIn &&
+      prevTokenOutRef.current === tokenOut
+
+    if (isTyping) {
+      // Standard debounced fetch for typing
+      const handler = setTimeout(() => {
+        fetchQuote()
+      }, debounceMs)
+      return () => clearTimeout(handler)
+    } else {
+      // Instant fetch for token selection or trade type switches
+      fetchQuote()
     }
 
-    // Detect changes using direct comparison
-    const tokenInChanged = prevTokenInRef.current?.address !== tokenIn?.address
-    const tokenOutChanged = prevTokenOutRef.current?.address !== tokenOut?.address
-    const amountChanged = prevAmountInRef.current !== amountIn
-    const slippageChanged = prevSlippageRef.current !== slippage
-    const tradeTypeChanged = prevTradeTypeRef.current !== tradeType
-
-    const tokensChanged = tokenInChanged || tokenOutChanged
-
-    // If tokens or trade type changed, clear quote immediately to prevent stale data
-    if (tokensChanged || tradeTypeChanged) {
-      // Cancel any pending requests
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-        debounceRef.current = null
-      }
-
-      setQuote(null)
-      setError(null)
-      setIsLoading(false)
-    }
-
-    // Clear previous debounce
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
-      debounceRef.current = null
-    }
-
-    // Determine if we should fetch
-    const shouldFetch = tokensChanged || amountChanged || slippageChanged || tradeTypeChanged
-
-    if (!shouldFetch) {
-      // No changes, update refs and return
-      prevTokenInRef.current = tokenIn
-      prevTokenOutRef.current = tokenOut
-      prevAmountInRef.current = amountIn
-      prevSlippageRef.current = slippage
-      prevTradeTypeRef.current = tradeType
-      return
-    }
-
-    // Set loading state immediately for UX feedback
-    if (amountIn && parseFloat(amountIn) > 0) {
-      setIsLoading(true)
-    }
-
-    // Update refs immediately
+    // Update refs
     prevTokenInRef.current = tokenIn
     prevTokenOutRef.current = tokenOut
     prevAmountInRef.current = amountIn
-    prevSlippageRef.current = slippage
-    prevTradeTypeRef.current = tradeType
-
-    // Fetch immediately for token or amount changes (instant quote)
-    // Debounce only for slippage or tradeType changes
-    if (tokensChanged || amountChanged) {
-      fetchQuote()
-    } else {
-      // Slippage or tradeType changed - use debounce
-      debounceRef.current = setTimeout(() => {
-        fetchQuote()
-      }, debounceMs)
-    }
-
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-      }
-    }
-  }, [tokenIn, tokenOut, amountIn, slippage, tradeType, enabled, debounceMs, fetchQuote])
+  }, [tokenIn, tokenOut, amountIn, enabled, tradeType])
 
   // Cleanup on unmount
   useEffect(() => {

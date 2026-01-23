@@ -13,11 +13,12 @@ interface AmountInputProps {
   isActive: boolean
   isDisabled: boolean
   showError: boolean
-  shouldPulse: boolean
-  shouldPulseLoop: boolean
   isQuoteLoading?: boolean
-  pulseAnimationKey: number
   inputRef?: React.RefObject<HTMLInputElement>
+  // Pulse props are accepted but intentionally ignored to ensure input never pulses
+  shouldPulse?: boolean
+  shouldPulseLoop?: boolean
+  pulseAnimationKey?: number
 }
 
 export default function AmountInput({
@@ -28,11 +29,12 @@ export default function AmountInput({
   isActive,
   isDisabled,
   showError,
-  shouldPulse,
-  shouldPulseLoop,
   isQuoteLoading,
-  pulseAnimationKey,
   inputRef,
+  // Pulse props are accepted but intentionally ignored
+  shouldPulse: _shouldPulse,
+  shouldPulseLoop: _shouldPulseLoop,
+  pulseAnimationKey: _pulseAnimationKey,
 }: AmountInputProps) {
   // Debug showError prop
   React.useEffect(() => {
@@ -85,19 +87,10 @@ export default function AmountInput({
   const decimalPlaces = cleanValue.includes(".") ? cleanValue.split(".")[1]?.length || 0 : 0
   const minFractionDigits = Math.min(decimalPlaces, 6)
 
-  const isRefreshing = !isActive && isQuoteLoading && !shouldPulse && !shouldPulseLoop
-  const isPulsing = !isActive && (shouldPulse || shouldPulseLoop)
-
   const inputContent = (
     <div
       ref={containerRef}
-      className={cn(
-        "relative w-full h-[60px] flex items-center overflow-hidden",
-        isRefreshing && "transition-all duration-500 ease-in-out",
-        isRefreshing
-          ? "opacity-10 shadow-none scale-[0.99] filter blur-[1px]"
-          : "opacity-100 blur-0 scale-100"
-      )}
+      className={cn("relative w-full h-[60px] flex items-center overflow-hidden")}
     >
       {/* 2. HIDDEN MIRROR 
           Crucially, we must include the EXACT same tracking class here 
@@ -112,7 +105,7 @@ export default function AmountInput({
       </span>
 
       {/* 3. THE VISUAL INTERFACE */}
-      <div className="w-full flex items-center transition-[font-size] duration-200 ease-out">
+      <div className="w-full flex items-center transition-[font-size] duration-200 ease-out h-[60px]">
         {isActive ? (
           <input
             ref={inputRef}
@@ -134,9 +127,7 @@ export default function AmountInput({
           <div
             className={cn(
               "font-bold leading-none tracking-tighter whitespace-nowrap pr-1",
-              showError ? "text-red-500" : "text-white",
-              shouldPulseLoop && "animate-pulse-3-loop",
-              shouldPulse && !shouldPulseLoop && "animate-pulse-3 p-0"
+              showError ? "text-red-500" : "text-white"
             )}
             style={{
               fontSize: `${fontPx}px`,
@@ -165,14 +156,5 @@ export default function AmountInput({
     </div>
   )
 
-  return (
-    <div className="flex-1 relative">
-      {inputContent}
-      {isRefreshing && (
-        <div className="absolute inset-0 pointer-events-none flex items-center">
-          <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
-        </div>
-      )}
-    </div>
-  )
+  return <div className="flex-1 relative">{inputContent}</div>
 }
