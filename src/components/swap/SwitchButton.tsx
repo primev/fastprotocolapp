@@ -1,33 +1,16 @@
 "use client"
 
-import React, { useState } from "react"
 import { ArrowDown } from "lucide-react"
 
-interface SwitchButtonProps {
-  onSwitch: () => void
-}
-
-export default React.memo(function SwitchButton({ onSwitch }: SwitchButtonProps) {
-  const [rotation, setRotation] = useState(0)
-
-  const handleClick = () => {
-    setRotation((prev) => prev + 180)
-    onSwitch()
-  }
-
+export const SwitchButton = ({ handleSwitch }: { handleSwitch: () => void }) => {
   return (
-    <div className="relative h-2 w-full flex justify-center z-20">
+    <div className="flex justify-center -my-3 relative z-20">
       <button
-        onClick={handleClick}
-        className="absolute -top-5 p-3 bg-[#1B1B1B] border-[5px] border-[#131313] rounded-2xl hover:scale-110 transition-transform text-white shadow-lg"
+        onClick={handleSwitch}
+        className="h-9 w-9 rounded-full bg-[#0d1117] border-4 border-[#161b22] flex items-center justify-center hover:bg-[#1c2128] transition-all active:scale-90 group shadow-lg"
       >
-        <ArrowDown
-          size={24}
-          strokeWidth={3}
-          className="transition-transform duration-300 ease-in-out"
-          style={{ transform: `rotate(${rotation}deg)` }}
-        />
+        <ArrowDown className="h-4 w-4 text-gray-400 group-hover:text-primary transition-colors group-hover:rotate-180 duration-300" />
       </button>
     </div>
   )
-})
+}
