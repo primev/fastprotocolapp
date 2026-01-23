@@ -1,14 +1,20 @@
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import type { Token } from "@/types/swap"
-import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useState, useMemo } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChevronDown } from "lucide-react"
 import { getTokenLists } from "@/lib/swap-logic/token-list"
-import { isValidAddress } from "@/lib/utils"
+import { isValidAddress, resolveImageUrl } from "@/lib/utils"
 import { Plus } from "lucide-react"
 
 // Token Selector Modal
@@ -46,14 +52,16 @@ export const TokenSelectorModal = ({
 
   const { popularTokens, allTokens } = getTokenLists(excludeToken)
 
-  const filteredTokens = searchQuery
-    ? allTokens.filter(
-        (token) =>
-          token.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          token.address?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : allTokens
+  const filteredTokens = useMemo(() => {
+    return searchQuery
+      ? allTokens.filter(
+          (token) =>
+            token.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            token.address?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : allTokens
+  }, [allTokens, searchQuery])
 
   const handleAddCustomToken = () => {
     if (customAddress && customSymbol) {
@@ -71,6 +79,7 @@ export const TokenSelectorModal = ({
       <DialogContent className="sm:max-w-[420px] p-0 gap-0 bg-card border-border/50 max-h-[85vh] overflow-hidden">
         <DialogHeader className="p-4 pb-0">
           <DialogTitle className="text-lg font-semibold">Select a token</DialogTitle>
+          <DialogDescription className="sr-only">Token selection menu</DialogDescription>
         </DialogHeader>
 
         {/* Search Input */}
@@ -107,7 +116,7 @@ export const TokenSelectorModal = ({
                 >
                   <div className="h-5 w-5">
                     <img
-                      src={token.logoURI}
+                      src={resolveImageUrl(token.logoURI)}
                       alt={token.symbol}
                       className="h-full w-full object-contain"
                       onError={(e) => {
@@ -154,7 +163,7 @@ export const TokenSelectorModal = ({
               >
                 <div className="h-9 w-9 rounded-full bg-muted/50 flex items-center justify-center p-1.5">
                   <img
-                    src={token.logoURI}
+                    src={resolveImageUrl(token.logoURI)}
                     alt={token.symbol}
                     className="h-full w-full object-contain"
                     onError={(e) => {

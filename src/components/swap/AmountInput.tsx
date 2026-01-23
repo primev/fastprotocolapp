@@ -140,6 +140,11 @@ export default function AmountInput({
                   style={
                     {
                       "--number-flow-char-gap": "-0.5px",
+                      // Use CSS transition-duration for speed control
+                      "--number-flow-mask-duration": "0.3s",
+                      // Use a custom cubic-bezier for a "luxury" feel
+                      "--number-flow-mask-timing-function": "cubic-bezier(0.4, 0, 0.2, 1)",
+                      fontVariantNumeric: "tabular-nums", // Essential for odometer stability
                       ...(showError ? { color: "#ef4444" } : {}),
                     } as React.CSSProperties
                   }
