@@ -1,15 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useAccount } from "wagmi"
 import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
 import { useToast } from "@/hooks/use-toast"
-import {
-  isTransactionRejection,
-  getTransactionErrorMessage,
-  getTransactionErrorTitle,
-} from "@/lib/transaction-errors"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import type { Token } from "@/types/swap"
 
@@ -37,12 +32,18 @@ export function useSwapConfirmation({
 
   const [isSigning, setIsSigning] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<Error | null>(null) // Added error state
+
+  const reset = useCallback(() => {
+    setIsSigning(false)
+    setIsSubmitting(false)
+    setError(null)
+  }, [])
 
   const confirmSwap = async () => {
-    if (!isConnected || !address || !fromToken || !toToken || !amount) {
-      return
-    }
+    if (!isConnected || !address || !fromToken || !toToken || !amount) return
 
+    reset() // Clear previous errors on new attempt
     setIsSigning(true)
 
     try {
@@ -67,9 +68,7 @@ export function useSwapConfirmation({
 
       const response = await fetch("/api/relay", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           signature: intentData.signature,
           intent: {
@@ -92,35 +91,21 @@ export function useSwapConfirmation({
       })
 
       const result = await response.json()
-
-      if (!result.success) {
-        throw new Error(result.message || "Transaction failed")
-      }
+      if (!result.success) throw new Error(result.message || "Transaction failed")
 
       setIsSubmitting(false)
       toast({
         title: "Swap Submitted",
-        description:
-          "Your swap intent has been submitted successfully. The relayer will execute it shortly.",
+        description: "Your swap intent has been submitted successfully.",
       })
-
       onSuccess?.()
-    } catch (error) {
-      console.error("Swap error:", error)
+    } catch (err) {
+      console.error("Swap error:", err)
       setIsSigning(false)
       setIsSubmitting(false)
-
-      toast({
-        title: getTransactionErrorTitle(error, "swap"),
-        description: getTransactionErrorMessage(error, "swap"),
-        variant: "destructive",
-      })
+      setError(err instanceof Error ? err : new Error(String(err)))
     }
   }
 
-  return {
-    confirmSwap,
-    isSigning,
-    isSubmitting,
-  }
+  return { confirmSwap, isSigning, isSubmitting, error, reset }
 }

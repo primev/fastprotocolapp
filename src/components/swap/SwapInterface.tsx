@@ -158,10 +158,9 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
       />
 
       {/* 2. CORE SWAP CARDS
-          The main interaction area. The SwitchButton is visually absolute 
-          layered between the two cards.
+          SellCard and BuyCard with a SwitchButton overlay.
       */}
-      <div className="relative flex flex-col space-y-1">
+      <div className="relative flex flex-col">
         <SellCard
           fromToken={fromToken}
           amount={amount}
@@ -185,7 +184,9 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
           setAmount={setAmount}
         />
 
-        <SwitchButton handleSwitch={handleSwitch} />
+        <div className="relative h-4 flex items-center justify-center shrink-0 z-20">
+          <SwitchButton handleSwitch={handleSwitch} />
+        </div>
 
         <BuyCard
           toToken={toToken}
