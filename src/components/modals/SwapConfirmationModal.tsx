@@ -1,7 +1,13 @@
 "use client"
 
 import React, { useEffect, useState, useMemo, useCallback } from "react"
-import { Dialog, DialogContent, DialogOverlay, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogOverlay,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import * as Accordion from "@radix-ui/react-accordion"
 import { cn } from "@/lib/utils"
 import { formatPriceImpact, getPriceImpactSeverity } from "@/hooks/use-quote"
@@ -40,6 +46,7 @@ interface SwapConfirmationModalProps {
   ethPrice?: number | null
   timeLeft?: number
   isLoading?: boolean
+  refreshBalances?: () => Promise<void>
 }
 
 function SwapConfirmationModal({
@@ -57,6 +64,7 @@ function SwapConfirmationModal({
   ethPrice,
   timeLeft,
   isLoading = false,
+  refreshBalances,
 }: SwapConfirmationModalProps) {
   // --- INTERNAL UI SIMULATION STATES ---
   const [testMode, setTestMode] = useState(false)
@@ -94,7 +102,11 @@ function SwapConfirmationModal({
     amount: amountIn,
     minAmountOut,
     deadline: 0,
-    onSuccess: () => {},
+    onSuccess: () => {
+      if (refreshBalances) {
+        setTimeout(() => refreshBalances(), 1000)
+      }
+    },
   })
 
   const { gasPrice } = useGasPrice()
@@ -127,11 +139,25 @@ function SwapConfirmationModal({
   }, [resetWrap, resetSwap])
 
   const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen && isCurrentlySuccess && refreshBalances) {
+      // Refresh balances one more time when closing after success
+      refreshBalances()
+    }
     if (!isOpen) {
       resetAllStates()
     }
     onOpenChange(isOpen)
   }
+
+  // --- Balance Refresh on Wrap/Unwrap Success ---
+  useEffect(() => {
+    if (isWrapSuccess && refreshBalances) {
+      // Small delay to ensure transaction is fully confirmed
+      setTimeout(() => {
+        refreshBalances()
+      }, 1000)
+    }
+  }, [isWrapSuccess, refreshBalances])
 
   // --- ERROR FORMATTING ---
   const activeError = testMode ? testErrorObject : wrapError
@@ -203,6 +229,13 @@ function SwapConfirmationModal({
           <DialogTitle className="text-[11px] font-bold uppercase tracking-[0.25em] text-white/20">
             {modalTitle}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {isWrap
+              ? "Wrap ETH to WETH"
+              : isUnwrap
+                ? "Unwrap WETH to ETH"
+                : "Confirm swap transaction"}
+          </DialogDescription>
           <button
             onClick={() => handleOpenChange(false)}
             className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/5 transition-colors group"

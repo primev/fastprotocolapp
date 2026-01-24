@@ -151,6 +151,7 @@ export function SwapForm() {
           timeLeft={form.timeLeft}
           isWrap={form.isWrap}
           isUnwrap={form.isUnwrap}
+          refreshBalances={form.refreshBalances}
         />
       )}
     </div>
