@@ -7,7 +7,7 @@ import { getTokenLists } from "@/lib/swap-logic/token-list"
 import { useSwapForm } from "@/hooks/use-swap-form"
 
 import { SwapInterface } from "./SwapInterface"
-import { SwapReviewModal } from "./SwapReviewModal"
+import SwapConfirmationModal from "@/components/modals/SwapConfirmationModal"
 import { TokenSelectorModal } from "./TokenSelectorModal"
 import { AnimatedBackgroundOrbs } from "./OrbAnimatedBackground"
 import { Hero } from "./HeroSection"
@@ -136,17 +136,21 @@ export function SwapForm() {
       />
 
       {form.fromToken && form.toToken && (
-        <SwapReviewModal
+        <SwapConfirmationModal
           open={isConfirmationOpen}
           onOpenChange={setIsConfirmationOpen}
-          fromToken={form.fromToken.symbol}
-          toToken={form.toToken.symbol}
-          fromAmount={form.amount}
-          toAmount={form.displayQuote?.amountOutFormatted || form.amount}
-          fromUsdValue={`$${(parseFloat(form.amount || "0") * (form.fromPrice || 0)).toFixed(2)}`}
-          toUsdValue={`$${(parseFloat(form.displayQuote?.amountOutFormatted || form.amount) * (form.toPrice || 0)).toFixed(2)}`}
+          tokenIn={form.fromToken}
+          tokenOut={form.toToken}
+          amountIn={form.amount}
+          amountOut={form.displayQuote?.amountOutFormatted || form.amount}
+          minAmountOut={form.displayQuote?.amountOutFormatted || form.amount}
           exchangeRate={form.displayQuote?.exchangeRate || 1}
-          onConfirm={() => {}}
+          priceImpact={form.displayQuote?.priceImpact || 0}
+          slippage={form.slippage}
+          gasEstimate={form.gasEstimate}
+          timeLeft={form.timeLeft}
+          isWrap={form.isWrap}
+          isUnwrap={form.isUnwrap}
         />
       )}
     </div>

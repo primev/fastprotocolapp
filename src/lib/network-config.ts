@@ -30,4 +30,4 @@ export const NETWORK_CONFIG = {
  * RPC endpoint for testing
  */
 export const RPC_ENDPOINT = "https://fastrpc.mev-commit.xyz"
-export const FALLBACK_RPC_ENDPOINT = "https://eth.llamarpc.com"
+export const FALLBACK_RPC_ENDPOINT = `https://eth-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`

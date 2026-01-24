@@ -12,13 +12,15 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
+import { Token } from "@/types/swap"
 
-// Token Icons
-const ETH_ICON = (
-  <svg className="h-full w-full fill-current" viewBox="0 0 320 512">
-    <path d="M311.9 260.8L160 353.6 8 260.8 160 0l151.9 260.8zM160 383.4L8 290.6 160 512l152-221.4-152 92.8z" />
-  </svg>
-)
+// // Token Icons
+// const ETH_ICON = (
+//   <svg className="h-full w-full fill-current" viewBox="0 0 320 512">
+//     <path d="M311.9 260.8L160 353.6 8 260.8 160 0l151.9 260.8zM160 383.4L8 290.6 160 512l152-221.4-152 92.8z" />
+//   </svg>
+// )
 
 // TODO: Uncomment when FAST token is available
 // const FAST_ICON = (
@@ -34,47 +36,41 @@ const ETH_ICON = (
 //   </svg>
 // )
 
-const USDC_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#2775CA" />
-    <path
-      d="M20.5 18.5c0-2-1.5-2.75-4.5-3.25-2-.5-2.5-1-2.5-2s1-1.75 2.5-1.75c1.5 0 2.25.5 2.5 1.5h2c-.25-1.75-1.5-3-3.5-3.25V8h-2v1.75c-2 .25-3.5 1.5-3.5 3.5 0 2 1.5 2.75 4.5 3.25 2 .5 2.5 1 2.5 2s-1 1.75-2.5 1.75c-1.75 0-2.5-.75-2.75-1.75h-2c.25 2 1.75 3.25 3.75 3.5V24h2v-1.75c2-.25 3.5-1.5 3.5-3.75z"
-      fill="white"
-    />
-  </svg>
-)
+// const USDC_ICON = (
+//   <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
+//     <circle cx="16" cy="16" r="16" fill="#2775CA" />
+//     <path
+//       d="M20.5 18.5c0-2-1.5-2.75-4.5-3.25-2-.5-2.5-1-2.5-2s1-1.75 2.5-1.75c1.5 0 2.25.5 2.5 1.5h2c-.25-1.75-1.5-3-3.5-3.25V8h-2v1.75c-2 .25-3.5 1.5-3.5 3.5 0 2 1.5 2.75 4.5 3.25 2 .5 2.5 1 2.5 2s-1 1.75-2.5 1.75c-1.75 0-2.5-.75-2.75-1.75h-2c.25 2 1.75 3.25 3.75 3.5V24h2v-1.75c2-.25 3.5-1.5 3.5-3.75z"
+//       fill="white"
+//     />
+//   </svg>
+// )
 
-const DEFAULT_ICON = (
-  <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#6B7280" />
-    <text x="16" y="20" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">
-      ?
-    </text>
-  </svg>
-)
+// const DEFAULT_ICON = (
+//   <svg className="h-full w-full" viewBox="0 0 32 32" fill="none">
+//     <circle cx="16" cy="16" r="16" fill="#6B7280" />
+//     <text x="16" y="20" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">
+//       ?
+//     </text>
+//   </svg>
+// )
 
-interface Token {
-  symbol: string
-  name: string
-  icon: React.ReactNode
-}
+// const TOKENS: Record<string, Token> = {
+//   ETH: { symbol: "ETH", name: "Ethereum", icon: ETH_ICON },
+//   // TODO: Uncomment when FAST token is available
+//   // FAST: { symbol: "FAST", name: "Fast Token", icon: FAST_ICON },
+//   USDC: { symbol: "USDC", name: "USD Coin", icon: USDC_ICON },
+// }
 
-const TOKENS: Record<string, Token> = {
-  ETH: { symbol: "ETH", name: "Ethereum", icon: ETH_ICON },
-  // TODO: Uncomment when FAST token is available
-  // FAST: { symbol: "FAST", name: "Fast Token", icon: FAST_ICON },
-  USDC: { symbol: "USDC", name: "USD Coin", icon: USDC_ICON },
-}
-
-function getTokenData(token: string): Token {
-  return TOKENS[token] || { symbol: token, name: "Custom Token", icon: DEFAULT_ICON }
-}
+// function getTokenData(token: string): Token {
+//   return TOKENS[token] || { symbol: token, name: "Custom Token", icon: DEFAULT_ICON }
+// }
 
 interface SwapReviewModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  fromToken: string
-  toToken: string
+  fromToken: Token
+  toToken: Token
   fromAmount: string
   toAmount: string
   fromUsdValue: string
@@ -85,6 +81,10 @@ interface SwapReviewModalProps {
   minOut?: string
   priceImpact?: number
   slippage?: string
+  isWrap?: boolean
+  isUnwrap?: boolean
+  wrap: () => void
+  unwrap: () => void
 }
 
 interface InfoRowProps {
@@ -138,15 +138,31 @@ export function SwapReviewModal({
   toUsdValue,
   exchangeRate,
   onConfirm,
-  isSwapping = false,
   minOut,
   priceImpact: priceImpactNum,
   slippage = "0.5",
 }: SwapReviewModalProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const fromTokenData = getTokenData(fromToken)
-  const toTokenData = getTokenData(toToken)
+  const {
+    isWrap,
+    isUnwrap,
+    isLoadingGas,
+    wrap,
+    unwrap,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error,
+    hash,
+  } = useWethWrapUnwrap({
+    fromToken,
+    toToken,
+    amount: fromAmount,
+  })
+
+  // const fromTokenData = getTokenData(fromToken)
+  // const toTokenData = getTokenData(toToken)
 
   // Format amounts for display
   const formattedFromAmount = formatAmount(fromAmount)
@@ -163,6 +179,18 @@ export function SwapReviewModal({
       ? `${priceImpactNum >= 0 ? "" : "-"}${Math.abs(priceImpactNum).toFixed(2)}%`
       : "-0.01%"
   const priceImpactValue = priceImpactNum ?? -0.01
+
+  const buttonText = isWrap ? "Confirm Wrap" : isUnwrap ? "Confirm Unwrap" : "Confirm Swap"
+
+  const handleConfirm = () => {
+    if (isWrap) {
+      wrap()
+    } else if (isUnwrap) {
+      unwrap()
+    } else {
+      onConfirm()
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -319,10 +347,10 @@ export function SwapReviewModal({
             {isSwapping ? (
               <span className="flex items-center gap-2">
                 <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Swapping...
+                {buttonText}
               </span>
             ) : (
-              "Confirm swap"
+              buttonText
             )}
           </Button>
         </div>
