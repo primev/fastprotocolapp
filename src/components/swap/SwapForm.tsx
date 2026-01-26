@@ -138,15 +138,20 @@ export function SwapForm() {
 
       {form.fromToken && form.toToken && (
         <SwapConfirmationModal
+          key={`${form.fromToken.address}-${form.toToken.address}`}
           open={isConfirmationOpen}
           onOpenChange={setIsConfirmationOpen}
           tokenIn={form.fromToken}
           tokenOut={form.toToken}
           amountIn={form.amount}
-          amountOut={form.displayQuote?.amountOutFormatted || form.amount}
-          minAmountOut={form.displayQuote?.amountOutFormatted || form.amount}
-          exchangeRate={form.displayQuote?.exchangeRate || 1}
-          priceImpact={form.displayQuote?.priceImpact || 0}
+          amountOut={
+            form.isWrapUnwrap ? form.amount : form.displayQuote?.amountOutFormatted || form.amount
+          }
+          minAmountOut={
+            form.isWrapUnwrap ? form.amount : form.displayQuote?.amountOutFormatted || form.amount
+          }
+          exchangeRate={form.isWrapUnwrap ? 1 : form.displayQuote?.exchangeRate || 1}
+          priceImpact={form.isWrapUnwrap ? 0 : form.displayQuote?.priceImpact || 0}
           slippage={form.slippage}
           gasEstimate={form.gasEstimate}
           timeLeft={form.timeLeft}
