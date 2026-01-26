@@ -37,51 +37,37 @@ const connectors = connectorsForWallets(
   }
 )
 
-// Build fallback RPC chain with timeout configuration
+// 3. Transport Logic (Alchemy as Default/Primary)
 const rpcFallbacks = [
-  http(RPC_ENDPOINT, {
-    timeout: 10000, // 10 second timeout
+  // PRIMARY: Alchemy
+  http(`https://eth-mainnet.g.alchemy.com/v2/${alchemyApiKey}`, {
+    timeout: 10000,
     fetchOptions: { cache: "no-store" },
-  }), // Fast RPC (primary)
+  }),
+
+  // SECONDARY: Public Nodes
+  http("https://eth.llamarpc.com", { timeout: 10000 }),
+  http("https://rpc.ankr.com/eth", { timeout: 10000 }),
+  http("https://1rpc.io/eth", { timeout: 10000 }),
+
+  // LAST RESORT: Standard Public Node
+  http(),
 ]
 
-// Add Alchemy fallback if API key is available
-const alchemyApiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
-if (alchemyApiKey && alchemyApiKey !== "undefined") {
-  rpcFallbacks.push(
-    http(`https://eth-mainnet.g.alchemy.com/v2/${alchemyApiKey}`, {
-      timeout: 10000,
-      fetchOptions: { cache: "no-store" },
-    })
-  )
-}
-
-// Add public RPC endpoints as final fallback with timeouts
-rpcFallbacks.push(
-  http("https://eth.llamarpc.com", {
-    timeout: 10000,
-    fetchOptions: { cache: "no-store" },
-  }), // LlamaRPC public endpoint
-  http("https://rpc.ankr.com/eth", {
-    timeout: 10000,
-    fetchOptions: { cache: "no-store" },
-  }), // Ankr public endpoint
-  http("https://ethereum.publicnode.com", {
-    timeout: 10000,
-    fetchOptions: { cache: "no-store" },
-  }), // PublicNode endpoint
-  http("https://1rpc.io/eth", {
-    timeout: 10000,
-    fetchOptions: { cache: "no-store" },
-  }), // 1RPC endpoint
-  http() // Default public fallback
-)
-
+// 4. Final Config
 export const config = createConfig({
   chains: [mainnet],
   connectors,
   transports: {
-    [mainnet.id]: fallback(rpcFallbacks),
+    [mainnet.id]: fallback(rpcFallbacks, {
+      rank: true, // This will periodically test latency and pick the best one from the list
+    }),
+  },
+  batch: {
+    multicall: {
+      batchSize: 1024,
+      wait: 20, // Bundles multiple balance checks into one RPC call
+    },
   },
   ssr: true,
 })
