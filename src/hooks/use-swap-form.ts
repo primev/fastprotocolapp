@@ -92,6 +92,44 @@ export function useSwapForm(allTokens: Token[]) {
   const isWrapUnwrap = isWrapUnwrapPair(fromToken, toToken)
   const pairKey = `${fromToken?.symbol || ""}-${toToken?.symbol || ""}`
 
+  // Clear cache and manual inversion state when tokens change
+  // This prevents showing stale cached quotes from previous token pairs
+  const prevPairKeyRef = useRef<string>(pairKey)
+  const prevIsWrapUnwrapRef = useRef<boolean>(isWrapUnwrap)
+  useEffect(() => {
+    const pairChanged = prevPairKeyRef.current !== pairKey
+    const wrapUnwrapChanged = prevIsWrapUnwrapRef.current !== isWrapUnwrap
+
+    if (pairChanged || wrapUnwrapChanged) {
+      // Tokens changed or wrap/unwrap state changed - clear manual inversion state and swapped quote
+      setIsManualInversion(false)
+      setSwappedQuote(null)
+
+      // Clear cache entries to prevent stale data
+      if (pairChanged && prevPairKeyRef.current) {
+        // Clear the old pair's cache
+        setQuoteCache((prev) => {
+          const newCache = { ...prev }
+          delete newCache[prevPairKeyRef.current]
+          return newCache
+        })
+      }
+
+      // If transitioning to wrap/unwrap, also clear cache for the new pair
+      // since wrap/unwrap doesn't use quotes and shouldn't show cached values
+      if (isWrapUnwrap && pairKey) {
+        setQuoteCache((prev) => {
+          const newCache = { ...prev }
+          delete newCache[pairKey]
+          return newCache
+        })
+      }
+
+      prevPairKeyRef.current = pairKey
+      prevIsWrapUnwrapRef.current = isWrapUnwrap
+    }
+  }, [pairKey, isWrapUnwrap])
+
   const calculatedAutoSlippage = useMemo(() => {
     if (!settings.isAutoSlippage || !amount || !fromToken || !toToken) return null
     return calculateAutoSlippage(parseFloat(amount), fromToken, toToken, gasPriceGwei)
@@ -124,7 +162,9 @@ export function useSwapForm(allTokens: Token[]) {
     return null
   }, [isManualInversion, swappedQuote, quote, isQuoteLoading])
 
-  const displayQuote = activeQuote || quoteCache[pairKey]
+  // Don't use cached quotes for wrap/unwrap pairs - they don't have quotes
+  // Also ensure we only use cache if it matches the current pair (defensive check)
+  const displayQuote = activeQuote || (!isWrapUnwrap ? quoteCache[pairKey] : null)
 
   useEffect(() => {
     if (quote && fromToken?.symbol && toToken?.symbol && !isManualInversion) {
@@ -170,23 +210,53 @@ export function useSwapForm(allTokens: Token[]) {
     setIsSwitching(true)
     const oldFrom = fromToken
     const oldTo = toToken
-    const currentQuote = activeQuote || quoteCache[pairKey]
 
     setFromToken(oldTo)
     setToToken(oldFrom)
     setEditingSide("sell")
 
-    if (currentQuote) {
-      setAmount(currentQuote.amountOutFormatted.replace(/,/g, ""))
+    // For wrap/unwrap pairs, keep the current amount (1:1 ratio) and don't use cached quotes
+    // Wrap/unwrap doesn't have quotes, so we should never use cached quote data for them
+    if (isWrapUnwrap) {
+      // Keep current amount (wrap/unwrap is 1:1)
+      // Clear any manual inversion state since we're not using quotes
+      setIsManualInversion(false)
+      setSwappedQuote(null)
+    } else if (activeQuote) {
+      // Use activeQuote which matches the current amount
+      setAmount(activeQuote.amountOutFormatted.replace(/,/g, ""))
       setSwappedQuote({
-        ...currentQuote,
-        amountIn: currentQuote.amountOut,
-        amountInFormatted: currentQuote.amountOutFormatted,
-        amountOut: currentQuote.amountIn,
-        amountOutFormatted: currentQuote.amountInFormatted,
-        exchangeRate: 1 / currentQuote.exchangeRate,
+        ...activeQuote,
+        amountIn: activeQuote.amountOut,
+        amountInFormatted: activeQuote.amountOutFormatted,
+        amountOut: activeQuote.amountIn,
+        amountOutFormatted: activeQuote.amountInFormatted,
+        exchangeRate: 1 / activeQuote.exchangeRate,
       })
       setIsManualInversion(true)
+    } else {
+      // Fall back to cached quote only if it matches the current amount
+      // Only use cache for non-wrap/unwrap pairs
+      const cachedQuote = quoteCache[pairKey]
+      if (cachedQuote && amount) {
+        const cachedInputAmount = cachedQuote.amountInFormatted.replace(/,/g, "")
+        const currentInputAmount = amount.replace(/,/g, "")
+
+        // Only use cached quote if it matches the current amount
+        if (cachedInputAmount === currentInputAmount) {
+          setAmount(cachedQuote.amountOutFormatted.replace(/,/g, ""))
+          setSwappedQuote({
+            ...cachedQuote,
+            amountIn: cachedQuote.amountOut,
+            amountInFormatted: cachedQuote.amountOutFormatted,
+            amountOut: cachedQuote.amountIn,
+            amountOutFormatted: cachedQuote.amountInFormatted,
+            exchangeRate: 1 / cachedQuote.exchangeRate,
+          })
+          setIsManualInversion(true)
+        }
+        // If cache doesn't match current amount, keep current amount and let refetch handle it
+      }
     }
 
     setTimeout(() => {
@@ -202,6 +272,8 @@ export function useSwapForm(allTokens: Token[]) {
     lastSwitchTime,
     exchangeRateContent,
     refetch,
+    amount,
+    isWrapUnwrap,
   ])
 
   // --- WETH Context & Gas ---
@@ -257,6 +329,8 @@ export function useSwapForm(allTokens: Token[]) {
     ...settings,
     fromPrice: priceCache[fromToken?.symbol || ""] ?? fromPrice ?? 0,
     toPrice: priceCache[toToken?.symbol || ""] ?? toPrice ?? 0,
+    isLoadingFromPrice,
+    isLoadingToPrice,
     fromBalance,
     fromBalanceValue,
     isLoadingFromBalance,
@@ -272,6 +346,9 @@ export function useSwapForm(allTokens: Token[]) {
     isWrapUnwrap,
     calculatedAutoSlippage,
     isManualInversion,
+    setIsManualInversion,
+    swappedQuote,
+    setSwappedQuote,
     hasNoLiquidity,
     gasEstimate: isWrapUnwrap ? wrapUnwrapGasEstimate : (displayQuote?.gasEstimate ?? null),
     ...wrapContext,
