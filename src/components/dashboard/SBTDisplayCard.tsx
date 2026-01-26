@@ -9,7 +9,7 @@ import { SocialIcon } from "react-social-icons"
 import { NFT_NAME, NFT_DESCRIPTION } from "@/lib/contract-config"
 import { OPENSEA_URL } from "@/lib/constants"
 
-const SBT_VIDEO_ASSET_URL = process.env.NEXT_PUBLIC_BLOB_STORAGE_BASE_URL
+const SBT_VIDEO_ASSET_URL = process.env.NEXT_PUBLIC_R2_BASE_URL
 
 const SBT_VIDEO_ASSET = `${SBT_VIDEO_ASSET_URL}/SBT-token-animated.mp4`
 
