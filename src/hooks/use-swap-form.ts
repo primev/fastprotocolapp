@@ -7,7 +7,13 @@ import { useQuote, calculateAutoSlippage, type QuoteResult } from "@/hooks/use-q
 import { useTokenPrice } from "@/hooks/use-token-price"
 import { useGasPrice } from "@/hooks/use-gas-price"
 import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
-import { isWrapUnwrapPair } from "@/lib/weth-utils"
+import {
+  isWrapUnwrapPair,
+  isWrapOperation,
+  isUnwrapOperation,
+  estimateWrapGas,
+  estimateUnwrapGas,
+} from "@/lib/weth-utils"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import { useSwapPersistence } from "@/hooks/use-swap-persistence"
 import { Token } from "@/types/swap"
@@ -42,6 +48,7 @@ export function useSwapForm(allTokens: Token[]) {
     Record<string, { value: bigint; formatted: string }>
   >({})
   const [lastValidRate, setLastValidRate] = useState<string | null>(null)
+  const [wrapUnwrapGasEstimate, setWrapUnwrapGasEstimate] = useState<bigint | null>(null)
 
   // --- Quote change tracking ---
   const prevQuoteRef = useRef<QuoteResult | null>(null)
@@ -204,6 +211,36 @@ export function useSwapForm(allTokens: Token[]) {
     amount,
     enabled: isWrapUnwrap && !!amount,
   })
+
+  // --- Gas Estimation for Wrap/Unwrap ---
+  useEffect(() => {
+    if (!isWrapUnwrap || !amount || !address || !isConnected) {
+      setWrapUnwrapGasEstimate(null)
+      return
+    }
+
+    const estimateGas = async () => {
+      try {
+        const isWrap = isWrapOperation(fromToken, toToken)
+        const isUnwrap = isUnwrapOperation(fromToken, toToken)
+
+        if (isWrap) {
+          const estimate = await estimateWrapGas(amount, address as `0x${string}`)
+          setWrapUnwrapGasEstimate(estimate)
+        } else if (isUnwrap) {
+          const estimate = await estimateUnwrapGas(amount, address as `0x${string}`)
+          setWrapUnwrapGasEstimate(estimate)
+        }
+      } catch (error) {
+        console.warn("Failed to estimate wrap/unwrap gas:", error)
+        setWrapUnwrapGasEstimate(null)
+      }
+    }
+
+    // Debounce gas estimation
+    const timeoutId = setTimeout(estimateGas, 500)
+    return () => clearTimeout(timeoutId)
+  }, [isWrapUnwrap, amount, address, isConnected, fromToken, toToken])
 
   // --- Refresh Timer ---
   useEffect(() => {
@@ -398,6 +435,7 @@ export function useSwapForm(allTokens: Token[]) {
     calculatedAutoSlippage,
     isManualInversion,
     hasNoLiquidity,
+    gasEstimate: isWrapUnwrap ? wrapUnwrapGasEstimate : (displayQuote?.gasEstimate ?? null),
 
     // Wrap Logic
     ...wrapContext,
