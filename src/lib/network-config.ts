@@ -3,6 +3,8 @@
  *
  * Network details for Ethereum Mainnet with Fast Protocol RPC
  */
+const alchemyApiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
+
 export const FAST_PROTOCOL_NETWORK = {
   chainId: 1,
   chainName: "Ethereum Mainnet",
@@ -30,4 +32,5 @@ export const NETWORK_CONFIG = {
  * RPC endpoint for testing
  */
 export const RPC_ENDPOINT = "https://fastrpc.mev-commit.xyz"
-export const FALLBACK_RPC_ENDPOINT = "https://eth.llamarpc.com"
+export const FALLBACK_RPC_ENDPOINT =
+  `https://eth-mainnet.g.alchemy.com/v2/${alchemyApiKey}` || "https://eth.llamarpc.com"
