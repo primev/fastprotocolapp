@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef } from "react"
 import { useAccount } from "wagmi"
 import { formatBalance } from "@/lib/utils"
 import { getTokenLists } from "@/lib/swap-logic/token-list"
@@ -104,7 +104,7 @@ export function SwapForm() {
         hasNoLiquidity={form.hasNoLiquidity}
       />
 
-      {/* Modal Components with Mandatory Props */}
+      {/* From Token Selector Modal */}
       <TokenSelectorModal
         open={isFromSelectorOpen}
         onOpenChange={setIsFromSelectorOpen}
@@ -120,6 +120,7 @@ export function SwapForm() {
         }}
       />
 
+      {/* To Token Selector Modal */}
       <TokenSelectorModal
         open={isToSelectorOpen}
         onOpenChange={setIsToSelectorOpen}
@@ -149,8 +150,6 @@ export function SwapForm() {
           slippage={form.slippage}
           gasEstimate={form.gasEstimate}
           timeLeft={form.timeLeft}
-          isWrap={form.isWrap}
-          isUnwrap={form.isUnwrap}
           refreshBalances={form.refreshBalances}
         />
       )}
