@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
 
 export const OnboardingHeader = () => {
   const router = useRouter()
@@ -28,7 +29,18 @@ export const OnboardingHeader = () => {
           />
         </div>
 
-        <h1 className="text-muted-foreground font-bold"> Claim Genesis SBT</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-muted-foreground font-bold"> Claim Genesis SBT</h1>
+          <span className="w-px h-6 bg-border mx-1" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/dashboard")}
+            className="shrink-0"
+          >
+            Dashboard
+          </Button>
+        </div>
       </div>
     </header>
   )
