@@ -1,13 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react"
 import useEmblaCarousel from "embla-carousel-react"
-import { ShieldCheck, ChevronLeft, ChevronRight, Loader2, Check, Beaker } from "lucide-react"
+import { ShieldCheck, ChevronLeft, ChevronRight, Loader2, Check, X } from "lucide-react"
 import { useAccount, useReadContracts } from "wagmi"
 import { erc721Abi } from "viem"
-
-/** * TEST CONFIGURATION
- * Set TEST_MODE to true to bypass blockchain checks and force successful verification.
- */
-const TEST_MODE = true
 
 const ASSETS_URL = process.env.NEXT_PUBLIC_R2_BASE_URL
 
@@ -16,8 +11,17 @@ const DOODLES_IMG = `${ASSETS_URL}/nfts/doodles.jpg`
 const MOONBIRDS_IMG = `${ASSETS_URL}/nfts/moonbirds.jpg`
 const PUDGY_PENGUINS_IMG = `${ASSETS_URL}/nfts/pudgy-penguins.jpg`
 const YUGA_LABS_IMG = `${ASSETS_URL}/nfts/yuga-labs.jpg`
+// const TEST_IMG = `/assets/fast-icon.png`
 
 const ECOSYSTEM_SETS = [
+  // {
+  //   id: "test",
+  //   name: "test",
+  //   img: TEST_IMG,
+  //   addresses: [
+  //     "0xd0E132C73C9425072AAB9256d63aa14D798D063A",
+  //   ] as const
+  // },
   {
     id: "pudgy",
     name: "Pudgy\nPenguins",
@@ -45,7 +49,7 @@ const ECOSYSTEM_SETS = [
     addresses: [
       "0xed5af388653567af2f388e6224dc7c4b3241c544", // Azuki
       "0x306b1ea3ecdf94ab739f1910bbda052ed4a9f949", // BEANZ
-      "0xb6a37b5d14d502c3ab0ae6f3a0e058bc9517786e", // Azuki Elementals
+      "0xb6a37b5d14split502c3ab0ae6f3a0e058bc9517786e", // Azuki Elementals
     ] as const,
   },
   {
@@ -73,11 +77,30 @@ const ECOSYSTEM_SETS = [
   },
 ]
 
+const fetchUserActivity = async (walletAddress: string): Promise<Record<string, boolean>> => {
+  const res = await fetch(`/api/user-community-activity/${walletAddress}`)
+  if (!res.ok) return {}
+  const data = await res.json()
+  return data.activities ?? {}
+}
+
+const saveUserActivity = async (walletAddress: string, entity: string, activity: boolean) => {
+  const res = await fetch(`/api/user-community-activity/${walletAddress}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ entity, activity }),
+  })
+  if (!res.ok) throw new Error("Failed to save activity")
+}
+
 export const EcosystemSetCarousel = () => {
   const { address: userAddress, isConnected } = useAccount()
   const [verifiedSets, setVerifiedSets] = useState<Record<string, boolean>>({})
+  const [failedSets, setFailedSets] = useState<Record<string, boolean>>({})
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [manualLoadingId, setManualLoadingId] = useState<string | null>(null)
+  const [canScrollPrev, setCanScrollPrev] = useState(false)
+  const [canScrollNext, setCanScrollNext] = useState(false)
 
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: true,
@@ -85,51 +108,31 @@ export const EcosystemSetCarousel = () => {
     skipSnaps: false,
   })
 
-  const markAsVerified = useCallback((id: string) => {
-    setVerifiedSets((prev) => {
-      if (prev[id]) return prev
-      const next = { ...prev, [id]: true }
-      localStorage.setItem(`verified_${id}`, "true")
-      return next
-    })
-  }, [])
-
-  const syncWithBlockchain = useCallback(
-    (resultsArray: any[]) => {
-      let globalIndex = 0
-      ECOSYSTEM_SETS.forEach((set) => {
-        // Check all addresses for this specific set
-        for (let i = 0; i < set.addresses.length; i++) {
-          const res = resultsArray[globalIndex++]
-          // Return once the first balance is found for this set
-          if (res.status === "success" && Number(res.result) > 0) {
-            markAsVerified(set.id)
-            // Advance globalIndex for the remaining addresses in this set and break to next set
-            globalIndex += set.addresses.length - 1 - i
-            break
-          }
-        }
+  const markAsVerified = useCallback(
+    (id: string) => {
+      if (!userAddress) return
+      saveUserActivity(userAddress, id, true).catch(() => {
+        // Todo: handle error
       })
     },
-    [markAsVerified]
+    [userAddress]
   )
 
   const contracts = useMemo(() => {
-    if (!userAddress || TEST_MODE) return []
-    // Flatten all addresses into a single contract call array
-    return ECOSYSTEM_SETS.flatMap((set) =>
-      set.addresses.map((addr) => ({
-        address: addr,
-        abi: erc721Abi,
-        functionName: "balanceOf",
-        args: [userAddress],
-      }))
-    )
-  }, [userAddress])
+    if (!userAddress || !manualLoadingId) return []
+    const set = ECOSYSTEM_SETS.find((s) => s.id === manualLoadingId)
+    if (!set) return []
+    return set.addresses.map((addr) => ({
+      address: addr,
+      abi: erc721Abi,
+      functionName: "balanceOf",
+      args: [userAddress],
+    }))
+  }, [userAddress, manualLoadingId])
 
-  const { data: blockchainData, refetch } = useReadContracts({
+  const { data: blockchainData } = useReadContracts({
     contracts,
-    query: { enabled: isConnected && !!userAddress && !TEST_MODE },
+    query: { enabled: isConnected && !!userAddress && !!manualLoadingId },
   })
 
   useEffect(() => {
@@ -144,46 +147,99 @@ export const EcosystemSetCarousel = () => {
   }, [])
 
   useEffect(() => {
-    if (blockchainData && !TEST_MODE) syncWithBlockchain(blockchainData as any[])
-  }, [blockchainData, syncWithBlockchain])
+    if (!isConnected || !userAddress) return
+    fetchUserActivity(userAddress)
+      .then((activities) => {
+        const fromApi: Record<string, boolean> = {}
+        Object.entries(activities).forEach(([entity, active]) => {
+          if (active) fromApi[entity] = true
+        })
+        if (Object.keys(fromApi).length > 0) {
+          setVerifiedSets((prev) => ({ ...prev, ...fromApi }))
+          Object.keys(fromApi).forEach((id) => localStorage.setItem(`verified_${id}`, "true"))
+        }
+      })
+      .catch((e) => console.error("Fetch user activity failed:", e))
+  }, [isConnected, userAddress])
 
-  const handleVerify = async (id: string) => {
-    setManualLoadingId(id)
-    await new Promise((resolve) => setTimeout(resolve, 800))
+  useEffect(() => {
+    if (!blockchainData || !manualLoadingId) return
+    const results = blockchainData as { status: string; result?: unknown }[]
 
-    if (TEST_MODE) {
-      markAsVerified(id)
+    const hasAssets = results.some((res) => res.status === "success" && Number(res.result) > 0)
+
+    if (hasAssets) {
+      setVerifiedSets((prev) => ({ ...prev, [manualLoadingId]: true }))
+      setFailedSets((prev) => {
+        const next = { ...prev }
+        delete next[manualLoadingId]
+        return next
+      })
+      localStorage.setItem(`verified_${manualLoadingId}`, "true")
+      markAsVerified(manualLoadingId)
     } else {
-      if (!isConnected) {
-        alert("Please connect your wallet!")
-        setManualLoadingId(null)
-        return
-      }
-      const { data } = await refetch()
-      if (data) syncWithBlockchain(data as any[])
+      setFailedSets((prev) => ({ ...prev, [manualLoadingId]: true }))
+      // Auto-clear failure after 3 seconds to allow retry
+      setTimeout(() => {
+        setFailedSets((prev) => {
+          const next = { ...prev }
+          delete next[manualLoadingId!]
+          return next
+        })
+      }, 3000)
     }
     setManualLoadingId(null)
+  }, [blockchainData, manualLoadingId, markAsVerified])
+
+  const handleVerify = (id: string) => {
+    setFailedSets((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+    setManualLoadingId(id)
   }
 
-  // Ensure you add these states to your component:
-  const [canScrollPrev, setCanScrollPrev] = useState(false)
-  const [canScrollNext, setCanScrollNext] = useState(false)
+  const fitsContainer = !canScrollPrev && !canScrollNext
 
-  // Add this useEffect to handle the logic:
   useEffect(() => {
     if (!emblaApi) return
-    const onSelect = () => {
+    const updateScrollState = () => {
       setCanScrollPrev(emblaApi.canScrollPrev())
       setCanScrollNext(emblaApi.canScrollNext())
     }
-    emblaApi.on("select", onSelect)
-    emblaApi.on("reInit", onSelect)
-    onSelect()
+    emblaApi.on("select", updateScrollState)
+    emblaApi.on("reInit", updateScrollState)
+    emblaApi.on("resize", updateScrollState)
+    updateScrollState()
+    return () => {
+      emblaApi.off("select", updateScrollState)
+      emblaApi.off("reInit", updateScrollState)
+      emblaApi.off("resize", updateScrollState)
+    }
   }, [emblaApi])
 
   return (
     <div className="bg-card/50 p-6 rounded-xl border border-border/50 text-foreground max-w-5xl mx-auto shadow-2xl font-sans relative">
-      <div className="flex justify-end mb-2">
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-4px); }
+          75% { transform: translateX(4px); }
+        }
+        .animate-shake { animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+      `,
+        }}
+      />
+
+      <div className="flex justify-between items-center mb-1">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="text-blue-500 w-6 h-6 hidden sm:flex" />
+          <h3 className="text-xl font-semibold">Verify Assets</h3>
+        </div>
+
         <div className="bg-[#1a232e] text-[#4da1ff] text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-blue-900/30 uppercase tracking-wider">
           {isInitialLoading
             ? "-- / --"
@@ -192,31 +248,32 @@ export const EcosystemSetCarousel = () => {
         </div>
       </div>
 
-      <div className="flex justify-between items-center mb-1">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="text-blue-500 w-6 h-6 hidden sm:flex" />
-          <h3 className="text-xl font-semibold">Verify Assets</h3>
-        </div>
-      </div>
-
-      <p className="text-foreground mb-6">Unlock exclusive badges by verifying your activity.</p>
+      <p className="text-foreground/70 mb-6 text-sm">
+        Unlock exclusive badges by verifying your activity.
+      </p>
 
       <div className="relative group">
         <div className="overflow-hidden" ref={emblaRef}>
-          {/* Added 'ml-[-12px]' to offset the padding on the first item and keep alignment centered */}
-          <div className="flex ml-[-12px]">
+          <div className={`flex ml-[-12px] ${fitsContainer ? "justify-center" : ""}`}>
             {ECOSYSTEM_SETS.map((set) => {
               const isVerified = !!verifiedSets[set.id]
               const isVerifying = manualLoadingId === set.id
+              const isFailed = !!failedSets[set.id]
 
               return (
-                /* Changed: Added 'pl-3' to provide the gap within the slide itself */
                 <div
                   key={set.id}
-                  className="flex-[0_0_85%] sm:flex-[0_0_45%] lg:flex-1 min-w-0 pl-3"
+                  className={`flex-[0_0_170px] min-w-0 pl-3 ${isFailed ? "animate-shake" : ""}`}
                 >
                   <div
-                    className={`bg-[#161d26] border rounded-xl p-4 flex flex-col items-center h-[210px] transition-all duration-500 ${isVerified ? "border-blue-500/40 shadow-lg shadow-blue-500/5" : "border-white/5"}`}
+                    className={`bg-[#161d26] border rounded-xl p-4 flex flex-col items-center h-[210px] transition-all duration-500 
+                    ${
+                      isVerified
+                        ? "border-blue-500/40 shadow-lg shadow-blue-500/5"
+                        : isFailed
+                          ? "border-red-500/50 shadow-lg shadow-red-500/5"
+                          : "border-white/5"
+                    }`}
                   >
                     {isInitialLoading ? (
                       <div className="w-full animate-pulse flex flex-col items-center">
@@ -228,7 +285,8 @@ export const EcosystemSetCarousel = () => {
                       <>
                         <div className="relative mb-6">
                           <div
-                            className={`w-14 h-14 rounded-full overflow-hidden border-2 transition-all duration-500 ${isVerified ? "border-blue-500" : "border-gray-700"} bg-[#0b0e11] relative`}
+                            className={`w-14 h-14 rounded-full overflow-hidden border-2 transition-all duration-500 
+                            ${isVerified ? "border-blue-500" : isFailed ? "border-red-500/50" : "border-gray-700"} bg-[#0b0e11] relative`}
                           >
                             <img
                               src={set.img}
@@ -245,6 +303,11 @@ export const EcosystemSetCarousel = () => {
                               <Check className="w-2.5 h-2.5 text-white stroke-[4px]" />
                             </div>
                           )}
+                          {isFailed && (
+                            <div className="absolute bottom-0 right-0 bg-red-500 rounded-full p-0.5 border-2 border-[#161d26] z-10">
+                              <X className="w-2.5 h-2.5 text-white stroke-[4px]" />
+                            </div>
+                          )}
                         </div>
 
                         <h3 className="text-[10px] font-bold mb-1 text-foreground uppercase tracking-widest text-center leading-tight whitespace-pre-line min-h-[32px] flex items-center justify-center">
@@ -253,17 +316,23 @@ export const EcosystemSetCarousel = () => {
 
                         <button
                           onClick={() => handleVerify(set.id)}
-                          disabled={isVerified || isVerifying}
+                          disabled={!isConnected || isVerified || isVerifying}
                           className={`mt-auto w-full py-2 rounded-full text-[9px] font-bold uppercase border tracking-widest transition-all ${
                             isVerified
-                              ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-default"
-                              : "border-[#4da1ff] text-[#4da1ff] hover:bg-[#4da1ff]/10 active:scale-95 cursor-pointer"
+                              ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
+                              : isFailed
+                                ? "border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20"
+                                : !isConnected || isVerifying
+                                  ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
+                                  : "border-[#4da1ff] text-[#4da1ff] hover:bg-[#4da1ff]/10 active:scale-95 cursor-pointer"
                           }`}
                         >
                           {isVerifying ? (
                             <Loader2 className="w-3 h-3 animate-spin mx-auto" />
                           ) : isVerified ? (
                             "Verified"
+                          ) : isFailed ? (
+                            "Not Found"
                           ) : (
                             "Verify"
                           )}
