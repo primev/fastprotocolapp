@@ -5,7 +5,7 @@ import { useAccount } from "wagmi"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, Target, Zap } from "lucide-react"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, formatNumber } from "@/lib/utils"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import {
   TIER_THRESHOLDS,
@@ -22,6 +22,7 @@ interface LeaderboardEntry {
   swapCount?: number
   change24h: number
   isCurrentUser?: boolean
+  ethValue?: number
 }
 
 interface LeaderboardData {
@@ -116,6 +117,7 @@ export const LeaderboardTable = ({
         swapCount: userSwapTxs !== null ? userSwapTxs : undefined,
         change24h: 0,
         isCurrentUser: true,
+        ethValue: ethPrice && adjustedUserVol ? adjustedUserVol / ethPrice : undefined,
       })
     }
 
@@ -152,6 +154,7 @@ export const LeaderboardTable = ({
 
     let displayData = top15
     if (!userInTop15 && userPos && userAddr) {
+      const fromLb = lbData.find((e) => e.isCurrentUser)
       // Add user entry after top 15 with actual position from API
       displayData = [
         ...top15,
@@ -162,6 +165,9 @@ export const LeaderboardTable = ({
           swapCount: userSwapTxs !== null ? userSwapTxs : undefined,
           change24h: 0,
           isCurrentUser: true,
+          ethValue:
+            fromLb?.ethValue ??
+            (ethPrice && adjustedUserVol ? adjustedUserVol / ethPrice : undefined),
         },
       ]
     }
@@ -246,7 +252,7 @@ export const LeaderboardTable = ({
       {/* Header Section: Title & Global Stats */}
       <div className="flex flex-col gap-5 border-b border-white/5 pb-6">
         {/* Branding & Global Metrics */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div className="flex flex-col shrink-0">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
@@ -259,23 +265,34 @@ export const LeaderboardTable = ({
             </h1>
           </div>
 
-          <div className="flex items-center gap-6 sm:gap-10">
+          <div className="flex items-center gap-4 sm:gap-6 md:gap-10">
             <div className="flex flex-col items-start md:items-end">
-              <span className="text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.2em]">
+              <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
                 Traders
               </span>
-              <span className="text-xl sm:text-2xl font-bold tabular-nums tracking-tighter">
+              <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
                 {activeTraders?.toLocaleString() || "---"}
               </span>
             </div>
-            <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-10">
-              <span className="text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.2em]">
-                Total Volume
+            <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
+              <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
+                Vol (ETH)
               </span>
-              <span className="text-xl sm:text-2xl font-bold tabular-nums tracking-tighter">
+              <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
+                {swapVolumeEth != null
+                  ? `${formatNumber(swapVolumeEth)} ETH`
+                  : "---"}
+              </span>
+            </div>
+            <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
+              <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
+                Vol (USD)
+              </span>
+              <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
                 {totalVol ? formatVolumeDisplay(totalVol) : "---"}
               </span>
             </div>
+            
           </div>
         </div>
 
@@ -620,16 +637,31 @@ export const LeaderboardTable = ({
                       </div>
                     </div>
                     <div className="col-span-3 sm:col-span-3 text-right min-w-0">
-                      <p className="text-base sm:text-xl md:text-2xl font-black tracking-tighter tabular-nums whitespace-nowrap">
-                        {formatVolumeDisplay(entry.swapVolume24h)}
-                      </p>
-                      <div
-                        className={`text-[9px] sm:text-[10px] md:text-xs font-bold whitespace-nowrap ${
-                          entry.change24h >= 0 ? "text-emerald-500" : "text-rose-500"
-                        }`}
-                      >
-                        {entry.change24h >= 0 ? "+" : ""}
-                        {entry.change24h.toFixed(1)}%
+                      {/* Combined Value Column (ETH + USD) */}
+                      <div className="col-span-4 flex flex-col items-end justify-center min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <div
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-white/5 ${
+                              entry.change24h >= 0 ? "text-emerald-500/80" : "text-rose-500/80"
+                            }`}
+                          >
+                            {entry.change24h >= 0 ? "↑" : "↓"}{" "}
+                            {Math.abs(entry.change24h).toFixed(1)}%
+                          </div>
+                        </div>
+
+                        {/* The Hero Metric: USD Volume */}
+                        <span className="text-xl md:text-3xl font-black tracking-tighter tabular-nums leading-none">
+                          {formatVolumeDisplay(entry.swapVolume24h)}
+                        </span>
+
+                        {/* The Sub Metric: ETH Value + Price Reference */}
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="text-xs font-bold text-primary tabular-nums">
+                            {formatNumber(entry.ethValue)}{" "}
+                            ETH
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>

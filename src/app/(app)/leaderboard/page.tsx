@@ -29,6 +29,7 @@ async function StatsLoader({
     swapCount: number
     change24h: number
     isCurrentUser: boolean
+    ethValue: number
   }>
 }) {
   // Start all stats fetches in parallel - they'll complete independently

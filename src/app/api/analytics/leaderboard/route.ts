@@ -132,6 +132,7 @@ export async function GET(request: NextRequest) {
                 swapCount: userSwapCount,
                 change24h: userChange24hPct,
                 isCurrentUser: true,
+                ethValue: userTotalSwapVolEth,
               })
             }
           }

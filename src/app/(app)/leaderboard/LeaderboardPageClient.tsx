@@ -27,6 +27,7 @@ interface LeaderboardPageClientProps {
     swapCount: number
     change24h: number
     isCurrentUser: boolean
+    ethValue: number
   }>
 }
 
