@@ -5,7 +5,7 @@ import { useAccount } from "wagmi"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, Target, Zap } from "lucide-react"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, formatNumber } from "@/lib/utils"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import {
   TIER_THRESHOLDS,
@@ -276,22 +276,23 @@ export const LeaderboardTable = ({
             </div>
             <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
               <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
+                Vol (ETH)
+              </span>
+              <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
+                {swapVolumeEth != null
+                  ? `${formatNumber(swapVolumeEth)} ETH`
+                  : "---"}
+              </span>
+            </div>
+            <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
+              <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
                 Vol (USD)
               </span>
               <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
                 {totalVol ? formatVolumeDisplay(totalVol) : "---"}
               </span>
             </div>
-            <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
-              <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
-                Vol (ETH)
-              </span>
-              <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
-                {swapVolumeEth != null
-                  ? `${swapVolumeEth.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 })} ETH`
-                  : "---"}
-              </span>
-            </div>
+            
           </div>
         </div>
 
@@ -657,10 +658,7 @@ export const LeaderboardTable = ({
                         {/* The Sub Metric: ETH Value + Price Reference */}
                         <div className="flex items-center gap-1.5 mt-1">
                           <span className="text-xs font-bold text-primary tabular-nums">
-                            {entry.ethValue?.toLocaleString(undefined, {
-                              maximumFractionDigits: 4,
-                              minimumFractionDigits: 4,
-                            })}{" "}
+                            {formatNumber(entry.ethValue)}{" "}
                             ETH
                           </span>
                         </div>
