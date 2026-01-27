@@ -24,6 +24,7 @@ export interface TransformedLeaderboardEntry {
   swapCount: number
   change24h: number
   isCurrentUser: boolean
+  ethValue: number
 }
 
 /**
@@ -62,6 +63,7 @@ export function transformLeaderboardRows(
       swapCount: swapCount,
       change24h: change24hPct,
       isCurrentUser: currentUserLower ? walletLower === currentUserLower : false,
+      ethValue: volumeEth,
     }
   })
 }

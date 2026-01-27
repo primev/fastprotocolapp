@@ -222,6 +222,7 @@ export async function getLeaderboardTop15(): Promise<{
     swapCount: number
     change24h: number
     isCurrentUser: boolean
+    ethValue: number
   }>
   ethPrice: number | null
 } | null> {
