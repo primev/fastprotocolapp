@@ -46,7 +46,7 @@ const rpcFallbacks = [
   }),
 
   // SECONDARY: Public Nodes
-  http("https://eth.llamarpc.com", { timeout: 10000 }),
+  // http("https://eth.llamarpc.com", { timeout: 10000 }),
   http("https://rpc.ankr.com/eth", { timeout: 10000 }),
   http("https://1rpc.io/eth", { timeout: 10000 }),
 

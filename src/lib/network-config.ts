@@ -38,3 +38,12 @@ export const FALLBACK_RPC_ENDPOINT = `https://eth-mainnet.g.alchemy.com/v2/${pro
  * FastSwap API base URL for executor-submitted (ERC20) and user-submitted (ETH) swaps
  */
 export const FASTSWAP_API_BASE = "https://fastrpc.mev-commit.xyz"
+
+/**
+ * When true, bypass real FastSwap API and contract; use dummy data and fake success.
+ * Defaults to true in development so flows can be tested without production API.
+ * Set NEXT_PUBLIC_FASTSWAP_DUMMY=false to use real API in dev; set to "true" in prod only for testing.
+ */
+export const USE_FASTSWAP_DUMMY =
+  process.env.NEXT_PUBLIC_FASTSWAP_DUMMY === "true" ||
+  (process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_FASTSWAP_DUMMY !== "false")
