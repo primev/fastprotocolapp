@@ -161,15 +161,15 @@ function SwapConfirmationModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogOverlay className="bg-black/60 backdrop-blur-md transition-all duration-300" />
       <DialogContent
-        className="max-w-[480px] bg-[#131313] p-2 overflow-hidden gap-0 rounded-[28px] border-0 outline-none ring-0 shadow-2xl [&>button]:hidden"
+        className="max-w-[480px] bg-[#1c1c1c] p-2 overflow-hidden gap-0 rounded-[28px] border-0 outline-none ring-0 shadow-2xl [&>button]:hidden"
         // PREVENT CLICK OUTSIDE & ESCAPE
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         {/* HEADER */}
-        <div className="relative flex items-center justify-between bg-[#131313]/50 h-[54px] py-3 px-4 mb-4">
-          <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent"></div>
-          <DialogTitle className="text-[11px] font-bold uppercase tracking-[0.25em] text-white/20">
+        <div className="relative flex items-center justify-between bg-[#1c1c1c]/60 h-[54px] py-3 px-4 mb-4">
+          <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent"></div>
+          <DialogTitle className="text-[11px] font-bold uppercase tracking-[0.25em] text-white/45">
             {isCurrentlyError
               ? errorTitle
               : isActive
@@ -183,7 +183,7 @@ function SwapConfirmationModal({
               onClick={() => handleOpenChange(false)}
               className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/5 transition-colors group"
             >
-              <X size={18} className="text-white/40 group-hover:text-white/80 transition-colors" />
+              <X size={18} className="text-white/55 group-hover:text-white/90 transition-colors" />
             </button>
           )}
         </div>
@@ -234,9 +234,9 @@ function SwapConfirmationModal({
                       ? "Processing Block"
                       : "Sign Transaction"}
               </h3>
-              <p className="text-[14px] font-medium text-white/60 max-w-[320px] leading-relaxed">
+              <p className="text-[14px] font-medium text-white/75 max-w-[320px] leading-relaxed">
                 {isCurrentlySuccess
-                  ? "Transaction confirmed. Your balances will update shortly."
+                  ? "Transaction successfully completed."
                   : isCurrentlyError
                     ? shortErrorMessage
                     : isWaitingForBlock
@@ -260,7 +260,7 @@ function SwapConfirmationModal({
               {isCurrentlyError && (
                 <button
                   onClick={resetAllStates}
-                  className="w-full h-14 bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3"
+                  className="w-full h-14 bg-white/10 hover:bg-white/15 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3"
                 >
                   <RefreshCw size={16} /> Try Again
                 </button>
@@ -268,7 +268,7 @@ function SwapConfirmationModal({
               {(isCurrentlySuccess || isCurrentlyError) && (
                 <button
                   onClick={() => handleOpenChange(false)}
-                  className="w-full py-4 text-[10px] font-bold uppercase tracking-[0.25em] text-white/30 hover:text-white/60 transition-colors"
+                  className="w-full py-4 text-[10px] font-bold uppercase tracking-[0.25em] text-white/50 hover:text-white/70 transition-colors"
                 >
                   Close Window
                 </button>
@@ -279,10 +279,10 @@ function SwapConfirmationModal({
           /* REVIEW VIEW */
           <div className="px-4 pb-6 space-y-6 animate-in fade-in duration-300">
             <div className="relative">
-              <div className="bg-[#131313]/50 border border-white/[0.04] rounded-2xl p-5 flex items-center justify-between mb-2">
+              <div className="bg-[#1c1c1c]/60 border border-white/10 rounded-2xl p-5 flex items-center justify-between mb-2">
                 <div className="flex flex-col">
                   <span className="text-lg font-bold text-white">{tokenIn?.symbol}</span>
-                  <span className="text-[10px] text-white/30 uppercase font-bold tracking-widest">
+                  <span className="text-[10px] text-white/50 uppercase font-bold tracking-widest">
                     Pay
                   </span>
                 </div>
@@ -290,12 +290,12 @@ function SwapConfirmationModal({
               </div>
 
               <div className="absolute left-1/2 -translate-x-1/2 top-[50%] -translate-y-1/2 z-10">
-                <div className="p-2 bg-[#131313] border-[6px] border-[#131313] rounded-2xl">
-                  <ArrowDown size={18} className="text-white/20" />
+                <div className="p-2 bg-[#1c1c1c] border-[6px] border-[#1c1c1c] rounded-2xl ring-1 ring-white/15">
+                  <ArrowDown size={18} className="text-white/45" />
                 </div>
               </div>
 
-              <div className="bg-[#131313]/50 border border-white/[0.04] rounded-2xl p-5 flex items-center justify-between mt-2">
+              <div className="bg-[#1c1c1c]/60 border border-white/10 rounded-2xl p-5 flex items-center justify-between mt-2">
                 <div className="flex flex-col">
                   <span className="text-lg font-bold text-white">{tokenOut?.symbol}</span>
                   <span className="text-[10px] text-emerald-500/50 uppercase font-bold tracking-widest">
@@ -308,16 +308,16 @@ function SwapConfirmationModal({
               </div>
             </div>
 
-            <div className="bg-white/[0.02] border border-white/[0.04] rounded-2xl p-5 space-y-3">
+            <div className="bg-white/[0.05] border border-white/10 rounded-2xl p-5 space-y-3">
               <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
-                <span className="text-white/30">Network Cost</span>
-                <span className="text-white/70">
+                <span className="text-white/50">Network Cost</span>
+                <span className="text-white/80">
                   {gasCostUsd ? `$${gasCostUsd.toFixed(2)}` : "—"}
                 </span>
               </div>
               <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
-                <span className="text-white/30">Max Slippage</span>
-                <span className="text-white/70">{slippage}%</span>
+                <span className="text-white/50">Max Slippage</span>
+                <span className="text-white/80">{slippage}%</span>
               </div>
             </div>
 
