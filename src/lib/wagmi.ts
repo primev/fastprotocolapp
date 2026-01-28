@@ -10,7 +10,7 @@ import {
   rabbyWallet,
 } from "@rainbow-me/rainbowkit/wallets"
 import { createConfig, http, fallback } from "wagmi"
-import { mainnet } from "wagmi/chains"
+import { mainnet, bsc } from "wagmi/chains"
 
 // 1. Environment Detection & Constants
 const isMobile =
@@ -54,14 +54,27 @@ const rpcFallbacks = [
   http(),
 ]
 
+const bscRpcFallbacks = [
+  // PRIMARY: Alchemy
+  http(`https://bnb-mainnet.g.alchemy.com/v2/${alchemyApiKey}`, {
+    timeout: 10000,
+    fetchOptions: { cache: "no-store" },
+  }),
+  // SECONDARY: Public Nodes
+  http("https://bsc-dataseed.binance.org", { timeout: 10000 }),
+  http("https://bsc-dataseed1.defibit.io", { timeout: 10000 }),
+  http("https://rpc.ankr.com/bsc", { timeout: 10000 }),
+]
+
 // 4. Final Config
 export const config = createConfig({
-  chains: [mainnet],
+  chains: [mainnet, bsc],
   connectors,
   transports: {
     [mainnet.id]: fallback(rpcFallbacks, {
       rank: true, // This will periodically test latency and pick the best one from the list
     }),
+    [bsc.id]: fallback(bscRpcFallbacks, { rank: true }),
   },
   batch: {
     multicall: {
