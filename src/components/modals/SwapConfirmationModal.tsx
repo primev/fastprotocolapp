@@ -103,7 +103,8 @@ function SwapConfirmationModal({
   // --- LOGIC PHASES ---
   const isWaitingForSignature = isWrapPending || isSigning
   const isWaitingForBlock = isWrapConfirming || isSubmitting
-  const isCurrentlySuccess = isWrapSuccess // Note: Add swapSuccess here if useSwapConfirmation provides it
+  const isSwapSuccess = !!swapHash && !isSigning && !isSubmitting
+  const isCurrentlySuccess = isWrapSuccess || isSwapSuccess
   const isCurrentlyError = !!wrapError
   const activeHash = wrapHash || swapHash
 

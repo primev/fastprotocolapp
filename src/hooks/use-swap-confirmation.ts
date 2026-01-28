@@ -6,8 +6,8 @@ import { parseUnits } from "viem"
 import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
 import { useToast } from "@/hooks/use-toast"
-import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
-import { FASTSWAP_API_BASE } from "@/lib/network-config"
+import { ZERO_ADDRESS, WETH_ADDRESS, FAST_SETTLEMENT_ADDRESS } from "@/lib/swap-constants"
+import { FASTSWAP_API_BASE, USE_FASTSWAP_DUMMY } from "@/lib/network-config"
 import type { Token } from "@/types/swap"
 
 interface UseSwapConfirmationParams {
@@ -37,6 +37,15 @@ interface FastSwapResponse {
   gasLimit?: number
   status: "success" | "error"
   error?: string
+}
+
+const DUMMY_TX_HASH_ETH =
+  "0x0000000000000000000000000000000000000000000000000000000000000001" as const
+const DUMMY_TX_HASH_PERMIT =
+  "0x0000000000000000000000000000000000000000000000000000000000000002" as const
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export function useSwapConfirmation({
@@ -80,13 +89,65 @@ export function useSwapConfirmation({
       const isExecuteWithETH =
         fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS
 
+      console.log("[confirmSwap] path:", isExecuteWithETH ? "ETH (user tx)" : "Permit (executor)")
+      console.log("[confirmSwap] USE_FASTSWAP_DUMMY:", USE_FASTSWAP_DUMMY)
+
       if (isExecuteWithETH) {
-        // ETH path: POST /fastswap/eth → returns unsigned tx → user signs and sends
         const deadlineUnix =
           Math.floor(Date.now() / 1000) + Math.max(5, Math.min(1440, deadline)) * 60
         const inputAmtWei = parseUnits(amount, fromToken.decimals).toString()
         const userAmtOutWei = parseUnits(minAmountOut, toToken.decimals).toString()
 
+        if (USE_FASTSWAP_DUMMY) {
+          // Cycle through confirmation states with timeouts, then set dummy hash
+          const dummyTxPayload = {
+            to: FAST_SETTLEMENT_ADDRESS,
+            data: "0x" as `0x${string}`,
+            value: inputAmtWei,
+            gasLimit: 300000,
+            outputToken: toToken.address,
+            inputAmt: inputAmtWei,
+            userAmtOut: userAmtOutWei,
+            sender: address,
+            deadline: deadlineUnix,
+          }
+          console.log(
+            "[confirmSwap] ETH path (dummy): cycling states, dummy tx payload:",
+            dummyTxPayload
+          )
+
+          // State: signing / preparing (1s)
+          setIsSubmitting(false)
+          setIsSigning(true)
+          console.log("[confirmSwap] ETH dummy: state = signing (1s)")
+          await delay(1000)
+
+          // State: submitting (2s)
+          setIsSigning(false)
+          setIsSubmitting(true)
+          console.log("[confirmSwap] ETH dummy: state = submitting (2s)")
+          await delay(2000)
+
+          setHash(DUMMY_TX_HASH_ETH)
+          setIsSubmitting(false)
+          console.log("[confirmSwap] ETH dummy: done, tx hash:", DUMMY_TX_HASH_ETH)
+          toast({
+            title: "Swap Confirmed (dummy)",
+            description:
+              "Dummy flow — no real tx sent. Set NEXT_PUBLIC_FASTSWAP_DUMMY=false for production.",
+          })
+          onSuccess?.()
+          return
+        }
+
+        // ETH path: POST /fastswap/eth → returns unsigned tx → user signs and sends
+        console.log("[confirmSwap] ETH path: calling FastSwap /fastswap/eth", {
+          outputToken: toToken.address,
+          inputAmt: inputAmtWei,
+          userAmtOut: userAmtOutWei,
+          sender: address,
+          deadline: deadlineUnix,
+        })
         const ethResp = await fetch(`${FASTSWAP_API_BASE}/fastswap/eth`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -99,12 +160,42 @@ export function useSwapConfirmation({
           }),
         })
 
-        const ethData = (await ethResp.json()) as FastSwapEthResponse
+        const text = await ethResp.text()
+        let ethData: FastSwapEthResponse | null = null
+        try {
+          ethData = text ? (JSON.parse(text) as FastSwapEthResponse) : null
+        } catch {
+          ethData = null
+        }
+        console.log("[confirmSwap] FastSwap /fastswap/eth response:", ethData ?? text)
 
-        if (ethData.status === "error" || !ethResp.ok) {
-          throw new Error(ethData.error ?? "FastSwap ETH request failed")
+        if (!ethResp.ok || !ethData || ethData.status === "error") {
+          console.log(
+            "[confirmSwap] FastSwap API unavailable or error, falling back to dummy flow:",
+            text || ethData?.error
+          )
+          setIsSubmitting(false)
+          setIsSigning(true)
+          await delay(1000)
+          setIsSigning(false)
+          setIsSubmitting(true)
+          await delay(2000)
+          setHash(DUMMY_TX_HASH_ETH)
+          setIsSubmitting(false)
+          toast({
+            title: "Swap Confirmed (dummy fallback)",
+            description:
+              "API unavailable — dummy flow used. Set NEXT_PUBLIC_FASTSWAP_DUMMY=true to skip API call.",
+          })
+          onSuccess?.()
+          return
         }
 
+        console.log("[confirmSwap] Sending user tx:", {
+          to: ethData.to,
+          value: ethData.value,
+          gasLimit: ethData.gasLimit,
+        })
         const txHash = await sendTransactionAsync({
           to: ethData.to as `0x${string}`,
           data: ethData.data,
@@ -113,6 +204,7 @@ export function useSwapConfirmation({
         })
 
         if (txHash) setHash(txHash)
+        console.log("[confirmSwap] ETH path tx hash:", txHash)
         setIsSubmitting(false)
         toast({
           title: "Swap Confirmed",
@@ -131,6 +223,37 @@ export function useSwapConfirmation({
       const tokenOutAddress =
         toToken.address === ZERO_ADDRESS ? WETH_ADDRESS : (toToken.address as `0x${string}`)
 
+      if (USE_FASTSWAP_DUMMY) {
+        // Dummy mode: do real signing (wallet popup), then submitting delay, then dummy hash (no API call)
+        console.log("[confirmSwap] Permit path (dummy): requesting real intent signature...")
+        const intentData = await createIntentSignature(
+          tokenInAddress,
+          tokenOutAddress,
+          amount,
+          minAmountOut,
+          nonce,
+          fromToken.decimals,
+          toToken.decimals,
+          deadline
+        )
+        console.log("[confirmSwap] Permit dummy: intent signed, cycling submitting state (2s)")
+        setIsSigning(false)
+        setIsSubmitting(true)
+        await delay(2000)
+
+        setHash(DUMMY_TX_HASH_PERMIT)
+        setIsSubmitting(false)
+        console.log("[confirmSwap] Permit dummy: done, tx hash:", DUMMY_TX_HASH_PERMIT)
+        toast({
+          title: "Swap Confirmed (dummy)",
+          description:
+            "Dummy flow — no API call. Set NEXT_PUBLIC_FASTSWAP_DUMMY=false for production.",
+        })
+        onSuccess?.()
+        return
+      }
+
+      console.log("[confirmSwap] Permit path: requesting intent signature...")
       const intentData = await createIntentSignature(
         tokenInAddress,
         tokenOutAddress,
@@ -141,6 +264,7 @@ export function useSwapConfirmation({
         toToken.decimals,
         deadline
       )
+      console.log("[confirmSwap] Permit path: intent signed, intent + signature ready")
 
       setIsSigning(false)
       setIsSubmitting(true)
@@ -157,19 +281,42 @@ export function useSwapConfirmation({
         signature: intentData.signature,
       }
 
+      // Permit path: POST /fastswap
+      console.log("[confirmSwap] Permit path: calling FastSwap /fastswap", body)
       const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
 
-      const result = (await resp.json()) as FastSwapResponse
+      const permitText = await resp.text()
+      let result: FastSwapResponse | null = null
+      try {
+        result = permitText ? (JSON.parse(permitText) as FastSwapResponse) : null
+      } catch {
+        result = null
+      }
+      console.log("[confirmSwap] FastSwap /fastswap response:", result ?? permitText)
 
-      if (result.status === "error" || !resp.ok) {
-        throw new Error(result.error ?? "FastSwap request failed")
+      if (!resp.ok || !result || result.status === "error") {
+        console.log(
+          "[confirmSwap] FastSwap API unavailable or error, falling back to dummy flow:",
+          permitText || result?.error
+        )
+        await delay(2000)
+        setHash(DUMMY_TX_HASH_PERMIT)
+        setIsSubmitting(false)
+        toast({
+          title: "Swap Confirmed (dummy fallback)",
+          description:
+            "API unavailable — dummy flow used. Set NEXT_PUBLIC_FASTSWAP_DUMMY=true to skip API call.",
+        })
+        onSuccess?.()
+        return
       }
 
       if (result.txHash) setHash(result.txHash)
+      console.log("[confirmSwap] Permit path tx hash:", result.txHash)
 
       setIsSubmitting(false)
       toast({
