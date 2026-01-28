@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 
-export function useSwapPersistence() {
+export function useSwapSlippage() {
   const [slippage, setSlippage] = useState("0.5")
   const [isAutoSlippage, setIsAutoSlippage] = useState(false)
   const [deadline, setDeadline] = useState(30)

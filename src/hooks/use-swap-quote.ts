@@ -20,8 +20,8 @@ const publicClient = createPublicClient({
   }),
 })
 
-// Uniswap V3 Quoter V2 ABI (supports both exact input and exact output)
-const QUOTER_V2_ABI = [
+// Uniswap V3 Quoter ABI (supports both exact input and exact output)
+const QUOTER_ABI = [
   {
     inputs: [
       {
@@ -124,7 +124,7 @@ async function getBestQuoteFromFeeTiers(
           const amountInWei = parseUnits(amountIn, tokenInDecimals)
           result = await client.simulateContract({
             address: QUOTER_V2_ADDRESS,
-            abi: QUOTER_V2_ABI,
+            abi: QUOTER_ABI,
             functionName: "quoteExactInputSingle",
             args: [
               {
@@ -144,7 +144,7 @@ async function getBestQuoteFromFeeTiers(
           const amountOutWei = parseUnits(amountIn, tokenOutDecimals)
           result = await client.simulateContract({
             address: QUOTER_V2_ADDRESS,
-            abi: QUOTER_V2_ABI,
+            abi: QUOTER_ABI,
             functionName: "quoteExactOutputSingle",
             args: [
               {
@@ -616,7 +616,7 @@ export function useQuote({
         const spotAmountIn = parseUnits("0.000001", tokenInDecimals)
         const spotResult = await workingClient.simulateContract({
           address: QUOTER_V2_ADDRESS,
-          abi: QUOTER_V2_ABI,
+          abi: QUOTER_ABI,
           functionName: "quoteExactInputSingle",
           args: [
             {
@@ -953,7 +953,7 @@ export function useQuote({
         const spotAmountIn = parseUnits("0.000001", tokenInDecimals) // Very small amount for spot price
         const spotResult = await workingClient.simulateContract({
           address: QUOTER_V2_ADDRESS,
-          abi: QUOTER_V2_ABI,
+          abi: QUOTER_ABI,
           functionName: "quoteExactInputSingle",
           args: [
             {

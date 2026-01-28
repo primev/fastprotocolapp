@@ -11,7 +11,7 @@ import TokenInfoRow from "./TokenInfoRow"
 
 // Types
 import { Token } from "@/types/swap"
-import { QuoteResult } from "@/hooks/use-quote-v2"
+import { QuoteResult } from "@/hooks/use-swap-quote"
 import { UseBalanceReturnType } from "wagmi"
 
 interface SellCardProps {
