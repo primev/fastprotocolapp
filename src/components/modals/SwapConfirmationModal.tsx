@@ -1,17 +1,39 @@
 "use client"
 
-import React from "react"
-import { Dialog, DialogContent, DialogOverlay, DialogTitle } from "@/components/ui/dialog"
+import React, { useEffect, useState, useMemo, useCallback } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogOverlay,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import * as Accordion from "@radix-ui/react-accordion"
 import { cn } from "@/lib/utils"
 import { formatPriceImpact, getPriceImpactSeverity } from "@/hooks/use-quote"
 import { useGasPrice } from "@/hooks/use-gas-price"
-import { AlertTriangle, ArrowDown, X } from "lucide-react"
+import {
+  ArrowDown,
+  X,
+  Loader2,
+  CheckCircle2,
+  ExternalLink,
+  XCircle,
+  RefreshCw,
+  ChevronDown,
+  Info,
+  AlertTriangle,
+} from "lucide-react"
 import type { Token } from "@/types/swap"
+import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
+import { useSwapConfirmation } from "@/hooks/use-swap-confirmation"
+
+// Centralized error utilities
+import { getTransactionErrorMessage, getTransactionErrorTitle } from "@/lib/transaction-errors"
 
 interface SwapConfirmationModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onConfirm: () => void
   tokenIn: Token | undefined
   tokenOut: Token | undefined
   amountIn: string
@@ -24,14 +46,12 @@ interface SwapConfirmationModalProps {
   ethPrice?: number | null
   timeLeft?: number
   isLoading?: boolean
-  isWrap?: boolean
-  isUnwrap?: boolean
+  refreshBalances?: () => Promise<void>
 }
 
 function SwapConfirmationModal({
   open,
   onOpenChange,
-  onConfirm,
   tokenIn,
   tokenOut,
   amountIn,
@@ -44,252 +64,363 @@ function SwapConfirmationModal({
   ethPrice,
   timeLeft,
   isLoading = false,
-  isWrap = false,
-  isUnwrap = false,
+  refreshBalances,
 }: SwapConfirmationModalProps) {
-  const priceImpactSeverity = getPriceImpactSeverity(priceImpact)
-  const hasHighPriceImpact = Math.abs(priceImpact) > 3
+  // --- INTERNAL UI SIMULATION STATES ---
+  const [testMode, setTestMode] = useState(false)
+  const [testStatus, setTestStatus] = useState<
+    "idle" | "pending" | "confirming" | "success" | "error"
+  >("idle")
+  const [testErrorObject, setTestErrorObject] = useState<any>(null)
+
+  // --- EXTERNAL HOOKS ---
+  const {
+    isWrap,
+    isUnwrap,
+    wrap,
+    unwrap,
+    isPending: isWrapPending,
+    isConfirming: isWrapConfirming,
+    isSuccess: isWrapSuccess,
+    error: wrapError,
+    hash: wrapHash,
+    reset: resetWrap,
+  } = useWethWrapUnwrap({
+    fromToken: tokenIn,
+    toToken: tokenOut,
+    amount: amountIn,
+  })
+
+  const {
+    confirmSwap,
+    isSigning,
+    isSubmitting,
+    reset: resetSwap,
+  } = useSwapConfirmation({
+    fromToken: tokenIn,
+    toToken: tokenOut,
+    amount: amountIn,
+    minAmountOut,
+    deadline: 0,
+    onSuccess: () => {
+      if (refreshBalances) {
+        setTimeout(() => refreshBalances(), 1000)
+      }
+    },
+  })
+
   const { gasPrice } = useGasPrice()
 
-  const isWrapUnwrap = isWrap || isUnwrap
-  const modalTitle = isWrap ? "Wrap ETH" : isUnwrap ? "Unwrap WETH" : "Swap Confirmation"
-  const buttonText = isLoading
-    ? "Executing Transaction..."
-    : isWrap
-      ? "Confirm Wrap"
-      : isUnwrap
-        ? "Confirm Unwrap"
-        : "Confirm Swap"
+  // --- TOP-LEVEL SCOPED VARIABLES ---
+  const operationType = isWrap ? "wrap" : isUnwrap ? "unwrap" : "swap"
+  const priceImpactSeverity = getPriceImpactSeverity(priceImpact)
 
-  const gasCostUsd =
-    gasEstimate && gasPrice && ethPrice
-      ? (Number(gasEstimate) * Number(gasPrice) * ethPrice) / 1e18
-      : gasEstimate && gasPrice
-        ? (Number(gasEstimate) * Number(gasPrice) * 3000) / 1e18
-        : null
+  // Consolidating all "Active" and "Error" states
+  const isCurrentlyPending = isWrapPending || isSigning || (testMode && testStatus === "pending")
+  const isCurrentlyConfirming =
+    isWrapConfirming || isSubmitting || (testMode && testStatus === "confirming")
+  const isCurrentlySuccess = isWrapSuccess || (testMode && testStatus === "success")
+  const isCurrentlyError = !!wrapError || (testMode && testStatus === "error")
 
-  const gasEstimateUsd = gasCostUsd !== null ? `$${gasCostUsd.toFixed(2)}` : "—"
+  // The 'isActive' flag determines if we show the Status screen or the Review screen
+  const isActive =
+    isCurrentlyPending || isCurrentlyConfirming || isCurrentlySuccess || isCurrentlyError
+
+  // --- RESET LOGIC ---
+  const resetAllStates = useCallback(() => {
+    // 1. Reset Internal Test States
+    setTestMode(false)
+    setTestStatus("idle")
+    setTestErrorObject(null)
+
+    // 2. Reset External Hook States (Crucial for live mode)
+    if (resetWrap) resetWrap()
+    if (resetSwap) resetSwap()
+  }, [resetWrap, resetSwap])
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen && isCurrentlySuccess && refreshBalances) {
+      // Refresh balances one more time when closing after success
+      refreshBalances()
+    }
+    if (!isOpen) {
+      resetAllStates()
+    }
+    onOpenChange(isOpen)
+  }
+
+  // --- Balance Refresh on Wrap/Unwrap Success ---
+  useEffect(() => {
+    if (isWrapSuccess && refreshBalances) {
+      // Small delay to ensure transaction is fully confirmed
+      setTimeout(() => {
+        refreshBalances()
+      }, 1000)
+    }
+  }, [isWrapSuccess, refreshBalances])
+
+  // --- ERROR FORMATTING ---
+  const activeError = testMode ? testErrorObject : wrapError
+
+  const errorTitle = useMemo(() => {
+    return getTransactionErrorTitle(activeError, operationType)
+  }, [activeError, operationType])
+
+  const shortErrorMessage = useMemo(() => {
+    return getTransactionErrorMessage(activeError, operationType)
+  }, [activeError, operationType])
+
+  const fullErrorDetails = useMemo(() => {
+    if (!activeError) return ""
+    return activeError instanceof Error ? activeError.message : String(activeError)
+  }, [activeError])
+
+  // --- MODAL TITLE (Scoped for entire component) ---
+  const modalTitle = useMemo(() => {
+    if (isCurrentlyError) return errorTitle
+    if (isActive) return "Transaction Status"
+    if (isWrap) return "Wrap ETH"
+    if (isUnwrap) return "Unwrap WETH"
+    return "Swap Confirmation"
+  }, [isCurrentlyError, errorTitle, isActive, isWrap, isUnwrap])
+
+  // --- GAS ---
+  const gasCostUsd = useMemo(() => {
+    if (!gasEstimate || !gasPrice) return null
+    const price = ethPrice || 3200
+    return (Number(gasEstimate) * Number(gasPrice) * price) / 1e18
+  }, [gasEstimate, gasPrice, ethPrice])
+
+  const handleConfirmAction = () => {
+    // Simulation logic for testing UI
+    const ENABLE_TEST_SIMULATION = false
+    const SIMULATE_FAILURE = false
+
+    if (ENABLE_TEST_SIMULATION) {
+      setTestMode(true)
+      setTestStatus("pending")
+      setTimeout(() => {
+        if (SIMULATE_FAILURE) {
+          setTestStatus("error")
+          setTestErrorObject(
+            new Error(
+              "Execution reverted: UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT. Market volatility exceeded your slippage settings."
+            )
+          )
+        } else {
+          setTestStatus("confirming")
+          setTimeout(() => setTestStatus("success"), 1500)
+        }
+      }, 800)
+    } else {
+      if (isWrap) wrap()
+      else if (isUnwrap) unwrap()
+      else confirmSwap()
+    }
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogOverlay className="bg-black/20" />
-      <DialogContent className="max-w-[500px] bg-[#131313] backdrop-blur-xl p-2 overflow-hidden gap-0 rounded-[24px] [&>button]:hidden focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none border-0 outline-none ring-0 ring-offset-0">
-        {/* Modal Header */}
-        <div className="relative flex items-center justify-between bg-[#131313]/50 backdrop-blur-sm h-[54px] py-3 px-2 mb-4 overflow-hidden">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogOverlay className="bg-black/40 backdrop-blur-sm transition-all duration-300" />
+      <DialogContent className="max-w-[480px] bg-[#131313] p-2 overflow-hidden gap-0 rounded-[28px] border-0 outline-none ring-0 shadow-2xl [&>button]:hidden">
+        {/* MODAL HEADER */}
+        <div className="relative flex items-center justify-between bg-[#131313]/50 h-[54px] py-3 px-4 mb-4">
           <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent"></div>
-          <div className="flex-1">
-            <DialogTitle className="text-[12px] font-bold uppercase tracking-[0.2em] text-white/20">
-              {modalTitle}
-            </DialogTitle>
-          </div>
-          <div className="flex-1 flex justify-end">
-            <button
-              onClick={() => onOpenChange(false)}
-              className="flex items-center justify-center w-6 h-6 rounded-full hover:bg-white/10 transition-colors"
-              aria-label="Close modal"
-            >
-              <X size={16} className="text-white/60 hover:text-white/80" />
-            </button>
-          </div>
+          <DialogTitle className="text-[11px] font-bold uppercase tracking-[0.25em] text-white/20">
+            {modalTitle}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {isWrap
+              ? "Wrap ETH to WETH"
+              : isUnwrap
+                ? "Unwrap WETH to ETH"
+                : "Confirm swap transaction"}
+          </DialogDescription>
+          <button
+            onClick={() => handleOpenChange(false)}
+            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/5 transition-colors group"
+          >
+            <X size={18} className="text-white/40 group-hover:text-white/80 transition-colors" />
+          </button>
         </div>
 
-        {/* Quote Refresh Status - Hide for wrap/unwrap */}
-        {!isWrapUnwrap && (
-          <>
-            <div className="flex items-center justify-between mb-4 px-2">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-xs font-medium text-white/60 uppercase tracking-wider">
-                  Live Quote
-                </span>
-              </div>
-              <span className="text-xs font-mono text-white/40">{timeLeft || 15}s</span>
-            </div>
-
-            {/* Quote Refresh Progress Bar */}
-            <div className="h-1.5 bg-[#1B1B1B] overflow-hidden relative rounded-full mb-6 mx-2">
+        {isActive ? (
+          /* STATUS SCREEN: PENDING / SUCCESS / ERROR */
+          <div className="flex flex-col items-center py-10 px-8 text-center animate-in fade-in zoom-in-95 duration-300">
+            {/* STATUS ICON */}
+            <div className="relative mb-8">
               <div
                 className={cn(
-                  "h-full transition-all duration-1000 ease-linear rounded-full",
-                  timeLeft && timeLeft <= 5
-                    ? "bg-red-500 shadow-[0_0_10px_#ef4444]"
-                    : "bg-emerald-500 shadow-[0_0_10px_#10b981]"
+                  "absolute inset-0 blur-3xl rounded-full scale-150 opacity-40 transition-colors duration-500",
+                  isCurrentlySuccess
+                    ? "bg-emerald-500"
+                    : isCurrentlyError
+                      ? "bg-red-500"
+                      : "bg-primary"
                 )}
-                style={{ width: `${((timeLeft || 15) / 15) * 100}%` }}
               />
+              {isCurrentlySuccess ? (
+                <CheckCircle2 className="h-20 w-20 text-emerald-500 relative z-10" />
+              ) : isCurrentlyError ? (
+                <XCircle className="h-20 w-20 text-red-500 relative z-10" />
+              ) : (
+                <Loader2 className="h-20 w-20 text-primary animate-spin relative z-10" />
+              )}
             </div>
-          </>
-        )}
 
-        {/* Main Content Container */}
-        <div className="space-y-6">
-          {/* Token Swap Display */}
-          <div className="relative">
-            {/* From Token (Sell) */}
-            <div className="bg-[#131313]/50 backdrop-blur-sm border border-white/[0.06] rounded-2xl p-4 flex items-center justify-between mb-2">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-xl flex items-center justify-center overflow-hidden">
-                  {tokenIn?.logoURI ? (
-                    <img
-                      src={tokenIn.logoURI}
-                      alt={tokenIn.symbol}
-                      className="h-10 w-10 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="h-10 w-10 rounded-lg bg-primary/20" />
-                  )}
-                </div>
+            {/* STATUS TEXT */}
+            <div className="space-y-3 mb-10">
+              <h3
+                className={cn(
+                  "text-xl font-bold uppercase tracking-tight",
+                  isCurrentlyError ? "text-red-500" : "text-white"
+                )}
+              >
+                {isCurrentlySuccess ? "Confirmed" : isCurrentlyError ? "Failed" : "Processing"}
+              </h3>
+              <p className="text-[14px] font-medium text-white/60 max-w-[340px] leading-relaxed">
+                {isCurrentlySuccess
+                  ? "Transaction was successfully broadcast and confirmed."
+                  : isCurrentlyError
+                    ? shortErrorMessage
+                    : "Authorize the transaction in your wallet."}
+              </p>
+            </div>
+
+            {/* RADIX ACCORDION FOR ERRORS */}
+            {isCurrentlyError && fullErrorDetails && (
+              <Accordion.Root type="single" collapsible className="w-full mb-8">
+                <Accordion.Item
+                  value="error-details"
+                  className="bg-red-500/[0.03] border border-red-500/10 rounded-2xl overflow-hidden"
+                >
+                  <Accordion.Header>
+                    <Accordion.Trigger className="group w-full flex items-center justify-between p-4 hover:bg-red-500/[0.06] transition-all">
+                      <div className="flex items-center gap-2.5">
+                        <Info size={14} className="text-red-400/80" />
+                        <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-red-400/80">
+                          Technical Details
+                        </span>
+                      </div>
+                      <ChevronDown
+                        size={14}
+                        className="text-red-400/60 transition-transform duration-300 group-data-[state=open]:rotate-180"
+                      />
+                    </Accordion.Trigger>
+                  </Accordion.Header>
+                  <Accordion.Content className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
+                    <div className="px-4 pb-4">
+                      <div className="pt-2 border-t border-red-500/10 text-left">
+                        <p className="text-[11px] font-mono text-red-400/70 break-words bg-black/40 p-4 rounded-xl border border-red-500/5 leading-relaxed">
+                          {fullErrorDetails}
+                        </p>
+                      </div>
+                    </div>
+                  </Accordion.Content>
+                </Accordion.Item>
+              </Accordion.Root>
+            )}
+
+            {/* STATUS VIEW BUTTONS */}
+            <div className="flex flex-col w-full gap-3">
+              {isCurrentlyError && (
+                <button
+                  onClick={resetAllStates}
+                  className="w-full h-14 bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                >
+                  <RefreshCw size={16} /> Try Again
+                </button>
+              )}
+              <button
+                onClick={() => handleOpenChange(false)}
+                className="w-full py-4 text-[10px] font-bold uppercase tracking-[0.25em] text-white/30 hover:text-white/60 transition-colors"
+              >
+                Close Window
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* REVIEW SCREEN: BEFORE CONFIRMING */
+          <div className="px-4 pb-6 space-y-6 animate-in fade-in duration-300">
+            <div className="relative">
+              {/* PAY TOKEN */}
+              <div className="bg-[#131313]/50 border border-white/[0.04] rounded-2xl p-5 flex items-center justify-between mb-2">
                 <div className="flex flex-col">
-                  <span className="text-lg font-bold text-white">{tokenIn?.symbol}</span>
-                  {tokenIn?.name && (
-                    <span className="text-xs text-white/50 truncate max-w-[120px]">
-                      {tokenIn.name}
-                    </span>
-                  )}
+                  <span className="text-lg font-bold text-white tracking-tight">
+                    {tokenIn?.symbol}
+                  </span>
+                  <span className="text-[10px] text-white/30 uppercase font-bold tracking-widest">
+                    Pay
+                  </span>
+                </div>
+                <span className="text-2xl font-bold text-white tabular-nums">{amountIn}</span>
+              </div>
+
+              {/* CENTER DECORATOR */}
+              <div className="absolute left-1/2 -translate-x-1/2 top-[50%] -translate-y-1/2 z-10">
+                <div className="p-2 bg-[#131313] border-[6px] border-[#131313] rounded-2xl shadow-xl">
+                  <ArrowDown size={18} className="text-white/20" strokeWidth={3} />
                 </div>
               </div>
-              <div className="text-right">
-                <span className="text-xl font-bold text-white tabular-nums block">{amountIn}</span>
-                <span className="text-xs text-white/50 uppercase tracking-wide">Amount</span>
-              </div>
-            </div>
 
-            {/* Swap Arrow */}
-            <div className="relative h-2 w-full flex justify-center z-20 -mt-2 mb-2">
-              <div className="absolute -top-5 p-3 bg-[#1B1B1B] border-[5px] border-[#131313] rounded-2xl shadow-lg">
-                <ArrowDown size={24} strokeWidth={3} />
-              </div>
-            </div>
-
-            {/* To Token (Buy) */}
-            <div className="bg-[#131313]/50 backdrop-blur-sm border border-white/[0.06] rounded-2xl p-4 flex items-center justify-between mt-3">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-xl flex items-center justify-center overflow-hidden">
-                  {tokenOut?.logoURI ? (
-                    <img
-                      src={tokenOut.logoURI}
-                      alt={tokenOut.symbol}
-                      className="h-10 w-10 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="h-10 w-10 rounded-lg bg-primary/20" />
-                  )}
-                </div>
+              {/* RECEIVE TOKEN */}
+              <div className="bg-[#131313]/50 border border-white/[0.04] rounded-2xl p-5 flex items-center justify-between mt-2">
                 <div className="flex flex-col">
-                  <span className="text-lg font-bold text-white">{tokenOut?.symbol}</span>
-                  {tokenOut?.name && (
-                    <span className="text-xs text-white/50 truncate max-w-[120px]">
-                      {tokenOut.name}
-                    </span>
-                  )}
+                  <span className="text-lg font-bold text-white tracking-tight">
+                    {tokenOut?.symbol}
+                  </span>
+                  <span className="text-[10px] text-emerald-500/50 uppercase font-bold tracking-widest">
+                    Receive
+                  </span>
                 </div>
-              </div>
-              <div className="text-right">
-                <span className="text-xl font-bold text-emerald-500 tabular-nums block">
+                <span className="text-2xl font-bold text-emerald-500 tabular-nums">
                   {minAmountOut}
                 </span>
-                <span className="text-xs text-emerald-400/70 uppercase tracking-wide">
-                  Guaranteed
+              </div>
+            </div>
+
+            {/* TRANSACTION SUMMARY */}
+            <div className="bg-white/[0.02] border border-white/[0.04] rounded-2xl p-5 space-y-3">
+              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+                <span className="text-white/30">Network Cost</span>
+                <span className="text-white/70">
+                  {gasCostUsd ? `$${gasCostUsd.toFixed(2)}` : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+                <span className="text-white/30">Price Impact</span>
+                <span
+                  className={cn(
+                    priceImpactSeverity === "high"
+                      ? "text-red-500"
+                      : priceImpactSeverity === "medium"
+                        ? "text-yellow-500"
+                        : "text-emerald-500"
+                  )}
+                >
+                  {formatPriceImpact(priceImpact)}
                 </span>
               </div>
             </div>
-          </div>
 
-          {/* Transaction Details */}
-          <div className="bg-[#131313]/50 backdrop-blur-sm border border-white/[0.05] rounded-xl p-4 space-y-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-white/40 block">
-              Details
-            </span>
-            <div className="space-y-1.5 pt-2 border-t border-white/5">
-              <div className="flex justify-between items-center text-xs py-0.5">
-                <span className="text-white/60">Fee</span>
-                <span className="text-white/80 font-medium">Free</span>
-              </div>
-
-              {gasCostUsd !== null && (
-                <div className="flex justify-between items-center text-xs py-0.5">
-                  <span className="text-white/60">Network cost</span>
-                  <span className="text-white/80 font-medium">${gasCostUsd.toFixed(2)}</span>
-                </div>
-              )}
-
-              {!isWrapUnwrap && (
-                <>
-                  <div className="flex justify-between items-center text-xs py-0.5">
-                    <span className="text-white/60">Max slippage</span>
-                    <span className="text-white/80 font-medium">{slippage}%</span>
-                  </div>
-
-                  <div className="flex justify-between items-center text-xs py-0.5">
-                    <span className="text-white/60">Order routing</span>
-                    <span className="text-white/80 font-medium">Fast Protocol</span>
-                  </div>
-
-                  <div className="flex justify-between items-center text-xs py-0.5">
-                    <span className="text-white/60">Price impact</span>
-                    <span
-                      className={cn(
-                        "font-medium",
-                        priceImpactSeverity === "low" && "text-green-400",
-                        priceImpactSeverity === "medium" && "text-yellow-400",
-                        priceImpactSeverity === "high" && "text-red-400"
-                      )}
-                    >
-                      {formatPriceImpact(priceImpact)}
-                    </span>
-                  </div>
-                </>
-              )}
-
-              {isWrapUnwrap && (
-                <div className="flex justify-between items-center text-xs py-0.5">
-                  <span className="text-white/60">Exchange rate</span>
-                  <span className="text-white/80 font-medium">1:1</span>
-                </div>
-              )}
+            {/* PRIMARY ACTION */}
+            <div className="flex flex-col gap-3 pt-2">
+              <button
+                onClick={handleConfirmAction}
+                disabled={isLoading}
+                className="w-full h-16 bg-primary text-primary-foreground font-black uppercase tracking-[0.2em] text-sm rounded-2xl hover:brightness-110 active:scale-[0.98] transition-all shadow-lg"
+              >
+                {isLoading ? "Loading..." : `Confirm ${operationType}`}
+              </button>
+              <button
+                onClick={() => handleOpenChange(false)}
+                className="w-full py-3 text-[10px] font-bold uppercase tracking-widest text-white/20 hover:text-white/50 transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
-
-          {/* High Price Impact Warning - Hide for wrap/unwrap */}
-          {hasHighPriceImpact && !isWrapUnwrap && (
-            <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-3 animate-pulse">
-              <div className="flex items-start gap-2">
-                <AlertTriangle size={14} className="text-red-500 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1">
-                    High Price Impact
-                  </p>
-                  <p className="text-[11px] font-medium text-red-400 leading-tight">
-                    This swap has {formatPriceImpact(priceImpact)} price impact. Consider reducing
-                    the amount.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={onConfirm}
-              disabled={isLoading}
-              className={cn(
-                "w-full h-12 bg-primary text-primary-foreground font-bold uppercase tracking-[0.15em] text-sm rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed",
-                isLoading
-                  ? "bg-[#1B1B1B] text-white/40 cursor-not-allowed border border-white/5"
-                  : "hover:bg-primary/90 cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-[1.01]"
-              )}
-            >
-              {buttonText}
-            </button>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="w-full py-3 text-xs font-bold uppercase tracking-wider text-white/40 hover:text-white/60 transition-colors rounded-lg hover:bg-white/5"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   )

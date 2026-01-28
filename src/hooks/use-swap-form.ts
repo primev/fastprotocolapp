@@ -53,11 +53,19 @@ export function useSwapForm(allTokens: Token[]) {
   const { gasPriceGwei } = useGasPrice()
 
   // --- Balances ---
-  const { data: fromBalance, isLoading: isLoadingFromBalance } = useBalance({
+  const {
+    data: fromBalance,
+    isLoading: isLoadingFromBalance,
+    refetch: refetchFromBalance,
+  } = useBalance({
     address: isConnected ? address : undefined,
     token: fromToken?.address !== ZERO_ADDRESS ? (fromToken?.address as `0x${string}`) : undefined,
   })
-  const { data: toBalance, isLoading: isLoadingToBalance } = useBalance({
+  const {
+    data: toBalance,
+    isLoading: isLoadingToBalance,
+    refetch: refetchToBalance,
+  } = useBalance({
     address: isConnected ? address : undefined,
     token: toToken?.address !== ZERO_ADDRESS ? (toToken?.address as `0x${string}`) : undefined,
   })
@@ -338,6 +346,15 @@ export function useSwapForm(allTokens: Token[]) {
     lastValidRate,
   ])
 
+  // --- Balance Refresh Function ---
+  const refreshBalances = useCallback(async () => {
+    try {
+      await Promise.all([refetchFromBalance(), refetchToBalance()])
+    } catch (err) {
+      console.error("Failed to refresh balances:", err)
+    }
+  }, [refetchFromBalance, refetchToBalance])
+
   return {
     // State
     fromToken,
@@ -353,6 +370,7 @@ export function useSwapForm(allTokens: Token[]) {
     handleSwitch,
     setIsManualInversion,
     setSwappedQuote,
+    refreshBalances,
 
     // Settings Persistence
     ...settings,

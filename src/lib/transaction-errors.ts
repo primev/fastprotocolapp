@@ -78,6 +78,10 @@ export function getTransactionErrorMessage(
       return "Request timed out. Please try again"
     }
 
+    if (message.includes("failed to fetch")) {
+      return "Check your RPC endpoint and try again"
+    }
+
     // Return original message if no specific pattern matches
     return error.message
   }
