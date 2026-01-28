@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useAccount, useBalance, useChainId } from "wagmi"
 import { formatUnits } from "viem"
 import { useQueryClient } from "@tanstack/react-query"
-import { useQuote, calculateAutoSlippage, type QuoteResult } from "@/hooks/use-quote-v2"
+import { useQuote, calculateAutoSlippage, type QuoteResult } from "@/hooks/use-swap-quote"
 import { useTokenPrice } from "@/hooks/use-token-price"
 import { useGasPrice } from "@/hooks/use-gas-price"
 import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
@@ -16,7 +16,7 @@ import {
   estimateUnwrapGas,
 } from "@/lib/weth-utils"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
-import { useSwapPersistence } from "@/hooks/use-swap-persistence"
+import { useSwapSlippage } from "@/hooks/use-swap-slippage"
 import { Token } from "@/types/swap"
 import { DEFAULT_ETH_TOKEN } from "@/components/swap/TokenSelectorModal"
 
@@ -28,7 +28,7 @@ export function useSwapForm(allTokens: Token[]) {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
   const queryClient = useQueryClient()
-  const settings = useSwapPersistence()
+  const settings = useSwapSlippage()
 
   // --- Core State ---
   const [fromToken, setFromToken] = useState<Token | undefined>(DEFAULT_ETH_TOKEN)

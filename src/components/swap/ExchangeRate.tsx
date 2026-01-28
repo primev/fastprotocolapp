@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@radix
 
 // Utils & Hooks
 import { cn } from "@/lib/utils"
-import { QuoteResult, getPriceImpactSeverity, formatPriceImpact } from "@/hooks/use-quote-v2"
+import { QuoteResult, getPriceImpactSeverity, formatPriceImpact } from "@/hooks/use-swap-quote"
 
 /**
  * Prop interface focused on essential quote data.

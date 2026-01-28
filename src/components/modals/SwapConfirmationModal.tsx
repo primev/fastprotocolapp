@@ -8,9 +8,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import * as Accordion from "@radix-ui/react-accordion"
 import { cn } from "@/lib/utils"
-import { formatPriceImpact, getPriceImpactSeverity } from "@/hooks/use-quote"
 import { useGasPrice } from "@/hooks/use-gas-price"
 import {
   ArrowDown,
