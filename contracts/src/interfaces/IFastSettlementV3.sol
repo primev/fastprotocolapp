@@ -43,6 +43,7 @@ interface IFastSettlementV3 {
 
     error IntentExpired();
     error BadNonce();
+    error BadOwner();
     error BadTreasury();
     error BadExecutor();
     error BadRecipient();
