@@ -229,7 +229,7 @@ function SwapConfirmationModal({
                   : isCurrentlyError
                     ? "Failed"
                     : isWaitingForBlock
-                      ? "Processing Block"
+                      ? "Processing Transaction"
                       : "Sign Transaction"}
               </h3>
               <p className="text-[14px] font-medium text-white/75 max-w-[320px] leading-relaxed">
@@ -238,8 +238,8 @@ function SwapConfirmationModal({
                   : isCurrentlyError
                     ? shortErrorMessage
                     : isWaitingForBlock
-                      ? "Transaction broadcasted. Waiting for network confirmation..."
-                      : "Please confirm the request in your connected wallet."}
+                      ? "Waiting for network confirmation..."
+                      : "Please confirm the request in your wallet."}
               </p>
             </div>
 

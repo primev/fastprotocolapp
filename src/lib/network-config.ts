@@ -33,3 +33,8 @@ export const NETWORK_CONFIG = {
  */
 export const RPC_ENDPOINT = "https://fastrpc.mev-commit.xyz"
 export const FALLBACK_RPC_ENDPOINT = `https://eth-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
+
+/**
+ * FastSwap API base URL for executor-submitted (ERC20) and user-submitted (ETH) swaps
+ */
+export const FASTSWAP_API_BASE = "https://fastrpc.mev-commit.xyz"

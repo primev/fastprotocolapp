@@ -43,18 +43,10 @@ export interface PermitTransferFrom {
 }
 
 /**
- * Request body for relay API
+ * SwapCall interface matching FastSettlementV3 contract (IFastSettlementV3.SwapCall)
  */
-export interface RelayRequest {
-  signature: string
-  intent: SwapIntent
-  permit: PermitTransferFrom
-}
-
-/**
- * Response from relay API
- */
-export interface RelayResponse {
-  success: boolean
-  message?: string
+export interface SwapCall {
+  to: `0x${string}`
+  value: bigint
+  data: `0x${string}`
 }

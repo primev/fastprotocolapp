@@ -120,7 +120,7 @@ export function useSwapIntent() {
         verifyingContract: PERMIT2_ADDRESS,
       },
       types: GET_SWAP_INTENT_TYPES(INTENT_WITNESS_TYPE_STRING),
-      primaryType: "PermitWitnessTransferFrom",
+      primaryType: "PermitWitnessTransferFrom" as const,
       message: {
         ...permitData,
         witness,
@@ -158,7 +158,10 @@ export function useSwapIntent() {
     console.log("=================================")
 
     try {
-      const signature = await signTypedDataAsync(eip712Message)
+      const signature = await signTypedDataAsync({
+        ...eip712Message,
+        account: address!,
+      })
 
       return {
         signature,
