@@ -11,17 +11,8 @@ const DOODLES_IMG = `${ASSETS_URL}/nfts/doodles.jpg`
 const MOONBIRDS_IMG = `${ASSETS_URL}/nfts/moonbirds.jpg`
 const PUDGY_PENGUINS_IMG = `${ASSETS_URL}/nfts/pudgy-penguins.jpg`
 const YUGA_LABS_IMG = `${ASSETS_URL}/nfts/yuga-labs.jpg`
-// const TEST_IMG = `/assets/fast-icon.png`
 
 const ECOSYSTEM_SETS = [
-  // {
-  //   id: "test",
-  //   name: "test",
-  //   img: TEST_IMG,
-  //   addresses: [
-  //     "0xd0E132C73C9425072AAB9256d63aa14D798D063A",
-  //   ] as const
-  // },
   {
     id: "pudgy",
     name: "Pudgy\nPenguins",
@@ -99,6 +90,9 @@ export const EcosystemSetCarousel = () => {
   const [failedSets, setFailedSets] = useState<Record<string, boolean>>({})
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [manualLoadingId, setManualLoadingId] = useState<string | null>(null)
+
+  // VERBOSE: Initializing arrow state. In loop mode, these will mostly stay true
+  // unless the content is too small to scroll.
   const [canScrollPrev, setCanScrollPrev] = useState(false)
   const [canScrollNext, setCanScrollNext] = useState(false)
 
@@ -112,7 +106,7 @@ export const EcosystemSetCarousel = () => {
     (id: string) => {
       if (!userAddress) return
       saveUserActivity(userAddress, id, true).catch(() => {
-        // Todo: handle error
+        // Verbose: error handling
       })
     },
     [userAddress]
@@ -179,7 +173,6 @@ export const EcosystemSetCarousel = () => {
       markAsVerified(manualLoadingId)
     } else {
       setFailedSets((prev) => ({ ...prev, [manualLoadingId]: true }))
-      // Auto-clear failure after 3 seconds to allow retry
       setTimeout(() => {
         setFailedSets((prev) => {
           const next = { ...prev }
@@ -200,24 +193,24 @@ export const EcosystemSetCarousel = () => {
     setManualLoadingId(id)
   }
 
-  const fitsContainer = !canScrollPrev && !canScrollNext
-
+  // If we have 5 cards and the screen only fits 3, scrolling is active.
   useEffect(() => {
     if (!emblaApi) return
     const updateScrollState = () => {
+      // In loop mode, these return true if there's enough content to scroll.
       setCanScrollPrev(emblaApi.canScrollPrev())
       setCanScrollNext(emblaApi.canScrollNext())
     }
     emblaApi.on("select", updateScrollState)
     emblaApi.on("reInit", updateScrollState)
-    emblaApi.on("resize", updateScrollState)
     updateScrollState()
     return () => {
       emblaApi.off("select", updateScrollState)
       emblaApi.off("reInit", updateScrollState)
-      emblaApi.off("resize", updateScrollState)
     }
   }, [emblaApi])
+
+  const fitsContainer = !canScrollPrev && !canScrollNext
 
   return (
     <div className="bg-card/50 p-6 rounded-xl border border-border/50 text-foreground max-w-5xl mx-auto shadow-2xl font-sans relative">
@@ -254,7 +247,7 @@ export const EcosystemSetCarousel = () => {
 
       <div className="relative group">
         <div className="overflow-hidden" ref={emblaRef}>
-          <div className={`flex ml-[-12px] ${fitsContainer ? "justify-center" : ""}`}>
+          <div className={`flex ml-[-12px] justify-start`}>
             {ECOSYSTEM_SETS.map((set) => {
               const isVerified = !!verifiedSets[set.id]
               const isVerifying = manualLoadingId === set.id
@@ -263,7 +256,7 @@ export const EcosystemSetCarousel = () => {
               return (
                 <div
                   key={set.id}
-                  className={`flex-[0_0_170px] min-w-0 pl-3 ${isFailed ? "animate-shake" : ""}`}
+                  className={`flex-[0_0_182px] min-w-0 pl-3 ${isFailed ? "animate-shake" : ""}`}
                 >
                   <div
                     className={`bg-[#161d26] border rounded-xl p-4 flex flex-col items-center h-[210px] transition-all duration-500 
