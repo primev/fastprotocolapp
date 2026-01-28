@@ -109,7 +109,7 @@ contract FastSettlementV3IntegrationTest is Test {
         FastSettlementV3 impl = new FastSettlementV3(permit2, address(weth));
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
-            abi.encodeCall(FastSettlementV3.initialize, (executor, treasury, initialTargets))
+            abi.encodeCall(FastSettlementV3.initialize, (owner, executor, treasury, initialTargets))
         );
         settlement = FastSettlementV3(payable(address(proxy)));
         vm.stopPrank();

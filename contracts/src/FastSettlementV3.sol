@@ -55,13 +55,15 @@ contract FastSettlementV3 is
     }
 
     function initialize(
+        address _owner,
         address _executor,
         address _treasury,
         address[] calldata _initialSwapTargets
     ) public initializer {
+        if (_owner == address(0)) revert BadOwner();
         if (_treasury == address(0)) revert BadTreasury();
         if (_executor == address(0)) revert BadExecutor();
-        __Ownable_init(msg.sender);
+        __Ownable_init(_owner);
         executor = _executor;
         treasury = _treasury;
 
