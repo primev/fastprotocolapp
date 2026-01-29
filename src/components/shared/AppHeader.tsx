@@ -268,10 +268,10 @@ export const AppHeader = ({
               </SheetContent>
             </Sheet>
 
-            {/* Large screens: Full ConnectButton */}
+            {/* Large screens: Full ConnectButton (no network selector) */}
             {isConnected ? (
               <div className="hidden lg:block">
-                <ConnectButton showBalance={false} accountStatus="address" />
+                <ConnectButton showBalance={false} accountStatus="address" chainStatus="none" />
               </div>
             ) : (
               <>
@@ -279,7 +279,7 @@ export const AppHeader = ({
                   <Skeleton className="h-10 w-32 rounded-full hidden lg:block" />
                 ) : (
                   <div className="hidden lg:block">
-                    <ConnectButton showBalance={false} accountStatus="address" />
+                    <ConnectButton showBalance={false} accountStatus="address" chainStatus="none" />
                   </div>
                 )}
               </>
