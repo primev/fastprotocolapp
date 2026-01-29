@@ -12,6 +12,7 @@ const MOONBIRDS_IMG = `${ASSETS_URL}/nfts/moonbirds.jpg`
 const PUDGY_PENGUINS_IMG = `${ASSETS_URL}/nfts/pudgy-penguins.jpg`
 const YUGA_LABS_IMG = `${ASSETS_URL}/nfts/yuga-labs.jpg`
 const TEST_IMG = `/assets/fast-icon.png`
+const HYPERLIQUID_IMG = `/assets/hyperliquid-logo.png`
 
 const CHAIN_ETH = 1
 const CHAIN_BSC = 56
@@ -32,6 +33,7 @@ const ECOSYSTEM_SETS: {
   name: string
   img: string
   contracts: readonly ContractEntry[]
+  comingSoon?: boolean
 }[] = [
   // {
   //   id: "test",
@@ -153,6 +155,13 @@ const ECOSYSTEM_SETS: {
         label: "The Dooplicator",
       },
     ],
+  },
+  {
+    id: "hyperliquid",
+    name: "Hyperliquid",
+    img: HYPERLIQUID_IMG,
+    contracts: [],
+    comingSoon: true,
   },
 ]
 
@@ -422,19 +431,25 @@ export const EcosystemSetCarousel = () => {
                         </h3>
 
                         <button
-                          onClick={() => handleVerify(set.id)}
-                          disabled={!isConnected || isVerified || isVerifying}
+                          onClick={undefined}
+                          disabled={
+                            set.comingSoon ? true : !isConnected || isVerified || isVerifying
+                          }
                           className={`mt-auto w-full py-2 rounded-full text-[9px] font-bold uppercase border tracking-widest transition-all ${
-                            isVerified
+                            set.comingSoon
                               ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
-                              : isFailed
-                                ? "border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20"
-                                : !isConnected || isVerifying
+                              : !isConnected || isVerifying
+                                ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
+                                : isVerified
                                   ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
-                                  : "border-[#4da1ff] text-[#4da1ff] hover:bg-[#4da1ff]/10 active:scale-95 cursor-pointer"
+                                  : isFailed
+                                    ? "border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20"
+                                    : "border-[#4da1ff] text-[#4da1ff] hover:bg-[#4da1ff]/10 active:scale-95 cursor-pointer"
                           }`}
                         >
-                          {isVerifying ? (
+                          {set.comingSoon ? (
+                            "Coming"
+                          ) : isVerifying ? (
                             <Loader2 className="w-3 h-3 animate-spin mx-auto" />
                           ) : isVerified ? (
                             "Verified"
