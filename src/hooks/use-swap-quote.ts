@@ -291,6 +291,42 @@ function validateSlippage(slippage: string): number {
 }
 
 /**
+ * Recalculate slippageLimit from existing quote amounts (no RPC call).
+ * Used when only slippage changes - Market Price stays the same, Minimum Received updates instantly.
+ */
+function recalculateSlippageLimit(
+  quote: QuoteResult,
+  slippage: string,
+  tokenIn: Token,
+  tokenOut: Token,
+  tokenList: Token[]
+): { slippageLimit: bigint; slippageLimitFormatted: string } {
+  const slippageBps = BigInt(Math.floor(validateSlippage(slippage) * 100))
+  const tokenOutDecimals = resolveTokenDecimals(tokenOut, tokenList)
+  const tokenInDecimals = resolveTokenDecimals(tokenIn, tokenList)
+  const tokenOutSymbol = getTokenSymbol(tokenOut) || ""
+  const tokenInSymbol = getTokenSymbol(tokenIn) || ""
+
+  if (!quote.isMaxIn) {
+    // exactIn: minimum output we accept
+    const slippageLimit = (quote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
+    const slippageLimitFormatted = formatTokenAmount(
+      parseFloat(formatUnits(slippageLimit, tokenOutDecimals)),
+      tokenOutSymbol
+    )
+    return { slippageLimit, slippageLimitFormatted }
+  } else {
+    // exactOut: maximum input we pay
+    const slippageLimit = (quote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
+    const slippageLimitFormatted = formatTokenAmount(
+      parseFloat(formatUnits(slippageLimit, tokenInDecimals)),
+      tokenInSymbol
+    )
+    return { slippageLimit, slippageLimitFormatted }
+  }
+}
+
+/**
  * Calculate auto slippage based on trade characteristics
  * Returns a value between 0.1% and 5% based on:
  * - Trade size (larger trades need more slippage tolerance)
@@ -1160,6 +1196,25 @@ export function useQuote({
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [tokenIn?.address, tokenOut?.address, amountIn, tradeType, enabled, debounceMs, refetch])
+
+  // Slippage-only update: recalculate Minimum Received instantly without RPC call.
+  // When only slippage changes, Market Price (amountOut) stays the same; slippageLimit updates.
+  useEffect(() => {
+    if (!quote || !tokenIn || !tokenOut || !amountIn) return
+
+    const { slippageLimit, slippageLimitFormatted } = recalculateSlippageLimit(
+      quote,
+      slippage,
+      tokenIn,
+      tokenOut,
+      tokenList ?? []
+    )
+
+    setQuote((prev) => {
+      if (!prev || prev.slippageLimit === slippageLimit) return prev
+      return { ...prev, slippageLimit, slippageLimitFormatted }
+    })
+  }, [slippage, quote, tokenIn, tokenOut, amountIn, tokenList])
 
   // Cleanup on unmount
   useEffect(() => {
