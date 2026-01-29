@@ -221,12 +221,25 @@ async function getBestQuoteFromFeeTiers(
 }
 
 export interface QuoteResult {
+  /** Raw expected output from the quote. Shown in the main UI (e.g. "You receive"). */
   amountOut: bigint
+  /** Formatted expected output for display. */
   amountOutFormatted: string
+  /** Raw expected input from the quote. Shown in the main UI (e.g. "You pay"). */
   amountIn: bigint
+  /** Formatted expected input for display. */
   amountInFormatted: string
-  minOut: bigint
-  minOutFormatted: string
+  /**
+   * Worst-case value used for slippage protection.
+   * - exactIn: minimum output we accept (amountOut * (1 - slippage/100)).
+   * - exactOut: maximum input we pay (amountIn * (1 + slippage/100)).
+   * Passed to the contract and shown in the modal "Details" section.
+   */
+  slippageLimit: bigint
+  /** Formatted slippageLimit for display in Details (e.g. "Minimum received"). */
+  slippageLimitFormatted: string
+  /** true if tradeType is exactOut (user specifies output; we cap max input). false if exactIn. */
+  isMaxIn: boolean
   priceImpact: number // as percentage, e.g., -0.02
   exchangeRate: number
   gasEstimate: bigint
@@ -578,33 +591,42 @@ export function useQuote({
         return
       }
 
-      // Calculate formatted amounts
+      // --- Amounts shown in main UI ---
+      // amountOut / amountIn are the raw quote values; formatted versions for display.
       const amountOutRaw = formatUnits(bestQuote.amountOut, tokenOutDecimals)
       const amountOutNum = parseFloat(amountOutRaw)
       const amountInRaw = formatUnits(bestQuote.amountIn, tokenInDecimals)
       const amountInNum = parseFloat(amountInRaw)
 
-      // Format based on token type
       const tokenOutSymbol = getTokenSymbol(currentTokenOut) || ""
       const tokenInSymbol = getTokenSymbol(currentTokenIn) || ""
       const amountOutFormatted = formatTokenAmount(amountOutNum, tokenOutSymbol)
       const amountInFormatted = formatTokenAmount(amountInNum, tokenInSymbol)
 
-      // Calculate minOut/maxIn based on slippage
-      const slippagePercent = validateSlippage(latestSlippageRef.current)
-      const slippageBps = BigInt(Math.floor(slippagePercent * 100))
+      // --- Slippage limit (worst-case value for contract + Details section) ---
+      // slippageLimit is passed to the contract and shown in the modal "Details" section.
+      const slippageBps = BigInt(Math.floor(parseFloat(latestSlippageRef.current) * 100))
 
-      let minOut: bigint
-      let minOutFormatted: string
+      let slippageLimit: bigint
+      let slippageLimitFormatted: string
+      let isMaxIn: boolean
 
       if (currentTradeType === "exactIn") {
-        minOut = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
-        const minOutNum = parseFloat(formatUnits(minOut, tokenOutDecimals))
-        minOutFormatted = formatTokenAmount(minOutNum, tokenOutSymbol)
+        // Minimum output we accept: amountOut * (1 - slippage/100). Format using tokenOut.
+        slippageLimit = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
+        slippageLimitFormatted = formatTokenAmount(
+          parseFloat(formatUnits(slippageLimit, tokenOutDecimals)),
+          tokenOutSymbol
+        )
+        isMaxIn = false
       } else {
-        minOut = (bestQuote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
-        const minOutNum = parseFloat(formatUnits(minOut, tokenInDecimals))
-        minOutFormatted = formatTokenAmount(minOutNum, tokenInSymbol)
+        // Maximum input we pay: amountIn * (1 + slippage/100). Format using tokenIn.
+        slippageLimit = (bestQuote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
+        slippageLimitFormatted = formatTokenAmount(
+          parseFloat(formatUnits(slippageLimit, tokenInDecimals)),
+          tokenInSymbol
+        )
+        isMaxIn = true
       }
 
       // Calculate exchange rate
@@ -652,8 +674,9 @@ export function useQuote({
         amountOutFormatted,
         amountIn: bestQuote.amountIn,
         amountInFormatted,
-        minOut,
-        minOutFormatted,
+        slippageLimit,
+        slippageLimitFormatted,
+        isMaxIn,
         priceImpact,
         exchangeRate,
         gasEstimate: bestQuote.gasEstimate,
@@ -912,35 +935,42 @@ export function useQuote({
         return
       }
 
-      // Calculate formatted amounts
+      // --- Amounts shown in main UI ---
+      // amountOut / amountIn are the raw quote values; formatted versions for display.
       const amountOutRaw = formatUnits(bestQuote.amountOut, tokenOutDecimals)
       const amountOutNum = parseFloat(amountOutRaw)
       const amountInRaw = formatUnits(bestQuote.amountIn, tokenInDecimals)
       const amountInNum = parseFloat(amountInRaw)
 
-      // Format based on token type (stablecoins get 2 decimals, others get 6)
       const tokenOutSymbol = getTokenSymbol(currentTokenOut) || ""
       const tokenInSymbol = getTokenSymbol(currentTokenIn) || ""
       const amountOutFormatted = formatTokenAmount(amountOutNum, tokenOutSymbol)
       const amountInFormatted = formatTokenAmount(amountInNum, tokenInSymbol)
 
-      // Calculate minOut/maxIn based on slippage (with validation)
-      const slippagePercent = validateSlippage(slippage)
-      const slippageBps = BigInt(Math.floor(slippagePercent * 100)) // Convert to basis points
+      // --- Slippage limit (worst-case value for contract + Details section) ---
+      // slippageLimit is passed to the contract and shown in the modal "Details" section.
+      const slippageBps = BigInt(Math.floor(parseFloat(slippage) * 100))
 
-      let minOut: bigint
-      let minOutFormatted: string
+      let slippageLimit: bigint
+      let slippageLimitFormatted: string
+      let isMaxIn: boolean
 
       if (currentTradeType === "exactIn") {
-        // For exact input: minOut = amountOut * (1 - slippage/100)
-        minOut = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
-        const minOutNum = parseFloat(formatUnits(minOut, tokenOutDecimals))
-        minOutFormatted = formatTokenAmount(minOutNum, tokenOutSymbol)
+        // Minimum output we accept: amountOut * (1 - slippage/100). Format using tokenOut.
+        slippageLimit = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
+        slippageLimitFormatted = formatTokenAmount(
+          parseFloat(formatUnits(slippageLimit, tokenOutDecimals)),
+          tokenOutSymbol
+        )
+        isMaxIn = false
       } else {
-        // For exact output: maxIn = amountIn * (1 + slippage/100)
-        minOut = (bestQuote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
-        const minOutNum = parseFloat(formatUnits(minOut, tokenInDecimals))
-        minOutFormatted = formatTokenAmount(minOutNum, tokenInSymbol)
+        // Maximum input we pay: amountIn * (1 + slippage/100). Format using tokenIn.
+        slippageLimit = (bestQuote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
+        slippageLimitFormatted = formatTokenAmount(
+          parseFloat(formatUnits(slippageLimit, tokenInDecimals)),
+          tokenInSymbol
+        )
+        isMaxIn = true
       }
 
       // Calculate exchange rate (always output/input)
@@ -994,8 +1024,9 @@ export function useQuote({
         amountOutFormatted,
         amountIn: bestQuote.amountIn,
         amountInFormatted,
-        minOut,
-        minOutFormatted,
+        slippageLimit,
+        slippageLimitFormatted,
+        isMaxIn,
         priceImpact,
         exchangeRate,
         gasEstimate: bestQuote.gasEstimate,

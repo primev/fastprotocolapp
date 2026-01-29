@@ -34,8 +34,14 @@ interface SwapConfirmationModalProps {
   tokenIn: Token | undefined
   tokenOut: Token | undefined
   amountIn: string
+  /** Expected receive amount (price without slippage). Shown in the main Receive card. */
   amountOut: string
+  /** Minimum output / max input we accept (contract value). Passed to useSwapConfirmation. */
   minAmountOut: string
+  /** Formatted slippage-limited value for the "Minimum received" / "Maximum sold" detail row. */
+  slippageLimitFormatted: string
+  /** true = exactOut: show "Maximum sold" (tokenIn). false = exactIn: show "Minimum received" (tokenOut). */
+  isMaxIn?: boolean
   exchangeRate: number
   priceImpact: number
   slippage: string
@@ -93,6 +99,8 @@ function SwapConfirmationModal({
   amountIn,
   amountOut,
   minAmountOut,
+  slippageLimitFormatted,
+  isMaxIn = false,
   exchangeRate,
   priceImpact,
   slippage,
@@ -344,7 +352,7 @@ function SwapConfirmationModal({
                   </span>
                 </div>
                 <span className="text-2xl font-bold text-emerald-500 tabular-nums">
-                  {minAmountOut}
+                  {amountOut}
                 </span>
               </div>
             </div>
@@ -368,9 +376,13 @@ function SwapConfirmationModal({
                   tooltip="Estimated gas fee for this transaction"
                 />
                 <InfoRow
-                  label="Minimum received"
-                  value={`${minAmountOut} ${tokenOut?.symbol ?? ""}`}
-                  tooltip="The minimum amount you will receive after slippage"
+                  label={isMaxIn ? "Maximum sold" : "Minimum received"}
+                  value={`${slippageLimitFormatted} ${isMaxIn ? (tokenIn?.symbol ?? "") : (tokenOut?.symbol ?? "")}`}
+                  tooltip={
+                    isMaxIn
+                      ? "The maximum amount you will pay after slippage"
+                      : "The minimum amount you will receive after slippage"
+                  }
                 />
               </div>
 

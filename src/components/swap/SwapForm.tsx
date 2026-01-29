@@ -148,8 +148,18 @@ export function SwapForm() {
             form.isWrapUnwrap ? form.amount : form.displayQuote?.amountOutFormatted || form.amount
           }
           minAmountOut={
-            form.isWrapUnwrap ? form.amount : form.displayQuote?.amountOutFormatted || form.amount
+            form.isWrapUnwrap
+              ? form.amount
+              : form.displayQuote?.isMaxIn
+                ? form.displayQuote?.amountOutFormatted || form.amount
+                : form.displayQuote?.slippageLimitFormatted || form.amount
           }
+          slippageLimitFormatted={
+            form.isWrapUnwrap
+              ? form.amount
+              : form.displayQuote?.slippageLimitFormatted || form.amount
+          }
+          isMaxIn={form.isWrapUnwrap ? false : (form.displayQuote?.isMaxIn ?? false)}
           exchangeRate={form.isWrapUnwrap ? 1 : form.displayQuote?.exchangeRate || 1}
           priceImpact={form.isWrapUnwrap ? 0 : form.displayQuote?.priceImpact || 0}
           slippage={form.slippage}
