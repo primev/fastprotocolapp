@@ -49,7 +49,11 @@ export function SwapForm() {
         setInternalDeadline={form.updateDeadline}
         // From Token Props
         fromToken={form.fromToken!}
-        formattedFromBalance={formatBalance(form.fromBalanceValue, form.fromToken?.symbol)}
+        formattedFromBalance={formatBalance(
+          form.fromBalanceValue,
+          form.fromToken?.symbol,
+          form.fromToken?.address
+        )}
         sellDisplayValue={
           form.editingSide === "sell" ? form.amount : form.displayQuote?.amountInFormatted || ""
         }
@@ -62,7 +66,11 @@ export function SwapForm() {
         sellInputRef={sellInputRef}
         // To Token Props
         toToken={form.toToken!}
-        formattedToBalance={formatBalance(form.toBalanceValue, form.toToken?.symbol)}
+        formattedToBalance={formatBalance(
+          form.toBalanceValue,
+          form.toToken?.symbol,
+          form.toToken?.address
+        )}
         buyDisplayValue={
           form.isWrapUnwrap
             ? form.amount

@@ -36,21 +36,19 @@ export const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as cons
  */
 export const INTENT_DEADLINE_MINUTES = 30 // 30 minutes (Uniswap recommended standard)
 
+import { STABLECOIN_SYMBOLS as STABLECOIN_SYMBOLS_LIST } from "@/lib/stablecoins"
+
 /**
- * Token symbol constants for formatting and classification
+ * Token symbol constants for formatting and classification.
+ * Stablecoin list comes from CoinGecko (stablecoin-list.json via stablecoins.ts).
  */
 export const SWAP_CONSTANTS = {
-  /**
-   * Stablecoin symbols that should be formatted with 2 decimal places
-   */
-  STABLECOIN_SYMBOLS: ["USDC", "USDT", "DAI", "BUSD", "TUSD", "FRAX", "USDP", "LUSD"] as const,
-
   /**
    * Major asset symbols that should be formatted with 4-6 decimal places
    */
   MAJOR_ASSET_SYMBOLS: ["ETH", "WBTC", "BTC"] as const,
 } as const
 
-// Export individual constants for convenience
-export const STABLECOIN_SYMBOLS = SWAP_CONSTANTS.STABLECOIN_SYMBOLS
+// Re-export stablecoin list from stablecoins (single source of truth)
+export const STABLECOIN_SYMBOLS = STABLECOIN_SYMBOLS_LIST
 export const MAJOR_ASSET_SYMBOLS = SWAP_CONSTANTS.MAJOR_ASSET_SYMBOLS

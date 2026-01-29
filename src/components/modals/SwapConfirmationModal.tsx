@@ -8,7 +8,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { cn } from "@/lib/utils"
+import { cn, formatAmountByTokenType } from "@/lib/utils"
+import { isStablecoin } from "@/lib/stablecoins"
 import { useGasPrice } from "@/hooks/use-gas-price"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
@@ -410,7 +411,11 @@ function SwapConfirmationModal({
                 <div className="divide-y divide-white/5 pt-2">
                   <InfoRow
                     label="Rate"
-                    value={`1 ${tokenIn?.symbol ?? ""} = ${exchangeRate.toLocaleString()} ${tokenOut?.symbol ?? ""}`}
+                    value={`1 ${tokenIn?.symbol ?? ""} = ${formatAmountByTokenType(
+                      exchangeRate,
+                      isStablecoin(tokenIn?.address ?? "", tokenIn?.symbol) ||
+                        isStablecoin(tokenOut?.address ?? "", tokenOut?.symbol)
+                    )} ${tokenOut?.symbol ?? ""}`}
                     tooltip="Current exchange rate between tokens"
                   />
                   <InfoRow

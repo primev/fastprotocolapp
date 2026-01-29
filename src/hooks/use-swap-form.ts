@@ -16,6 +16,8 @@ import {
   estimateUnwrapGas,
 } from "@/lib/weth-utils"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
+import { isStablecoin } from "@/lib/stablecoins"
+import { formatAmountByTokenType } from "@/lib/utils"
 import { useSwapSlippage } from "@/hooks/use-swap-slippage"
 import { Token } from "@/types/swap"
 import { DEFAULT_ETH_TOKEN } from "@/components/swap/TokenSelectorModal"
@@ -185,7 +187,13 @@ export function useSwapForm(allTokens: Token[]) {
     if (isWrapUnwrap) return `1 ${fromToken?.symbol} = 1 ${toToken?.symbol}`
     if (hasNoLiquidity) return "No liquidity"
     if (displayQuote && fromToken && toToken) {
-      return `1 ${fromToken.symbol} = ${displayQuote.exchangeRate.toFixed(6)} ${toToken.symbol}`
+      const isFromStable = isStablecoin(fromToken.address ?? "", fromToken.symbol)
+      const isToStable = isStablecoin(toToken.address ?? "", toToken.symbol)
+      const rateFormatted = formatAmountByTokenType(
+        displayQuote.exchangeRate,
+        isFromStable || isToStable
+      )
+      return `1 ${fromToken.symbol} = ${rateFormatted} ${toToken.symbol}`
     }
     return lastValidRate || "Select tokens"
   }, [

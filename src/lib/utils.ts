@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { STABLECOIN_SYMBOLS, MAJOR_ASSET_SYMBOLS } from "@/lib/swap-constants"
+import { MAJOR_ASSET_SYMBOLS } from "@/lib/swap-constants"
+import { isStablecoin as isStablecoinByAddress } from "@/lib/stablecoins"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -81,12 +82,32 @@ export function formatWalletAddress(
 }
 
 /**
- * Check if a token symbol is a stablecoin
- * @param symbol - Token symbol to check
- * @returns True if the symbol is a stablecoin
+ * Check if a token is a stablecoin (by address and/or symbol).
+ * Re-exported from stablecoins; use isStablecoin("", symbol) for symbol-only check.
  */
-export function isStablecoin(symbol: string): boolean {
-  return STABLECOIN_SYMBOLS.includes(symbol.toUpperCase() as (typeof STABLECOIN_SYMBOLS)[number])
+export const isStablecoin = isStablecoinByAddress
+
+/**
+ * Format a number with 6 significant digits and strip trailing zeros (volatile token style).
+ */
+function toSignificant6(num: number): string {
+  if (num === 0) return "0"
+  if (num < 0.000001) return "<0.000001"
+  if (num < 0.001) {
+    return num
+      .toLocaleString("en-US", { maximumSignificantDigits: 6, notation: "standard" })
+      .replace(/\.?0+$/, "")
+  }
+  return num.toPrecision(6).replace(/\.?0+$/, "")
+}
+
+/**
+ * Format amount by token type: stablecoins → toFixed(2), volatile → toSignificant(6).
+ */
+export function formatAmountByTokenType(value: number, isStable: boolean): string {
+  if (value === 0 || !Number.isFinite(value)) return "0"
+  if (isStable) return value.toFixed(2)
+  return toSignificant6(value)
 }
 
 /**
@@ -116,42 +137,43 @@ export function sanitizeAmountInput(input: string): number | null {
 }
 
 /**
- * Formats token amount for display based on token type
- * Handles different token types with appropriate decimal precision
+ * Formats token amount for display based on token type.
+ * Stablecoins → toFixed(2); volatile → toSignificant(6).
  * @param amount - Amount to format (string or number)
- * @param tokenSymbol - Optional token symbol to determine formatting rules
+ * @param tokenSymbol - Optional token symbol for stable/volatile detection
  * @param maxDecimals - Optional maximum decimals override (default: auto-detect)
- * @returns Formatted amount string
+ * @param tokenAddress - Optional token address for stablecoin detection (O(1) for core stables)
  */
 export function formatTokenAmount(
   amount: string | number,
   tokenSymbol?: string,
-  maxDecimals?: number
+  maxDecimals?: number,
+  tokenAddress?: string
 ): string {
   const num = typeof amount === "string" ? parseFloat(amount) : amount
 
   if (isNaN(num) || num === 0) return "0"
 
   const symbol = tokenSymbol?.toUpperCase() || ""
+  const isStable = isStablecoinByAddress(tokenAddress ?? "", tokenSymbol)
 
-  // For very small numbers (< 0.001): use significant digits
-  if (num < 0.000001) return "<0.000001"
-  if (num < 0.001) {
-    return num.toLocaleString("en-US", {
-      maximumSignificantDigits: 6,
-      notation: "standard",
-    })
-  }
-
-  // Stablecoins: 2 decimals
-  if (STABLECOIN_SYMBOLS.includes(symbol as (typeof STABLECOIN_SYMBOLS)[number])) {
+  // Stablecoins: 2 decimals (fiat-style)
+  if (isStable) {
     return new Intl.NumberFormat("en-US", {
       maximumFractionDigits: 2,
       minimumFractionDigits: 2,
     }).format(num)
   }
 
-  // Major assets: 4-6 decimals based on value
+  // Volatile: toSignificant(6) style
+  if (num < 0.000001) return "<0.000001"
+  if (num < 0.001) {
+    return num
+      .toLocaleString("en-US", { maximumSignificantDigits: 6, notation: "standard" })
+      .replace(/\.?0+$/, "")
+  }
+
+  // Major assets (ETH, WBTC, BTC): keep 4-6 decimals by value when not stable
   if (MAJOR_ASSET_SYMBOLS.includes(symbol as (typeof MAJOR_ASSET_SYMBOLS)[number])) {
     const decimals = num >= 1 ? 4 : 6
     return new Intl.NumberFormat("en-US", {
@@ -160,7 +182,6 @@ export function formatTokenAmount(
     }).format(num)
   }
 
-  // Default: 4-6 decimals based on value, or use provided maxDecimals
   if (maxDecimals !== undefined) {
     return new Intl.NumberFormat("en-US", {
       maximumFractionDigits: maxDecimals,
@@ -168,11 +189,7 @@ export function formatTokenAmount(
     }).format(num)
   }
 
-  const decimals = num >= 1 ? 4 : 6
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: decimals,
-    minimumFractionDigits: 0,
-  }).format(num)
+  return toSignificant6(num)
 }
 
 /**
@@ -189,9 +206,13 @@ export const resolveImageUrl = (url?: string) => {
   return url
 }
 
-export function formatBalance(balanceValue: number, tokenSymbol?: string): string {
+export function formatBalance(
+  balanceValue: number,
+  tokenSymbol?: string,
+  tokenAddress?: string
+): string {
   if (balanceValue <= 0) return "0"
-  return formatTokenAmount(balanceValue, tokenSymbol)
+  return formatTokenAmount(balanceValue, tokenSymbol, undefined, tokenAddress)
 }
 
 export function isValidAddress(addr: string): boolean {

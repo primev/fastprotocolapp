@@ -5,6 +5,7 @@ import { createPublicClient, http, parseUnits, formatUnits, type Address } from 
 import { mainnet } from "wagmi/chains"
 import { RPC_ENDPOINT, FALLBACK_RPC_ENDPOINT } from "@/lib/network-config"
 import { sanitizeAmountInput, formatTokenAmount } from "@/lib/utils"
+import { isStablecoin } from "@/lib/stablecoins"
 import { resolveTokenAddress, resolveTokenDecimals, getTokenSymbol } from "@/lib/token-resolver"
 import type { Token } from "@/types/swap"
 
@@ -306,13 +307,17 @@ function recalculateSlippageLimit(
   const tokenInDecimals = resolveTokenDecimals(tokenIn, tokenList)
   const tokenOutSymbol = getTokenSymbol(tokenOut) || ""
   const tokenInSymbol = getTokenSymbol(tokenIn) || ""
+  const tokenOutAddr = tokenOut?.address ?? ""
+  const tokenInAddr = tokenIn?.address ?? ""
 
   if (!quote.isMaxIn) {
     // exactIn: minimum output we accept
     const slippageLimit = (quote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
     const slippageLimitFormatted = formatTokenAmount(
       parseFloat(formatUnits(slippageLimit, tokenOutDecimals)),
-      tokenOutSymbol
+      tokenOutSymbol,
+      undefined,
+      tokenOutAddr
     )
     return { slippageLimit, slippageLimitFormatted }
   } else {
@@ -320,7 +325,9 @@ function recalculateSlippageLimit(
     const slippageLimit = (quote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
     const slippageLimitFormatted = formatTokenAmount(
       parseFloat(formatUnits(slippageLimit, tokenInDecimals)),
-      tokenInSymbol
+      tokenInSymbol,
+      undefined,
+      tokenInAddr
     )
     return { slippageLimit, slippageLimitFormatted }
   }
@@ -347,14 +354,15 @@ export function calculateAutoSlippage(
   // Base slippage for small trades
   let slippage = 0.1
 
-  // Get token symbols for comparison
-  const tokenInSymbol = getTokenSymbol(tokenIn)?.toUpperCase() || ""
-  const tokenOutSymbol = getTokenSymbol(tokenOut)?.toUpperCase() || ""
+  // Get token symbols and addresses for comparison
+  const tokenInSymbol = getTokenSymbol(tokenIn) ?? ""
+  const tokenOutSymbol = getTokenSymbol(tokenOut) ?? ""
+  const tokenInAddress = typeof tokenIn === "object" && tokenIn?.address ? tokenIn.address : ""
+  const tokenOutAddress = typeof tokenOut === "object" && tokenOut?.address ? tokenOut.address : ""
 
   // Check if tokens are stablecoins (need less slippage)
-  const STABLECOINS = ["USDC", "USDT", "DAI", "BUSD", "TUSD", "FRAX", "USDP", "LUSD"]
   const isStablecoinPair =
-    STABLECOINS.includes(tokenInSymbol) || STABLECOINS.includes(tokenOutSymbol)
+    isStablecoin(tokenInAddress, tokenInSymbol) || isStablecoin(tokenOutAddress, tokenOutSymbol)
 
   // Adjust based on trade size
   // Larger trades need more slippage tolerance
@@ -636,8 +644,20 @@ export function useQuote({
 
       const tokenOutSymbol = getTokenSymbol(currentTokenOut) || ""
       const tokenInSymbol = getTokenSymbol(currentTokenIn) || ""
-      const amountOutFormatted = formatTokenAmount(amountOutNum, tokenOutSymbol)
-      const amountInFormatted = formatTokenAmount(amountInNum, tokenInSymbol)
+      const tokenOutAddr = currentTokenOut?.address ?? ""
+      const tokenInAddr = currentTokenIn?.address ?? ""
+      const amountOutFormatted = formatTokenAmount(
+        amountOutNum,
+        tokenOutSymbol,
+        undefined,
+        tokenOutAddr
+      )
+      const amountInFormatted = formatTokenAmount(
+        amountInNum,
+        tokenInSymbol,
+        undefined,
+        tokenInAddr
+      )
 
       // --- Slippage limit (worst-case value for contract + Details section) ---
       // slippageLimit is passed to the contract and shown in the modal "Details" section.
@@ -652,7 +672,9 @@ export function useQuote({
         slippageLimit = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
         slippageLimitFormatted = formatTokenAmount(
           parseFloat(formatUnits(slippageLimit, tokenOutDecimals)),
-          tokenOutSymbol
+          tokenOutSymbol,
+          undefined,
+          tokenOutAddr
         )
         isMaxIn = false
       } else {
@@ -660,7 +682,9 @@ export function useQuote({
         slippageLimit = (bestQuote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
         slippageLimitFormatted = formatTokenAmount(
           parseFloat(formatUnits(slippageLimit, tokenInDecimals)),
-          tokenInSymbol
+          tokenInSymbol,
+          undefined,
+          tokenInAddr
         )
         isMaxIn = true
       }
@@ -980,8 +1004,20 @@ export function useQuote({
 
       const tokenOutSymbol = getTokenSymbol(currentTokenOut) || ""
       const tokenInSymbol = getTokenSymbol(currentTokenIn) || ""
-      const amountOutFormatted = formatTokenAmount(amountOutNum, tokenOutSymbol)
-      const amountInFormatted = formatTokenAmount(amountInNum, tokenInSymbol)
+      const tokenOutAddr = currentTokenOut?.address ?? ""
+      const tokenInAddr = currentTokenIn?.address ?? ""
+      const amountOutFormatted = formatTokenAmount(
+        amountOutNum,
+        tokenOutSymbol,
+        undefined,
+        tokenOutAddr
+      )
+      const amountInFormatted = formatTokenAmount(
+        amountInNum,
+        tokenInSymbol,
+        undefined,
+        tokenInAddr
+      )
 
       // --- Slippage limit (worst-case value for contract + Details section) ---
       // slippageLimit is passed to the contract and shown in the modal "Details" section.
@@ -996,7 +1032,9 @@ export function useQuote({
         slippageLimit = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
         slippageLimitFormatted = formatTokenAmount(
           parseFloat(formatUnits(slippageLimit, tokenOutDecimals)),
-          tokenOutSymbol
+          tokenOutSymbol,
+          undefined,
+          tokenOutAddr
         )
         isMaxIn = false
       } else {
@@ -1004,7 +1042,9 @@ export function useQuote({
         slippageLimit = (bestQuote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
         slippageLimitFormatted = formatTokenAmount(
           parseFloat(formatUnits(slippageLimit, tokenInDecimals)),
-          tokenInSymbol
+          tokenInSymbol,
+          undefined,
+          tokenInAddr
         )
         isMaxIn = true
       }
