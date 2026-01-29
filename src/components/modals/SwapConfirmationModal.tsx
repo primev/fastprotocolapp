@@ -45,6 +45,8 @@ interface SwapConfirmationModalProps {
   exchangeRate: number
   priceImpact: number
   slippage: string
+  /** Transaction deadline in minutes (5–1440). Passed to useSwapConfirmation. */
+  deadline: number
   gasEstimate: bigint | null
   ethPrice?: number | null
   timeLeft?: number
@@ -105,6 +107,7 @@ function SwapConfirmationModal({
   exchangeRate,
   priceImpact,
   slippage,
+  deadline,
   gasEstimate,
   ethPrice,
   timeLeft,
@@ -140,7 +143,7 @@ function SwapConfirmationModal({
     toToken: tokenOut,
     amount: amountIn,
     minAmountOut,
-    deadline: 0,
+    deadline,
     onSuccess: () => {
       if (refreshBalances) {
         setTimeout(() => refreshBalances(), 1000)

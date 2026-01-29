@@ -2,6 +2,14 @@
 
 import { useState, useEffect } from "react"
 
+// Same range as use-swap-confirmation and use-swap-intent (minutes)
+const DEADLINE_MIN_MINUTES = 5
+const DEADLINE_MAX_MINUTES = 1440
+
+function clampDeadline(minutes: number): number {
+  return Math.max(DEADLINE_MIN_MINUTES, Math.min(DEADLINE_MAX_MINUTES, minutes))
+}
+
 export function useSwapSlippage() {
   const [slippage, setSlippage] = useState("0.5")
   const [isAutoSlippage, setIsAutoSlippage] = useState(false)
@@ -15,7 +23,10 @@ export function useSwapSlippage() {
 
     if (savedSlippage) setSlippage(savedSlippage)
     if (savedAuto) setIsAutoSlippage(savedAuto === "true")
-    if (savedDeadline) setDeadline(parseInt(savedDeadline, 10))
+    if (savedDeadline) {
+      const parsed = parseInt(savedDeadline, 10)
+      if (!Number.isNaN(parsed)) setDeadline(clampDeadline(parsed))
+    }
   }, [])
 
   const updateSlippage = (val: string) => {
@@ -29,8 +40,9 @@ export function useSwapSlippage() {
   }
 
   const updateDeadline = (val: number) => {
-    setDeadline(val)
-    localStorage.setItem("swapDeadline", val.toString())
+    const clamped = clampDeadline(val)
+    setDeadline(clamped)
+    localStorage.setItem("swapDeadline", clamped.toString())
   }
 
   return {

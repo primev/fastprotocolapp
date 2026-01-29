@@ -163,6 +163,7 @@ export function SwapForm() {
           exchangeRate={form.isWrapUnwrap ? 1 : form.displayQuote?.exchangeRate || 1}
           priceImpact={form.isWrapUnwrap ? 0 : form.displayQuote?.priceImpact || 0}
           slippage={form.slippage}
+          deadline={form.deadline}
           gasEstimate={form.gasEstimate}
           timeLeft={form.timeLeft}
           refreshBalances={form.refreshBalances}
