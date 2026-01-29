@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useCallback } from "react"
+import React, { useEffect, useMemo, useCallback, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { useGasPrice } from "@/hooks/use-gas-price"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   ArrowDown,
   X,
@@ -20,6 +21,7 @@ import {
   ChevronDown,
   Info,
   ExternalLink,
+  Fuel,
 } from "lucide-react"
 import type { Token } from "@/types/swap"
 import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
@@ -42,6 +44,45 @@ interface SwapConfirmationModalProps {
   timeLeft?: number
   isLoading?: boolean
   refreshBalances?: () => Promise<void>
+}
+
+interface InfoRowProps {
+  label: string
+  value: React.ReactNode
+  tooltip?: string
+  valueClassName?: string
+}
+
+function InfoRow({ label, value, tooltip, valueClassName }: InfoRowProps) {
+  return (
+    <div className="flex items-center justify-between py-2.5">
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">
+          {label}
+        </span>
+        {tooltip && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-3.5 w-3.5 text-white/40 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[200px] bg-[#1c2128] border-white/10">
+                <p className="text-xs text-gray-300">{tooltip}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+      <span
+        className={cn(
+          "text-[10px] font-bold uppercase tracking-wider text-white/80",
+          valueClassName
+        )}
+      >
+        {value}
+      </span>
+    </div>
+  )
 }
 
 function SwapConfirmationModal({
@@ -99,6 +140,7 @@ function SwapConfirmationModal({
   })
 
   const { gasPrice } = useGasPrice()
+  const [isExpanded, setIsExpanded] = useState(false)
 
   // --- LOGIC PHASES ---
   const isWaitingForSignature = isWrapPending || isSigning
@@ -307,16 +349,86 @@ function SwapConfirmationModal({
               </div>
             </div>
 
-            <div className="bg-white/[0.05] border border-white/10 rounded-2xl p-5 space-y-3">
-              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
-                <span className="text-white/50">Network Cost</span>
-                <span className="text-white/80">
-                  {gasCostUsd ? `$${gasCostUsd.toFixed(2)}` : "—"}
-                </span>
+            <div className="bg-white/[0.05] border border-white/10 rounded-2xl p-5">
+              <div className="divide-y divide-white/5">
+                <InfoRow
+                  label="Fee"
+                  value="Free"
+                  tooltip="The fee charged for this swap"
+                  valueClassName="text-primary"
+                />
+                <InfoRow
+                  label="Network cost"
+                  value={
+                    <span className="flex items-center gap-1.5">
+                      <Fuel className="h-3.5 w-3.5 text-white/40" />
+                      {gasCostUsd ? `$${gasCostUsd.toFixed(2)}` : "—"}
+                    </span>
+                  }
+                  tooltip="Estimated gas fee for this transaction"
+                />
+                <InfoRow
+                  label="Minimum received"
+                  value={`${minAmountOut} ${tokenOut?.symbol ?? ""}`}
+                  tooltip="The minimum amount you will receive after slippage"
+                />
               </div>
-              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
-                <span className="text-white/50">Max Slippage</span>
-                <span className="text-white/80">{slippage}%</span>
+
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="flex items-center justify-center gap-1.5 w-full py-2.5 mt-2 rounded-lg hover:bg-white/5 transition-all text-[10px] font-bold uppercase tracking-wider text-white/50 hover:text-white/80"
+              >
+                {isExpanded ? "Show less" : "Show more"}
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 transition-transform duration-200",
+                    isExpanded && "rotate-180"
+                  )}
+                />
+              </button>
+
+              <div
+                className={cn(
+                  "overflow-hidden transition-all duration-300 ease-in-out",
+                  isExpanded ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"
+                )}
+              >
+                <div className="divide-y divide-white/5 pt-2">
+                  <InfoRow
+                    label="Rate"
+                    value={`1 ${tokenIn?.symbol ?? ""} = ${exchangeRate.toLocaleString()} ${tokenOut?.symbol ?? ""}`}
+                    tooltip="Current exchange rate between tokens"
+                  />
+                  <InfoRow
+                    label="Max slippage"
+                    value={
+                      <span className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-bold uppercase">
+                          Auto
+                        </span>
+                        {slippage}%
+                      </span>
+                    }
+                    tooltip="Maximum price movement allowed before transaction reverts"
+                  />
+                  <InfoRow
+                    label="Order routing"
+                    value="Fast Protocol"
+                    tooltip="Protocol used to execute this swap"
+                  />
+                  <InfoRow
+                    label="Price impact"
+                    value={`${priceImpact >= 0 ? "" : "-"}${Math.abs(priceImpact).toFixed(2)}%`}
+                    tooltip="The difference between market price and estimated price due to trade size"
+                    valueClassName={
+                      priceImpact < 0
+                        ? "text-emerald-400"
+                        : priceImpact > 1
+                          ? "text-red-400"
+                          : "text-amber-400"
+                    }
+                  />
+                </div>
               </div>
             </div>
 
