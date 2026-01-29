@@ -83,9 +83,7 @@ function InfoRow({ label, value, tooltip, valueClassName }: InfoRowProps) {
         className={cn(
           "text-[10px] font-bold uppercase tracking-wider text-white/80",
           valueClassName,
-          label === "Minimum received" || label === "Maximum sold"
-            ? "text-emerald-400"
-            : undefined
+          label === "Minimum received" || label === "Maximum sold" ? "text-emerald-400" : undefined
         )}
       >
         {value}
@@ -354,9 +352,7 @@ function SwapConfirmationModal({
                     Receive
                   </span>
                 </div>
-                <span className="text-2xl font-bold tabular-nums">
-                  {amountOut}
-                </span>
+                <span className="text-2xl font-bold tabular-nums">{amountOut}</span>
               </div>
             </div>
 
