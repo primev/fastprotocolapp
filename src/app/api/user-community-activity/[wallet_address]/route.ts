@@ -64,7 +64,7 @@ export async function GET(
 
 /**
  * POST /api/user-community-activity/[wallet_address]
- * Save or update one entity's activity. Body: { entity: string, activity: boolean }
+ * Save or update one entity's activity. Body: { entity: string, activity: boolean, chainId?: number }
  */
 export async function POST(
   request: NextRequest,
@@ -77,6 +77,8 @@ export async function POST(
     const body = await request.json()
     const entity = typeof body?.entity === "string" ? body.entity.trim() : null
     const activity = body?.activity === true || body?.activity === "true"
+    const chainId =
+      typeof body?.chainId === "number" && Number.isInteger(body.chainId) ? body.chainId : null
 
     if (!entity) {
       return NextResponse.json(
@@ -86,12 +88,12 @@ export async function POST(
     }
 
     await pool.query(
-      `INSERT INTO user_activity (user_address, entity, activity)
-       VALUES ($1, $2, $3)`,
-      [result.address, entity, activity]
+      `INSERT INTO user_activity (user_address, entity, activity, chainid)
+       VALUES ($1, $2, $3, $4)`,
+      [result.address, entity, activity, chainId]
     )
 
-    return NextResponse.json({ ok: true, entity, activity }, { status: 201 })
+    return NextResponse.json({ ok: true, entity, activity, chainId }, { status: 201 })
   } catch (err) {
     console.error("Error saving user community activity:", err)
     return NextResponse.json({ error: "Database operation failed" }, { status: 500 })

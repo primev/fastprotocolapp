@@ -11,9 +11,8 @@ const DOODLES_IMG = `${ASSETS_URL}/nfts/doodles.jpg`
 const MOONBIRDS_IMG = `${ASSETS_URL}/nfts/moonbirds.jpg`
 const PUDGY_PENGUINS_IMG = `${ASSETS_URL}/nfts/pudgy-penguins.jpg`
 const YUGA_LABS_IMG = `${ASSETS_URL}/nfts/yuga-labs.jpg`
-// const TEST_IMG = `/assets/fast-icon.png`
+const TEST_IMG = `/assets/fast-icon.png`
 
-/** Chain IDs for NFT verification (Ethereum mainnet vs BNB Smart Chain) */
 const CHAIN_ETH = 1
 const CHAIN_BSC = 56
 
@@ -34,6 +33,14 @@ const ECOSYSTEM_SETS: {
   img: string
   contracts: readonly ContractEntry[]
 }[] = [
+  // {
+  //   id: "test",
+  //   name: "Test",
+  //   img: TEST_IMG,
+  //   contracts: [
+  //     { address: "0xd0E132C73C9425072AAB9256d63aa14D798D063A", chainId: CHAIN_ETH, label: "Test" },
+  //   ],
+  // },
   {
     id: "pudgy",
     name: "Pudgy\nPenguins",
@@ -156,11 +163,16 @@ const fetchUserActivity = async (walletAddress: string): Promise<Record<string, 
   return data.activities ?? {}
 }
 
-const saveUserActivity = async (walletAddress: string, entity: string, activity: boolean) => {
+const saveUserActivity = async (
+  walletAddress: string,
+  entity: string,
+  activity: boolean,
+  chainId: number | null
+) => {
   const res = await fetch(`/api/user-community-activity/${walletAddress}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ entity, activity }),
+    body: JSON.stringify({ entity, activity, chainId }),
   })
   if (!res.ok) throw new Error("Failed to save activity")
 }
@@ -184,9 +196,9 @@ export const EcosystemSetCarousel = () => {
   })
 
   const markAsVerified = useCallback(
-    (id: string) => {
+    (id: string, chainId: number | null) => {
       if (!userAddress) return
-      saveUserActivity(userAddress, id, true).catch(() => {
+      saveUserActivity(userAddress, id, true, chainId).catch(() => {
         // Verbose: error handling
       })
     },
@@ -235,7 +247,13 @@ export const EcosystemSetCarousel = () => {
   }, [])
 
   useEffect(() => {
-    if (!isConnected || !userAddress) return
+    if (!isConnected) {
+      setVerifiedSets({})
+      setFailedSets({})
+      setManualLoadingId(null)
+      return
+    }
+    if (!userAddress) return
     fetchUserActivity(userAddress)
       .then((activities) => {
         const fromApi: Record<string, boolean> = {}
@@ -253,6 +271,8 @@ export const EcosystemSetCarousel = () => {
   useEffect(() => {
     if (!blockchainData || !manualLoadingId) return
     const results = blockchainData as { status: string; result?: unknown }[]
+    const set = ECOSYSTEM_SETS.find((s) => s.id === manualLoadingId)
+    const chainId = set?.contracts[0]?.chainId ?? null
 
     const hasAssets = results.some((res) => res.status === "success" && Number(res.result) > 0)
 
@@ -264,7 +284,7 @@ export const EcosystemSetCarousel = () => {
         return next
       })
       localStorage.setItem(`verified_${manualLoadingId}`, "true")
-      markAsVerified(manualLoadingId)
+      markAsVerified(manualLoadingId, chainId)
     } else {
       setFailedSets((prev) => ({ ...prev, [manualLoadingId]: true }))
       setTimeout(() => {
