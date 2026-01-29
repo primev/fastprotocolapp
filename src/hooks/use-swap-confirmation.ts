@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
-import { useAccount, useSendTransaction } from "wagmi"
-import { parseUnits } from "viem"
+import { useState, useCallback, useEffect, useMemo } from "react"
+import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from "wagmi"
+import { parseUnits, type TransactionReceipt } from "viem"
 import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
 import { useToast } from "@/hooks/use-toast"
+import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
 import { ZERO_ADDRESS, WETH_ADDRESS, FAST_SETTLEMENT_ADDRESS } from "@/lib/swap-constants"
 import { FASTSWAP_API_BASE, USE_FASTSWAP_DUMMY } from "@/lib/network-config"
 import type { Token } from "@/types/swap"
@@ -71,6 +72,37 @@ export function useSwapConfirmation({
   useEffect(() => {
     if (sendTxHash) setHash(sendTxHash)
   }, [sendTxHash])
+
+  const isRealHash = useMemo(
+    () => !!hash && hash !== DUMMY_TX_HASH_ETH && hash !== DUMMY_TX_HASH_PERMIT,
+    [hash]
+  )
+
+  const { data: receipt } = useWaitForTransactionReceipt({
+    hash: isRealHash ? (hash as `0x${string}`) : undefined,
+  })
+
+  const onConfirmed = useCallback(() => {
+    setIsSubmitting(false)
+    toast({
+      title: "Swap Confirmed",
+      description: "Your transaction has been mined and confirmed.",
+    })
+    onSuccess?.()
+  }, [toast, onSuccess])
+
+  const onConfirmationError = useCallback((err: Error) => {
+    setIsSubmitting(false)
+    setError(err)
+  }, [])
+
+  useWaitForTxConfirmation({
+    hash: isRealHash ? (hash ?? undefined) : undefined,
+    receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
+    mode: "status",
+    onConfirmed,
+    onError: onConfirmationError,
+  })
 
   const reset = useCallback(() => {
     setIsSigning(false)
@@ -205,12 +237,7 @@ export function useSwapConfirmation({
 
         if (txHash) setHash(txHash)
         console.log("[confirmSwap] ETH path tx hash:", txHash)
-        setIsSubmitting(false)
-        toast({
-          title: "Swap Confirmed",
-          description: "Your transaction has been submitted.",
-        })
-        onSuccess?.()
+        // Keep isSubmitting true; useWaitForTxConfirmation will call onConfirmed when DB or chain confirms
         return
       }
 
@@ -317,14 +344,7 @@ export function useSwapConfirmation({
 
       if (result.txHash) setHash(result.txHash)
       console.log("[confirmSwap] Permit path tx hash:", result.txHash)
-
-      setIsSubmitting(false)
-      toast({
-        title: "Swap Confirmed",
-        description: "Your transaction has been mined and confirmed.",
-      })
-
-      onSuccess?.()
+      // Keep isSubmitting true; useWaitForTxConfirmation will call onConfirmed when DB or chain confirms
     } catch (err) {
       console.error("Swap error:", err)
       setIsSigning(false)
