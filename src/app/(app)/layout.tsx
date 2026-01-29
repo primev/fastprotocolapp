@@ -68,7 +68,9 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       !hasCheckedStatus &&
       status !== "connecting" &&
       status !== "reconnecting" &&
-      (pathname?.startsWith("/dashboard") || pathname?.startsWith("/leaderboard"))
+      (pathname?.startsWith("/dashboard") ||
+        pathname?.startsWith("/leaderboard") ||
+        pathname?.startsWith("/swap"))
     ) {
       // Small tick to ensure RainbowKit's internal state is also ready
       const timer = setTimeout(() => {

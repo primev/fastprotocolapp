@@ -56,19 +56,20 @@ export const AppHeader = ({
   const { openConnectModal } = useConnectModal()
 
   // Hover prefetching for faster navigation
-  const { handleDashboardHover, handleLeaderboardHover } = usePrefetchOnHover()
+  const { handleDashboardHover, handleLeaderboardHover, handleSwapHover } = usePrefetchOnHover()
 
   // Navigation items for mobile drawer
   const navItems = [
     { label: "Genesis SBT", href: "/dashboard", active: pathname?.startsWith("/dashboard") },
     { label: "Leaderboard", href: "/leaderboard", active: pathname?.startsWith("/leaderboard") },
+    { label: "Swap", href: "/swap", active: pathname?.startsWith("/swap") },
   ]
 
   return (
     <>
-      <header className="border-b border-border/50 backdrop-blur-sm bg-background/80">
-        <div className="container mx-auto px-4 py-2.5 flex items-center justify-between">
-          <Link href="/dashboard" className="relative">
+      <header className="border-b border-border/50 backdrop-blur-sm bg-background/80 relative py-2">
+        <div className="mx-5 px-4 py-2.5 flex items-center justify-between">
+          <Link href="/" className="relative">
             <Image
               src="/assets/fast-icon.png"
               alt="Fast Protocol"
@@ -85,10 +86,31 @@ export const AppHeader = ({
             />
           </Link>
 
-          {/* Tab Bar - Centered (conditional based on route) */}
-          {(pathname?.startsWith("/dashboard") || pathname?.startsWith("/leaderboard")) && (
-            <div className="hidden md:flex items-center justify-center flex-1 mx-8">
+          {/* Tab Bar - Dead Center (absolute positioning) */}
+          {(pathname?.startsWith("/dashboard") ||
+            pathname?.startsWith("/leaderboard") ||
+            pathname?.startsWith("/")) && (
+            <div className="hidden md:flex items-center justify-center absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
               <div className="inline-flex items-center rounded-full bg-muted/50 p-1 gap-1">
+                <Link
+                  href="/"
+                  prefetch={false}
+                  onMouseEnter={handleSwapHover(address)}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm font-medium transition-all",
+                    pathname === "/" || pathname?.startsWith("/swap")
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Swap
+                </Link>
+                <button
+                  disabled
+                  className="px-4 py-2 rounded-full text-sm font-medium text-muted-foreground opacity-60 cursor-not-allowed"
+                >
+                  Miles
+                </button>
                 <Link
                   href="/dashboard"
                   prefetch={false}
@@ -115,12 +137,6 @@ export const AppHeader = ({
                 >
                   Leaders
                 </Link>
-                <button
-                  disabled
-                  className="px-4 py-2 rounded-full text-sm font-medium text-muted-foreground opacity-60 cursor-not-allowed"
-                >
-                  Miles
-                </button>
               </div>
             </div>
           )}
