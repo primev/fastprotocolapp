@@ -211,13 +211,6 @@ async function getBestQuoteFromFeeTiers(
     }
   }
 
-  console.log("[useQuote] Best quote selected:", {
-    fee: bestQuote.fee,
-    amountOut: bestQuote.amountOut.toString(),
-    successfulQuotesCount: successfulQuotes.length,
-    successfulFees: successfulQuotes.map((q) => q.fee),
-  })
-
   return bestQuote
 }
 
@@ -510,18 +503,6 @@ export function useQuote({
       return
     }
 
-    // Debug logging with timing
-    const startTime = performance.now()
-    console.log("[useQuote] Refetching quote:", {
-      requestId: currentRequestId,
-      tokenIn: getTokenSymbol(currentTokenIn),
-      tokenOut: getTokenSymbol(currentTokenOut),
-      amountIn: currentAmountIn,
-      tradeType: currentTradeType,
-      amountInNum,
-      timestamp: startTime,
-    })
-
     // Validate amount is not too large
     const MAX_AMOUNT = 1e21
     if (amountInNum > MAX_AMOUNT) {
@@ -550,12 +531,6 @@ export function useQuote({
 
     // Only proceed if this is still the latest request
     if (currentRequestId !== requestIdRef.current) {
-      console.log(
-        "[useQuote] Request outdated, aborting:",
-        currentRequestId,
-        "current:",
-        requestIdRef.current
-      )
       return
     }
 
@@ -615,23 +590,12 @@ export function useQuote({
           setNoLiquidity(true)
           setQuote(null)
           setError(null)
-          console.log("[useQuote] No liquidity found:", {
-            requestId: currentRequestId,
-            tokenIn: getTokenSymbol(currentTokenIn),
-            tokenOut: getTokenSymbol(currentTokenOut),
-          })
         }
         return
       }
 
       // Check again if this is still the latest request
       if (currentRequestId !== requestIdRef.current) {
-        console.log(
-          "[useQuote] Request outdated before processing result:",
-          currentRequestId,
-          "current:",
-          requestIdRef.current
-        )
         return
       }
 
@@ -745,18 +709,6 @@ export function useQuote({
 
       // Only set quote if this is still the latest request
       if (currentRequestId === requestIdRef.current) {
-        const endTime = performance.now()
-        const duration = endTime - startTime
-        console.log("[useQuote] Refetch quote result:", {
-          requestId: currentRequestId,
-          tokenIn: getTokenSymbol(currentTokenIn),
-          tokenOut: getTokenSymbol(currentTokenOut),
-          tradeType: currentTradeType,
-          amountIn: currentAmountIn,
-          amountInFormatted: newQuote.amountInFormatted,
-          amountOutFormatted: newQuote.amountOutFormatted,
-          duration: `${duration.toFixed(2)}ms`,
-        })
 
         // Compare new vs old quote to prevent unnecessary re-renders
         const isIdentical =
@@ -772,14 +724,7 @@ export function useQuote({
         prevQuoteRef.current = newQuote
         setQuote(newQuote)
         setError(null)
-      } else {
-        console.log(
-          "[useQuote] Ignoring stale refetch quote:",
-          currentRequestId,
-          "current:",
-          requestIdRef.current
-        )
-      }
+      } 
     } catch (err) {
       let errorMessage = "Failed to fetch quote"
 
@@ -869,18 +814,6 @@ export function useQuote({
       return
     }
 
-    // Debug logging with timing
-    const startTime = performance.now()
-    console.log("[useQuote] Fetching quote:", {
-      requestId: currentRequestId,
-      tokenIn: getTokenSymbol(currentTokenIn),
-      tokenOut: getTokenSymbol(currentTokenOut),
-      amountIn: currentAmountIn,
-      tradeType: currentTradeType,
-      amountInNum,
-      timestamp: startTime,
-    })
-
     // Validate amount is not too large (prevent overflow)
     // Maximum safe value: 1e21 (1 billion tokens with 18 decimals)
     const MAX_AMOUNT = 1e21
@@ -910,12 +843,6 @@ export function useQuote({
 
     // Only proceed if this is still the latest request
     if (currentRequestId !== requestIdRef.current) {
-      console.log(
-        "[useQuote] Request outdated, aborting:",
-        currentRequestId,
-        "current:",
-        requestIdRef.current
-      )
       return
     }
 
@@ -975,23 +902,12 @@ export function useQuote({
           setNoLiquidity(true)
           setQuote(null)
           setError(null)
-          console.log("[useQuote] No liquidity found:", {
-            requestId: currentRequestId,
-            tokenIn: getTokenSymbol(currentTokenIn),
-            tokenOut: getTokenSymbol(currentTokenOut),
-          })
         }
         return
       }
 
       // Check again if this is still the latest request before processing
       if (currentRequestId !== requestIdRef.current) {
-        console.log(
-          "[useQuote] Request outdated before processing result:",
-          currentRequestId,
-          "current:",
-          requestIdRef.current
-        )
         return
       }
 
@@ -1111,23 +1027,6 @@ export function useQuote({
 
       // Only set quote if this is still the latest request
       if (currentRequestId === requestIdRef.current) {
-        const endTime = performance.now()
-        const duration = endTime - startTime
-        // Debug logging
-        console.log("[useQuote] Quote result:", {
-          requestId: currentRequestId,
-          tokenIn: getTokenSymbol(currentTokenIn),
-          tokenOut: getTokenSymbol(currentTokenOut),
-          tradeType: currentTradeType,
-          amountIn: currentAmountIn,
-          amountInFormatted: newQuote.amountInFormatted,
-          amountOutFormatted: newQuote.amountOutFormatted,
-          amountInNum,
-          amountOutNum,
-          tokenInDecimals,
-          tokenOutDecimals,
-          duration: `${duration.toFixed(2)}ms`,
-        })
 
         // Compare new vs old quote to prevent unnecessary re-renders
         const isIdentical =
@@ -1143,14 +1042,7 @@ export function useQuote({
         prevQuoteRef.current = newQuote
         setQuote(newQuote)
         setError(null)
-      } else {
-        console.log(
-          "[useQuote] Ignoring stale quote:",
-          currentRequestId,
-          "current:",
-          requestIdRef.current
-        )
-      }
+      } 
     } catch (err) {
       let errorMessage = "Failed to fetch quote"
 

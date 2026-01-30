@@ -78,6 +78,9 @@ export function useWaitForTxConfirmation({
       isProcessing = true
       confirmedRef.current = true
       setIsConfirmed(true)
+      if (result.receipt) {
+        console.log("[Tx confirmation] receipt", result.receipt)
+      }
       try {
         onConfirmedRef.current(result)
       } catch (err) {

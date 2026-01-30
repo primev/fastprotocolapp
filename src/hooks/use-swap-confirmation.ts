@@ -106,6 +106,7 @@ export function useSwapConfirmation({
   }, [toast, onSuccess, syncFromChain])
 
   const onConfirmationError = useCallback((err: Error) => {
+    console.error("[Swap confirmation] Tx confirmation error", err)
     setIsSubmitting(false)
     setError(err)
   }, [])
@@ -211,6 +212,7 @@ export function useSwapConfirmation({
 
     if (!ethResp.ok || !ethData || ethData.status === "error") {
       const apiError = ethData?.error ?? text ?? "FastSwap API error"
+      console.error("[ETH path] FastSwap API error", apiError)
       setIsSubmitting(false)
       setError(new Error(apiError))
       toast({
@@ -287,6 +289,7 @@ export function useSwapConfirmation({
         deadline
       )
     } catch (err) {
+      console.error("[Permit path] Intent signature failed", err)
       releaseNonce(nonce)
       throw err
     }
@@ -329,7 +332,7 @@ export function useSwapConfirmation({
     }
 
     if (!resp.ok || !result || result.status === "error") {
-      console.log("[Permit path] API error – releasing nonce", nonce.toString(), "result:", result)
+      console.error("[Permit path] FastSwap API error – releasing nonce", nonce.toString(), "result:", result)
       releaseNonce(nonce)
       const apiError = result?.error ?? permitText ?? "FastSwap API error"
       const isNonceTooLow = String(apiError).toLowerCase().includes("nonce too low")
@@ -354,6 +357,7 @@ export function useSwapConfirmation({
   }
 
   function handleSwapError(err: unknown) {
+    console.error("[Swap confirmation] Swap error", err)
     setIsSigning(false)
     setIsSubmitting(false)
 
