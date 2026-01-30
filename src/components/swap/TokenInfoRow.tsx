@@ -29,13 +29,20 @@ export default React.memo(function TokenInfoRow({
   const currentUsdValue =
     numericDisplayAmount > 0 && tokenPrice ? numericDisplayAmount * tokenPrice : null
 
-  // Update the buffer ONLY if we have a real value
+  // Update the buffer ONLY if we have a real value; clear when no amount so disconnect shows $0
   if (currentUsdValue !== null) {
     lastValidUsdRef.current = currentUsdValue
+  } else if (numericDisplayAmount === 0 || !displayAmount || displayAmount === "0") {
+    lastValidUsdRef.current = null
   }
 
   // Determine what to show for USD value
   const getUsdDisplay = () => {
+    // When no amount, always show $0 (don't use stale ref from before disconnect)
+    if (numericDisplayAmount === 0 || !displayAmount || displayAmount === "0") {
+      return "$0"
+    }
+
     // Use the buffer if current is null but we are loading or just switched
     const valueToDisplay = currentUsdValue ?? lastValidUsdRef.current
 
@@ -45,14 +52,6 @@ export default React.memo(function TokenInfoRow({
         maximumFractionDigits: 2,
         useGrouping: true,
       })}`
-    }
-
-    // For sell side: show "$0" when no amount
-    // For buy side: show empty string when no amount
-    console.log("numericDisplayAmount", numericDisplayAmount)
-    console.log("displayAmount", displayAmount)
-    if (numericDisplayAmount === 0 || !displayAmount || displayAmount === "0") {
-      return "$0"
     }
 
     // If there's an amount but price is loading, show loading indicator

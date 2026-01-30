@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { useAccount } from "wagmi"
 import { formatBalance } from "@/lib/utils"
 import { getTokenLists } from "@/lib/swap-logic/token-list"
@@ -25,6 +25,16 @@ export function SwapForm() {
   // Input Refs
   const sellInputRef = useRef<HTMLInputElement>(null)
   const buyInputRef = useRef<HTMLInputElement>(null)
+
+  // Close all modals when wallet disconnects
+  useEffect(() => {
+    if (!isConnected) {
+      setIsConfirmationOpen(false)
+      setIsSettingsOpen(false)
+      setIsFromSelectorOpen(false)
+      setIsToSelectorOpen(false)
+    }
+  }, [isConnected])
 
   const handleSwapClick = () => {
     if (!isConnected || !form.fromToken || !form.toToken) return

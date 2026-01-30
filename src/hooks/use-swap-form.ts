@@ -51,6 +51,8 @@ export function useSwapForm(allTokens: Token[]) {
   const [lastValidRate, setLastValidRate] = useState<string | null>(null)
   const [wrapUnwrapGasEstimate, setWrapUnwrapGasEstimate] = useState<bigint | null>(null)
 
+  const prevConnectedRef = useRef<boolean | undefined>(undefined)
+
   // --- Market Data ---
   const { price: fromPrice, isLoading: isLoadingFromPrice } = useTokenPrice(fromToken?.symbol || "")
   const { price: toPrice, isLoading: isLoadingToPrice } = useTokenPrice(toToken?.symbol || "")
@@ -89,6 +91,27 @@ export function useSwapForm(allTokens: Token[]) {
   useEffect(() => {
     if (isConnected && address) refreshBalances()
   }, [address, isConnected, refreshBalances])
+
+  // Reset all form state when wallet disconnects (connected → disconnected only)
+  useEffect(() => {
+    const wasConnected = prevConnectedRef.current
+    prevConnectedRef.current = isConnected
+    if (wasConnected === true && !isConnected) {
+      setFromToken(DEFAULT_ETH_TOKEN)
+      setToToken(undefined)
+      setAmount("")
+      setEditingSide("sell")
+      setIsManualInversion(false)
+      setSwappedQuote(null)
+      setIsSwitching(false)
+      setTimeLeft(15)
+      setLastSwitchTime(0)
+      setPriceCache({})
+      setQuoteCache({})
+      setLastValidRate(null)
+      setWrapUnwrapGasEstimate(null)
+    }
+  }, [isConnected])
 
   // --- Quote Logic ---
   const isWrapUnwrap = isWrapUnwrapPair(fromToken, toToken)
