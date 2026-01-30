@@ -1,27 +1,19 @@
 "use client"
 
 import React from "react"
-// UI Components & Icons
 import { Popover, PopoverContent, PopoverTrigger } from "@radix-ui/react-popover"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@radix-ui/react-tooltip"
 import { Info, Settings } from "lucide-react"
-
-// Utils
 import { cn } from "@/lib/utils"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface TransactionSettingsProps {
-  // Popover State
   isSettingsOpen: boolean
   setIsSettingsOpen: (open: boolean) => void
-
-  // Slippage State
   isAutoSlippage: boolean
   handleAutoSlippageChange: (isAuto: boolean) => void
   calculatedAutoSlippage: number
   slippage: string
   handleSlippageChange: (slippage: string) => void
-
-  // Deadline State
   internalDeadline: number
   setInternalDeadline: (deadline: number) => void
 }
@@ -37,116 +29,108 @@ export const TransactionSettings: React.FC<TransactionSettingsProps> = ({
   internalDeadline,
   setInternalDeadline,
 }) => {
-  const handleDeadlineInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^0-9]/g, "")
-    const newDeadline = value === "" ? 30 : Math.min(Math.max(parseInt(value), 1), 4320)
-
-    setInternalDeadline(newDeadline)
-    localStorage.setItem("swapDeadline", newDeadline.toString())
-  }
-
-  // Pre-calculate slippage value for warning checks
-  const numericSlippage = parseFloat(slippage)
-
   return (
-    <div className="flex items-center justify-between pl-2 mb-1">
+    <div className="flex items-center justify-between w-full">
       <span className="text-xl font-semibold text-white">Swap</span>
 
       <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <PopoverTrigger asChild>
           <button
-            aria-label="Transaction Settings"
-            className="p-2 rounded-lg hover:bg-white/5 transition-colors group"
+            type="button"
+            className="p-2 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors"
+            aria-label="Transaction settings"
           >
-            <Settings className="h-5 w-5 text-gray-400 group-hover:text-white transition-colors" />
+            <Settings className="h-5 w-5 text-zinc-400 hover:text-white transition-colors" />
           </button>
         </PopoverTrigger>
 
         <PopoverContent
           align="end"
           sideOffset={8}
-          className="w-80 bg-[#1c2128] border border-white/10 p-4 rounded-xl shadow-2xl z-50"
+          className="w-[340px] bg-[#0d1117] border border-white/5 p-5 rounded-[24px] shadow-2xl z-50"
         >
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-white">Transaction Settings</h3>
-
-            {/* AUTO SLIPPAGE SECTION */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">Auto slippage</span>
-                <SettingsInfoTooltip text="Automatically adjust slippage based on trade size and market conditions." />
+          <div className="space-y-6">
+            {/* MAX SLIPPAGE ROW */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[15px] font-medium text-zinc-200">Max slippage</span>
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-zinc-500 cursor-help shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      className="max-w-[200px] bg-[#161b22] border-white/10"
+                    >
+                      <p className="text-xs text-gray-300">
+                        Maximum price movement allowed before transaction reverts
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-              <button
-                onClick={() => handleAutoSlippageChange(!isAutoSlippage)}
-                className={cn(
-                  "w-full py-2 px-3 rounded-lg text-sm font-medium transition-all",
-                  isAutoSlippage
-                    ? "bg-primary text-white shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]"
-                    : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-                )}
-              >
-                {isAutoSlippage ? "Enabled" : "Disabled"}
-                {isAutoSlippage && (
-                  <span className="ml-2 text-xs opacity-75">
-                    ({calculatedAutoSlippage.toFixed(2)}%)
-                  </span>
-                )}
-              </button>
+
+              <div className="flex items-center border border-white/10 rounded-full px-3 py-1.5 min-w-[140px] justify-between bg-white/[0.02]">
+                <button
+                  type="button"
+                  onClick={() => handleAutoSlippageChange(!isAutoSlippage)}
+                  className={cn(
+                    "text-[13px] font-bold px-3 py-0.5 rounded-full transition-colors",
+                    isAutoSlippage
+                      ? "bg-primary/10 text-primary"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  )}
+                >
+                  Auto
+                </button>
+
+                <div className="flex items-center">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={isAutoSlippage ? calculatedAutoSlippage.toFixed(2) : slippage}
+                    disabled={isAutoSlippage}
+                    onChange={(e) => handleSlippageChange(e.target.value.replace(/[^0-9.]/g, ""))}
+                    className={cn(
+                      "w-12 bg-transparent text-right text-[15px] font-medium outline-none focus:ring-0",
+                      isAutoSlippage ? "text-zinc-400" : "text-white"
+                    )}
+                  />
+                  <span className="text-[15px] text-zinc-500 ml-0.5 font-medium">%</span>
+                </div>
+              </div>
             </div>
 
-            {/* MANUAL SLIPPAGE TOLERANCE SECTION */}
-            {!isAutoSlippage && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-400">Slippage tolerance</span>
-                  <SettingsInfoTooltip text="Your transaction will revert if the price changes unfavorably by more than this percentage." />
-                </div>
-                <div className="flex gap-2">
-                  {["0.1", "0.5", "1.0"].map((value) => (
-                    <button
-                      key={value}
-                      onClick={() => handleSlippageChange(value)}
-                      className={cn(
-                        "flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors",
-                        slippage === value
-                          ? "bg-primary text-white"
-                          : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-                      )}
+            {/* SWAP DEADLINE ROW */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[15px] font-medium text-zinc-200">Swap deadline</span>
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-zinc-500 cursor-help shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      className="max-w-[200px] bg-[#161b22] border-white/10"
                     >
-                      {value}%
-                    </button>
-                  ))}
-                </div>
-
-                {/* Validation Warnings */}
-                {numericSlippage > 5 && (
-                  <p className="text-[11px] text-yellow-500 font-medium">
-                    ⚠️ High slippage may result in unfavorable trades
-                  </p>
-                )}
-                {numericSlippage < 0.1 && (
-                  <p className="text-[11px] text-yellow-500 font-medium">
-                    ⚠️ Low slippage may cause transaction failure
-                  </p>
-                )}
+                      <p className="text-xs text-gray-300">
+                        Transaction will revert if not confirmed within this time
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-            )}
 
-            {/* TRANSACTION DEADLINE SECTION */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">Transaction deadline</span>
-                <SettingsInfoTooltip text="Your transaction will revert if it remains pending for longer than this period." />
-              </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center bg-[#161b22] border border-white/5 rounded-full px-4 py-2 min-w-[140px] justify-center gap-2">
                 <input
                   type="text"
-                  inputMode="numeric"
                   value={internalDeadline}
-                  onChange={handleDeadlineInputChange}
-                  className="w-20 py-2 px-3 rounded-lg text-center text-sm font-bold bg-white/5 border border-white/10 text-white focus:border-primary focus:outline-none transition-colors"
+                  onChange={(e) => setInternalDeadline(Number(e.target.value.replace(/\D/g, "")))}
+                  className="w-8 bg-transparent text-center text-[15px] text-white font-medium outline-none focus:ring-0"
                 />
-                <span className="text-sm text-gray-400">minutes</span>
+                <span className="text-[15px] text-zinc-500 font-medium">minutes</span>
               </div>
             </div>
           </div>
@@ -155,19 +139,3 @@ export const TransactionSettings: React.FC<TransactionSettingsProps> = ({
     </div>
   )
 }
-
-const SettingsInfoTooltip = ({ text }: { text: string }) => (
-  <TooltipProvider delayDuration={200}>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Info className="h-4 w-4 text-gray-500 hover:text-gray-300 cursor-help transition-colors" />
-      </TooltipTrigger>
-      <TooltipContent
-        side="left"
-        className="max-w-[200px] bg-black border border-white/10 p-2 text-xs text-gray-200 rounded-md shadow-xl"
-      >
-        {text}
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-)

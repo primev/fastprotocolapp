@@ -372,6 +372,8 @@ export function useSwapForm(allTokens: Token[]) {
     refreshBalances,
     resetFormAfterSuccess,
     ...settings,
+    /** Effective slippage: auto-calculated when isAutoSlippage, else manual. Used by quote and confirmation modal. */
+    slippage: effectiveSlippage,
     fromPrice: priceCache[fromToken?.symbol || ""] ?? fromPrice ?? 0,
     toPrice: priceCache[toToken?.symbol || ""] ?? toPrice ?? 0,
     isLoadingFromPrice,

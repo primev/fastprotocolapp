@@ -174,13 +174,16 @@ export function useSwapConfirmation({
     const userAmtOutWei = parseUnits(minAmountOutClean, toToken.decimals).toString()
 
     console.log("Execute Eth Path")
-    console.log("Swap Path Body", JSON.stringify({
-      outputToken: toToken.address,
-      inputAmt: inputAmtWei,
-      userAmtOut: userAmtOutWei,
-      sender: address,
-      deadline: String(deadlineUnix),
-    }))
+    console.log(
+      "Swap Path Body",
+      JSON.stringify({
+        outputToken: toToken.address,
+        inputAmt: inputAmtWei,
+        userAmtOut: userAmtOutWei,
+        sender: address,
+        deadline: String(deadlineUnix),
+      })
+    )
 
     const ethResp = await fetch(`${FASTSWAP_API_BASE}/fastswap/eth`, {
       method: "POST",
@@ -219,9 +222,7 @@ export function useSwapConfirmation({
     }
 
     const gasLimit =
-      ethData.gasLimit != null
-        ? BigInt(Math.ceil(ethData.gasLimit * 1.2))
-        : undefined
+      ethData.gasLimit != null ? BigInt(Math.ceil(ethData.gasLimit * 1.2)) : undefined
 
     const gasFees =
       feeData?.maxFeePerGas != null && feeData?.maxPriorityFeePerGas != null
@@ -259,16 +260,19 @@ export function useSwapConfirmation({
       toToken.address === ZERO_ADDRESS ? WETH_ADDRESS : (toToken.address as `0x${string}`)
 
     console.log("Execute Permit Path")
-    console.log("Swap Signature Creation Body", JSON.stringify({
-      tokenInAddress: tokenInAddress,
-      tokenOutAddress: tokenOutAddress,
-      amount: amount,
-      minAmountOut: minAmountOut,
-      nonce: nonce.toString(),
-      decimalsIn: fromToken.decimals,
-      decimalsOut: toToken.decimals,
-      deadline: deadline,
-    }))
+    console.log(
+      "Swap Signature Creation Body",
+      JSON.stringify({
+        tokenInAddress: tokenInAddress,
+        tokenOutAddress: tokenOutAddress,
+        amount: amount,
+        minAmountOut: minAmountOut,
+        nonce: nonce.toString(),
+        decimalsIn: fromToken.decimals,
+        decimalsOut: toToken.decimals,
+        deadline: deadline,
+      })
+    )
 
     let intentData
     try {

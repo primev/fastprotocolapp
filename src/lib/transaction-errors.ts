@@ -52,7 +52,7 @@ export function getTransactionErrorMessage(
   const isRejection = isTransactionRejection(error)
 
   if (isRejection) {
-    return "You cancelled the transaction"
+    return "Transaction Cancelled in Wallet"
   }
 
   if (error instanceof Error) {

@@ -352,7 +352,7 @@ export function calculateAutoSlippage(
   gasPriceGwei?: number | null
 ): number {
   // Base slippage for small trades
-  let slippage = 0.1
+  let slippage = 0.5
 
   // Get token symbols and addresses for comparison
   const tokenInSymbol = getTokenSymbol(tokenIn) ?? ""
@@ -390,8 +390,8 @@ export function calculateAutoSlippage(
     }
   }
 
-  // Clamp between 0.1% and 5%
-  return Math.max(0.1, Math.min(5.0, slippage))
+  // Clamp between 0.5% and 5%
+  return Math.max(0.5, Math.min(5.0, slippage))
 }
 
 /**

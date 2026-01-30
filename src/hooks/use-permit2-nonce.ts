@@ -103,7 +103,11 @@ export function usePermit2Nonce() {
   const releaseNonce = useCallback((nonce: bigint) => {
     const bitPos = nonce & 0xffn
     reservedBitsRef.current.delete(bitPos)
-    console.log("[Permit2 nonce] releaseNonce", { nonce: nonce.toString(), bitPos: bitPos.toString(), reservedCountAfter: reservedBitsRef.current.size })
+    console.log("[Permit2 nonce] releaseNonce", {
+      nonce: nonce.toString(),
+      bitPos: bitPos.toString(),
+      reservedCountAfter: reservedBitsRef.current.size,
+    })
   }, [])
 
   /**

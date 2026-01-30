@@ -187,6 +187,8 @@ export function SwapForm() {
           slippage={form.slippage}
           deadline={form.deadline}
           gasEstimate={form.gasEstimate}
+          fromTokenPrice={form.fromPrice ?? undefined}
+          toTokenPrice={form.toPrice ?? undefined}
           timeLeft={form.timeLeft}
           refreshBalances={form.refreshBalances}
           onCloseAfterSuccess={form.resetFormAfterSuccess}

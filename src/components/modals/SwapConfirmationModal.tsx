@@ -6,15 +6,15 @@ import {
   Dialog,
   DialogContent,
   DialogOverlay,
+  DialogHeader,
   DialogTitle,
-  DialogDescription,
+  DialogClose,
 } from "@/components/ui/dialog"
-import { cn, formatAmountByTokenType } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import { isStablecoin } from "@/lib/stablecoins"
 import { useGasPrice } from "@/hooks/use-gas-price"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
-  ArrowDown,
   X,
   Loader2,
   CheckCircle2,
@@ -31,6 +31,13 @@ import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
 import { useSwapConfirmation } from "@/hooks/use-swap-confirmation"
 import { getPriceImpactSeverity } from "@/hooks/use-swap-quote"
 import { getTransactionErrorMessage, getTransactionErrorTitle } from "@/lib/transaction-errors"
+
+const numberFlowStyle = {
+  "--number-flow-char-gap": "-0.5px",
+  "--number-flow-mask-duration": "0.3s",
+  "--number-flow-mask-timing-function": "cubic-bezier(0.4, 0, 0.2, 1)",
+  fontVariantNumeric: "tabular-nums",
+} as React.CSSProperties
 
 interface SwapConfirmationModalProps {
   open: boolean
@@ -53,6 +60,10 @@ interface SwapConfirmationModalProps {
   deadline: number
   gasEstimate: bigint | null
   ethPrice?: number | null
+  /** USD price per token for the "from" token (used for USD under amount). */
+  fromTokenPrice?: number | null
+  /** USD price per token for the "to" token (used for USD under amount). */
+  toTokenPrice?: number | null
   timeLeft?: number
   isLoading?: boolean
   refreshBalances?: () => Promise<void>
@@ -71,14 +82,12 @@ function InfoRow({ label, value, tooltip, valueClassName }: InfoRowProps) {
   return (
     <div className="flex items-center justify-between py-2.5">
       <div className="flex items-center gap-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">
-          {label}
-        </span>
+        <span className="text-sm text-gray-400">{label}</span>
         {tooltip && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Info className="h-3.5 w-3.5 text-white/40 cursor-help" />
+                <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-[200px] bg-[#1c2128] border-white/10">
                 <p className="text-xs text-gray-300">{tooltip}</p>
@@ -89,13 +98,40 @@ function InfoRow({ label, value, tooltip, valueClassName }: InfoRowProps) {
       </div>
       <span
         className={cn(
-          "text-[10px] font-bold uppercase tracking-wider text-white/80",
+          "text-sm font-medium text-white",
           valueClassName,
-          label === "Minimum received" || label === "Maximum sold" ? "text-emerald-400" : undefined
+          (label === "Minimum received" || label === "Maximum sold") && "text-emerald-400"
         )}
       >
         {value}
       </span>
+    </div>
+  )
+}
+
+function TokenIcon({ token, className }: { token: Token | undefined; className?: string }) {
+  const [hasImageError, setHasImageError] = useState(false)
+  useEffect(() => {
+    if (token) setHasImageError(false)
+  }, [token?.address])
+  if (!token) return null
+  return (
+    <div
+      className={cn(
+        "rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden p-2.5",
+        className
+      )}
+    >
+      {token.logoURI && !hasImageError ? (
+        <img
+          src={token.logoURI}
+          alt={token.symbol}
+          className="h-full w-full object-contain"
+          onError={() => setHasImageError(true)}
+        />
+      ) : (
+        <span className="text-[10px] font-bold text-white uppercase">{token.symbol.charAt(0)}</span>
+      )}
     </div>
   )
 }
@@ -117,15 +153,9 @@ function BuyReceiveValue({ value, className }: { value: string; className?: stri
         format={{
           minimumFractionDigits: minFractionDigits,
           maximumFractionDigits: 6,
+          useGrouping: true,
         }}
-        style={
-          {
-            "--number-flow-char-gap": "-0.5px",
-            "--number-flow-mask-duration": "0.3s",
-            "--number-flow-mask-timing-function": "cubic-bezier(0.4, 0, 0.2, 1)",
-            fontVariantNumeric: "tabular-nums",
-          } as React.CSSProperties
-        }
+        style={numberFlowStyle}
       />
     </span>
   )
@@ -147,6 +177,8 @@ function SwapConfirmationModal({
   deadline,
   gasEstimate,
   ethPrice,
+  fromTokenPrice,
+  toTokenPrice,
   timeLeft,
   isLoading = false,
   refreshBalances,
@@ -240,6 +272,18 @@ function SwapConfirmationModal({
     return (Number(gasEstimate) * Number(gasPrice) * price) / 1e18
   }, [gasEstimate, gasPrice, ethPrice])
 
+  // USD value under each token amount (match main swap form, NumberFlow + commas)
+  const fromUsdValue = useMemo(() => {
+    const num = parseFloat(amountIn?.replace(/,/g, "") ?? "")
+    if (isNaN(num) || num <= 0 || fromTokenPrice == null || fromTokenPrice <= 0) return null
+    return num * fromTokenPrice
+  }, [amountIn, fromTokenPrice])
+  const toUsdValue = useMemo(() => {
+    const num = parseFloat(amountOut?.replace(/,/g, "") ?? "")
+    if (isNaN(num) || num <= 0 || toTokenPrice == null || toTokenPrice <= 0) return null
+    return num * toTokenPrice
+  }, [amountOut, toTokenPrice])
+
   const errorTitle = useMemo(
     () => getTransactionErrorTitle(wrapError, operationType),
     [wrapError, operationType]
@@ -247,6 +291,12 @@ function SwapConfirmationModal({
   const shortErrorMessage = useMemo(
     () => getTransactionErrorMessage(wrapError, operationType),
     [wrapError, operationType]
+  )
+
+  // Rate is "tokenOut per 1 tokenIn"; format by whether tokenOut is stable (match swap form)
+  const rateToStable = useMemo(
+    () => isStablecoin(tokenOut?.address ?? "", tokenOut?.symbol),
+    [tokenOut?.address, tokenOut?.symbol]
   )
 
   // Refresh balances when wrap/unwrap succeeds
@@ -264,36 +314,33 @@ function SwapConfirmationModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogOverlay className="bg-black/60 backdrop-blur-md transition-all duration-300" />
       <DialogContent
-        className="max-w-[480px] max-h-[90dvh] bg-[#1c1c1c] p-2 overflow-y-auto overflow-x-hidden gap-0 rounded-[28px] border-0 outline-none ring-0 shadow-2xl [&>button]:hidden"
-        // PREVENT CLICK OUTSIDE & ESCAPE
+        hideClose
+        className="sm:max-w-[500px] max-h-[90dvh] p-0 gap-0 bg-[#0d1117] border-white/10 overflow-hidden overflow-y-auto rounded-[28px] outline-none ring-0 shadow-2xl [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         {/* HEADER */}
-        <div className="relative flex items-center justify-between bg-[#1c1c1c]/60 h-[54px] py-3 px-4 mb-4">
-          <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent"></div>
-          <DialogTitle className="text-[11px] font-bold uppercase tracking-[0.25em] text-white/45">
-            {isCurrentlyError
-              ? errorTitle
-              : isActive
-                ? "Transaction Status"
-                : `Confirm ${operationType}`}
-          </DialogTitle>
-
-          {/* Hide Close Button while processing */}
-          {!(isWaitingForSignature || isWaitingForBlock) && (
-            <button
-              onClick={() => handleOpenChange(false)}
-              className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/5 transition-colors group"
-            >
-              <X size={18} className="text-white/55 group-hover:text-white/90 transition-colors" />
-            </button>
-          )}
-        </div>
+        <DialogHeader className="py-5 sm:py-6 px-5 relative">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-lg sm:text-xl font-bold text-white">
+              {isCurrentlyError ? errorTitle : isActive ? "Transaction Status" : "You're swapping"}
+            </DialogTitle>
+            {!(isWaitingForSignature || isWaitingForBlock) && (
+              <DialogClose asChild>
+                <button
+                  onClick={() => handleOpenChange(false)}
+                  className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+                >
+                  <X className="h-5 w-5 text-gray-400 hover:text-white" />
+                </button>
+              </DialogClose>
+            )}
+          </div>
+        </DialogHeader>
 
         {isActive ? (
           /* STATUS VIEW */
-          <div className="flex flex-col items-center py-10 px-8 text-center animate-in fade-in zoom-in-95 duration-300">
+          <div className="flex flex-col items-center pb-10 px-8 text-center animate-in fade-in zoom-in-95 duration-300">
             <div className="relative mb-8">
               <div
                 className={cn(
@@ -380,46 +427,93 @@ function SwapConfirmationModal({
           </div>
         ) : (
           /* REVIEW VIEW */
-          <div className="px-4 pb-6 space-y-6 animate-in fade-in duration-300">
-            <div className="relative">
-              <div className="bg-[#1c1c1c]/60 border border-white/10 rounded-2xl p-5 flex items-center justify-between mb-2">
-                <div className="flex flex-col">
-                  <span className="text-lg font-bold text-white">{tokenIn?.symbol}</span>
-                  <span className="text-[10px] text-white/50 uppercase font-bold tracking-widest">
-                    Pay
-                  </span>
+          <div className="animate-in fade-in duration-300">
+            {/* Transaction Summary */}
+            <div className=" px-5 pb-6 space-y-3">
+              {/* From Token */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-2xl sm:text-3xl font-bold text-white">
+                    <BuyReceiveValue value={amountIn} className="tabular-nums" /> {tokenIn?.symbol}
+                  </p>
+                  <p className="text-sm text-gray-500 tabular-nums">
+                    {fromUsdValue != null ? (
+                      <span className="inline-flex items-center gap-0.5">
+                        ≈ $
+                        <NumberFlow
+                          value={fromUsdValue}
+                          format={{
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                            useGrouping: true,
+                          }}
+                          style={numberFlowStyle}
+                        />
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </p>
                 </div>
-                <BuyReceiveValue
-                  value={amountIn}
-                  className="text-2xl font-bold text-white tabular-nums"
-                />
+                <TokenIcon token={tokenIn} className="h-11 w-11 sm:h-12 sm:w-12" />
               </div>
 
-              <div className="absolute left-1/2 -translate-x-1/2 top-[50%] -translate-y-1/2 z-10">
-                <div className="p-2 bg-[#1c1c1c] border-[6px] border-[#1c1c1c] rounded-2xl ring-1 ring-white/15">
-                  <ArrowDown size={18} className="text-white/45" />
+              {/* Arrow Indicator */}
+              <div className="flex justify-center py-0.5">
+                <div className="h-7 w-7 rounded-lg bg-white/5 flex items-center justify-center">
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
                 </div>
               </div>
 
-              <div className="bg-[#1c1c1c]/60 border border-white/10 rounded-2xl p-5 flex items-center justify-between mt-2">
-                <div className="flex flex-col">
-                  <span className="text-lg font-bold text-white">{tokenOut?.symbol}</span>
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-white/50">
-                    Receive
-                  </span>
+              {/* To Token */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-2xl sm:text-3xl font-bold text-white">
+                    <BuyReceiveValue value={amountOut} className="tabular-nums" />{" "}
+                    {tokenOut?.symbol}
+                  </p>
+                  <p className="text-sm text-gray-500 tabular-nums">
+                    {toUsdValue != null ? (
+                      <span className="inline-flex items-center gap-0.5">
+                        ≈ $
+                        <NumberFlow
+                          value={toUsdValue}
+                          format={{
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                            useGrouping: true,
+                          }}
+                          style={numberFlowStyle}
+                        />
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </p>
                 </div>
-                <BuyReceiveValue value={amountOut} className="text-2xl font-bold tabular-nums" />
+                <TokenIcon token={tokenOut} className="h-11 w-11 sm:h-12 sm:w-12" />
               </div>
             </div>
 
-            <div className="bg-white/[0.05] border border-white/10 rounded-2xl p-5">
+            {/* Details Section */}
+            <div className="px-5 sm:px-6 pb-3 bg-white/[0.02] border-y border-white/5">
               <div className="divide-y divide-white/5">
                 {impactSeverity === "high" ? (
                   <InfoRow
                     label="Price impact"
                     value={
-                      <span className="flex items-center gap-1.5">
-                        {`${priceImpact >= 0 ? "" : "-"}${Math.abs(priceImpact).toFixed(2)}%`}
+                      <span className="flex items-center gap-1.5 tabular-nums">
+                        {priceImpact < 0 && "-"}
+                        <NumberFlow
+                          value={Math.abs(priceImpact)}
+                          format={{
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                            useGrouping: true,
+                          }}
+                          style={numberFlowStyle}
+                        />
+                        %
                         <TooltipProvider delayDuration={100}>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -449,33 +543,39 @@ function SwapConfirmationModal({
                     label="Fee"
                     value="Free"
                     tooltip="The fee charged for this swap"
-                    valueClassName="text-primary"
+                    valueClassName="text-[#3898FF]"
                   />
                 )}
                 <InfoRow
                   label="Network cost"
                   value={
-                    <span className="flex items-center gap-1.5">
-                      <Fuel className="h-3.5 w-3.5 text-white/40" />
-                      {gasCostUsd ? `$${gasCostUsd.toFixed(2)}` : "—"}
+                    <span className="flex items-center gap-1.5 tabular-nums">
+                      <Fuel className="h-3.5 w-3.5 text-gray-500" />
+                      {gasCostUsd != null ? (
+                        <>
+                          $
+                          <NumberFlow
+                            value={gasCostUsd}
+                            format={{
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                              useGrouping: true,
+                            }}
+                            style={numberFlowStyle}
+                          />
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </span>
                   }
                   tooltip="Estimated gas fee for this transaction"
-                />
-                <InfoRow
-                  label={isMaxIn ? "Maximum sold" : "Minimum received"}
-                  value={`${slippageLimitFormatted} ${isMaxIn ? (tokenIn?.symbol ?? "") : (tokenOut?.symbol ?? "")}`}
-                  tooltip={
-                    isMaxIn
-                      ? "The maximum amount you will pay after slippage"
-                      : "The minimum amount you will receive after slippage"
-                  }
                 />
               </div>
 
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="flex items-center justify-center gap-1.5 w-full py-2.5 mt-2 rounded-lg hover:bg-white/5 transition-all text-[10px] font-bold uppercase tracking-wider text-white/50 hover:text-white/80"
+                className="flex items-center justify-center gap-1.5 w-full py-2 mt-2 rounded-lg hover:bg-white/5 transition-all text-sm text-gray-400 hover:text-white"
               >
                 {isExpanded ? "Show less" : "Show more"}
                 <ChevronDown
@@ -489,27 +589,62 @@ function SwapConfirmationModal({
               <div
                 className={cn(
                   "overflow-hidden transition-all duration-300 ease-in-out",
-                  isExpanded ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"
+                  isExpanded
+                    ? "max-h-[300px] opacity-100 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                    : "max-h-0 opacity-0"
                 )}
               >
                 <div className="divide-y divide-white/5 pt-2">
                   <InfoRow
                     label="Rate"
-                    value={`1 ${tokenIn?.symbol ?? ""} = ${formatAmountByTokenType(
-                      exchangeRate,
-                      isStablecoin(tokenIn?.address ?? "", tokenIn?.symbol) ||
-                        isStablecoin(tokenOut?.address ?? "", tokenOut?.symbol)
-                    )} ${tokenOut?.symbol ?? ""}`}
+                    value={
+                      <span className="tabular-nums">
+                        1 {tokenIn?.symbol ?? ""} ={" "}
+                        {exchangeRate.toLocaleString("en-US", {
+                          minimumFractionDigits: rateToStable ? 2 : 0,
+                          maximumFractionDigits: 6,
+                          useGrouping: true,
+                        })}{" "}
+                        {tokenOut?.symbol ?? ""}
+                      </span>
+                    }
                     tooltip="Current exchange rate between tokens"
+                  />
+                  <InfoRow
+                    label={isMaxIn ? "Maximum sold" : "Minimum received"}
+                    value={
+                      <span className="inline-flex items-center gap-1 tabular-nums">
+                        <NumberFlow
+                          value={parseFloat(slippageLimitFormatted?.replace(/,/g, "") ?? "0") || 0}
+                          format={{
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 6,
+                            useGrouping: true,
+                          }}
+                          style={numberFlowStyle}
+                        />{" "}
+                        {isMaxIn ? (tokenIn?.symbol ?? "") : (tokenOut?.symbol ?? "")}
+                      </span>
+                    }
+                    tooltip={
+                      isMaxIn
+                        ? "The maximum amount you will pay after slippage"
+                        : "The minimum amount you will receive after slippage"
+                    }
                   />
                   <InfoRow
                     label="Max slippage"
                     value={
-                      <span className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-bold uppercase">
+                      <span className="flex items-center gap-2 tabular-nums">
+                        <span className="px-2 py-0.5 rounded bg-white/10 text-xs font-medium">
                           Auto
                         </span>
-                        {slippage}%
+                        {(parseFloat(slippage) || 0).toLocaleString("en-US", {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 2,
+                          useGrouping: true,
+                        })}
+                        %
                       </span>
                     }
                     tooltip="Maximum price movement allowed before transaction reverts"
@@ -524,13 +659,13 @@ function SwapConfirmationModal({
                       label="Fee"
                       value="Free"
                       tooltip="The fee charged for this swap"
-                      valueClassName="text-primary"
+                      valueClassName="text-[#3898FF]"
                     />
                   ) : (
                     <InfoRow
                       label="Price impact"
                       value={
-                        <span className="flex items-center gap-1.5">
+                        <span className="flex items-center gap-1.5 tabular-nums">
                           {`${priceImpact >= 0 ? "" : "-"}${Math.abs(priceImpact).toFixed(2)}%`}
                           {impactSeverity === "medium" && (
                             <TooltipProvider delayDuration={100}>
@@ -564,39 +699,31 @@ function SwapConfirmationModal({
                     />
                   )}
                 </div>
-                {timeLeft != null && (
-                  <div className="border-t border-white/5 pt-2 mt-2">
-                    <InfoRow
-                      label="Quote expires"
-                      value={
-                        <span className="flex items-center gap-1.5">
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                          <span className="tabular-nums">{timeLeft}s</span>
-                        </span>
-                      }
-                      tooltip="Time until this quote expires"
-                    />
-                  </div>
-                )}
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 pt-2">
+            {/* CTA Button */}
+            <div className="p-5 sm:p-6">
               <button
                 onClick={() => (isWrap ? wrap() : isUnwrap ? unwrap() : confirmSwap())}
                 disabled={isLoading}
                 className={cn(
-                  "w-full h-16 font-black uppercase tracking-[0.2em] text-sm rounded-2xl hover:brightness-110 active:scale-[0.98] transition-all",
+                  "w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg transition-all active:scale-[0.98]",
                   !isWrap && !isUnwrap && impactSeverity === "high"
-                    ? "bg-red-500 text-white"
-                    : "bg-primary text-primary-foreground"
+                    ? "bg-red-500 text-white hover:bg-red-500/90"
+                    : "bg-[#3898FF] text-white hover:bg-[#3898FF]/90"
                 )}
               >
-                {isLoading
-                  ? "Fetching..."
-                  : !isWrap && !isUnwrap && impactSeverity === "high"
-                    ? "Swap Anyway"
-                    : `Confirm ${operationType}`}
+                {isLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Fetching...
+                  </span>
+                ) : !isWrap && !isUnwrap && impactSeverity === "high" ? (
+                  "Swap Anyway"
+                ) : (
+                  `Confirm ${operationType}`
+                )}
               </button>
             </div>
           </div>
