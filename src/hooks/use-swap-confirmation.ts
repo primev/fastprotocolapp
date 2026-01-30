@@ -158,8 +158,10 @@ export function useSwapConfirmation({
     const deadlineUnix =
       Math.floor(Date.now() / 1000) +
       Math.max(DEADLINE_MIN_MINUTES, Math.min(DEADLINE_MAX_MINUTES, deadline)) * 60
-    const inputAmtWei = parseUnits(amount, fromToken.decimals).toString()
-    const userAmtOutWei = parseUnits(minAmountOut, toToken.decimals).toString()
+    const amountClean = amount.replace(/,/g, "")
+    const minAmountOutClean = minAmountOut.replace(/,/g, "")
+    const inputAmtWei = parseUnits(amountClean, fromToken.decimals).toString()
+    const userAmtOutWei = parseUnits(minAmountOutClean, toToken.decimals).toString()
 
     const ethResp = await fetch(`${FASTSWAP_API_BASE}/fastswap/eth`, {
       method: "POST",
@@ -169,7 +171,7 @@ export function useSwapConfirmation({
         inputAmt: inputAmtWei,
         userAmtOut: userAmtOutWei,
         sender: address,
-        deadline: deadlineUnix,
+        deadline: String(deadlineUnix),
       }),
     })
 
@@ -183,7 +185,6 @@ export function useSwapConfirmation({
 
     if (!ethResp.ok || !ethData || ethData.status === "error") {
       const apiError = ethData?.error ?? text ?? "FastSwap API error"
-      console.error("[useSwapConfirmation] /fastswap/eth error:", apiError)
       setIsSubmitting(false)
       setError(new Error(apiError))
       toast({
@@ -233,11 +234,11 @@ export function useSwapConfirmation({
       user: intentData.intent.user,
       inputToken: intentData.intent.inputToken,
       outputToken: intentData.intent.outputToken,
-      inputAmt: intentData.intent.inputAmt.toString(),
-      userAmtOut: intentData.intent.userAmtOut.toString(),
+      inputAmt: Number(intentData.intent.inputAmt),
+      userAmtOut: Number(intentData.intent.userAmtOut),
       recipient: intentData.intent.recipient,
-      deadline: intentData.intent.deadline.toString(),
-      nonce: intentData.intent.nonce.toString(),
+      deadline: Number(intentData.intent.deadline),
+      nonce: Number(intentData.intent.nonce),
       signature: intentData.signature,
     }
 
@@ -257,7 +258,6 @@ export function useSwapConfirmation({
 
     if (!resp.ok || !result || result.status === "error") {
       const apiError = result?.error ?? permitText ?? "FastSwap API error"
-      console.error("[useSwapConfirmation] /fastswap error:", apiError)
       setIsSubmitting(false)
       setError(new Error(apiError))
       toast({

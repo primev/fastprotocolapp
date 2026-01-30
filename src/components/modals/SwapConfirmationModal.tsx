@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useMemo, useCallback, useState } from "react"
+import NumberFlow from "@number-flow/react"
 import {
   Dialog,
   DialogContent,
@@ -95,6 +96,37 @@ function InfoRow({ label, value, tooltip, valueClassName }: InfoRowProps) {
   )
 }
 
+function BuyReceiveValue({ value, className }: { value: string; className?: string }) {
+  const clean = value?.replace(/,/g, "") ?? ""
+  const numeric = clean && !Number.isNaN(parseFloat(clean)) ? parseFloat(clean) : null
+  const decimalPlaces = clean.includes(".") ? (clean.split(".")[1]?.length ?? 0) : 0
+  const minFractionDigits = Math.min(decimalPlaces, 6)
+
+  if (numeric === null) {
+    return <span className={className}>{value || "0"}</span>
+  }
+
+  return (
+    <span className={className}>
+      <NumberFlow
+        value={numeric}
+        format={{
+          minimumFractionDigits: minFractionDigits,
+          maximumFractionDigits: 6,
+        }}
+        style={
+          {
+            "--number-flow-char-gap": "-0.5px",
+            "--number-flow-mask-duration": "0.3s",
+            "--number-flow-mask-timing-function": "cubic-bezier(0.4, 0, 0.2, 1)",
+            fontVariantNumeric: "tabular-nums",
+          } as React.CSSProperties
+        }
+      />
+    </span>
+  )
+}
+
 function SwapConfirmationModal({
   open,
   onOpenChange,
@@ -154,6 +186,11 @@ function SwapConfirmationModal({
 
   const { gasPrice } = useGasPrice()
   const [isExpanded, setIsExpanded] = useState(false)
+
+  // Reset accordion when modal closes so it starts collapsed on next open
+  useEffect(() => {
+    if (!open) setIsExpanded(false)
+  }, [open])
 
   // --- LOGIC PHASES ---
   const isWaitingForSignature = isWrapPending || isSigning
@@ -215,7 +252,7 @@ function SwapConfirmationModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogOverlay className="bg-black/60 backdrop-blur-md transition-all duration-300" />
       <DialogContent
-        className="max-w-[480px] bg-[#1c1c1c] p-2 overflow-hidden gap-0 rounded-[28px] border-0 outline-none ring-0 shadow-2xl [&>button]:hidden"
+        className="max-w-[480px] max-h-[90dvh] bg-[#1c1c1c] p-2 overflow-y-auto overflow-x-hidden gap-0 rounded-[28px] border-0 outline-none ring-0 shadow-2xl [&>button]:hidden"
         // PREVENT CLICK OUTSIDE & ESCAPE
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
@@ -340,7 +377,10 @@ function SwapConfirmationModal({
                     Pay
                   </span>
                 </div>
-                <span className="text-2xl font-bold text-white tabular-nums">{amountIn}</span>
+                <BuyReceiveValue
+                  value={amountIn}
+                  className="text-2xl font-bold text-white tabular-nums"
+                />
               </div>
 
               <div className="absolute left-1/2 -translate-x-1/2 top-[50%] -translate-y-1/2 z-10">
@@ -356,7 +396,7 @@ function SwapConfirmationModal({
                     Receive
                   </span>
                 </div>
-                <span className="text-2xl font-bold tabular-nums">{amountOut}</span>
+                <BuyReceiveValue value={amountOut} className="text-2xl font-bold tabular-nums" />
               </div>
             </div>
 
@@ -448,6 +488,20 @@ function SwapConfirmationModal({
                     }
                   />
                 </div>
+                {timeLeft != null && (
+                  <div className="border-t border-white/5 pt-2 mt-2">
+                    <InfoRow
+                      label="Quote expires"
+                      value={
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                          <span className="tabular-nums">{timeLeft}s</span>
+                        </span>
+                      }
+                      tooltip="Time until this quote expires"
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
