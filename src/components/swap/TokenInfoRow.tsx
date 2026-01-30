@@ -1,11 +1,14 @@
 "use client"
 
 import React, { useRef } from "react"
+import NumberFlow from "@number-flow/react"
 
 interface TokenInfoRowProps {
   displayAmount: string
   tokenPrice: number | null
   isLoadingPrice: boolean
+  /** When true (quote refetching), keep showing last USD value so the line never disappears. */
+  isQuoteLoading?: boolean
   side?: "sell" | "buy"
 }
 
@@ -13,9 +16,10 @@ export default React.memo(function TokenInfoRow({
   displayAmount,
   tokenPrice,
   isLoadingPrice,
+  isQuoteLoading = false,
   side,
 }: TokenInfoRowProps) {
-  // Store the last valid USD value in a Ref to persist across re-renders
+  // Store the last valid USD value in a Ref to persist across re-renders (same as exchange rate: never disappear on refetch)
   const lastValidUsdRef = useRef<number | null>(null)
 
   // Remove commas from displayAmount before parsing (formatTokenAmount returns values like "3,017.65")
@@ -29,43 +33,58 @@ export default React.memo(function TokenInfoRow({
   const currentUsdValue =
     numericDisplayAmount > 0 && tokenPrice ? numericDisplayAmount * tokenPrice : null
 
-  // Update the buffer ONLY if we have a real value; clear when no amount so disconnect shows $0
+  // Update the buffer when we have a real value. Only clear when user has no amount and no refetch in progress.
   if (currentUsdValue !== null) {
     lastValidUsdRef.current = currentUsdValue
-  } else if (numericDisplayAmount === 0 || !displayAmount || displayAmount === "0") {
+  } else if (
+    (numericDisplayAmount === 0 || !displayAmount || displayAmount === "0") &&
+    !isLoadingPrice &&
+    !isQuoteLoading
+  ) {
     lastValidUsdRef.current = null
   }
 
-  // Determine what to show for USD value
-  const getUsdDisplay = () => {
-    // When no amount, always show $0 (don't use stale ref from before disconnect)
-    if (numericDisplayAmount === 0 || !displayAmount || displayAmount === "0") {
-      return "$0"
+  // Value to show: current or last valid. During quote refetch (e.g. buy side outputAmount goes to "0"), keep showing last value.
+  const valueToDisplay = currentUsdValue ?? lastValidUsdRef.current
+  const isEmptyAmount = numericDisplayAmount === 0 || !displayAmount || displayAmount === "0"
+  const keepShowingLastDuringRefetch =
+    isEmptyAmount && valueToDisplay != null && (isLoadingPrice || isQuoteLoading)
+
+  const renderUsdContent = () => {
+    if (isEmptyAmount && !keepShowingLastDuringRefetch) {
+      return <span>$0</span>
     }
-
-    // Use the buffer if current is null but we are loading or just switched
-    const valueToDisplay = currentUsdValue ?? lastValidUsdRef.current
-
-    if (valueToDisplay) {
-      return `≈ $${valueToDisplay.toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-        useGrouping: true,
-      })}`
+    if (valueToDisplay != null) {
+      return (
+        <span className="inline-flex items-center gap-0.5 whitespace-nowrap">
+          ≈ $
+          <NumberFlow
+            value={valueToDisplay}
+            format={{
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }}
+            style={
+              {
+                "--number-flow-char-gap": "-0.5px",
+                "--number-flow-mask-duration": "0.3s",
+                "--number-flow-mask-timing-function": "cubic-bezier(0.4, 0, 0.2, 1)",
+                fontVariantNumeric: "tabular-nums",
+              } as React.CSSProperties
+            }
+          />
+        </span>
+      )
     }
-
-    // If there's an amount but price is loading, show loading indicator
     if (isLoadingPrice) {
-      return "—"
+      return <span>—</span>
     }
-
-    // Default fallback
-    return "—"
+    return <span>—</span>
   }
 
   return (
     <div className="flex justify-between items-center text-sm font-medium text-white/70 tracking-tight">
-      <span className="font-medium">{getUsdDisplay()}</span>
+      <span className="font-medium">{renderUsdContent()}</span>
     </div>
   )
 })

@@ -115,6 +115,10 @@ export function SwapForm() {
         setIsManualInversion={form.setIsManualInversion}
         isManualInversion={form.isManualInversion}
         exchangeRateContent={form.exchangeRateContent}
+        exchangeRateValue={form.exchangeRateValue}
+        exchangeRateFromSymbol={form.exchangeRateFromSymbol}
+        exchangeRateToSymbol={form.exchangeRateToSymbol}
+        exchangeRateToStable={form.exchangeRateToStable}
         timeLeft={form.timeLeft}
         isWrapUnwrap={form.isWrapUnwrap}
         isWrap={form.isWrap || false}

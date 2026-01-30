@@ -116,6 +116,7 @@ export const BuyCard: React.FC<BuyCardProps> = ({
             displayAmount={outputAmount || "0"}
             tokenPrice={activeToTokenPrice}
             isLoadingPrice={isLoadingToPrice}
+            isQuoteLoading={effectiveQuoteLoading}
             side="buy"
           />
         </div>

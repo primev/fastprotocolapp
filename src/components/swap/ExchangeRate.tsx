@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useMemo } from "react"
+import NumberFlow from "@number-flow/react"
 // UI Components & Icons
 import { AlertTriangle } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@radix-ui/react-tooltip"
@@ -14,8 +15,15 @@ import { QuoteResult, getPriceImpactSeverity, formatPriceImpact } from "@/hooks/
  * Internalized the severity calculation to reduce parent complexity.
  */
 interface ExchangeRateProps {
-  // The pre-formatted string or element showing "1 ABC = 0.5 XYZ"
+  // The pre-formatted string or element showing "1 ABC = 0.5 XYZ" (fallback when no numeric rate)
   exchangeRateContent: React.ReactNode
+
+  // Numeric rate for NumberFlow (subtle animation on refetch; no "Fetching rate..." text)
+  exchangeRateValue: number | null
+  exchangeRateFromSymbol: string
+  exchangeRateToSymbol: string
+  exchangeRateToStable: boolean
+  isQuoteLoading?: boolean
 
   // The raw quote data from the API
   activeQuote: QuoteResult | null
@@ -30,6 +38,11 @@ interface ExchangeRateProps {
 
 export const ExchangeRate: React.FC<ExchangeRateProps> = ({
   exchangeRateContent,
+  exchangeRateValue,
+  exchangeRateFromSymbol,
+  exchangeRateToSymbol,
+  exchangeRateToStable,
+  isQuoteLoading = false,
   activeQuote,
   isWrapUnwrap,
   isManualInversion,
@@ -71,7 +84,36 @@ export const ExchangeRate: React.FC<ExchangeRateProps> = ({
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         {/* LEFT SECTION: EXCHANGE RATE & LIVE STATUS */}
         <div className="flex items-center gap-2">
-          <span className="text-gray-400 font-medium">{exchangeRateContent}</span>
+          <span
+            className={cn(
+              "text-gray-400 font-medium inline-flex items-center gap-1",
+              isQuoteLoading && "opacity-80"
+            )}
+          >
+            {exchangeRateValue != null ? (
+              <>
+                1 {exchangeRateFromSymbol} ={" "}
+                <NumberFlow
+                  value={exchangeRateValue}
+                  format={{
+                    minimumFractionDigits: exchangeRateToStable ? 2 : 0,
+                    maximumFractionDigits: exchangeRateToStable ? 2 : 6,
+                  }}
+                  style={
+                    {
+                      "--number-flow-char-gap": "-0.5px",
+                      "--number-flow-mask-duration": "0.3s",
+                      "--number-flow-mask-timing-function": "cubic-bezier(0.4, 0, 0.2, 1)",
+                      fontVariantNumeric: "tabular-nums",
+                    } as React.CSSProperties
+                  }
+                />{" "}
+                {exchangeRateToSymbol}
+              </>
+            ) : (
+              exchangeRateContent
+            )}
+          </span>
 
           {/* STATUS INDICATOR:
               A pulsing dot indicates the quote is 'live'. 

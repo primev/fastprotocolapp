@@ -206,29 +206,22 @@ export function useSwapForm(allTokens: Token[]) {
 
   // Declared BEFORE handleSwitch to fix hoisting error
   const exchangeRateContent = useMemo(() => {
-    if (isQuoteLoading && !isManualInversion) return "Fetching rate..."
     if (isWrapUnwrap) return `1 ${fromToken?.symbol} = 1 ${toToken?.symbol}`
     if (hasNoLiquidity) return "No liquidity"
     if (displayQuote && fromToken && toToken) {
-      const isFromStable = isStablecoin(fromToken.address ?? "", fromToken.symbol)
       const isToStable = isStablecoin(toToken.address ?? "", toToken.symbol)
-      const rateFormatted = formatAmountByTokenType(
-        displayQuote.exchangeRate,
-        isFromStable || isToStable
-      )
+      // Rate is "toToken per 1 fromToken", so format using toToken's type (avoid 0.00 for small rates like 1 USDT = 0.000356 ETH)
+      const rateFormatted = formatAmountByTokenType(displayQuote.exchangeRate, isToStable)
       return `1 ${fromToken.symbol} = ${rateFormatted} ${toToken.symbol}`
     }
     return lastValidRate || "Select tokens"
-  }, [
-    isQuoteLoading,
-    isManualInversion,
-    isWrapUnwrap,
-    fromToken,
-    toToken,
-    displayQuote,
-    hasNoLiquidity,
-    lastValidRate,
-  ])
+  }, [isWrapUnwrap, fromToken, toToken, displayQuote, hasNoLiquidity, lastValidRate])
+
+  // Numeric rate for NumberFlow (subtle animation on refetch; no "Fetching rate..." text)
+  const exchangeRateValue = displayQuote && fromToken && toToken ? displayQuote.exchangeRate : null
+  const exchangeRateFromSymbol = fromToken?.symbol ?? ""
+  const exchangeRateToSymbol = toToken?.symbol ?? ""
+  const exchangeRateToStable = toToken ? isStablecoin(toToken.address ?? "", toToken.symbol) : false
 
   const handleSwitch = useCallback(() => {
     if (!fromToken || !toToken) return
@@ -374,6 +367,10 @@ export function useSwapForm(allTokens: Token[]) {
     quoteError,
     timeLeft,
     exchangeRateContent,
+    exchangeRateValue,
+    exchangeRateFromSymbol,
+    exchangeRateToSymbol,
+    exchangeRateToStable,
     isWrapUnwrap,
     calculatedAutoSlippage,
     isManualInversion,

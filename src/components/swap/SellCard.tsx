@@ -110,6 +110,7 @@ export const SellCard: React.FC<SellCardProps> = ({
             displayAmount={amount}
             tokenPrice={activeFromTokenPrice}
             isLoadingPrice={isLoadingFromPrice}
+            isQuoteLoading={effectiveQuoteLoading}
             side="sell"
           />
         </div>

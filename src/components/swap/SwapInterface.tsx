@@ -78,6 +78,10 @@ interface SwapInterfaceProps {
   setIsManualInversion: (isManual: boolean) => void
   isManualInversion: boolean
   exchangeRateContent: React.ReactNode
+  exchangeRateValue: number | null
+  exchangeRateFromSymbol: string
+  exchangeRateToSymbol: string
+  exchangeRateToStable: boolean
   timeLeft: number
   isWrapUnwrap: boolean
   isWrap: boolean
@@ -133,6 +137,10 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
     setIsManualInversion,
     isManualInversion,
     exchangeRateContent,
+    exchangeRateValue,
+    exchangeRateFromSymbol,
+    exchangeRateToSymbol,
+    exchangeRateToStable,
     timeLeft,
     isWrapUnwrap,
     isWrap,
@@ -216,6 +224,11 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
       {fromToken && toToken && (
         <ExchangeRate
           exchangeRateContent={exchangeRateContent}
+          exchangeRateValue={exchangeRateValue}
+          exchangeRateFromSymbol={exchangeRateFromSymbol}
+          exchangeRateToSymbol={exchangeRateToSymbol}
+          exchangeRateToStable={exchangeRateToStable}
+          isQuoteLoading={effectiveQuoteLoading}
           activeQuote={displayQuote}
           isWrapUnwrap={isWrapUnwrap}
           isManualInversion={isManualInversion}
