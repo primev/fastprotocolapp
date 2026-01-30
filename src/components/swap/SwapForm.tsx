@@ -42,7 +42,7 @@ export function SwapForm() {
   }
 
   return (
-    <div className="relative flex flex-col items-center justify-start px-4 pt-2 sm:pt-6 pb-4">
+    <div className="relative flex flex-col items-center justify-start px-4  sm:pt-6 pb-4">
       <AnimatedBackgroundOrbs />
       <Hero />
 

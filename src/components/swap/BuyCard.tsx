@@ -89,7 +89,7 @@ export const BuyCard: React.FC<BuyCardProps> = ({
   return (
     <div className="rounded-[14px] sm:rounded-[16px] bg-[#161b22] border border-white/5 px-3 py-2.5 sm:px-5 sm:py-4">
       {/* Header Section */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between">
         <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Buy</span>
         {toToken && (
           <span className="flex items-center gap-1 text-sm font-medium text-white/70">

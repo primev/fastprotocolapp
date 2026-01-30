@@ -49,7 +49,7 @@ export const TransactionSettings: React.FC<TransactionSettingsProps> = ({
   const numericSlippage = parseFloat(slippage)
 
   return (
-    <div className="flex items-center justify-between mb-2 sm:mb-3">
+    <div className="flex items-center justify-between pl-2 mb-1">
       <span className="text-xl font-semibold text-white">Swap</span>
 
       <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
