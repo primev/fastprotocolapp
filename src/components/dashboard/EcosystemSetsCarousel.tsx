@@ -431,7 +431,7 @@ export const EcosystemSetCarousel = () => {
                         </h3>
 
                         <button
-                          onClick={undefined}
+                          onClick={() => handleVerify(set.id)}
                           disabled={
                             set.comingSoon ? true : !isConnected || isVerified || isVerifying
                           }
