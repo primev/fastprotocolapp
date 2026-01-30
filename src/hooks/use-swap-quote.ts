@@ -1303,11 +1303,11 @@ export function formatPriceImpact(impact: number): string {
 }
 
 /**
- * Get price impact severity for styling
+ * Get price impact severity for styling (Uniswap-style: low < 3%, medium 3–5%, high > 5%)
  */
 export function getPriceImpactSeverity(impact: number): "low" | "medium" | "high" {
   const absImpact = Math.abs(impact)
-  if (absImpact < 1) return "low"
-  if (absImpact < 3) return "medium"
+  if (absImpact < 3) return "low"
+  if (absImpact <= 5) return "medium"
   return "high"
 }

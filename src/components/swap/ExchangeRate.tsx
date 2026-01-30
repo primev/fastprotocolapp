@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react"
 // UI Components & Icons
-import { Info } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@radix-ui/react-tooltip"
 
 // Utils & Hooks
@@ -98,23 +98,39 @@ export const ExchangeRate: React.FC<ExchangeRateProps> = ({
             <span
               className={cn(
                 "font-semibold transition-colors",
-                severity === "low" && "text-green-400",
-                severity === "medium" && "text-yellow-400",
+                severity === "low" && "text-emerald-400",
+                severity === "medium" && "text-amber-400",
                 severity === "high" && "text-red-400"
               )}
             >
               {formattedImpact}
             </span>
 
-            {/* HIGH IMPACT WARNING TOOLTIP:
-                Only rendered if the impact reaches a dangerous threshold.
-            */}
+            {severity === "medium" && (
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="flex items-center focus:outline-none" type="button">
+                      <AlertTriangle className="h-3 w-3 text-amber-400 ml-0.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    className="z-[60] bg-[#1c2128] border border-white/10 px-3 py-2 text-xs text-white rounded-lg shadow-xl max-w-[200px]"
+                  >
+                    <p className="font-semibold text-amber-400 mb-1">Medium Price Impact</p>
+                    This trade may move the market price. Consider a smaller amount.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
             {severity === "high" && (
               <TooltipProvider delayDuration={100}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button className="flex items-center focus:outline-none">
-                      <Info className="h-3 w-3 text-red-400 ml-0.5 animate-pulse" />
+                    <button className="flex items-center focus:outline-none" type="button">
+                      <AlertTriangle className="h-3 w-3 text-red-400 ml-0.5" />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent

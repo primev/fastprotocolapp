@@ -24,10 +24,12 @@ import {
   Info,
   ExternalLink,
   Fuel,
+  AlertTriangle,
 } from "lucide-react"
 import type { Token } from "@/types/swap"
 import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
 import { useSwapConfirmation } from "@/hooks/use-swap-confirmation"
+import { getPriceImpactSeverity } from "@/hooks/use-swap-quote"
 import { getTransactionErrorMessage, getTransactionErrorTitle } from "@/lib/transaction-errors"
 
 interface SwapConfirmationModalProps {
@@ -203,6 +205,10 @@ function SwapConfirmationModal({
   const isActive =
     isWaitingForSignature || isWaitingForBlock || isCurrentlySuccess || isCurrentlyError
   const operationType = isWrap ? "wrap" : isUnwrap ? "unwrap" : "swap"
+  const impactSeverity = useMemo(
+    () => (isWrap || isUnwrap ? "low" : getPriceImpactSeverity(priceImpact)),
+    [isWrap, isUnwrap, priceImpact]
+  )
 
   // --- ACTIONS ---
   const resetAllStates = useCallback(() => {
@@ -402,12 +408,44 @@ function SwapConfirmationModal({
 
             <div className="bg-white/[0.05] border border-white/10 rounded-2xl p-5">
               <div className="divide-y divide-white/5">
-                <InfoRow
-                  label="Fee"
-                  value="Free"
-                  tooltip="The fee charged for this swap"
-                  valueClassName="text-primary"
-                />
+                {impactSeverity === "high" ? (
+                  <InfoRow
+                    label="Price impact"
+                    value={
+                      <span className="flex items-center gap-1.5">
+                        {`${priceImpact >= 0 ? "" : "-"}${Math.abs(priceImpact).toFixed(2)}%`}
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex cursor-help">
+                                <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              className="max-w-[200px] bg-[#1c2128] border-white/10"
+                            >
+                              <p className="font-semibold text-red-400 mb-1">High Price Impact</p>
+                              <p className="text-xs text-gray-300">
+                                This trade will significantly move the market price. You may receive
+                                less than expected.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </span>
+                    }
+                    tooltip="The difference between market price and estimated price due to trade size"
+                    valueClassName="text-red-400"
+                  />
+                ) : (
+                  <InfoRow
+                    label="Fee"
+                    value="Free"
+                    tooltip="The fee charged for this swap"
+                    valueClassName="text-primary"
+                  />
+                )}
                 <InfoRow
                   label="Network cost"
                   value={
@@ -475,18 +513,50 @@ function SwapConfirmationModal({
                     value="Fast Protocol"
                     tooltip="Protocol used to execute this swap"
                   />
-                  <InfoRow
-                    label="Price impact"
-                    value={`${priceImpact >= 0 ? "" : "-"}${Math.abs(priceImpact).toFixed(2)}%`}
-                    tooltip="The difference between market price and estimated price due to trade size"
-                    valueClassName={
-                      priceImpact < 0
-                        ? "text-emerald-400"
-                        : priceImpact > 1
-                          ? "text-red-400"
-                          : "text-amber-400"
-                    }
-                  />
+                  {impactSeverity === "high" ? (
+                    <InfoRow
+                      label="Fee"
+                      value="Free"
+                      tooltip="The fee charged for this swap"
+                      valueClassName="text-primary"
+                    />
+                  ) : (
+                    <InfoRow
+                      label="Price impact"
+                      value={
+                        <span className="flex items-center gap-1.5">
+                          {`${priceImpact >= 0 ? "" : "-"}${Math.abs(priceImpact).toFixed(2)}%`}
+                          {impactSeverity === "medium" && (
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex cursor-help">
+                                    <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className="max-w-[200px] bg-[#1c2128] border-white/10"
+                                >
+                                  <p className="font-semibold text-amber-400 mb-1">
+                                    Medium Price Impact
+                                  </p>
+                                  <p className="text-xs text-gray-300">
+                                    This trade may move the market price. Consider a smaller amount.
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </span>
+                      }
+                      tooltip="The difference between market price and estimated price due to trade size"
+                      valueClassName={cn(
+                        impactSeverity === "low" && "text-emerald-400",
+                        impactSeverity === "medium" && "text-amber-400"
+                      )}
+                    />
+                  )}
                 </div>
                 {timeLeft != null && (
                   <div className="border-t border-white/5 pt-2 mt-2">
@@ -509,9 +579,18 @@ function SwapConfirmationModal({
               <button
                 onClick={() => (isWrap ? wrap() : isUnwrap ? unwrap() : confirmSwap())}
                 disabled={isLoading}
-                className="w-full h-16 bg-primary text-primary-foreground font-black uppercase tracking-[0.2em] text-sm rounded-2xl hover:brightness-110 active:scale-[0.98] transition-all"
+                className={cn(
+                  "w-full h-16 font-black uppercase tracking-[0.2em] text-sm rounded-2xl hover:brightness-110 active:scale-[0.98] transition-all",
+                  !isWrap && !isUnwrap && impactSeverity === "high"
+                    ? "bg-red-500 text-white"
+                    : "bg-primary text-primary-foreground"
+                )}
               >
-                {isLoading ? "Fetching..." : `Confirm ${operationType}`}
+                {isLoading
+                  ? "Fetching..."
+                  : !isWrap && !isUnwrap && impactSeverity === "high"
+                    ? "Swap Anyway"
+                    : `Confirm ${operationType}`}
               </button>
             </div>
           </div>
