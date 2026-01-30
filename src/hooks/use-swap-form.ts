@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
-import { useAccount, useBalance, useChainId } from "wagmi"
+import { useAccount, useBalance, useChainId, useWatchBlockNumber } from "wagmi"
 import { formatUnits } from "viem"
 import { useQueryClient } from "@tanstack/react-query"
 import { useQuote, calculateAutoSlippage, type QuoteResult } from "@/hooks/use-swap-quote"
@@ -65,6 +65,26 @@ export function useSwapForm(allTokens: Token[]) {
       queryKey: ["balance", { address, chainId }],
     })
   }, [address, chainId, queryClient])
+
+  const resetFormAfterSuccess = useCallback(() => {
+    setAmount("")
+    setSwappedQuote(null)
+    setTimeLeft(15)
+  }, [])
+
+  // Watch for new blocks and refetch connected wallet balances so the UI updates automatically
+  useWatchBlockNumber({
+    chainId,
+    enabled: isConnected && Boolean(address),
+    onBlockNumber() {
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[1] as { address?: string } | undefined
+          return query.queryKey[0] === "balance" && key?.address === address
+        },
+      })
+    },
+  })
 
   const { data: fromBalance, isLoading: isLoadingFromBalance } = useBalance({
     address: isConnected ? address : undefined,
@@ -350,6 +370,7 @@ export function useSwapForm(allTokens: Token[]) {
     setEditingSide,
     handleSwitch,
     refreshBalances,
+    resetFormAfterSuccess,
     ...settings,
     fromPrice: priceCache[fromToken?.symbol || ""] ?? fromPrice ?? 0,
     toPrice: priceCache[toToken?.symbol || ""] ?? toPrice ?? 0,

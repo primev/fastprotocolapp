@@ -56,6 +56,8 @@ interface SwapConfirmationModalProps {
   timeLeft?: number
   isLoading?: boolean
   refreshBalances?: () => Promise<void>
+  /** Called when the user closes the modal after a successful transaction. Use to reset parent form state. */
+  onCloseAfterSuccess?: () => void
 }
 
 interface InfoRowProps {
@@ -148,6 +150,7 @@ function SwapConfirmationModal({
   timeLeft,
   isLoading = false,
   refreshBalances,
+  onCloseAfterSuccess,
 }: SwapConfirmationModalProps) {
   // --- EXTERNAL HOOKS ---
   const {
@@ -221,7 +224,10 @@ function SwapConfirmationModal({
     if (!isOpen && (isWaitingForSignature || isWaitingForBlock)) return
 
     if (!isOpen) {
-      if (isCurrentlySuccess && refreshBalances) refreshBalances()
+      if (isCurrentlySuccess) {
+        if (refreshBalances) refreshBalances()
+        onCloseAfterSuccess?.()
+      }
       resetAllStates()
     }
     onOpenChange(isOpen)

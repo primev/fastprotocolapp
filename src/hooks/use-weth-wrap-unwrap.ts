@@ -1,7 +1,14 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance } from "wagmi"
+import {
+  useAccount,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+  useBalance,
+  useEstimateFeesPerGas,
+  useGasPrice,
+} from "wagmi"
 import { parseUnits, formatUnits } from "viem"
 import { WETH_ADDRESS } from "@/lib/swap-constants"
 import { WETH_ABI } from "@/lib/weth-abi"
@@ -11,6 +18,19 @@ import { mainnet } from "wagmi/chains"
 export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
   const { address, isConnected } = useAccount()
   const [error, setError] = useState<Error | null>(null)
+
+  const { data: feeData } = useEstimateFeesPerGas()
+  const { data: legacyGasPrice } = useGasPrice()
+
+  const gasFees =
+    feeData?.maxFeePerGas != null && feeData?.maxPriorityFeePerGas != null
+      ? {
+          maxFeePerGas: (feeData.maxFeePerGas * 120n) / 100n,
+          maxPriorityFeePerGas: 0n,
+        }
+      : legacyGasPrice != null
+        ? { gasPrice: legacyGasPrice }
+        : undefined
 
   // Check WETH balance for unwrap operations
   const { data: wethBalance } = useBalance({
@@ -85,8 +105,9 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
       value: parseUnits(amount, 18),
       chain: mainnet,
       account: address,
+      ...gasFees,
     })
-  }, [address, amount, writeContract, reset])
+  }, [address, amount, writeContract, reset, gasFees])
 
   const unwrap = useCallback(() => {
     if (!amount) {
@@ -128,6 +149,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         args: [amountInWei],
         chain: mainnet,
         account: address,
+        ...gasFees,
       })
     } catch (error) {
       setError(
@@ -136,7 +158,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         )
       )
     }
-  }, [address, amount, writeContract, reset, wethBalance])
+  }, [address, amount, writeContract, reset, wethBalance, gasFees])
 
   return { isWrap, isUnwrap, wrap, unwrap, isPending, isConfirming, isSuccess, error, hash, reset }
 }

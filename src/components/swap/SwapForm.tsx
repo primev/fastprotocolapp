@@ -189,6 +189,7 @@ export function SwapForm() {
           gasEstimate={form.gasEstimate}
           timeLeft={form.timeLeft}
           refreshBalances={form.refreshBalances}
+          onCloseAfterSuccess={form.resetFormAfterSuccess}
         />
       )}
     </div>
