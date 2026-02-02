@@ -100,28 +100,31 @@ export function useSwapConfirmation({
     reset()
     setIsSubmitting(true)
 
-    const isEthPath = fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS
+    // Always parse fresh values here
+    const amountClean = amount.replace(/,/g, "")
+    const minAmountOutClean = minAmountOut.replace(/,/g, "")
+
+    const inputAmtWei = parseUnits(amountClean, fromToken.decimals).toString()
+    const userAmtOutWei = parseUnits(minAmountOutClean, toToken.decimals).toString()
+
+    console.log("inputAmtWei", inputAmtWei)
+    console.log("userAmtOutWei", userAmtOutWei)
 
     try {
-      if (isEthPath) {
-        await executeEthPath()
+      if (fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS) {
+        await executeEthPath(inputAmtWei, userAmtOutWei)
       } else {
-        await executePermitPath()
+        await executePermitPath(inputAmtWei, userAmtOutWei)
       }
     } catch (err) {
       handleSwapError(err)
     }
-  }, [isConnected, address, fromToken, toToken, amount, handleSwapError, reset])
+  }, [isConnected, address, fromToken, toToken, amount, minAmountOut, handleSwapError, reset])
 
-  async function executeEthPath() {
+  async function executeEthPath(inputAmtWei: string, userAmtOutWei: string) {
     if (!address || !fromToken || !toToken) return
 
     const deadlineUnix = Math.floor(Date.now() / 1000) + Math.max(5, Math.min(1440, deadline)) * 60
-
-    const amountClean = amount.replace(/,/g, "")
-    const minAmountOutClean = minAmountOut.replace(/,/g, "")
-    const inputAmtWei = parseUnits(amountClean, fromToken.decimals).toString()
-    const userAmtOutWei = parseUnits(minAmountOutClean, toToken.decimals).toString()
 
     const body = {
       outputToken: toToken.address,
@@ -139,16 +142,14 @@ export function useSwapConfirmation({
       body: JSON.stringify(body),
     })
 
-    const text = await ethResp.text()
-    console.log("[ETH Path] API Response:", text)
+    const ethData = await ethResp.json()
+    console.log("[ETH Path] API Response:", ethData)
 
-    let ethData = text ? JSON.parse(text) : null
-    if (!ethResp.ok || !ethData || ethData.status === "error") {
+    if (!ethResp.ok || !ethData?.to || !ethData?.data) {
       throw new Error(ethData?.error || "FastSwap API error")
     }
 
     const gasLimit = ethData.gasLimit ? BigInt(Math.ceil(ethData.gasLimit * 1.2)) : undefined
-
     const gasFees =
       feeData?.maxFeePerGas != null
         ? { maxFeePerGas: (feeData.maxFeePerGas * 120n) / 100n, maxPriorityFeePerGas: 0n }
@@ -171,7 +172,7 @@ export function useSwapConfirmation({
     }
   }
 
-  async function executePermitPath() {
+  async function executePermitPath(inputAmtWei: string, userAmtOutWei: string) {
     if (!fromToken || !toToken) return
     setIsSubmitting(false)
     setIsSigning(true)
@@ -182,7 +183,7 @@ export function useSwapConfirmation({
 
     console.log("[Permit Path] Creating Intent Signature. Nonce:", nonce.toString())
 
-    let intentData = await createIntentSignature(
+    const intentData = await createIntentSignature(
       tokenInAddress as `0x${string}`,
       tokenOutAddress as `0x${string}`,
       amount,
@@ -200,8 +201,8 @@ export function useSwapConfirmation({
 
     const body = {
       ...intentData.intent,
-      inputAmt: intentData.intent.inputAmt.toString(),
-      userAmtOut: intentData.intent.userAmtOut.toString(),
+      inputAmt: inputAmtWei,
+      userAmtOut: userAmtOutWei,
       deadline: intentData.intent.deadline.toString(),
       nonce: intentData.intent.nonce.toString(),
       signature: intentData.signature,
@@ -215,11 +216,10 @@ export function useSwapConfirmation({
       body: JSON.stringify(body),
     })
 
-    const resultText = await resp.text()
-    console.log("[Permit Path] API Response:", resultText)
+    const result = await resp.json()
+    console.log("[Permit Path] API Response:", result)
 
-    const result = resultText ? JSON.parse(resultText) : null
-    if (!resp.ok || !result || result.status === "error") {
+    if (!resp.ok || !result?.txHash) {
       console.warn("[Permit Path] API Error - Releasing Nonce")
       releaseNonce(nonce)
       throw new Error(result?.error || "FastSwap API error")
