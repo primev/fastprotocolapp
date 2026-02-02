@@ -192,6 +192,7 @@ export function SwapForm() {
           timeLeft={form.timeLeft}
           refreshBalances={form.refreshBalances}
           onCloseAfterSuccess={form.resetFormAfterSuccess}
+          isAutoSlippage={form.isAutoSlippage}
         />
       )}
     </div>

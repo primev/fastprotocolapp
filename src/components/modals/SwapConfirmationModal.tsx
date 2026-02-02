@@ -61,6 +61,7 @@ interface SwapConfirmationModalProps {
   /** Transaction deadline in minutes (5–1440). Passed to useSwapConfirmation. */
   deadline: number
   gasEstimate: bigint | null
+  isAutoSlippage: boolean
   ethPrice?: number | null
   /** USD price per token for the "from" token (used for USD under amount). */
   fromTokenPrice?: number | null
@@ -178,6 +179,7 @@ function SwapConfirmationModal({
   slippage,
   deadline,
   gasEstimate,
+  isAutoSlippage,
   ethPrice,
   fromTokenPrice,
   toTokenPrice,
@@ -645,9 +647,11 @@ function SwapConfirmationModal({
                     label="Max slippage"
                     value={
                       <span className="flex items-center gap-2 tabular-nums">
-                        <span className="px-2 py-0.5 rounded bg-white/10 text-xs font-medium">
-                          Auto
-                        </span>
+                        {isAutoSlippage && (
+                          <span className="px-2 py-0.5 rounded bg-white/10 text-xs font-medium">
+                            Auto
+                          </span>
+                        )}
                         {(parseFloat(slippage) || 0).toLocaleString("en-US", {
                           minimumFractionDigits: 0,
                           maximumFractionDigits: 2,
