@@ -332,7 +332,12 @@ export function useSwapConfirmation({
     }
 
     if (!resp.ok || !result || result.status === "error") {
-      console.error("[Permit path] FastSwap API error – releasing nonce", nonce.toString(), "result:", result)
+      console.error(
+        "[Permit path] FastSwap API error – releasing nonce",
+        nonce.toString(),
+        "result:",
+        result
+      )
       releaseNonce(nonce)
       const apiError = result?.error ?? permitText ?? "FastSwap API error"
       const isNonceTooLow = String(apiError).toLowerCase().includes("nonce too low")

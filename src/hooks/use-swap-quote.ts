@@ -709,7 +709,6 @@ export function useQuote({
 
       // Only set quote if this is still the latest request
       if (currentRequestId === requestIdRef.current) {
-
         // Compare new vs old quote to prevent unnecessary re-renders
         const isIdentical =
           prevQuoteRef.current?.amountOut === newQuote.amountOut &&
@@ -724,7 +723,7 @@ export function useQuote({
         prevQuoteRef.current = newQuote
         setQuote(newQuote)
         setError(null)
-      } 
+      }
     } catch (err) {
       let errorMessage = "Failed to fetch quote"
 
@@ -1027,7 +1026,6 @@ export function useQuote({
 
       // Only set quote if this is still the latest request
       if (currentRequestId === requestIdRef.current) {
-
         // Compare new vs old quote to prevent unnecessary re-renders
         const isIdentical =
           prevQuoteRef.current?.amountOut === newQuote.amountOut &&
@@ -1042,7 +1040,7 @@ export function useQuote({
         prevQuoteRef.current = newQuote
         setQuote(newQuote)
         setError(null)
-      } 
+      }
     } catch (err) {
       let errorMessage = "Failed to fetch quote"
 

@@ -31,6 +31,8 @@ import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
 import { useSwapConfirmation } from "@/hooks/use-swap-confirmation"
 import { getPriceImpactSeverity } from "@/hooks/use-swap-quote"
 import { getTransactionErrorMessage, getTransactionErrorTitle } from "@/lib/transaction-errors"
+import { useAccount } from "wagmi"
+import { mainnet } from "wagmi/chains"
 
 const numberFlowStyle = {
   "--number-flow-char-gap": "-0.5px",
@@ -185,6 +187,13 @@ function SwapConfirmationModal({
   onCloseAfterSuccess,
 }: SwapConfirmationModalProps) {
   // --- EXTERNAL HOOKS ---
+  const { chain: signerChain, isConnected } = useAccount()
+
+  // If signerChain is undefined, the wallet isn't connected to a signer yet.
+  const isEthereumMainnet = useMemo(() => {
+    return isConnected && signerChain?.id === mainnet.id
+  }, [isConnected, signerChain])
+
   const {
     isWrap,
     isUnwrap,
@@ -706,12 +715,16 @@ function SwapConfirmationModal({
             <div className="p-5 sm:p-6">
               <button
                 onClick={() => (isWrap ? wrap() : isUnwrap ? unwrap() : confirmSwap())}
-                disabled={isLoading}
+                // Button is disabled if fetching OR if on the wrong network
+                disabled={isLoading || !isEthereumMainnet}
                 className={cn(
                   "w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg transition-all active:scale-[0.98]",
-                  !isWrap && !isUnwrap && impactSeverity === "high"
-                    ? "bg-red-500 text-white hover:bg-red-500/90"
-                    : "bg-[#3898FF] text-white hover:bg-[#3898FF]/90"
+                  // Apply disabled styling if not on Ethereum Mainnet
+                  !isEthereumMainnet
+                    ? "bg-white/10 text-gray-500 cursor-not-allowed"
+                    : !isWrap && !isUnwrap && impactSeverity === "high"
+                      ? "bg-red-500 text-white hover:bg-red-500/90"
+                      : "bg-[#3898FF] text-white hover:bg-[#3898FF]/90"
                 )}
               >
                 {isLoading ? (
@@ -719,6 +732,9 @@ function SwapConfirmationModal({
                     <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     Fetching...
                   </span>
+                ) : !isEthereumMainnet ? (
+                  // This text appears as soon as the wallet switches away from Chain 1
+                  "Connect to Ethereum"
                 ) : !isWrap && !isUnwrap && impactSeverity === "high" ? (
                   "Swap Anyway"
                 ) : (
