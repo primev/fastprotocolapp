@@ -2,7 +2,6 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
 import { useAccount } from "wagmi"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -36,6 +35,7 @@ import { useUserPoints } from "@/hooks/use-user-points"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import NumberFlow from "@number-flow/react"
+import { usePathname, useRouter } from "next/navigation"
 
 interface AppHeaderProps {
   isConnected: boolean
@@ -64,6 +64,7 @@ export const AppHeader = ({
   const { openAccountModal } = useAccountModal()
   const { openConnectModal } = useConnectModal()
   const { points } = useUserPoints()
+  const router = useRouter()
 
   const { handleDashboardHover, handleLeaderboardHover, handleSwapHover } = usePrefetchOnHover()
 
@@ -76,7 +77,7 @@ export const AppHeader = ({
       hover: handleSwapHover,
     },
     {
-      label: "Genesis SBT",
+      label: "My Miles",
       href: "/dashboard",
       active: pathname?.startsWith("/dashboard"),
       icon: LayoutDashboard,
@@ -121,7 +122,7 @@ export const AppHeader = ({
                 prefetch={false}
                 onMouseEnter={handleSwapHover(address)}
                 className={cn(
-                  "px-6 py-2 rounded-full text-sm font-medium transition-all",
+                  "px-6 py-2 rounded-full text-sm font-medium transition-all cursor-pointer",
                   pathname === "/" || pathname?.startsWith("/swap")
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -130,11 +131,16 @@ export const AppHeader = ({
                 Swap
               </Link>
               {/* Miles Tab - White text but unclickable */}
-              <div className="px-6 py-2 rounded-full text-sm font-medium text-white flex items-center gap-2 cursor-not-allowed select-none">
-                Miles
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary text-primary-foreground font-bold shadow-sm">
-                  SOON
-                </span>
+              <div
+                className={cn(
+                  "px-6 py-2 rounded-full text-sm font-medium transition-all cursor-pointer",
+                  pathname?.startsWith("/dashboard")
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => router.push("/dashboard")}
+              >
+                My Miles
               </div>
             </div>
           </div>
