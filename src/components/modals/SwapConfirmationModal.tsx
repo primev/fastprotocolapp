@@ -215,9 +215,10 @@ function SwapConfirmationModal({
 
   const {
     confirmSwap,
-    isSigning, // Wallet Signature Phase
-    isSubmitting, // Blockchain Inclusion Phase
+    isSigning,
+    isSubmitting,
     hash: swapHash,
+    error: swapError,
     reset: resetSwap,
   } = useSwapConfirmation({
     fromToken: tokenIn,
@@ -245,7 +246,7 @@ function SwapConfirmationModal({
   const isWaitingForBlock = isWrapConfirming || isSubmitting
   const isSwapSuccess = !!swapHash && !isSigning && !isSubmitting
   const isCurrentlySuccess = isWrapSuccess || isSwapSuccess
-  const isCurrentlyError = !!wrapError
+  const isCurrentlyError = !!wrapError || !!swapError
   const activeHash = wrapHash || swapHash
 
   const isActive =
@@ -297,11 +298,11 @@ function SwapConfirmationModal({
 
   const errorTitle = useMemo(
     () => getTransactionErrorTitle(wrapError, operationType),
-    [wrapError, operationType]
+    [wrapError, swapError, operationType]
   )
   const shortErrorMessage = useMemo(
     () => getTransactionErrorMessage(wrapError, operationType),
-    [wrapError, operationType]
+    [wrapError, swapError, operationType]
   )
 
   // Rate is "tokenOut per 1 tokenIn"; format by whether tokenOut is stable (match swap form)
@@ -395,11 +396,12 @@ function SwapConfirmationModal({
                       ? "Processing Transaction"
                       : "Sign Transaction"}
               </h3>
+              {/* Refactored text block to use centralized hook error messages */}
               <p className="text-[14px] font-medium text-white/75 max-w-[320px] leading-relaxed">
                 {isCurrentlySuccess
                   ? "Transaction successfully completed."
                   : isCurrentlyError
-                    ? shortErrorMessage
+                    ? wrapError?.message || swapError?.message || "Transaction failed"
                     : isWaitingForBlock
                       ? "Waiting for network confirmation..."
                       : "Please confirm the request in your wallet."}
@@ -719,11 +721,9 @@ function SwapConfirmationModal({
             <div className="p-5 sm:p-6">
               <button
                 onClick={() => (isWrap ? wrap() : isUnwrap ? unwrap() : confirmSwap())}
-                // Button is disabled if fetching OR if on the wrong network
                 disabled={isLoading || !isEthereumMainnet}
                 className={cn(
                   "w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg transition-all active:scale-[0.98]",
-                  // Apply disabled styling if not on Ethereum Mainnet
                   !isEthereumMainnet
                     ? "bg-white/10 text-gray-500 cursor-not-allowed"
                     : !isWrap && !isUnwrap && impactSeverity === "high"
@@ -737,7 +737,6 @@ function SwapConfirmationModal({
                     Fetching...
                   </span>
                 ) : !isEthereumMainnet ? (
-                  // This text appears as soon as the wallet switches away from Chain 1
                   "Connect to Ethereum"
                 ) : !isWrap && !isUnwrap && impactSeverity === "high" ? (
                   "Swap Anyway"

@@ -14,11 +14,20 @@ import { WETH_ADDRESS } from "@/lib/swap-constants"
 import { WETH_ABI } from "@/lib/weth-abi"
 import { isWrapOperation, isUnwrapOperation } from "@/lib/weth-utils"
 import { mainnet } from "wagmi/chains"
+import { getTransactionErrorMessage } from "@/lib/transaction-errors"
 
+/**
+ * useWethWrapUnwrap
+ * * Specifically handles the logic for converting ETH to WETH (deposit)
+ * and WETH to ETH (withdraw).
+ * * Error handling is funneled through the centralized utility,
+ * updating the local 'error' state for the UI to display.
+ */
 export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
   const { address, isConnected } = useAccount()
   const [error, setError] = useState<Error | null>(null)
 
+  // --- GAS CONFIGURATION ---
   const { data: feeData } = useEstimateFeesPerGas()
   const { data: legacyGasPrice } = useGasPrice()
 
@@ -32,7 +41,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         ? { gasPrice: legacyGasPrice }
         : undefined
 
-  // Check WETH balance for unwrap operations
+  // --- BALANCE CHECK ---
   const { data: wethBalance } = useBalance({
     address: isConnected ? address : undefined,
     token: WETH_ADDRESS,
@@ -40,7 +49,9 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
 
   const isWrap = isWrapOperation(fromToken, toToken)
   const isUnwrap = isUnwrapOperation(fromToken, toToken)
+  const operationType = isWrap ? "wrap" : "unwrap"
 
+  // --- WAGMI CONTRACT HOOKS ---
   const {
     writeContract,
     data: hash,
@@ -55,70 +66,56 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
     error: receiptError,
   } = useWaitForTransactionReceipt({ hash })
 
+  /**
+   * Effect: Monitors Wagmi hook errors and syncs them to local state.
+   * Uses centralized utility to format messages.
+   */
   useEffect(() => {
-    if (writeError) {
-      // Extract error message from wagmi error object
-      let errorMessage = "Transaction failed"
-      if (writeError instanceof Error) {
-        errorMessage = writeError.message
-      } else if (typeof writeError === "object" && writeError !== null) {
-        const wagmiError = writeError as any
-        errorMessage =
-          wagmiError.shortMessage ||
-          wagmiError.message ||
-          wagmiError.details ||
-          wagmiError.cause?.message ||
-          (typeof wagmiError.cause === "string" ? wagmiError.cause : errorMessage)
-      }
-
-      // Provide more helpful error message for RPC failures
-      if (
-        errorMessage.includes("Failed to fetch") ||
-        errorMessage.includes("RPC") ||
-        errorMessage.includes("endpoint") ||
-        errorMessage.includes("network") ||
-        errorMessage.toLowerCase().includes("fetch")
-      ) {
-        errorMessage =
-          "Network error: Unable to connect to the blockchain. This could be due to:\n• Your internet connection\n• MetaMask RPC endpoint issues\n• Network congestion\n\nPlease check your connection and try again. If the issue persists, try:\n• Refreshing the page\n• Switching networks in MetaMask\n• Checking MetaMask's network settings"
-      }
-
-      setError(new Error(errorMessage))
-    } else if (receiptError) {
-      setError(receiptError as Error)
-    } else if (!writeError && !hash) {
+    const rawError = writeError || receiptError
+    if (rawError) {
+      const cleanMessage = getTransactionErrorMessage(rawError, operationType)
+      setError(new Error(cleanMessage))
+    } else if (!hash) {
+      // Clear error if we don't have an active transaction
       setError(null)
     }
-  }, [writeError, receiptError, hash])
+  }, [writeError, receiptError, hash, operationType])
 
   const reset = useCallback(() => {
     wagmiReset()
     setError(null)
   }, [wagmiReset])
 
+  /**
+   * Wrap (ETH -> WETH)
+   */
   const wrap = useCallback(() => {
-    reset()
-    writeContract({
-      address: WETH_ADDRESS,
-      abi: WETH_ABI,
-      functionName: "deposit",
-      value: parseUnits(amount, 18),
-      chain: mainnet,
-      account: address,
-      ...gasFees,
-    })
+    try {
+      reset()
+      writeContract({
+        address: WETH_ADDRESS,
+        abi: WETH_ABI,
+        functionName: "deposit",
+        value: parseUnits(amount, 18),
+        chain: mainnet,
+        account: address,
+        ...gasFees,
+      })
+    } catch (err) {
+      setError(new Error(getTransactionErrorMessage(err, "wrap")))
+    }
   }, [address, amount, writeContract, reset, gasFees])
 
+  /**
+   * Unwrap (WETH -> ETH)
+   */
   const unwrap = useCallback(() => {
     if (!amount) {
       setError(new Error("Amount is required"))
       return
     }
 
-    // Clean the amount string: remove commas, trim whitespace
     const cleanedAmount = amount.toString().replace(/,/g, "").trim()
-
-    // Validate the cleaned amount
     const amountNum = Number(cleanedAmount)
     if (isNaN(amountNum) || amountNum <= 0) {
       setError(new Error(`Invalid amount: ${cleanedAmount}`))
@@ -127,11 +124,9 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
 
     try {
       reset()
-
-      // Parse the cleaned amount to wei
       const amountInWei = parseUnits(cleanedAmount, 18)
 
-      // Check balance before attempting unwrap (only if balance is available)
+      // Pre-flight balance check
       if (wethBalance && wethBalance.value < amountInWei) {
         const balanceFormatted = formatUnits(wethBalance.value, 18)
         setError(
@@ -151,14 +146,21 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         account: address,
         ...gasFees,
       })
-    } catch (error) {
-      setError(
-        new Error(
-          `Failed to parse amount: ${cleanedAmount}. ${error instanceof Error ? error.message : String(error)}`
-        )
-      )
+    } catch (err) {
+      setError(new Error(getTransactionErrorMessage(err, "unwrap")))
     }
   }, [address, amount, writeContract, reset, wethBalance, gasFees])
 
-  return { isWrap, isUnwrap, wrap, unwrap, isPending, isConfirming, isSuccess, error, hash, reset }
+  return {
+    isWrap,
+    isUnwrap,
+    wrap,
+    unwrap,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error, // This is the state your modal uses for the error message
+    hash,
+    reset,
+  }
 }
