@@ -40,6 +40,7 @@ import { OneTimeTasksSection } from "@/components/dashboard/OneTimeTasksSection"
 import { SBTGatingModal } from "@/components/modals/SBTGatingModal"
 import { TransactionFeedbackModal } from "@/components/modals/TransactionFeedbackModal"
 import { ReferralModal } from "@/components/modals/ReferralModal"
+import { EcosystemSetCarousel } from "@/components/dashboard/EcosystemSetsCarousel"
 
 import type { TaskName } from "@/hooks/use-dashboard-tasks"
 
@@ -203,6 +204,8 @@ const DashboardContent = () => {
                     />
                   </div>
                 </div>
+
+                <EcosystemSetCarousel />
 
                 <OneTimeTasksAccordion
                   tasks={dashboardTasks.oneTimeTasks}

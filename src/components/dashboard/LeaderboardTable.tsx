@@ -279,9 +279,7 @@ export const LeaderboardTable = ({
                 Vol (ETH)
               </span>
               <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
-                {swapVolumeEth != null
-                  ? `${formatNumber(swapVolumeEth)} ETH`
-                  : "---"}
+                {swapVolumeEth != null ? `${formatNumber(swapVolumeEth)} ETH` : "---"}
               </span>
             </div>
             <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
@@ -292,7 +290,6 @@ export const LeaderboardTable = ({
                 {totalVol ? formatVolumeDisplay(totalVol) : "---"}
               </span>
             </div>
-            
           </div>
         </div>
 
@@ -658,8 +655,7 @@ export const LeaderboardTable = ({
                         {/* The Sub Metric: ETH Value + Price Reference */}
                         <div className="flex items-center gap-1.5 mt-1">
                           <span className="text-xs font-bold text-primary tabular-nums">
-                            {formatNumber(entry.ethValue)}{" "}
-                            ETH
+                            {formatNumber(entry.ethValue)} ETH
                           </span>
                         </div>
                       </div>
