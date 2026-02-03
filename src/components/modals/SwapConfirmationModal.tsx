@@ -33,7 +33,11 @@ import type { Token } from "@/types/swap"
 import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
 import { useSwapConfirmation } from "@/hooks/use-swap-confirmation"
 import { getPriceImpactSeverity } from "@/hooks/use-swap-quote"
-import { getTransactionErrorMessage, getTransactionErrorTitle } from "@/lib/transaction-errors"
+import {
+  getTransactionErrorTitle,
+  getTransactionFullMessage,
+  getTransactionShortMessage,
+} from "@/lib/transaction-errors"
 import { useAccount } from "wagmi"
 import { mainnet } from "wagmi/chains"
 import { useTokenPrice } from "@/hooks/use-token-price"
@@ -337,7 +341,7 @@ function SwapConfirmationModal({
 
   const copyErrorToClipboard = useCallback(() => {
     if (!activeError) return
-    navigator.clipboard.writeText(activeError.message)
+    navigator.clipboard.writeText(getTransactionFullMessage(activeError))
     setHasCopied(true)
     setTimeout(() => setHasCopied(false), 2000)
   }, [activeError])
@@ -444,7 +448,7 @@ function SwapConfirmationModal({
                     {isCurrentlySuccess
                       ? "Transaction successfully completed."
                       : isCurrentlyError
-                        ? "The transaction encountered an error."
+                        ? getTransactionShortMessage(activeError)
                         : isWaitingForBlock
                           ? "Waiting for network confirmation..."
                           : "Please confirm the request in your wallet."}
@@ -839,7 +843,7 @@ function SwapConfirmationModal({
                     whiteSpace: "pre-wrap",
                   }}
                 >
-                  {activeError?.message || "No error details available."}
+                  {getTransactionFullMessage(activeError ?? null)}
                 </code>
               </div>
               <div className="flex justify-end mt-4">

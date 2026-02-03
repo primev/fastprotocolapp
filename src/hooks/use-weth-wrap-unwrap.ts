@@ -13,7 +13,6 @@ import { WETH_ADDRESS } from "@/lib/swap-constants"
 import { WETH_ABI } from "@/lib/weth-abi"
 import { isWrapOperation, isUnwrapOperation } from "@/lib/weth-utils"
 import { mainnet } from "wagmi/chains"
-import { getTransactionErrorMessage } from "@/lib/transaction-errors"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
 import { useBroadcastGasPrice, GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
 
@@ -86,15 +85,15 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
     receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
     mode: "status",
     onConfirmed: () => setIsSuccess(true),
-    onError: (err: Error) => setError(new Error(getTransactionErrorMessage(err, operationType))),
+    onError: (err: Error) => setError(err instanceof Error ? err : new Error(String(err))),
   })
 
   useEffect(() => {
     const rawError = writeError || receiptError
     if (rawError) {
-      setError(new Error(getTransactionErrorMessage(rawError, operationType)))
+      setError(rawError instanceof Error ? rawError : new Error(String(rawError)))
     }
-  }, [writeError, receiptError, operationType])
+  }, [writeError, receiptError])
 
   const reset = useCallback(() => {
     wagmiReset()
@@ -120,7 +119,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         gas: bufferedEstimate ?? undefined,
       })
     } catch (err) {
-      setError(new Error(getTransactionErrorMessage(err, "wrap")))
+      setError(err instanceof Error ? err : new Error(String(err)))
     }
   }, [address, amountInWei, writeContract, reset, gasFees, bufferedEstimate, getFreshGasFees])
 
@@ -147,7 +146,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         gas: bufferedEstimate ?? undefined,
       })
     } catch (err) {
-      setError(new Error(getTransactionErrorMessage(err, "unwrap")))
+      setError(err instanceof Error ? err : new Error(String(err)))
     }
   }, [
     address,

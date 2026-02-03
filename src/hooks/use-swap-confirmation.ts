@@ -8,7 +8,6 @@ import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import { FASTSWAP_API_BASE } from "@/lib/network-config"
-import { getTransactionErrorMessage } from "@/lib/transaction-errors"
 import type { Token } from "@/types/swap"
 import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 
@@ -60,8 +59,7 @@ export function useSwapConfirmation({
     setIsSubmitting(false)
     setIsConfirming(false)
     setIsSuccess(false)
-    const cleanMessage = getTransactionErrorMessage(err, "swap")
-    setError(new Error(cleanMessage))
+    setError(err instanceof Error ? err : new Error(String(err)))
   }, [])
 
   // Use custom hook that races DB polling vs wagmi receipt
@@ -97,8 +95,7 @@ export function useSwapConfirmation({
     setIsSigning(false)
     setIsSubmitting(false)
     setIsConfirming(false)
-    const message = getTransactionErrorMessage(err, "swap")
-    setError(new Error(message))
+    setError(err instanceof Error ? err : new Error(String(err)))
   }, [])
 
   const confirmSwap = useCallback(async () => {
