@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { isStablecoin } from "@/lib/stablecoins"
-import { useGasPrice } from "@/hooks/use-gas-price"
+import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   X,
@@ -25,6 +25,9 @@ import {
   ExternalLink,
   Fuel,
   AlertTriangle,
+  ChevronRight,
+  Copy,
+  Check,
 } from "lucide-react"
 import type { Token } from "@/types/swap"
 import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
@@ -33,6 +36,9 @@ import { getPriceImpactSeverity } from "@/hooks/use-swap-quote"
 import { getTransactionErrorMessage, getTransactionErrorTitle } from "@/lib/transaction-errors"
 import { useAccount } from "wagmi"
 import { mainnet } from "wagmi/chains"
+import { useTokenPrice } from "@/hooks/use-token-price"
+import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
+import { GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
 
 const numberFlowStyle = {
   "--number-flow-char-gap": "-0.5px",
@@ -72,6 +78,7 @@ interface SwapConfirmationModalProps {
   refreshBalances?: () => Promise<void>
   /** Called when the user closes the modal after a successful transaction. Use to reset parent form state. */
   onCloseAfterSuccess?: () => void
+  setClearSwapState: (clear: boolean) => void
 }
 
 interface InfoRowProps {
@@ -187,6 +194,7 @@ function SwapConfirmationModal({
   isLoading = false,
   refreshBalances,
   onCloseAfterSuccess,
+  setClearSwapState,
 }: SwapConfirmationModalProps) {
   // --- EXTERNAL HOOKS ---
   const { chain: signerChain, isConnected } = useAccount()
@@ -207,6 +215,7 @@ function SwapConfirmationModal({
     error: wrapError,
     hash: wrapHash,
     reset: resetWrap,
+    gasEstimate: wethGasEstimate, // This will update every 12s
   } = useWethWrapUnwrap({
     fromToken: tokenIn,
     toToken: tokenOut,
@@ -227,14 +236,19 @@ function SwapConfirmationModal({
     minAmountOut,
     deadline,
     onSuccess: () => {
+      setClearSwapState(true)
       if (refreshBalances) {
         setTimeout(() => refreshBalances(), 1000)
       }
     },
   })
 
-  const { gasPrice } = useGasPrice()
+  const { bufferedPrice: gasPrice } = useBroadcastGasPrice()
+  const { price: ethPriceFromApi } = useTokenPrice("ETH")
+  const effectiveEthPrice = ethPrice ?? ethPriceFromApi ?? DEFAULT_ETH_PRICE_USD
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false)
+  const [hasCopied, setHasCopied] = useState(false)
 
   // Reset accordion when modal closes so it starts collapsed on next open
   useEffect(() => {
@@ -243,10 +257,10 @@ function SwapConfirmationModal({
 
   // --- LOGIC PHASES ---
   const isWaitingForSignature = isWrapPending || isSigning
-  const isWaitingForBlock = isWrapConfirming || isSubmitting
-  const isSwapSuccess = !!swapHash && !isSigning && !isSubmitting
-  const isCurrentlySuccess = isWrapSuccess || isSwapSuccess
   const isCurrentlyError = !!wrapError || !!swapError
+  const isWaitingForBlock = (isWrapConfirming || isSubmitting) && !isCurrentlyError
+  const isSwapSuccess = !!swapHash && !isSigning && !isSubmitting && !swapError
+  const isCurrentlySuccess = (isWrapSuccess || isSwapSuccess) && !isCurrentlyError
   const activeHash = wrapHash || swapHash
 
   const isActive =
@@ -261,28 +275,46 @@ function SwapConfirmationModal({
   const resetAllStates = useCallback(() => {
     if (resetWrap) resetWrap()
     if (resetSwap) resetSwap()
+    setIsErrorModalOpen(false)
   }, [resetWrap, resetSwap])
+
+  const activeGasEstimate = useMemo(() => {
+    if (isWrap || isUnwrap) return wethGasEstimate
+    if (!gasEstimate) return null
+    return (gasEstimate * GAS_LIMIT_MULTIPLIER) / 100n
+  }, [isWrap, isUnwrap, wethGasEstimate, gasEstimate])
 
   const handleOpenChange = (isOpen: boolean) => {
     // BLOCK CLOSING during active transaction phases
     if (!isOpen && (isWaitingForSignature || isWaitingForBlock)) return
 
     if (!isOpen) {
+      // If we are closing a SUCCESSFUL modal, clear the parent form
       if (isCurrentlySuccess) {
         if (refreshBalances) refreshBalances()
+
+        // This ensures the parent "Clear state" logic runs for BOTH Weth and Swaps
+        setClearSwapState(true)
+
         onCloseAfterSuccess?.()
       }
+
+      // Reset the internal hook states (hashes, errors, etc.)
       resetAllStates()
     }
     onOpenChange(isOpen)
   }
 
-  // --- GAS CALCULATION ---
   const gasCostUsd = useMemo(() => {
-    if (!gasEstimate || !gasPrice) return null
-    const price = ethPrice || 3200
-    return (Number(gasEstimate) * Number(gasPrice) * price) / 1e18
-  }, [gasEstimate, gasPrice, ethPrice])
+    if (!activeGasEstimate || !gasPrice) return null
+    try {
+      const totalWei = BigInt(activeGasEstimate) * BigInt(gasPrice)
+      const totalEth = Number(totalWei) / 1e18
+      return totalEth * effectiveEthPrice
+    } catch {
+      return null
+    }
+  }, [activeGasEstimate, gasPrice, effectiveEthPrice])
 
   // USD value under each token amount (match main swap form, NumberFlow + commas)
   const fromUsdValue = useMemo(() => {
@@ -296,14 +328,19 @@ function SwapConfirmationModal({
     return num * toTokenPrice
   }, [amountOut, toTokenPrice])
 
+  const activeError = wrapError || swapError
+
   const errorTitle = useMemo(
-    () => getTransactionErrorTitle(wrapError, operationType),
-    [wrapError, swapError, operationType]
+    () => getTransactionErrorTitle(activeError, operationType),
+    [activeError, operationType]
   )
-  const shortErrorMessage = useMemo(
-    () => getTransactionErrorMessage(wrapError, operationType),
-    [wrapError, swapError, operationType]
-  )
+
+  const copyErrorToClipboard = useCallback(() => {
+    if (!activeError) return
+    navigator.clipboard.writeText(activeError.message)
+    setHasCopied(true)
+    setTimeout(() => setHasCopied(false), 2000)
+  }, [activeError])
 
   // Rate is "tokenOut per 1 tokenIn"; format by whether tokenOut is stable (match swap form)
   const rateToStable = useMemo(
@@ -323,252 +360,159 @@ function SwapConfirmationModal({
   }, [isWrapSuccess, refreshBalances])
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogOverlay className="bg-black/60 backdrop-blur-md transition-all duration-300" />
-      <DialogContent
-        hideClose
-        className="sm:max-w-[500px] max-h-[90dvh] p-0 gap-0 bg-[#0d1117] border-white/10 overflow-hidden overflow-y-auto rounded-[28px] outline-none ring-0 shadow-2xl [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-      >
-        {/* HEADER */}
-        <DialogHeader className="py-5 sm:py-6 px-5 relative">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg sm:text-xl font-bold text-white">
-              {isCurrentlyError ? errorTitle : isActive ? "Transaction Status" : "You're swapping"}
-            </DialogTitle>
-            {!(isWaitingForSignature || isWaitingForBlock) && (
-              <DialogClose asChild>
-                <button
-                  onClick={() => handleOpenChange(false)}
-                  className="p-2 rounded-lg hover:bg-white/5 transition-colors"
-                >
-                  <X className="h-5 w-5 text-gray-400 hover:text-white" />
-                </button>
-              </DialogClose>
-            )}
-          </div>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogOverlay className="bg-black/60 backdrop-blur-md transition-all duration-300" />
+        <DialogContent
+          hideClose
+          className="sm:max-w-[500px] max-h-[90dvh] p-0 gap-0 bg-[#0d1117] border-white/10 overflow-hidden overflow-y-auto rounded-[28px] outline-none ring-0 shadow-2xl [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          {/* HEADER */}
+          <DialogHeader className="py-5 sm:py-6 px-5 relative">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg sm:text-xl font-bold text-white">
+                {isCurrentlyError
+                  ? errorTitle
+                  : isActive
+                    ? "Transaction Status"
+                    : "You're swapping"}
+              </DialogTitle>
+              {!(isWaitingForSignature || isWaitingForBlock) && (
+                <DialogClose asChild>
+                  <button
+                    onClick={() => handleOpenChange(false)}
+                    className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+                  >
+                    <X className="h-5 w-5 text-gray-400 hover:text-white" />
+                  </button>
+                </DialogClose>
+              )}
+            </div>
+          </DialogHeader>
 
-        {isActive ? (
-          /* STATUS VIEW */
-          <div className="flex flex-col items-center pb-10 px-8 text-center animate-in fade-in zoom-in-95 duration-300">
-            <div className="relative mb-8">
-              <div
-                className={cn(
-                  "absolute inset-0 blur-3xl rounded-full scale-150 opacity-40 transition-colors duration-500",
-                  isCurrentlySuccess
-                    ? "bg-emerald-500"
-                    : isCurrentlyError
-                      ? "bg-red-500"
-                      : "bg-primary"
+          {isActive ? (
+            /* STATUS VIEW */
+            <div className="flex flex-col items-center pb-10 px-8 text-center animate-in fade-in zoom-in-95 duration-300">
+              <div className="relative mb-8">
+                <div
+                  className={cn(
+                    "absolute inset-0 blur-3xl rounded-full scale-150 opacity-40 transition-colors duration-500",
+                    isCurrentlySuccess
+                      ? "bg-emerald-500"
+                      : isCurrentlyError
+                        ? "bg-red-500"
+                        : "bg-primary"
+                  )}
+                />
+
+                {isCurrentlySuccess ? (
+                  <CheckCircle2 className="h-20 w-20 text-emerald-500 relative z-10" />
+                ) : isCurrentlyError ? (
+                  <XCircle className="h-20 w-20 text-red-500 relative z-10" />
+                ) : (
+                  <div className="relative">
+                    <Loader2 className="h-20 w-20 text-primary animate-spin relative z-10" />
+                    {isWaitingForBlock && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                      </div>
+                    )}
+                  </div>
                 )}
-              />
+              </div>
 
-              {isCurrentlySuccess ? (
-                <CheckCircle2 className="h-20 w-20 text-emerald-500 relative z-10" />
-              ) : isCurrentlyError ? (
-                <XCircle className="h-20 w-20 text-red-500 relative z-10" />
-              ) : (
-                <div className="relative">
-                  <Loader2 className="h-20 w-20 text-primary animate-spin relative z-10" />
-                  {isWaitingForBlock && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                    </div>
+              <div className="space-y-3 mb-8">
+                <h3
+                  className={cn(
+                    "text-xl font-bold uppercase tracking-tight",
+                    isCurrentlyError ? "text-red-500" : "text-white"
+                  )}
+                >
+                  {isCurrentlyError
+                    ? "Failed"
+                    : isCurrentlySuccess
+                      ? "Confirmed"
+                      : isWaitingForBlock
+                        ? "Processing Transaction"
+                        : "Sign Transaction"}
+                </h3>
+
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-[14px] font-medium text-white/75 max-w-[320px] leading-relaxed">
+                    {isCurrentlySuccess
+                      ? "Transaction successfully completed."
+                      : isCurrentlyError
+                        ? "The transaction encountered an error."
+                        : isWaitingForBlock
+                          ? "Waiting for network confirmation..."
+                          : "Please confirm the request in your wallet."}
+                  </p>
+
+                  {isCurrentlyError && (
+                    <button
+                      onClick={() => setIsErrorModalOpen(true)}
+                      className="group flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider transition-all"
+                    >
+                      View Error Details
+                      <ChevronRight
+                        size={14}
+                        className="group-hover:translate-x-0.5 transition-transform"
+                      />
+                    </button>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
 
-            <div className="space-y-3 mb-8">
-              <h3
-                className={cn(
-                  "text-xl font-bold uppercase tracking-tight",
-                  isCurrentlyError ? "text-red-500" : "text-white"
-                )}
-              >
-                {isCurrentlySuccess
-                  ? "Confirmed"
-                  : isCurrentlyError
-                    ? "Failed"
-                    : isWaitingForBlock
-                      ? "Processing Transaction"
-                      : "Sign Transaction"}
-              </h3>
-              {/* Refactored text block to use centralized hook error messages */}
-              <p className="text-[14px] font-medium text-white/75 max-w-[320px] leading-relaxed">
-                {isCurrentlySuccess
-                  ? "Transaction successfully completed."
-                  : isCurrentlyError
-                    ? wrapError?.message || swapError?.message || "Transaction failed"
-                    : isWaitingForBlock
-                      ? "Waiting for network confirmation..."
-                      : "Please confirm the request in your wallet."}
-              </p>
-            </div>
-
-            {activeHash && (
-              <a
-                href={`https://etherscan.io/tx/${activeHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 mb-8 text-[10px] font-bold uppercase tracking-widest text-primary hover:text-primary/80 transition-colors"
-              >
-                View on Explorer <ExternalLink size={12} />
-              </a>
-            )}
-
-            <div className="flex flex-col w-full gap-3">
-              {isCurrentlyError && (
-                <button
-                  onClick={resetAllStates}
-                  className="w-full h-14 bg-white/10 hover:bg-white/15 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3"
+              {activeHash && (
+                <a
+                  href={`https://etherscan.io/tx/${activeHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 mb-8 text-[10px] font-bold uppercase tracking-widest text-primary hover:text-primary/80 transition-colors"
                 >
-                  <RefreshCw size={16} /> Try Again
-                </button>
+                  View on Explorer <ExternalLink size={12} />
+                </a>
               )}
-              {(isCurrentlySuccess || isCurrentlyError) && (
-                <button
-                  onClick={() => handleOpenChange(false)}
-                  className="w-full py-4 text-[10px] font-bold uppercase tracking-[0.25em] text-white/50 hover:text-white/70 transition-colors"
-                >
-                  Close Window
-                </button>
-              )}
-            </div>
-          </div>
-        ) : (
-          /* REVIEW VIEW */
-          <div className="animate-in fade-in duration-300">
-            {/* Transaction Summary */}
-            <div className=" px-5 pb-6 space-y-3">
-              {/* From Token */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-2xl sm:text-3xl font-bold text-white">
-                    <BuyReceiveValue value={amountIn} className="tabular-nums" /> {tokenIn?.symbol}
-                  </p>
-                  <p className="text-sm text-gray-500 tabular-nums">
-                    {fromUsdValue != null ? (
-                      <span className="inline-flex items-center gap-0.5">
-                        ≈ $
-                        <NumberFlow
-                          value={fromUsdValue}
-                          format={{
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                            useGrouping: true,
-                          }}
-                          style={numberFlowStyle}
-                        />
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </p>
-                </div>
-                <TokenIcon token={tokenIn} className="h-11 w-11 sm:h-12 sm:w-12" />
-              </div>
 
-              {/* Arrow Indicator */}
-              <div className="flex justify-center py-0.5">
-                <div className="h-7 w-7 rounded-lg bg-white/5 flex items-center justify-center">
-                  <ChevronDown className="h-4 w-4 text-gray-500" />
-                </div>
-              </div>
-
-              {/* To Token */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-2xl sm:text-3xl font-bold text-white">
-                    <BuyReceiveValue value={amountOut} className="tabular-nums" />{" "}
-                    {tokenOut?.symbol}
-                  </p>
-                  <p className="text-sm text-gray-500 tabular-nums">
-                    {toUsdValue != null ? (
-                      <span className="inline-flex items-center gap-0.5">
-                        ≈ $
-                        <NumberFlow
-                          value={toUsdValue}
-                          format={{
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                            useGrouping: true,
-                          }}
-                          style={numberFlowStyle}
-                        />
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </p>
-                </div>
-                <TokenIcon token={tokenOut} className="h-11 w-11 sm:h-12 sm:w-12" />
-              </div>
-            </div>
-
-            {/* Details Section */}
-            <div className="px-5 sm:px-6 pb-3 bg-white/[0.02] border-y border-white/5">
-              <div className="divide-y divide-white/5">
-                {impactSeverity === "high" ? (
-                  <InfoRow
-                    label="Price impact"
-                    value={
-                      <span className="flex items-center gap-1.5 tabular-nums">
-                        {priceImpact < 0 && "-"}
-                        <NumberFlow
-                          value={Math.abs(priceImpact)}
-                          format={{
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                            useGrouping: true,
-                          }}
-                          style={numberFlowStyle}
-                        />
-                        %
-                        <TooltipProvider delayDuration={100}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex cursor-help">
-                                <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent
-                              side="top"
-                              className="max-w-[200px] bg-[#1c2128] border-white/10"
-                            >
-                              <p className="font-semibold text-red-400 mb-1">High Price Impact</p>
-                              <p className="text-xs text-gray-300">
-                                This trade will significantly move the market price. You may receive
-                                less than expected.
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </span>
-                    }
-                    tooltip="The difference between market price and estimated price due to trade size"
-                    valueClassName="text-red-400"
-                  />
-                ) : (
-                  <InfoRow
-                    label="Fee"
-                    value="Free"
-                    tooltip="The fee charged for this swap"
-                    valueClassName="text-[#3898FF]"
-                  />
+              <div className="flex flex-col w-full gap-3">
+                {isCurrentlyError && (
+                  <button
+                    onClick={resetAllStates}
+                    className="w-full h-14 bg-white/10 hover:bg-white/15 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3"
+                  >
+                    <RefreshCw size={16} /> Try Again
+                  </button>
                 )}
-                <InfoRow
-                  label="Network cost"
-                  value={
-                    <span className="flex items-center gap-1.5 tabular-nums">
-                      <Fuel className="h-3.5 w-3.5 text-gray-500" />
-                      {gasCostUsd != null ? (
-                        <>
-                          $
+                {(isCurrentlySuccess || isCurrentlyError) && (
+                  <button
+                    onClick={() => handleOpenChange(false)}
+                    className="w-full py-4 text-[10px] font-bold uppercase tracking-[0.25em] text-white/50 hover:text-white/70 transition-colors"
+                  >
+                    Close Window
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* REVIEW VIEW */
+            <div className="animate-in fade-in duration-300">
+              {/* Transaction Summary */}
+              <div className=" px-5 pb-6 space-y-3">
+                {/* From Token */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <p className="text-2xl sm:text-3xl font-bold text-white">
+                      <BuyReceiveValue value={amountIn} className="tabular-nums" />{" "}
+                      {tokenIn?.symbol}
+                    </p>
+                    <p className="text-sm text-gray-500 tabular-nums">
+                      {fromUsdValue != null ? (
+                        <span className="inline-flex items-center gap-0.5">
+                          ≈ $
                           <NumberFlow
-                            value={gasCostUsd}
+                            value={fromUsdValue}
                             format={{
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
@@ -576,179 +520,348 @@ function SwapConfirmationModal({
                             }}
                             style={numberFlowStyle}
                           />
-                        </>
+                        </span>
                       ) : (
                         "—"
                       )}
-                    </span>
-                  }
-                  tooltip="Estimated gas fee for this transaction"
-                />
+                    </p>
+                  </div>
+                  <TokenIcon token={tokenIn} className="h-11 w-11 sm:h-12 sm:w-12" />
+                </div>
+
+                {/* Arrow Indicator */}
+                <div className="flex justify-center py-0.5">
+                  <div className="h-7 w-7 rounded-lg bg-white/5 flex items-center justify-center">
+                    <ChevronDown className="h-4 w-4 text-gray-500" />
+                  </div>
+                </div>
+
+                {/* To Token */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <p className="text-2xl sm:text-3xl font-bold text-white">
+                      <BuyReceiveValue value={amountOut} className="tabular-nums" />{" "}
+                      {tokenOut?.symbol}
+                    </p>
+                    <p className="text-sm text-gray-500 tabular-nums">
+                      {toUsdValue != null ? (
+                        <span className="inline-flex items-center gap-0.5">
+                          ≈ $
+                          <NumberFlow
+                            value={toUsdValue}
+                            format={{
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                              useGrouping: true,
+                            }}
+                            style={numberFlowStyle}
+                          />
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </p>
+                  </div>
+                  <TokenIcon token={tokenOut} className="h-11 w-11 sm:h-12 sm:w-12" />
+                </div>
               </div>
 
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="flex items-center justify-center gap-1.5 w-full py-2 mt-2 rounded-lg hover:bg-white/5 transition-all text-sm text-gray-400 hover:text-white"
-              >
-                {isExpanded ? "Show less" : "Show more"}
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 transition-transform duration-200",
-                    isExpanded && "rotate-180"
-                  )}
-                />
-              </button>
-
-              <div
-                className={cn(
-                  "overflow-hidden transition-all duration-300 ease-in-out",
-                  isExpanded
-                    ? "max-h-[300px] opacity-100 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                    : "max-h-0 opacity-0"
-                )}
-              >
-                <div className="divide-y divide-white/5 pt-2">
-                  <InfoRow
-                    label="Rate"
-                    value={
-                      <span className="tabular-nums">
-                        1 {tokenIn?.symbol ?? ""} ={" "}
-                        {exchangeRate.toLocaleString("en-US", {
-                          minimumFractionDigits: rateToStable ? 2 : 0,
-                          maximumFractionDigits: 6,
-                          useGrouping: true,
-                        })}{" "}
-                        {tokenOut?.symbol ?? ""}
-                      </span>
-                    }
-                    tooltip="Current exchange rate between tokens"
-                  />
-                  <InfoRow
-                    label={isMaxIn ? "Maximum sold" : "Minimum received"}
-                    value={
-                      <span className="inline-flex items-center gap-1 tabular-nums">
-                        <NumberFlow
-                          value={parseFloat(slippageLimitFormatted?.replace(/,/g, "") ?? "0") || 0}
-                          format={{
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 6,
-                            useGrouping: true,
-                          }}
-                          style={numberFlowStyle}
-                        />{" "}
-                        {isMaxIn ? (tokenIn?.symbol ?? "") : (tokenOut?.symbol ?? "")}
-                      </span>
-                    }
-                    tooltip={
-                      isMaxIn
-                        ? "The maximum amount you will pay after slippage"
-                        : "The minimum amount you will receive after slippage"
-                    }
-                  />
-                  <InfoRow
-                    label="Max slippage"
-                    value={
-                      <span className="flex items-center gap-2 tabular-nums">
-                        {isAutoSlippage && (
-                          <span className="px-2 py-0.5 rounded bg-white/10 text-xs font-medium">
-                            Auto
-                          </span>
-                        )}
-                        {(parseFloat(slippage) || 0).toLocaleString("en-US", {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 2,
-                          useGrouping: true,
-                        })}
-                        %
-                      </span>
-                    }
-                    tooltip="Maximum price movement allowed before transaction reverts"
-                  />
-                  <InfoRow
-                    label="Order routing"
-                    value="Fast Protocol"
-                    tooltip="Protocol used to execute this swap"
-                  />
+              {/* Details Section */}
+              <div className="px-5 sm:px-6 pb-3 bg-white/[0.02] border-y border-white/5">
+                <div className="divide-y divide-white/5">
                   {impactSeverity === "high" ? (
+                    <InfoRow
+                      label="Price impact"
+                      value={
+                        <span className="flex items-center gap-1.5 tabular-nums">
+                          {priceImpact < 0 && "-"}
+                          <NumberFlow
+                            value={Math.abs(priceImpact)}
+                            format={{
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                              useGrouping: true,
+                            }}
+                            style={numberFlowStyle}
+                          />
+                          %
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex cursor-help">
+                                  <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="top"
+                                className="max-w-[200px] bg-[#1c2128] border-white/10"
+                              >
+                                <p className="font-semibold text-red-400 mb-1">High Price Impact</p>
+                                <p className="text-xs text-gray-300">
+                                  This trade will significantly move the market price. You may
+                                  receive less than expected.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </span>
+                      }
+                      tooltip="The difference between market price and estimated price due to trade size"
+                      valueClassName="text-red-400"
+                    />
+                  ) : (
                     <InfoRow
                       label="Fee"
                       value="Free"
                       tooltip="The fee charged for this swap"
                       valueClassName="text-[#3898FF]"
                     />
-                  ) : (
+                  )}
+                  <InfoRow
+                    label="Network cost"
+                    value={
+                      <span className="flex items-center gap-1.5 tabular-nums">
+                        <Fuel className="h-3.5 w-3.5 text-gray-500" />
+                        {gasCostUsd != null ? (
+                          <>
+                            $
+                            <NumberFlow
+                              value={gasCostUsd}
+                              format={{
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                                useGrouping: true,
+                              }}
+                              style={numberFlowStyle}
+                            />
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </span>
+                    }
+                    tooltip="Estimated gas fee for this transaction"
+                  />
+                </div>
+
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="flex items-center justify-center gap-1.5 w-full py-2 mt-2 rounded-lg hover:bg-white/5 transition-all text-sm text-gray-400 hover:text-white"
+                >
+                  {isExpanded ? "Show less" : "Show more"}
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 transition-transform duration-200",
+                      isExpanded && "rotate-180"
+                    )}
+                  />
+                </button>
+
+                <div
+                  className={cn(
+                    "overflow-hidden transition-all duration-300 ease-in-out",
+                    isExpanded
+                      ? "max-h-[300px] opacity-100 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                      : "max-h-0 opacity-0"
+                  )}
+                >
+                  <div className="divide-y divide-white/5 pt-2">
                     <InfoRow
-                      label="Price impact"
+                      label="Rate"
                       value={
-                        <span className="flex items-center gap-1.5 tabular-nums">
-                          {`${priceImpact >= 0 ? "" : "-"}${Math.abs(priceImpact).toFixed(2)}%`}
-                          {impactSeverity === "medium" && (
-                            <TooltipProvider delayDuration={100}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="inline-flex cursor-help">
-                                    <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                  side="top"
-                                  className="max-w-[200px] bg-[#1c2128] border-white/10"
-                                >
-                                  <p className="font-semibold text-amber-400 mb-1">
-                                    Medium Price Impact
-                                  </p>
-                                  <p className="text-xs text-gray-300">
-                                    This trade may move the market price. Consider a smaller amount.
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
+                        <span className="tabular-nums">
+                          1 {tokenIn?.symbol ?? ""} ={" "}
+                          {exchangeRate.toLocaleString("en-US", {
+                            minimumFractionDigits: rateToStable ? 2 : 0,
+                            maximumFractionDigits: 6,
+                            useGrouping: true,
+                          })}{" "}
+                          {tokenOut?.symbol ?? ""}
                         </span>
                       }
-                      tooltip="The difference between market price and estimated price due to trade size"
-                      valueClassName={cn(
-                        impactSeverity === "low" && "text-emerald-400",
-                        impactSeverity === "medium" && "text-amber-400"
-                      )}
+                      tooltip="Current exchange rate between tokens"
                     />
-                  )}
+                    <InfoRow
+                      label={isMaxIn ? "Maximum sold" : "Minimum received"}
+                      value={
+                        <span className="inline-flex items-center gap-1 tabular-nums">
+                          <NumberFlow
+                            value={
+                              parseFloat(slippageLimitFormatted?.replace(/,/g, "") ?? "0") || 0
+                            }
+                            format={{
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 6,
+                              useGrouping: true,
+                            }}
+                            style={numberFlowStyle}
+                          />{" "}
+                          {isMaxIn ? (tokenIn?.symbol ?? "") : (tokenOut?.symbol ?? "")}
+                        </span>
+                      }
+                      tooltip={
+                        isMaxIn
+                          ? "The maximum amount you will pay after slippage"
+                          : "The minimum amount you will receive after slippage"
+                      }
+                    />
+                    <InfoRow
+                      label="Max slippage"
+                      value={
+                        <span className="flex items-center gap-2 tabular-nums">
+                          {isAutoSlippage && (
+                            <span className="px-2 py-0.5 rounded bg-white/10 text-xs font-medium">
+                              Auto
+                            </span>
+                          )}
+                          {(parseFloat(slippage) || 0).toLocaleString("en-US", {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 2,
+                            useGrouping: true,
+                          })}
+                          %
+                        </span>
+                      }
+                      tooltip="Maximum price movement allowed before transaction reverts"
+                    />
+                    <InfoRow
+                      label="Order routing"
+                      value="Fast Protocol"
+                      tooltip="Protocol used to execute this swap"
+                    />
+                    {impactSeverity === "high" ? (
+                      <InfoRow
+                        label="Fee"
+                        value="Free"
+                        tooltip="The fee charged for this swap"
+                        valueClassName="text-[#3898FF]"
+                      />
+                    ) : (
+                      <InfoRow
+                        label="Price impact"
+                        value={
+                          <span className="flex items-center gap-1.5 tabular-nums">
+                            {`${priceImpact >= 0 ? "" : "-"}${Math.abs(priceImpact).toFixed(2)}%`}
+                            {impactSeverity === "medium" && (
+                              <TooltipProvider delayDuration={100}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex cursor-help">
+                                      <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent
+                                    side="top"
+                                    className="max-w-[200px] bg-[#1c2128] border-white/10"
+                                  >
+                                    <p className="font-semibold text-amber-400 mb-1">
+                                      Medium Price Impact
+                                    </p>
+                                    <p className="text-xs text-gray-300">
+                                      This trade may move the market price. Consider a smaller
+                                      amount.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </span>
+                        }
+                        tooltip="The difference between market price and estimated price due to trade size"
+                        valueClassName={cn(
+                          impactSeverity === "low" && "text-emerald-400",
+                          impactSeverity === "medium" && "text-amber-400"
+                        )}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* CTA Button */}
-            <div className="p-5 sm:p-6">
-              <button
-                onClick={() => (isWrap ? wrap() : isUnwrap ? unwrap() : confirmSwap())}
-                disabled={isLoading || !isEthereumMainnet}
-                className={cn(
-                  "w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg transition-all active:scale-[0.98]",
-                  !isEthereumMainnet
-                    ? "bg-white/10 text-gray-500 cursor-not-allowed"
-                    : !isWrap && !isUnwrap && impactSeverity === "high"
-                      ? "bg-red-500 text-white hover:bg-red-500/90"
-                      : "bg-[#3898FF] text-white hover:bg-[#3898FF]/90"
-                )}
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Fetching...
+              {/* CTA Button */}
+              <div className="p-5 sm:p-6">
+                <button
+                  onClick={() => (isWrap ? wrap() : isUnwrap ? unwrap() : confirmSwap())}
+                  disabled={isLoading || !isEthereumMainnet}
+                  className={cn(
+                    "w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg transition-all active:scale-[0.98]",
+                    !isEthereumMainnet
+                      ? "bg-white/10 text-gray-500 cursor-not-allowed"
+                      : !isWrap && !isUnwrap && impactSeverity === "high"
+                        ? "bg-red-500 text-white hover:bg-red-500/90"
+                        : "bg-[#3898FF] text-white hover:bg-[#3898FF]/90"
+                  )}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Fetching...
+                    </span>
+                  ) : !isEthereumMainnet ? (
+                    "Connect to Ethereum"
+                  ) : !isWrap && !isUnwrap && impactSeverity === "high" ? (
+                    "Swap Anyway"
+                  ) : (
+                    `Confirm ${operationType}`
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ERROR DETAIL MODAL */}
+      <Dialog open={isErrorModalOpen} onOpenChange={setIsErrorModalOpen}>
+        <DialogOverlay className="bg-black/40 backdrop-blur-sm z-[60]" />
+        <DialogContent className="sm:max-w-2xl w-[95vw] p-0 bg-[#0d1117] border-white/10 rounded-[28px] overflow-hidden shadow-2xl z-[70] outline-none">
+          <DialogHeader className="p-6 pb-2">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg font-bold text-white uppercase tracking-tight">
+                Error Log
+              </DialogTitle>
+              <DialogClose asChild>
+                <button className="p-2 rounded-lg hover:bg-white/5 transition-colors text-gray-400 hover:text-white">
+                  {/* <X className="h-5 w-5" /> */}
+                </button>
+              </DialogClose>
+            </div>
+          </DialogHeader>
+
+          <div className="p-6 pt-2">
+            <div className="relative group">
+              <div className="w-full bg-black/40 rounded-2xl border border-white/5 p-5 max-h-[50dvh] overflow-y-auto overflow-x-auto scrollbar-hide">
+                <code
+                  className="text-[12px] leading-relaxed font-mono text-red-400/90 break-words whitespace-pre-wrap"
+                  style={{
+                    wordBreak: "break-all",
+                    overflowWrap: "break-word",
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {activeError?.message || "No error details available."}
+                </code>
+              </div>
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={copyErrorToClipboard}
+                  className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-2 border border-white/5"
+                >
+                  {hasCopied ? (
+                    <Check size={14} className="text-emerald-400" />
+                  ) : (
+                    <Copy size={14} />
+                  )}
+                  <span className="text-[10px] font-bold uppercase tracking-widest">
+                    {hasCopied ? "Copied" : "Copy"}
                   </span>
-                ) : !isEthereumMainnet ? (
-                  "Connect to Ethereum"
-                ) : !isWrap && !isUnwrap && impactSeverity === "high" ? (
-                  "Swap Anyway"
-                ) : (
-                  `Confirm ${operationType}`
-                )}
-              </button>
+                </button>
+              </div>
             </div>
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 

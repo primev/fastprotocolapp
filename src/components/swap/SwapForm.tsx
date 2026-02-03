@@ -187,12 +187,14 @@ export function SwapForm() {
           slippage={form.slippage}
           deadline={form.deadline}
           gasEstimate={form.gasEstimate}
+          ethPrice={form.ethPrice ?? undefined}
           fromTokenPrice={form.fromPrice ?? undefined}
           toTokenPrice={form.toPrice ?? undefined}
           timeLeft={form.timeLeft}
           refreshBalances={form.refreshBalances}
           onCloseAfterSuccess={form.resetFormAfterSuccess}
           isAutoSlippage={form.isAutoSlippage}
+          setClearSwapState={form.setClearSwapState}
         />
       )}
     </div>

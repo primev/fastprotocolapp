@@ -2,13 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import type { TransactionReceipt } from "viem"
-import {
-  pollDatabaseForReceipt,
-  pollDatabaseForStatus,
-  checkTransactionReceiptExists,
-} from "@/lib/transaction-receipt-utils"
+import { pollDatabaseForReceipt, pollDatabaseForStatus } from "@/lib/transaction-receipt-utils"
 
-const RECEIPT_CHECK_INTERVAL_MS = 100
+const RECEIPT_CHECK_INTERVAL_MS = 500
 
 export type WaitForTxConfirmationMode = "receipt" | "status"
 
@@ -33,8 +29,8 @@ export interface UseWaitForTxConfirmationReturn {
 }
 
 /**
- * Shared hook: races DB poll (receipt or status) with wagmi receipt.
- * Calls onConfirmed once when either wins; try/catch around all async paths.
+ * Hook that races DB polling against Wagmi receipt.
+ * The first to resolve triggers onConfirmed; the other stops.
  */
 export function useWaitForTxConfirmation({
   hash,
@@ -45,117 +41,130 @@ export function useWaitForTxConfirmation({
 }: UseWaitForTxConfirmationParams): UseWaitForTxConfirmationReturn {
   const [error, setError] = useState<Error | null>(null)
   const [isConfirmed, setIsConfirmed] = useState(false)
-  const confirmedRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
+  const hasConfirmedRef = useRef(false)
+  const processingHashRef = useRef<string | null>(null)
   const onConfirmedRef = useRef(onConfirmed)
   const onErrorRef = useRef(onError)
   onConfirmedRef.current = onConfirmed
   onErrorRef.current = onError
 
   const reset = useCallback(() => {
-    confirmedRef.current = false
+    console.log("[useWaitForTxConfirmation] Resetting state")
     setIsConfirmed(false)
     setError(null)
+    hasConfirmedRef.current = false
+    processingHashRef.current = null
     if (abortRef.current) {
       abortRef.current.abort()
       abortRef.current = null
     }
   }, [])
 
+  // Watch for wagmi receipt to arrive
   useEffect(() => {
-    if (!hash) {
-      return
+    if (!hash || !receipt || hasConfirmedRef.current) return
+
+    console.log("[useWaitForTxConfirmation] Wagmi receipt arrived!")
+    console.log("receipt", JSON.stringify(receipt, null, 2))
+    hasConfirmedRef.current = true
+    setIsConfirmed(true)
+
+    if (abortRef.current) {
+      abortRef.current.abort()
     }
 
-    confirmedRef.current = false
-    setIsConfirmed(false)
-    const abortController = new AbortController()
-    abortRef.current = abortController
-    let isProcessing = false
-
-    const tryConfirm = (result: TxConfirmationResult) => {
-      if (isProcessing || abortController.signal.aborted) return
-      isProcessing = true
-      confirmedRef.current = true
-      setIsConfirmed(true)
-      if (result.receipt) {
-        console.log("[Tx confirmation] receipt", result.receipt)
-      }
-      try {
-        onConfirmedRef.current(result)
-      } catch (err) {
-        const e = err instanceof Error ? err : new Error(String(err))
-        setError(e)
-        onErrorRef.current?.(e)
-      }
-      abortController.abort()
-    }
-
-    // Receipt mode: poll DB for full receipt
-    if (mode === "receipt") {
-      pollDatabaseForReceipt(hash, abortController.signal)
-        .then((dbReceipt) => {
-          if (abortController.signal.aborted || !dbReceipt) return
-          tryConfirm({ source: "db", receipt: dbReceipt })
-        })
-        .catch((err) => {
-          if (abortController.signal.aborted || (err as Error).name === "AbortError") return
-          const e = err instanceof Error ? err : new Error(String(err))
-          setError(e)
-          onErrorRef.current?.(e)
-        })
-    } else {
-      // Status mode: poll DB for status
-      pollDatabaseForStatus(hash, abortController.signal)
-        .then((dbResult) => {
-          if (abortController.signal.aborted || !dbResult) return
-          tryConfirm({ source: "db", status: dbResult })
-        })
-        .catch((err) => {
-          if (abortController.signal.aborted || (err as Error).name === "AbortError") return
-          const e = err instanceof Error ? err : new Error(String(err))
-          setError(e)
-          onErrorRef.current?.(e)
-        })
-    }
-
-    const checkWagmiReceipt = () => {
-      if (!receipt || abortController.signal.aborted) return
-
+    try {
       if (mode === "receipt") {
-        tryConfirm({ source: "wagmi", receipt })
-        return
+        onConfirmedRef.current({ source: "wagmi", receipt })
+      } else {
+        onConfirmedRef.current({
+          source: "wagmi",
+          status: { success: receipt.status === "success", hash },
+        })
       }
-
-      // Status mode: verify receipt exists in DB then confirm
-      checkTransactionReceiptExists(hash, abortController.signal)
-        .then((exists) => {
-          if (abortController.signal.aborted || !exists) return
-          tryConfirm({ source: "wagmi", status: { success: true, hash } })
-        })
-        .catch((err) => {
-          if (abortController.signal.aborted || (err as Error).name === "AbortError") return
-          const e = err instanceof Error ? err : new Error(String(err))
-          setError(e)
-          onErrorRef.current?.(e)
-        })
-    }
-
-    checkWagmiReceipt()
-    const intervalId = setInterval(checkWagmiReceipt, RECEIPT_CHECK_INTERVAL_MS)
-
-    return () => {
-      clearInterval(intervalId)
-      abortController.abort()
-      abortRef.current = null
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err))
+      setError(e)
+      onErrorRef.current?.(e)
     }
   }, [hash, receipt, mode])
 
-  const isConfirming = !!hash && !isConfirmed && !error
+  // DB polling - only start once per hash
+  useEffect(() => {
+    // Don't start if no hash, already confirmed, or already processing this hash
+    if (!hash) return
+    if (hasConfirmedRef.current) return
+    if (processingHashRef.current === hash) {
+      console.log("[useWaitForTxConfirmation] Already polling for this hash, skipping duplicate")
+      return
+    }
 
-  return {
-    isConfirming,
-    error,
-    reset,
-  }
+    console.log(`[useWaitForTxConfirmation] Starting DB polling for ${hash}`)
+    processingHashRef.current = hash
+
+    const abortController = new AbortController()
+    abortRef.current = abortController
+    setIsConfirmed(false)
+    setError(null)
+
+    const dbPoll = async () => {
+      try {
+        while (!abortController.signal.aborted && !hasConfirmedRef.current) {
+          let result: {
+            source: "db"
+            receipt?: TransactionReceipt
+            status?: { success: boolean; hash: string }
+          } | null = null
+
+          if (mode === "receipt") {
+            const dbReceipt = await pollDatabaseForReceipt(hash, abortController.signal)
+            if (dbReceipt) result = { source: "db", receipt: dbReceipt }
+          } else {
+            const dbStatus = await pollDatabaseForStatus(hash, abortController.signal)
+            if (dbStatus) result = { source: "db", status: dbStatus }
+          }
+
+          if (result && !hasConfirmedRef.current) {
+            console.log("[useWaitForTxConfirmation] DB polling found confirmation!")
+            console.log("result", JSON.stringify(result, null, 2))
+            hasConfirmedRef.current = true
+            setIsConfirmed(true)
+            abortController.abort()
+
+            try {
+              onConfirmedRef.current(result)
+            } catch (err) {
+              const e = err instanceof Error ? err : new Error(String(err))
+              setError(e)
+              onErrorRef.current?.(e)
+            }
+            return
+          }
+
+          await new Promise((r) => setTimeout(r, RECEIPT_CHECK_INTERVAL_MS))
+        }
+      } catch (err) {
+        if ((err as Error).name !== "AbortError" && !hasConfirmedRef.current) {
+          const e = err instanceof Error ? err : new Error(String(err))
+          console.error("[useWaitForTxConfirmation] DB polling error:", e)
+          setError(e)
+          onErrorRef.current?.(e)
+        }
+      }
+    }
+
+    dbPoll()
+
+    return () => {
+      console.log(`[useWaitForTxConfirmation] Cleanup - aborting polling for ${hash}`)
+      abortController.abort()
+      if (abortRef.current === abortController) {
+        abortRef.current = null
+      }
+    }
+  }, [hash, mode]) // Only re-run if hash or mode changes
+
+  const isConfirming = !!hash && !isConfirmed && !error
+  return { isConfirming, error, reset }
 }

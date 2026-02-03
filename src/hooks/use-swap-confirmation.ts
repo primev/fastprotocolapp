@@ -1,13 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import {
-  useAccount,
-  useSendTransaction,
-  useWaitForTransactionReceipt,
-  useEstimateFeesPerGas,
-  useGasPrice,
-} from "wagmi"
+import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from "wagmi"
 import { parseUnits, type TransactionReceipt } from "viem"
 import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
@@ -16,6 +10,7 @@ import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import { FASTSWAP_API_BASE } from "@/lib/network-config"
 import { getTransactionErrorMessage } from "@/lib/transaction-errors"
 import type { Token } from "@/types/swap"
+import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 
 interface UseSwapConfirmationParams {
   fromToken: Token | undefined
@@ -38,29 +33,24 @@ export function useSwapConfirmation({
   const { createIntentSignature } = useSwapIntent()
   const { getFreshNonce, releaseNonce, syncFromChain } = usePermit2Nonce()
   const { sendTransactionAsync, data: sendTxHash } = useSendTransaction()
-  const { data: feeData } = useEstimateFeesPerGas()
-  const { data: legacyGasPrice } = useGasPrice()
+  const { gasFees, getFreshGasFees } = useBroadcastGasPrice()
 
   const [isSigning, setIsSigning] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
   const [hash, setHash] = useState<string | null>(null)
   const [error, setError] = useState<Error | null>(null)
 
-  useEffect(() => {
-    if (sendTxHash) setHash(sendTxHash)
-  }, [sendTxHash])
-
-  const {
-    data: receipt,
-    isLoading: isConfirming,
-    isSuccess,
-  } = useWaitForTransactionReceipt({
+  // Get receipt data from wagmi (optional - used for fallback)
+  const { data: receipt } = useWaitForTransactionReceipt({
     hash: hash ? (hash as `0x${string}`) : undefined,
   })
 
   const onConfirmed = useCallback(() => {
-    console.log("[Swap confirmation] Transaction Confirmed on-chain")
     setIsSubmitting(false)
+    setIsConfirming(false)
+    setIsSuccess(true)
     syncFromChain()
     onSuccess?.()
   }, [onSuccess, syncFromChain])
@@ -68,10 +58,13 @@ export function useSwapConfirmation({
   const onConfirmationError = useCallback((err: Error) => {
     console.error("[Swap confirmation] Tx confirmation error:", err)
     setIsSubmitting(false)
+    setIsConfirming(false)
+    setIsSuccess(false)
     const cleanMessage = getTransactionErrorMessage(err, "swap")
     setError(new Error(cleanMessage))
   }, [])
 
+  // Use custom hook that races DB polling vs wagmi receipt
   useWaitForTxConfirmation({
     hash: hash ?? undefined,
     receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
@@ -80,9 +73,21 @@ export function useSwapConfirmation({
     onError: onConfirmationError,
   })
 
+  useEffect(() => {
+    // Only set confirming to true if we have a hash AND no error has occurred yet
+    if (hash && !isSuccess && !error) {
+      setIsConfirming(true)
+    } else if (error) {
+      // If an error arrives, we are no longer "confirming"
+      setIsConfirming(false)
+    }
+  }, [hash, isSuccess, error])
+
   const reset = useCallback(() => {
     setIsSigning(false)
     setIsSubmitting(false)
+    setIsConfirming(false)
+    setIsSuccess(false)
     setHash(null)
     setError(null)
   }, [])
@@ -91,6 +96,7 @@ export function useSwapConfirmation({
     console.error("[Swap confirmation] Caught Error:", err)
     setIsSigning(false)
     setIsSubmitting(false)
+    setIsConfirming(false)
     const message = getTransactionErrorMessage(err, "swap")
     setError(new Error(message))
   }, [])
@@ -107,9 +113,6 @@ export function useSwapConfirmation({
     const inputAmtWei = parseUnits(amountClean, fromToken.decimals).toString()
     const userAmtOutWei = parseUnits(minAmountOutClean, toToken.decimals).toString()
 
-    console.log("inputAmtWei", inputAmtWei)
-    console.log("userAmtOutWei", userAmtOutWei)
-
     try {
       if (fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS) {
         await executeEthPath(inputAmtWei, userAmtOutWei)
@@ -119,7 +122,19 @@ export function useSwapConfirmation({
     } catch (err) {
       handleSwapError(err)
     }
-  }, [isConnected, address, fromToken, toToken, amount, minAmountOut, handleSwapError, reset])
+  }, [
+    isConnected,
+    address,
+    fromToken,
+    toToken,
+    amount,
+    minAmountOut,
+    deadline,
+    handleSwapError,
+    reset,
+    getFreshGasFees,
+    gasFees,
+  ])
 
   async function executeEthPath(inputAmtWei: string, userAmtOutWei: string) {
     if (!address || !fromToken || !toToken) return
@@ -134,8 +149,6 @@ export function useSwapConfirmation({
       deadline: String(deadlineUnix),
     }
 
-    console.log("[ETH Path] Requesting Unsigned TX:", body)
-
     const ethResp = await fetch(`${FASTSWAP_API_BASE}/fastswap/eth`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -143,32 +156,22 @@ export function useSwapConfirmation({
     })
 
     const ethData = await ethResp.json()
-    console.log("[ETH Path] API Response:", ethData)
 
     if (!ethResp.ok || !ethData?.to || !ethData?.data) {
       throw new Error(ethData?.error || "FastSwap API error")
     }
 
-    const gasLimit = ethData.gasLimit ? BigInt(Math.ceil(ethData.gasLimit * 1.2)) : undefined
-    const gasFees =
-      feeData?.maxFeePerGas != null
-        ? { maxFeePerGas: (feeData.maxFeePerGas * 120n) / 100n, maxPriorityFeePerGas: 0n }
-        : legacyGasPrice
-          ? { gasPrice: legacyGasPrice }
-          : undefined
-
-    console.log("[ETH Path] Sending Transaction via Wallet...")
+    const freshGasFees = await getFreshGasFees()
     const txHash = await sendTransactionAsync({
       to: ethData.to as `0x${string}`,
       data: ethData.data,
       value: BigInt(ethData.value),
-      gas: gasLimit,
-      ...gasFees,
+      ...(freshGasFees ?? gasFees),
     })
 
     if (txHash) {
-      console.log("[ETH Path] Transaction Sent! Hash:", txHash)
       setHash(txHash)
+      setIsSubmitting(false) // Transaction submitted, now waiting for confirmation
     }
   }
 
@@ -181,8 +184,6 @@ export function useSwapConfirmation({
     const tokenInAddress = fromToken.address === ZERO_ADDRESS ? WETH_ADDRESS : fromToken.address
     const tokenOutAddress = toToken.address === ZERO_ADDRESS ? WETH_ADDRESS : toToken.address
 
-    console.log("[Permit Path] Creating Intent Signature. Nonce:", nonce.toString())
-
     const intentData = await createIntentSignature(
       tokenInAddress as `0x${string}`,
       tokenOutAddress as `0x${string}`,
@@ -193,8 +194,6 @@ export function useSwapConfirmation({
       toToken.decimals,
       deadline
     )
-
-    console.log("[Permit Path] Signature Created:", intentData.signature)
 
     setIsSigning(false)
     setIsSubmitting(true)
@@ -208,8 +207,6 @@ export function useSwapConfirmation({
       signature: intentData.signature,
     }
 
-    console.log("[Permit Path] Submitting to Executor:", body)
-
     const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -217,17 +214,15 @@ export function useSwapConfirmation({
     })
 
     const result = await resp.json()
-    console.log("[Permit Path] API Response:", result)
 
     if (!resp.ok || !result?.txHash) {
-      console.warn("[Permit Path] API Error - Releasing Nonce")
       releaseNonce(nonce)
       throw new Error(result?.error || "FastSwap API error")
     }
 
     if (result.txHash) {
-      console.log("[Permit Path] Executor Success! Hash:", result.txHash)
       setHash(result.txHash)
+      setIsSubmitting(false) // Transaction submitted, now waiting for confirmation
     }
   }
 

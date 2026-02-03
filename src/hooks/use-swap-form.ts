@@ -6,7 +6,7 @@ import { formatUnits } from "viem"
 import { useQueryClient } from "@tanstack/react-query"
 import { useQuote, calculateAutoSlippage, type QuoteResult } from "@/hooks/use-swap-quote"
 import { useTokenPrice } from "@/hooks/use-token-price"
-import { useGasPrice } from "@/hooks/use-gas-price"
+import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
 import {
   isWrapUnwrapPair,
@@ -37,6 +37,7 @@ export function useSwapForm(allTokens: Token[]) {
   const [toToken, setToToken] = useState<Token | undefined>(undefined)
   const [amount, setAmount] = useState("")
   const [editingSide, setEditingSide] = useState<"sell" | "buy">("sell")
+  const [clearSwapState, setClearSwapState] = useState(false)
 
   // --- UI Synchronicity State ---
   const [isManualInversion, setIsManualInversion] = useState(false)
@@ -56,7 +57,8 @@ export function useSwapForm(allTokens: Token[]) {
   // --- Market Data ---
   const { price: fromPrice, isLoading: isLoadingFromPrice } = useTokenPrice(fromToken?.symbol || "")
   const { price: toPrice, isLoading: isLoadingToPrice } = useTokenPrice(toToken?.symbol || "")
-  const { gasPriceGwei } = useGasPrice()
+  const { price: ethPrice } = useTokenPrice("ETH")
+  const { gasPriceGwei } = useBroadcastGasPrice()
 
   // --- BALANCES LOGIC ---
 
@@ -131,7 +133,7 @@ export function useSwapForm(allTokens: Token[]) {
       setLastValidRate(null)
       setWrapUnwrapGasEstimate(null)
     }
-  }, [isConnected])
+  }, [isConnected, clearSwapState])
 
   // --- Quote Logic ---
   const isWrapUnwrap = isWrapUnwrapPair(fromToken, toToken)
@@ -402,6 +404,8 @@ export function useSwapForm(allTokens: Token[]) {
     setSwappedQuote,
     hasNoLiquidity,
     gasEstimate: isWrapUnwrap ? wrapUnwrapGasEstimate : (displayQuote?.gasEstimate ?? null),
+    ethPrice: ethPrice ?? null,
+    setClearSwapState,
     ...wrapContext,
   }
 }

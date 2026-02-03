@@ -1,142 +1,141 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   useAccount,
   useWriteContract,
   useWaitForTransactionReceipt,
   useBalance,
-  useEstimateFeesPerGas,
-  useGasPrice,
+  useEstimateGas,
 } from "wagmi"
-import { parseUnits, formatUnits } from "viem"
+import { parseUnits, type TransactionReceipt } from "viem"
 import { WETH_ADDRESS } from "@/lib/swap-constants"
 import { WETH_ABI } from "@/lib/weth-abi"
 import { isWrapOperation, isUnwrapOperation } from "@/lib/weth-utils"
 import { mainnet } from "wagmi/chains"
 import { getTransactionErrorMessage } from "@/lib/transaction-errors"
+import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
+import { useBroadcastGasPrice, GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
 
-/**
- * useWethWrapUnwrap
- * * Specifically handles the logic for converting ETH to WETH (deposit)
- * and WETH to ETH (withdraw).
- * * Error handling is funneled through the centralized utility,
- * updating the local 'error' state for the UI to display.
- */
 export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
   const { address, isConnected } = useAccount()
   const [error, setError] = useState<Error | null>(null)
+  const [internalHash, setInternalHash] = useState<string | null>(null)
+  const [isSuccess, setIsSuccess] = useState(false)
 
-  // --- GAS CONFIGURATION ---
-  const { data: feeData } = useEstimateFeesPerGas()
-  const { data: legacyGasPrice } = useGasPrice()
-
-  const gasFees =
-    feeData?.maxFeePerGas != null && feeData?.maxPriorityFeePerGas != null
-      ? {
-          maxFeePerGas: (feeData.maxFeePerGas * 120n) / 100n,
-          maxPriorityFeePerGas: 0n,
-        }
-      : legacyGasPrice != null
-        ? { gasPrice: legacyGasPrice }
-        : undefined
-
-  // --- BALANCE CHECK ---
-  const { data: wethBalance } = useBalance({
-    address: isConnected ? address : undefined,
-    token: WETH_ADDRESS,
-  })
+  const { gasFees, getFreshGasFees } = useBroadcastGasPrice()
 
   const isWrap = isWrapOperation(fromToken, toToken)
   const isUnwrap = isUnwrapOperation(fromToken, toToken)
   const operationType = isWrap ? "wrap" : "unwrap"
 
-  // --- WAGMI CONTRACT HOOKS ---
+  const amountInWei = useMemo(() => {
+    if (!amount) return 0n
+    const cleaned = amount.toString().replace(/,/g, "").trim()
+    try {
+      return parseUnits(cleaned, 18)
+    } catch {
+      return 0n
+    }
+  }, [amount])
+
+  // --- GAS ESTIMATION ---
+  const { data: rawEstimate, refetch: refetchEstimate } = useEstimateGas({
+    address: WETH_ADDRESS,
+    abi: WETH_ABI,
+    functionName: isWrap ? "deposit" : "withdraw",
+    args: isWrap ? [] : [amountInWei],
+    value: isWrap ? amountInWei : undefined,
+    account: address,
+    query: {
+      // Only fetch if we have a valid amount and connection
+      enabled: isConnected && !!address && amountInWei > 0n,
+      refetchInterval: 12_000, // Update every block
+    },
+  })
+
+  // Apply the buffer to the estimate to show the "real" projected cost
+  const bufferedEstimate = useMemo(() => {
+    if (!rawEstimate) return null
+    return (rawEstimate * GAS_LIMIT_MULTIPLIER) / 100n
+  }, [rawEstimate])
+
+  const { data: wethBalance } = useBalance({
+    address: isConnected ? address : undefined,
+    token: WETH_ADDRESS,
+  })
+
   const {
     writeContract,
-    data: hash,
+    data: wagmiHash,
     isPending,
     error: writeError,
     reset: wagmiReset,
   } = useWriteContract()
 
-  const {
-    isLoading: isConfirming,
-    isSuccess,
-    error: receiptError,
-  } = useWaitForTransactionReceipt({ hash })
+  useEffect(() => {
+    if (wagmiHash) setInternalHash(wagmiHash)
+  }, [wagmiHash])
 
-  /**
-   * Effect: Monitors Wagmi hook errors and syncs them to local state.
-   * Uses centralized utility to format messages.
-   */
+  const { data: receipt, error: receiptError } = useWaitForTransactionReceipt({
+    hash: internalHash as `0x${string}` | undefined,
+  })
+
+  const { isConfirming, reset: resetConfirmation } = useWaitForTxConfirmation({
+    hash: internalHash ?? undefined,
+    receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
+    mode: "status",
+    onConfirmed: () => setIsSuccess(true),
+    onError: (err: Error) => setError(new Error(getTransactionErrorMessage(err, operationType))),
+  })
+
   useEffect(() => {
     const rawError = writeError || receiptError
     if (rawError) {
-      const cleanMessage = getTransactionErrorMessage(rawError, operationType)
-      setError(new Error(cleanMessage))
-    } else if (!hash) {
-      // Clear error if we don't have an active transaction
-      setError(null)
+      setError(new Error(getTransactionErrorMessage(rawError, operationType)))
     }
-  }, [writeError, receiptError, hash, operationType])
+  }, [writeError, receiptError, operationType])
 
   const reset = useCallback(() => {
     wagmiReset()
+    resetConfirmation()
+    setInternalHash(null)
+    setIsSuccess(false)
     setError(null)
-  }, [wagmiReset])
+  }, [wagmiReset, resetConfirmation])
 
-  /**
-   * Wrap (ETH -> WETH)
-   */
-  const wrap = useCallback(() => {
+  // --- ACTIONS ---
+  const wrap = useCallback(async () => {
     try {
       reset()
+      const freshGasFees = await getFreshGasFees()
       writeContract({
         address: WETH_ADDRESS,
         abi: WETH_ABI,
         functionName: "deposit",
-        value: parseUnits(amount, 18),
+        value: amountInWei,
         chain: mainnet,
         account: address,
-        ...gasFees,
+        ...(freshGasFees ?? gasFees),
+        gas: bufferedEstimate ?? undefined,
       })
     } catch (err) {
       setError(new Error(getTransactionErrorMessage(err, "wrap")))
     }
-  }, [address, amount, writeContract, reset, gasFees])
+  }, [address, amountInWei, writeContract, reset, gasFees, bufferedEstimate, getFreshGasFees])
 
-  /**
-   * Unwrap (WETH -> ETH)
-   */
-  const unwrap = useCallback(() => {
-    if (!amount) {
+  const unwrap = useCallback(async () => {
+    if (amountInWei === 0n) {
       setError(new Error("Amount is required"))
       return
     }
-
-    const cleanedAmount = amount.toString().replace(/,/g, "").trim()
-    const amountNum = Number(cleanedAmount)
-    if (isNaN(amountNum) || amountNum <= 0) {
-      setError(new Error(`Invalid amount: ${cleanedAmount}`))
-      return
-    }
-
     try {
       reset()
-      const amountInWei = parseUnits(cleanedAmount, 18)
-
-      // Pre-flight balance check
       if (wethBalance && wethBalance.value < amountInWei) {
-        const balanceFormatted = formatUnits(wethBalance.value, 18)
-        setError(
-          new Error(
-            `Insufficient WETH balance. You have ${balanceFormatted} WETH but trying to unwrap ${cleanedAmount} WETH`
-          )
-        )
+        setError(new Error(`Insufficient WETH balance.`))
         return
       }
-
+      const freshGasFees = await getFreshGasFees()
       writeContract({
         address: WETH_ADDRESS,
         abi: WETH_ABI,
@@ -144,12 +143,22 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         args: [amountInWei],
         chain: mainnet,
         account: address,
-        ...gasFees,
+        ...(freshGasFees ?? gasFees),
+        gas: bufferedEstimate ?? undefined,
       })
     } catch (err) {
       setError(new Error(getTransactionErrorMessage(err, "unwrap")))
     }
-  }, [address, amount, writeContract, reset, wethBalance, gasFees])
+  }, [
+    address,
+    amountInWei,
+    writeContract,
+    reset,
+    wethBalance,
+    gasFees,
+    bufferedEstimate,
+    getFreshGasFees,
+  ])
 
   return {
     isWrap,
@@ -159,8 +168,11 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
     isPending,
     isConfirming,
     isSuccess,
-    error, // This is the state your modal uses for the error message
-    hash,
+    error,
+    hash: internalHash,
     reset,
+    gasEstimate: bufferedEstimate, // Pass the buffered version to the UI
+    rawGasEstimate: rawEstimate,
+    refetchEstimate,
   }
 }
