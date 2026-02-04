@@ -4,13 +4,9 @@ import { useCallback } from "react"
 import { useBlock } from "wagmi"
 import { formatUnits } from "viem"
 
-// Gas limit buffer (120 = 20% over estimate to avoid out-of-gas)
 export const GAS_LIMIT_MULTIPLIER = 100n
 export const ETH_PATH_GAS_LIMIT_MULTIPLIER = 140n // 40% buffer
 
-// Matches wallet "Normal" tier: 2 gwei tip per Blocknative
-// https://www.blocknative.com/blog/eip-1559-fees
-// const PRIORITY_FEE_WEI = 1_000_000_000n
 const PRIORITY_FEE_WEI = 0n
 
 export type GasFees =
@@ -18,17 +14,9 @@ export type GasFees =
   | { gasPrice: bigint }
   | undefined
 
-/**
- * Match wallet "Normal" tier: maxFee = base + priority (no 2x buffer).
- * Wallet displays this as its estimate; 2x buffer caused Custom to show higher than our UI.
- */
 function gasFeesFromBaseFee(baseFeePerGas: bigint): GasFees {
-  // To match "Normal" with 0 priority:
-  // We set maxFee to exactly the baseFee.
-  // If the wallet adds 2 Gwei to its "Normal" view, we simply provide the raw baseFee.
-
   return {
-    maxFeePerGas: baseFeePerGas, // Remove any multipliers here
+    maxFeePerGas: baseFeePerGas,
     maxPriorityFeePerGas: 0n,
   }
 }
@@ -50,7 +38,6 @@ export function useBroadcastGasPrice() {
     return undefined
   }, [refetchBlock])
 
-  // Expected cost at execution = base + priority (user pays this, not the max)
   const effectivePrice = baseFeePerGas != null ? baseFeePerGas + PRIORITY_FEE_WEI : null
   const rawPrice = effectivePrice
   const gasPriceGwei = effectivePrice != null ? parseFloat(formatUnits(effectivePrice, 9)) : null

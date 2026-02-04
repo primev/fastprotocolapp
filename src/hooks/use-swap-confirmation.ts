@@ -1,12 +1,17 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from "wagmi"
+import {
+  useAccount,
+  usePublicClient,
+  useSendTransaction,
+  useWaitForTransactionReceipt,
+} from "wagmi"
 import {
   useBroadcastGasPrice,
   ETH_PATH_GAS_LIMIT_MULTIPLIER,
 } from "@/hooks/use-broadcast-gas-price"
-import { useEthPathGasEstimate } from "@/hooks/use-eth-path-gas-estimate"
+import { mainnet } from "wagmi/chains"
 import { parseUnits, type TransactionReceipt } from "viem"
 import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
@@ -24,6 +29,12 @@ interface UseSwapConfirmationParams {
   onSuccess?: () => void
 }
 
+/**
+ * Orchestrates the swap execution process.
+ * Handles two paths:
+ * 1. ETH Path (Direct transaction via API data)
+ * 2. Permit Path (EIP-712 signature submission to a relayer)
+ */
 export function useSwapConfirmation({
   fromToken,
   toToken,
@@ -33,24 +44,14 @@ export function useSwapConfirmation({
   onSuccess,
 }: UseSwapConfirmationParams) {
   const { isConnected, address } = useAccount()
-  const { gasFees, getFreshGasFees } = useBroadcastGasPrice()
-  const isEthPath =
-    !!fromToken &&
-    !!toToken &&
-    fromToken.address === ZERO_ADDRESS &&
-    toToken.address.toLowerCase() !== WETH_ADDRESS.toLowerCase()
-  const { gasEstimate: ethPathGasEstimate } = useEthPathGasEstimate(
-    isEthPath,
-    fromToken,
-    toToken,
-    amount,
-    minAmountOut,
-    deadline
-  )
+  const { getFreshGasFees } = useBroadcastGasPrice()
+  const publicClient = usePublicClient({ chainId: mainnet.id })
+
   const { createIntentSignature } = useSwapIntent()
   const { getFreshNonce, releaseNonce, syncFromChain } = usePermit2Nonce()
-  const { sendTransactionAsync, data: sendTxHash } = useSendTransaction()
+  const { sendTransactionAsync } = useSendTransaction()
 
+  // --- Transaction State ---
   const [isSigning, setIsSigning] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
@@ -58,7 +59,7 @@ export function useSwapConfirmation({
   const [hash, setHash] = useState<string | null>(null)
   const [error, setError] = useState<Error | null>(null)
 
-  // Get receipt data from wagmi (optional - used for fallback)
+  // Wagmi receipt hook used as a data source for the race-condition confirmation hook
   const { data: receipt } = useWaitForTransactionReceipt({
     hash: hash ? (hash as `0x${string}`) : undefined,
   })
@@ -67,19 +68,17 @@ export function useSwapConfirmation({
     setIsSubmitting(false)
     setIsConfirming(false)
     setIsSuccess(true)
-    syncFromChain()
+    syncFromChain() // Refresh nonce state
     onSuccess?.()
   }, [onSuccess, syncFromChain])
 
   const onConfirmationError = useCallback((err: Error) => {
-    console.error("[Swap confirmation] Tx confirmation error:", err)
     setIsSubmitting(false)
     setIsConfirming(false)
-    setIsSuccess(false)
     setError(err instanceof Error ? err : new Error(String(err)))
   }, [])
 
-  // Use custom hook that races DB polling vs wagmi receipt
+  // Races DB polling against on-chain receipt
   useWaitForTxConfirmation({
     hash: hash ?? undefined,
     receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
@@ -88,12 +87,11 @@ export function useSwapConfirmation({
     onError: onConfirmationError,
   })
 
+  // Sync confirmation status based on hash availability
   useEffect(() => {
-    // Only set confirming to true if we have a hash AND no error has occurred yet
     if (hash && !isSuccess && !error) {
       setIsConfirming(true)
     } else if (error) {
-      // If an error arrives, we are no longer "confirming"
       setIsConfirming(false)
     }
   }, [hash, isSuccess, error])
@@ -108,7 +106,6 @@ export function useSwapConfirmation({
   }, [])
 
   const handleSwapError = useCallback((err: unknown) => {
-    console.error("[Swap confirmation] Caught Error:", err)
     setIsSigning(false)
     setIsSubmitting(false)
     setIsConfirming(false)
@@ -120,10 +117,8 @@ export function useSwapConfirmation({
     reset()
     setIsSubmitting(true)
 
-    // Always parse fresh values here
     const amountClean = amount.replace(/,/g, "")
     const minAmountOutClean = minAmountOut.replace(/,/g, "")
-
     const inputAmtWei = parseUnits(amountClean, fromToken.decimals).toString()
     const userAmtOutWei = parseUnits(minAmountOutClean, toToken.decimals).toString()
 
@@ -146,16 +141,17 @@ export function useSwapConfirmation({
     deadline,
     handleSwapError,
     reset,
-    gasFees,
-    getFreshGasFees,
-    ethPathGasEstimate,
   ])
 
+  /**
+   * Path for Native ETH swaps: Fetches tx data from API, estimates gas on the exact
+   * tx we're about to send, then sends via wallet. Gas estimate at execution time
+   * ensures it matches the actual transaction (avoids dual-API-call mismatch).
+   */
   async function executeEthPath(inputAmtWei: string, userAmtOutWei: string) {
     if (!address || !fromToken || !toToken) return
 
     const deadlineUnix = Math.floor(Date.now() / 1000) + Math.max(5, Math.min(1440, deadline)) * 60
-
     const body = {
       outputToken: toToken.address,
       inputAmt: inputAmtWei,
@@ -164,37 +160,45 @@ export function useSwapConfirmation({
       deadline: String(deadlineUnix),
     }
 
-    const ethResp = await fetch(`${FASTSWAP_API_BASE}/fastswap/eth`, {
+    const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap/eth`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     })
 
-    const ethData = await ethResp.json()
+    const data = await resp.json()
+    if (!resp.ok || !data?.to || !data?.data) throw new Error(data?.error || "FastSwap API error")
 
-    if (!ethResp.ok || !ethData?.to || !ethData?.data) {
-      throw new Error(ethData?.error || "FastSwap API error")
+    await getFreshGasFees()
+
+    // Estimate gas on the exact tx we're about to send (single source of truth)
+    let bufferedGas: bigint | undefined
+    if (publicClient) {
+      const estimated = await publicClient.estimateGas({
+        account: address as `0x${string}`,
+        to: data.to as `0x${string}`,
+        data: data.data as `0x${string}`,
+        value: BigInt(data.value || 0),
+      })
+      bufferedGas = (estimated * ETH_PATH_GAS_LIMIT_MULTIPLIER) / 100n
     }
 
-    const freshGasFees = await getFreshGasFees()
-    const bufferedGas =
-      ethPathGasEstimate != null
-        ? (ethPathGasEstimate * ETH_PATH_GAS_LIMIT_MULTIPLIER) / 100n
-        : undefined
     const txHash = await sendTransactionAsync({
-      to: ethData.to as `0x${string}`,
-      data: ethData.data,
-      value: BigInt(ethData.value),
+      to: data.to as `0x${string}`,
+      data: data.data,
+      value: BigInt(data.value),
       gas: bufferedGas,
-      // ...(freshGasFees ?? gasFees),
     })
 
     if (txHash) {
       setHash(txHash)
-      setIsSubmitting(false) // Transaction submitted, now waiting for confirmation
+      setIsSubmitting(false)
     }
   }
 
+  /**
+   * Path for ERC20 swaps: Collects EIP-712 signature and posts to relayer.
+   */
   async function executePermitPath(inputAmtWei: string, userAmtOutWei: string) {
     if (!fromToken || !toToken) return
     setIsSubmitting(false)
@@ -234,16 +238,13 @@ export function useSwapConfirmation({
     })
 
     const result = await resp.json()
-
     if (!resp.ok || !result?.txHash) {
       releaseNonce(nonce)
       throw new Error(result?.error || "FastSwap API error")
     }
 
-    if (result.txHash) {
-      setHash(result.txHash)
-      setIsSubmitting(false) // Transaction submitted, now waiting for confirmation
-    }
+    setHash(result.txHash)
+    setIsSubmitting(false)
   }
 
   return {

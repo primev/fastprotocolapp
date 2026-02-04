@@ -502,14 +502,6 @@ function SwapConfirmationModal({
                     <RefreshCw size={16} /> Try Again
                   </button>
                 )}
-                {(isCurrentlySuccess || isCurrentlyError) && (
-                  <button
-                    onClick={() => handleOpenChange(false)}
-                    className="w-full py-4 text-[10px] font-bold uppercase tracking-[0.25em] text-white/50 hover:text-white/70 transition-colors"
-                  >
-                    Close Window
-                  </button>
-                )}
               </div>
             </div>
           ) : (

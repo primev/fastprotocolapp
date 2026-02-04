@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback } from "react"
 import { useSignTypedData, useAccount, useChainId } from "wagmi"
 import { parseUnits } from "viem"
 import {
@@ -11,14 +11,15 @@ import {
 import { INTENT_WITNESS_TYPE_STRING, GET_SWAP_INTENT_TYPES } from "@/lib/permit2-utils"
 import type { SwapIntent, PermitTransferFrom } from "@/types/swap"
 
+/**
+ * Hook for generating EIP-712 signatures for Permit2 witness transfers.
+ * This allows users to sign a swap intent that a filler can execute.
+ */
 export function useSwapIntent() {
   const { signTypedDataAsync } = useSignTypedData()
   const { address } = useAccount()
   const chainId = useChainId()
 
-  /**
-   * Creates a signed intent for a swap
-   */
   const createIntentSignature = useCallback(
     async (
       tokenIn: `0x${string}`,
@@ -32,17 +33,15 @@ export function useSwapIntent() {
     ) => {
       if (!address) throw new Error("Wallet not connected")
 
-      // --- 1. Compute fresh deadline ---
+      // Compute unix deadline (5m min, 24h max)
       const validatedDeadlineMinutes = Math.max(5, Math.min(1440, deadlineMinutes))
       const deadline = BigInt(Math.floor(Date.now() / 1000) + validatedDeadlineMinutes * 60)
 
-      // --- 2. Clean amounts and convert to wei ---
-      const amountInClean = amountIn.replace(/,/g, "")
-      const minAmountOutClean = minAmountOut.replace(/,/g, "")
-      const inputAmt = parseUnits(amountInClean, decimalsIn)
-      const userAmtOut = parseUnits(minAmountOutClean, decimalsOut)
+      // Normalize inputs to BigInt
+      const inputAmt = parseUnits(amountIn.replace(/,/g, ""), decimalsIn)
+      const userAmtOut = parseUnits(minAmountOut.replace(/,/g, ""), decimalsOut)
 
-      // --- 3. Prepare Permit2 basic data ---
+      // Core Permit2 transfer data
       const permitData: PermitTransferFrom = {
         permitted: {
           token: tokenIn,
@@ -53,36 +52,31 @@ export function useSwapIntent() {
         deadline,
       }
 
-      // --- 4. Prepare witness data (matches Solidity order exactly) ---
+      // Witness data specifically for the Swap Intent logic
       const witness: SwapIntent = {
         user: address,
         inputToken: tokenIn,
         outputToken: tokenOut,
-        inputAmt: inputAmt,
-        userAmtOut: userAmtOut,
+        inputAmt,
+        userAmtOut,
         recipient: address,
-        deadline: deadline,
-        nonce: nonce,
+        deadline,
+        nonce,
       }
 
-      // --- 5. Build EIP-712 message ---
-      const eip712Message = {
+      // Construct EIP-712 payload
+      const signature = await signTypedDataAsync({
         domain: {
           name: "Permit2",
           chainId,
           verifyingContract: PERMIT2_ADDRESS,
         },
         types: GET_SWAP_INTENT_TYPES(INTENT_WITNESS_TYPE_STRING),
-        primaryType: "PermitWitnessTransferFrom" as const,
+        primaryType: "PermitWitnessTransferFrom",
         message: {
           ...permitData,
           witness,
         },
-      }
-
-      // --- 6. Sign ---
-      const signature = await signTypedDataAsync({
-        ...eip712Message,
         account: address,
       })
 

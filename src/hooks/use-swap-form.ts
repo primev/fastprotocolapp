@@ -72,7 +72,16 @@ export function useSwapForm(allTokens: Token[]) {
     setAmount("")
     setSwappedQuote(null)
     setTimeLeft(15)
-  }, [])
+    setIsManualInversion(false)
+    setLastValidRate(null)
+    // Clear quote cache for current pair so displayQuote doesn't show stale swap data
+    setQuoteCache((prev) => {
+      const pairKey = `${fromToken?.symbol || ""}-${toToken?.symbol || ""}`
+      const next = { ...prev }
+      delete next[pairKey]
+      return next
+    })
+  }, [fromToken, toToken])
 
   // Watch for new blocks and refetch connected wallet balances so the UI updates automatically
   useWatchBlockNumber({

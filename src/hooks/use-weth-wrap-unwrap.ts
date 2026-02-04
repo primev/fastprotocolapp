@@ -14,7 +14,7 @@ import { WETH_ABI } from "@/lib/weth-abi"
 import { isWrapOperation, isUnwrapOperation } from "@/lib/weth-utils"
 import { mainnet } from "wagmi/chains"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
-import { useBroadcastGasPrice, GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
+import { GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
 
 export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
   const { address, isConnected } = useAccount()
@@ -22,11 +22,10 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
   const [internalHash, setInternalHash] = useState<string | null>(null)
   const [isSuccess, setIsSuccess] = useState(false)
 
-  const { gasFees, getFreshGasFees } = useBroadcastGasPrice()
   const isWrap = isWrapOperation(fromToken, toToken)
   const isUnwrap = isUnwrapOperation(fromToken, toToken)
-  const operationType = isWrap ? "wrap" : "unwrap"
 
+  // Normalize amount input to Wei
   const amountInWei = useMemo(() => {
     if (!amount) return 0n
     const cleaned = amount.toString().replace(/,/g, "").trim()
@@ -46,13 +45,12 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
     value: isWrap ? amountInWei : undefined,
     account: address,
     query: {
-      // Only fetch if we have a valid amount and connection
       enabled: isConnected && !!address && amountInWei > 0n,
-      refetchInterval: 12_000, // Update every block
+      refetchInterval: 12_000,
     },
   })
 
-  // Apply the buffer to the estimate to show the "real" projected cost
+  // Apply safety buffer to gas limit
   const bufferedEstimate = useMemo(() => {
     if (!rawEstimate) return null
     return (rawEstimate * GAS_LIMIT_MULTIPLIER) / 100n
@@ -71,6 +69,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
     reset: wagmiReset,
   } = useWriteContract()
 
+  // Sync hash from wagmi to internal state
   useEffect(() => {
     if (wagmiHash) setInternalHash(wagmiHash)
   }, [wagmiHash])
@@ -79,6 +78,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
     hash: internalHash as `0x${string}` | undefined,
   })
 
+  // Handle final block confirmation logic
   const { isConfirming, reset: resetConfirmation } = useWaitForTxConfirmation({
     hash: internalHash ?? undefined,
     receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
@@ -87,6 +87,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
     onError: (err: Error) => setError(err instanceof Error ? err : new Error(String(err))),
   })
 
+  // Aggregate errors from contract writing and receipt fetching
   useEffect(() => {
     const rawError = writeError || receiptError
     if (rawError) {
@@ -106,7 +107,6 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
   const wrap = useCallback(async () => {
     try {
       reset()
-      const freshGasFees = await getFreshGasFees()
       writeContract({
         address: WETH_ADDRESS,
         abi: WETH_ABI,
@@ -115,12 +115,11 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         chain: mainnet,
         account: address,
         gas: bufferedEstimate ?? undefined,
-        // ...(freshGasFees ?? gasFees),
       })
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
     }
-  }, [address, amountInWei, writeContract, reset, bufferedEstimate, gasFees, getFreshGasFees])
+  }, [address, amountInWei, writeContract, reset, bufferedEstimate])
 
   const unwrap = useCallback(async () => {
     if (amountInWei === 0n) {
@@ -133,7 +132,6 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         setError(new Error(`Insufficient WETH balance.`))
         return
       }
-      const freshGasFees = await getFreshGasFees()
       writeContract({
         address: WETH_ADDRESS,
         abi: WETH_ABI,
@@ -142,21 +140,11 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         chain: mainnet,
         account: address,
         gas: bufferedEstimate ?? undefined,
-        // ...(freshGasFees ?? gasFees),
       })
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
     }
-  }, [
-    address,
-    amountInWei,
-    writeContract,
-    reset,
-    wethBalance,
-    bufferedEstimate,
-    gasFees,
-    getFreshGasFees,
-  ])
+  }, [address, amountInWei, writeContract, reset, wethBalance, bufferedEstimate])
 
   return {
     isWrap,
@@ -169,7 +157,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
     error,
     hash: internalHash,
     reset,
-    gasEstimate: bufferedEstimate, // Pass the buffered version to the UI
+    gasEstimate: bufferedEstimate,
     rawGasEstimate: rawEstimate,
     refetchEstimate,
   }

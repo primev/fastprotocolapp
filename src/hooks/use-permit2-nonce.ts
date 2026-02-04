@@ -4,9 +4,6 @@ import { useCallback, useRef } from "react"
 import { useReadContract, useAccount } from "wagmi"
 import { PERMIT2_ADDRESS } from "@/lib/swap-constants"
 
-/**
- * Minimal Permit2 ABI for bitmap nonce management
- */
 const PERMIT2_ABI = [
   {
     name: "nonceBitmap",
@@ -21,18 +18,15 @@ const PERMIT2_ABI = [
 ] as const
 
 /**
- * Permit2 uses:
- *
+ * wordPos 0 is used as the default starting point.
  * nonce = (wordPos << 8) | bitPos
- *
- * Each word has 256 bits.
  */
 const WORD_POS = 0n
 
 export function usePermit2Nonce() {
   const { address } = useAccount()
 
-  // Track locally-reserved nonces to avoid double-sign in same session
+  // Track locally-reserved nonces to prevent reuse within the same session
   const reservedBitsRef = useRef<Set<bigint>>(new Set())
 
   const {
@@ -50,71 +44,47 @@ export function usePermit2Nonce() {
   })
 
   /**
-   * Find first unused bit in bitmap + local reservations
+   * Scans the 256-bit word for the first bit that is both 0 on-chain
+   * and not currently reserved in the local session.
    */
   const findFreeBit = useCallback((): bigint => {
-    if (bitmap === undefined) {
-      throw new Error("Permit2 bitmap not loaded")
-    }
+    if (bitmap === undefined) throw new Error("Permit2 bitmap not loaded")
 
     for (let i = 0n; i < 256n; i++) {
       const mask = 1n << i
+      const isUsedOnChain = (bitmap & mask) !== 0n
+      const isUsedLocally = reservedBitsRef.current.has(i)
 
-      const usedOnChain = (bitmap & mask) !== 0n
-      const usedLocally = reservedBitsRef.current.has(i)
-
-      if (!usedOnChain && !usedLocally) {
-        return i
-      }
+      if (!isUsedOnChain && !isUsedLocally) return i
     }
 
-    throw new Error("No available Permit2 nonces in word 0")
+    throw new Error("No available Permit2 nonces in current word")
   }, [bitmap])
 
   /**
-   * Call ONLY when user is about to sign.
+   * Generates a fresh nonce and optimistically reserves the bit.
    */
   const getFreshNonce = useCallback((): bigint => {
     const bitPos = findFreeBit()
-
-    // Optimistically reserve locally (prevents double sign in same session)
     reservedBitsRef.current.add(bitPos)
 
-    // nonce = (wordPos << 8) | bitPos
-    const nonce = (WORD_POS << 8n) | bitPos
-
-    console.log("[Permit2 nonce]", {
-      bitmap: bitmap.toString(),
-      bitmapHex: bitmap.toString(16),
-      reservedBitsCount: reservedBitsRef.current.size,
-      reservedBits: [...reservedBitsRef.current].map((b) => b.toString()),
-      wordPos: WORD_POS.toString(),
-      bitPos: bitPos.toString(),
-      nonce: nonce.toString(),
-      nonceHex: nonce.toString(16),
-    })
-
-    return nonce
-  }, [findFreeBit, bitmap])
+    // Construct the full nonce: (word << 8) + bit
+    return (WORD_POS << 8n) | bitPos
+  }, [findFreeBit])
 
   /**
-   * If signing fails before submission, release reservation.
+   * Releases a local reservation. Useful if a user rejects a signature
+   * or a request fails before hitting the mempool.
    */
   const releaseNonce = useCallback((nonce: bigint) => {
-    const bitPos = nonce & 0xffn
+    const bitPos = nonce & 0xffn // Extract the last 8 bits
     reservedBitsRef.current.delete(bitPos)
-    console.log("[Permit2 nonce] releaseNonce", {
-      nonce: nonce.toString(),
-      bitPos: bitPos.toString(),
-      reservedCountAfter: reservedBitsRef.current.size,
-    })
   }, [])
 
   /**
-   * After tx confirmed, refresh bitmap from chain.
+   * Clears local reservations and synchronizes state with the blockchain.
    */
   const syncFromChain = useCallback(async () => {
-    console.log("[Permit2 nonce] syncFromChain – clearing reserved, refetching bitmap")
     reservedBitsRef.current.clear()
     await refetch()
   }, [refetch])
