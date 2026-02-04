@@ -16,6 +16,7 @@ interface TransactionSettingsProps {
   handleSlippageChange: (slippage: string) => void
   internalDeadline: number
   setInternalDeadline: (deadline: number) => void
+  isMounted: boolean
 }
 
 export const TransactionSettings: React.FC<TransactionSettingsProps> = ({
@@ -29,18 +30,39 @@ export const TransactionSettings: React.FC<TransactionSettingsProps> = ({
   internalDeadline,
   setInternalDeadline,
 }) => {
+  const showManual = !isAutoSlippage
+
   return (
-    <div className="flex items-center justify-between w-full">
+    <div className="flex items-center justify-between w-full mb-2">
       <span className="text-xl font-semibold text-white">Swap</span>
 
       <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="p-2 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors"
+            className={cn(
+              "group relative flex items-center justify-end rounded-xl transition-all duration-300 active:scale-95 outline-none border-none h-9 overflow-hidden",
+              showManual ? "bg-primary/10 text-primary w-[88px] px-3" : "bg-transparent w-9"
+            )}
             aria-label="Transaction settings"
           >
-            <Settings className="h-5 w-5 text-zinc-400 hover:text-white transition-colors" />
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "overflow-hidden transition-all duration-300 flex items-center justify-end",
+                  showManual ? "w-11 opacity-100" : "w-0 opacity-0"
+                )}
+              >
+                <span className="text-[13px] font-bold whitespace-nowrap">{slippage}%</span>
+              </div>
+
+              <Settings
+                className={cn(
+                  "h-5 w-5 transition-all duration-300 ease-in-out group-hover:rotate-90 shrink-0",
+                  showManual ? "text-primary" : "text-zinc-400 group-hover:text-white"
+                )}
+              />
+            </div>
           </button>
         </PopoverTrigger>
 
@@ -50,7 +72,6 @@ export const TransactionSettings: React.FC<TransactionSettingsProps> = ({
           className="w-[340px] bg-[#0d1117] border border-white/5 p-5 rounded-[24px] shadow-2xl z-50"
         >
           <div className="space-y-6">
-            {/* MAX SLIPPAGE ROW */}
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-[15px] font-medium text-zinc-200">Max slippage</span>
@@ -102,7 +123,6 @@ export const TransactionSettings: React.FC<TransactionSettingsProps> = ({
               </div>
             </div>
 
-            {/* SWAP DEADLINE ROW */}
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-[15px] font-medium text-zinc-200">Swap deadline</span>

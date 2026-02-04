@@ -16,6 +16,7 @@ import { RewardsBadge } from "./RewardsBadge"
 import { Token } from "@/types/swap"
 import { QuoteResult } from "@/hooks/use-swap-quote"
 import { UseBalanceReturnType } from "wagmi"
+import { ClientOnly } from "../shared/ClientOnly"
 
 /**
  * The SwapInterface serves as the layout controller.
@@ -33,6 +34,7 @@ interface SwapInterfaceProps {
   handleSlippageChange: (slippage: string) => void
   internalDeadline: number
   setInternalDeadline: (deadline: number) => void
+  isMounted: boolean
 
   // Input Asset (Sell) State
   fromToken: Token | null
@@ -100,6 +102,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
     handleSlippageChange,
     internalDeadline,
     setInternalDeadline,
+    isMounted,
     fromToken,
     formattedFromBalance,
     sellDisplayValue,
@@ -153,17 +156,20 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
       {/* 1. HEADER & SETTINGS 
           Handles the "Swap" title and the configuration popover.
       */}
-      <TransactionSettings
-        isSettingsOpen={isSettingsOpen}
-        setIsSettingsOpen={setIsSettingsOpen}
-        isAutoSlippage={isAutoSlippage}
-        handleAutoSlippageChange={handleAutoSlippageChange}
-        calculatedAutoSlippage={calculatedAutoSlippage}
-        slippage={slippage}
-        handleSlippageChange={handleSlippageChange}
-        internalDeadline={internalDeadline}
-        setInternalDeadline={setInternalDeadline}
-      />
+      <ClientOnly fallback={<div className="h-9 w-full mb-2" />}>
+        <TransactionSettings
+          isSettingsOpen={isSettingsOpen}
+          setIsSettingsOpen={setIsSettingsOpen}
+          isAutoSlippage={isAutoSlippage}
+          handleAutoSlippageChange={handleAutoSlippageChange}
+          calculatedAutoSlippage={calculatedAutoSlippage}
+          slippage={slippage}
+          handleSlippageChange={handleSlippageChange}
+          internalDeadline={internalDeadline}
+          setInternalDeadline={setInternalDeadline}
+          isMounted={isMounted}
+        />
+      </ClientOnly>
 
       {/* 2. CORE SWAP CARDS
           SellCard and BuyCard with a SwitchButton overlay.

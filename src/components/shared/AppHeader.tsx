@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/sheet"
 import {
   Wallet,
-  Settings,
   Menu,
   Award,
   LayoutDashboard,
@@ -36,6 +35,7 @@ import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import NumberFlow from "@number-flow/react"
 import { usePathname, useRouter } from "next/navigation"
+import { ClientOnly } from "./ClientOnly" // 1. Import ClientOnly
 
 interface AppHeaderProps {
   isConnected: boolean
@@ -93,72 +93,71 @@ export const AppHeader = ({
   ]
 
   return (
-    <>
-      <header className="border-b border-border/50 backdrop-blur-sm bg-background/80 relative py-2">
-        <div className="mx-5 px-4 py-2.5 flex items-center justify-between">
-          {/* Logo Section */}
-          <Link href="/" className="relative z-10">
-            <Image
-              src="/assets/fast-icon.png"
-              alt="Fast Protocol"
-              width={40}
-              height={40}
-              className="md:hidden h-10 w-auto"
-            />
-            <Image
-              src="/assets/fast-protocol-logo-icon.png"
-              alt="Fast Protocol"
-              width={150}
-              height={75}
-              className="hidden md:block h-10 w-auto"
-            />
-          </Link>
+    <header className="border-b border-border/50 backdrop-blur-sm bg-background/80 relative py-2">
+      <div className="mx-5 px-4 py-2.5 flex items-center justify-between">
+        {/* Logo Section */}
+        <Link href="/" className="relative z-10">
+          <Image
+            src="/assets/fast-icon.png"
+            alt="Fast Protocol"
+            width={40}
+            height={40}
+            className="md:hidden h-10 w-auto"
+          />
+          <Image
+            src="/assets/fast-protocol-logo-icon.png"
+            alt="Fast Protocol"
+            width={150}
+            height={75}
+            className="hidden md:block h-10 w-auto"
+          />
+        </Link>
 
-          {/* Central Tab Bar */}
-          <div className="hidden md:flex items-center justify-center absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <div className="inline-flex items-center rounded-full bg-muted/50 p-1 gap-1">
-              <Link
-                href="/"
-                prefetch={false}
-                onMouseEnter={handleSwapHover(address)}
-                className={cn(
-                  "px-6 py-2 rounded-full text-sm font-medium transition-all cursor-pointer",
-                  pathname === "/" || pathname?.startsWith("/swap")
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Swap
-              </Link>
-              {/* Miles Tab - White text but unclickable */}
-              <div
-                className={cn(
-                  "px-6 py-2 rounded-full text-sm font-medium transition-all cursor-pointer",
-                  pathname?.startsWith("/dashboard")
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => router.push("/dashboard")}
-              >
-                My Miles
-              </div>
+        {/* Central Tab Bar */}
+        <div className="hidden md:flex items-center justify-center absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <div className="inline-flex items-center rounded-full bg-muted/50 p-1 gap-1">
+            <Link
+              href="/"
+              prefetch={false}
+              onMouseEnter={handleSwapHover(address)}
+              className={cn(
+                "px-6 py-2 rounded-full text-sm font-medium transition-all cursor-pointer",
+                pathname === "/" || pathname?.startsWith("/swap")
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Swap
+            </Link>
+            <div
+              className={cn(
+                "px-6 py-2 rounded-full text-sm font-medium transition-all cursor-pointer",
+                pathname?.startsWith("/dashboard")
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => router.push("/dashboard")}
+            >
+              My Miles
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Badge
-              variant="outline"
-              className="h-10 px-3 text-sm border-primary/50 hidden sm:flex items-center"
-            >
-              <Award className="w-4 h-4 mr-2 text-primary" />
-              <NumberFlow
-                value={points}
-                format={{ minimumFractionDigits: 0, maximumFractionDigits: 0 }}
-              />
-              <span className="ml-1">Miles</span>
-            </Badge>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Badge
+            variant="outline"
+            className="h-10 px-3 text-sm border-primary/50 hidden sm:flex items-center"
+          >
+            <Award className="w-4 h-4 mr-2 text-primary" />
+            <NumberFlow
+              value={points}
+              format={{ minimumFractionDigits: 0, maximumFractionDigits: 0 }}
+            />
+            <span className="ml-1">Miles</span>
+          </Badge>
 
-            {/* Wallet Section */}
+          {/* Wallet Section - Wrapped in ClientOnly to avoid ID mismatch */}
+          <ClientOnly fallback={<Skeleton className="h-10 w-10 lg:w-32 rounded-full" />}>
             <div className="flex items-center">
               {isConnected ? (
                 <Button
@@ -170,31 +169,33 @@ export const AppHeader = ({
                   <Wallet className="h-5 w-5" />
                 </Button>
               ) : (
-                <>
-                  {!isMounted || status === "connecting" || status === "reconnecting" ? (
-                    <Skeleton className="h-10 w-10 rounded-full lg:hidden" />
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="lg:hidden"
-                      onClick={openConnectModal}
-                    >
-                      <Wallet className="h-5 w-5" />
-                    </Button>
-                  )}
-                </>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="lg:hidden"
+                  onClick={openConnectModal}
+                >
+                  <Wallet className="h-5 w-5" />
+                </Button>
               )}
               <div className="hidden lg:block">
-                {!isMounted || status === "connecting" || status === "reconnecting" ? (
-                  <Skeleton className="h-10 w-32 rounded-full" />
-                ) : (
-                  <ConnectButton showBalance={false} accountStatus="address" />
-                )}
+                <ConnectButton showBalance={false} accountStatus="address" />
               </div>
             </div>
+          </ClientOnly>
 
-            {/* Menu Drawer */}
+          {/* Menu Drawer - Wrapped in ClientOnly because it's a Radix Primitive (Sheet) */}
+          <ClientOnly
+            fallback={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-10 h-10 rounded-full border border-border/50"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            }
+          >
             <Sheet>
               <SheetTrigger asChild>
                 <Button
@@ -212,7 +213,6 @@ export const AppHeader = ({
                 </SheetHeader>
 
                 <div className="flex-1 overflow-y-auto mt-6 space-y-8 px-2">
-                  {/* Points Card (Mobile Only) */}
                   <div className="sm:hidden block px-2 mb-6">
                     <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -232,23 +232,11 @@ export const AppHeader = ({
                     </div>
                   </div>
 
-                  {/* Navigation Group */}
                   <div className="space-y-3">
                     <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-2">
                       Navigation
                     </h3>
                     <nav className="flex flex-col gap-1">
-                      {/* Miles Disabled in Menu */}
-                      <div className="md:hidden flex items-center justify-between px-4 py-3 rounded-xl opacity-60 cursor-not-allowed">
-                        <div className="flex items-center gap-3 font-medium text-white">
-                          <Award className="w-5 h-5" />
-                          Miles
-                        </div>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary text-primary-foreground font-bold">
-                          COMING SOON
-                        </span>
-                      </div>
-
                       {menuNavItems.map((item) => (
                         <SheetClose key={item.href} asChild>
                           <Link
@@ -269,7 +257,6 @@ export const AppHeader = ({
                     </nav>
                   </div>
 
-                  {/* Settings & Community */}
                   <div className="space-y-3">
                     <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-2">
                       Settings
@@ -330,9 +317,9 @@ export const AppHeader = ({
                 </div>
               </SheetContent>
             </Sheet>
-          </div>
+          </ClientOnly>
         </div>
-      </header>
-    </>
+      </div>
+    </header>
   )
 }
