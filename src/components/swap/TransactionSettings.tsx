@@ -19,7 +19,7 @@ interface TransactionSettingsProps {
   isMounted: boolean
 }
 
-export const TransactionSettings: React.FC<TransactionSettingsProps> = ({
+const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
   isSettingsOpen,
   setIsSettingsOpen,
   isAutoSlippage,
@@ -159,3 +159,5 @@ export const TransactionSettings: React.FC<TransactionSettingsProps> = ({
     </div>
   )
 }
+
+export const TransactionSettings = React.memo(TransactionSettingsComponent)

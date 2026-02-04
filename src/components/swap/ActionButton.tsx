@@ -23,7 +23,7 @@ interface ActionButtonProps {
   handleSwapClick: () => void
 }
 
-export const ActionButton: React.FC<ActionButtonProps> = ({
+const ActionButtonComponent: React.FC<ActionButtonProps> = ({
   isConnected,
   toToken,
   amount,
@@ -97,3 +97,5 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
     </div>
   )
 }
+
+export const ActionButton = React.memo(ActionButtonComponent)

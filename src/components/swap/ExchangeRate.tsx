@@ -11,6 +11,33 @@ import { cn } from "@/lib/utils"
 import { QuoteResult, getPriceImpactSeverity, formatPriceImpact } from "@/hooks/use-swap-quote"
 
 /**
+ * Isolated countdown badge - only this re-renders when timeLeft updates (every second),
+ * not the entire ExchangeRate. Reduces TBT.
+ */
+const TimeLeftBadge = React.memo(function TimeLeftBadge({
+  timeLeft,
+  show,
+  isManualInversion,
+}: {
+  timeLeft: number
+  show: boolean
+  isManualInversion: boolean
+}) {
+  if (!show) return null
+  return (
+    <div className="flex items-center gap-1.5 ml-1 bg-white/5 px-1.5 py-0.5 rounded-md">
+      <span
+        className={cn(
+          "h-1.5 w-1.5 rounded-full transition-colors duration-500",
+          isManualInversion ? "bg-yellow-500 animate-pulse" : "bg-primary"
+        )}
+      />
+      <span className="text-[10px] tabular-nums font-bold opacity-80">{timeLeft}s</span>
+    </div>
+  )
+})
+
+/**
  * Prop interface focused on essential quote data.
  * Internalized the severity calculation to reduce parent complexity.
  */
@@ -36,7 +63,7 @@ interface ExchangeRateProps {
   timeLeft: number
 }
 
-export const ExchangeRate: React.FC<ExchangeRateProps> = ({
+const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
   exchangeRateContent,
   exchangeRateValue,
   exchangeRateFromSymbol,
@@ -115,22 +142,12 @@ export const ExchangeRate: React.FC<ExchangeRateProps> = ({
             )}
           </span>
 
-          {/* STATUS INDICATOR:
-              A pulsing dot indicates the quote is 'live'. 
-              We switch to yellow if 'isManualInversion' is true, signaling 
-              to the user they are looking at a flipped rate view.
-          */}
-          {showExtendedInfo && (
-            <div className="flex items-center gap-1.5 ml-1 bg-white/5 px-1.5 py-0.5 rounded-md">
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full transition-colors duration-500",
-                  isManualInversion ? "bg-yellow-500 animate-pulse" : "bg-primary"
-                )}
-              />
-              <span className="text-[10px] tabular-nums font-bold opacity-80">{timeLeft}s</span>
-            </div>
-          )}
+          {/* STATUS INDICATOR: Isolated so only countdown re-renders every second */}
+          <TimeLeftBadge
+            timeLeft={timeLeft}
+            show={showExtendedInfo}
+            isManualInversion={isManualInversion}
+          />
         </div>
 
         {/* RIGHT SECTION: PRICE IMPACT */}
@@ -192,3 +209,5 @@ export const ExchangeRate: React.FC<ExchangeRateProps> = ({
     </div>
   )
 }
+
+export const ExchangeRate = React.memo(ExchangeRateComponent)

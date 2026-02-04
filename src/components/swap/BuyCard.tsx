@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
+import Image from "next/image"
 // UI Components & Icons
 import { ChevronDown, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -49,7 +50,7 @@ interface BuyCardProps {
   buyInputRef: React.RefObject<HTMLInputElement>
 }
 
-export const BuyCard: React.FC<BuyCardProps> = ({
+const BuyCardComponent: React.FC<BuyCardProps> = ({
   toToken,
   buyDisplayValue,
   outputAmount,
@@ -75,6 +76,10 @@ export const BuyCard: React.FC<BuyCardProps> = ({
    * prevents unnecessary re-renders of the entire swap interface.
    */
   const [hasImageError, setHasImageError] = useState(false)
+
+  useEffect(() => {
+    setHasImageError(false)
+  }, [toToken?.address])
 
   /**
    * 2. EVENT HANDLERS
@@ -121,11 +126,11 @@ export const BuyCard: React.FC<BuyCardProps> = ({
           />
         </div>
 
-        {/* Token Selector Button */}
+        {/* Token Selector Button - min-w prevents CLS when token loads */}
         <button
           onClick={() => setIsToTokenSelectorOpen(true)}
           className={cn(
-            "flex items-center gap-2 rounded-[10px] px-3 py-2.5 font-semibold text-sm transition-colors shrink-0",
+            "flex items-center gap-2 rounded-[10px] px-3 py-2.5 font-semibold text-sm transition-colors shrink-0 min-w-[120px] justify-between",
             toToken
               ? "bg-white/10 hover:bg-white/15 text-white"
               : "bg-primary hover:bg-primary/90 text-white"
@@ -133,17 +138,21 @@ export const BuyCard: React.FC<BuyCardProps> = ({
         >
           {toToken ? (
             <>
-              <div className="h-6 w-6 flex items-center justify-center overflow-hidden rounded-full">
-                {hasImageError ? (
+              <div className="h-6 w-6 min-w-[24px] min-h-[24px] flex items-center justify-center overflow-hidden rounded-full shrink-0">
+                {hasImageError || !toToken.logoURI ? (
                   <div className="h-full w-full flex items-center justify-center bg-gray-600 text-[10px] font-bold text-white uppercase">
                     {toToken.symbol.charAt(0)}
                   </div>
                 ) : (
-                  <img
+                  <Image
                     src={toToken.logoURI}
                     alt={toToken.symbol}
+                    width={24}
+                    height={24}
                     className="h-full w-full object-contain"
                     onError={() => setHasImageError(true)}
+                    loading="lazy"
+                    unoptimized
                   />
                 )}
               </div>
@@ -152,9 +161,11 @@ export const BuyCard: React.FC<BuyCardProps> = ({
           ) : (
             "Select token"
           )}
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-4 w-4 shrink-0" />
         </button>
       </div>
     </div>
   )
 }
+
+export const BuyCard = React.memo(BuyCardComponent)

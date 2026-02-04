@@ -20,7 +20,7 @@ interface AmountInputProps {
   inputRef?: React.RefObject<HTMLInputElement>
 }
 
-export default function AmountInput({
+const AmountInputComponent = ({
   value,
   onChange,
   onFocus,
@@ -29,7 +29,7 @@ export default function AmountInput({
   isDisabled,
   showError,
   inputRef,
-}: AmountInputProps) {
+}: AmountInputProps) => {
   // 1. VALUE CALCULATIONS
   // Sanitizing commas and handling the edge case of "No liquidity" text
   const isSpecialValue = value === "No liquidity"
@@ -159,3 +159,6 @@ export default function AmountInput({
     </div>
   )
 }
+
+const AmountInput = React.memo(AmountInputComponent)
+export default AmountInput

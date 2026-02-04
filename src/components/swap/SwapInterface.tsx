@@ -1,22 +1,30 @@
 "use client"
 
 import React from "react"
+import dynamic from "next/dynamic"
 
-// Local Sub-Components
-// Each component now manages its own internal UI logic (like image errors or local formatting)
-import { TransactionSettings } from "./TransactionSettings"
+// Local Sub-Components - static imports for LCP-critical components
 import { SellCard } from "./SellCard"
 import { SwitchButton } from "./SwitchButton"
 import { BuyCard } from "./BuyCard"
 import { ExchangeRate } from "./ExchangeRate"
 import { ActionButton } from "./ActionButton"
-import { RewardsBadge } from "./RewardsBadge"
+
+// Lazy-loaded below-the-fold components
+const TransactionSettings = dynamic(
+  () => import("./TransactionSettings").then((m) => ({ default: m.TransactionSettings })),
+  { ssr: false, loading: () => <div className="h-9 w-full mb-2" /> }
+)
+
+const RewardsBadge = dynamic(
+  () => import("./RewardsBadge").then((m) => ({ default: m.RewardsBadge })),
+  { ssr: false, loading: () => <div className="mt-6 flex justify-center min-h-[40px]" /> }
+)
 
 // Types
 import { Token } from "@/types/swap"
 import { QuoteResult } from "@/hooks/use-swap-quote"
 import { UseBalanceReturnType } from "wagmi"
-import { ClientOnly } from "../shared/ClientOnly"
 
 /**
  * The SwapInterface serves as the layout controller.
@@ -155,21 +163,20 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
     <div className="relative z-10 w-full max-w-[500px] px-2 sm:px-0 mx-auto">
       {/* 1. HEADER & SETTINGS 
           Handles the "Swap" title and the configuration popover.
+          Lazy-loaded to reduce initial TBT.
       */}
-      <ClientOnly fallback={<div className="h-9 w-full mb-2" />}>
-        <TransactionSettings
-          isSettingsOpen={isSettingsOpen}
-          setIsSettingsOpen={setIsSettingsOpen}
-          isAutoSlippage={isAutoSlippage}
-          handleAutoSlippageChange={handleAutoSlippageChange}
-          calculatedAutoSlippage={calculatedAutoSlippage}
-          slippage={slippage}
-          handleSlippageChange={handleSlippageChange}
-          internalDeadline={internalDeadline}
-          setInternalDeadline={setInternalDeadline}
-          isMounted={isMounted}
-        />
-      </ClientOnly>
+      <TransactionSettings
+        isSettingsOpen={isSettingsOpen}
+        setIsSettingsOpen={setIsSettingsOpen}
+        isAutoSlippage={isAutoSlippage}
+        handleAutoSlippageChange={handleAutoSlippageChange}
+        calculatedAutoSlippage={calculatedAutoSlippage}
+        slippage={slippage}
+        handleSlippageChange={handleSlippageChange}
+        internalDeadline={internalDeadline}
+        setInternalDeadline={setInternalDeadline}
+        isMounted={isMounted}
+      />
 
       {/* 2. CORE SWAP CARDS
           SellCard and BuyCard with a SwitchButton overlay.

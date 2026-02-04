@@ -1,6 +1,9 @@
+"use client"
+
+import React, { useState, useMemo } from "react"
+import Image from "next/image"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import type { Token } from "@/types/swap"
-import { useState, useMemo } from "react"
 import {
   Dialog,
   DialogContent,
@@ -36,7 +39,7 @@ export const DEFAULT_ETH_TOKEN: Token = {
   logoURI: "https://token-icons.s3.amazonaws.com/eth.png",
 }
 
-export const TokenSelectorModal = ({
+const TokenSelectorModalComponent = ({
   open,
   onOpenChange,
   onSelectToken,
@@ -46,7 +49,12 @@ export const TokenSelectorModal = ({
   onAddCustomToken,
 }: TokenSelectorModalProps) => {
   const [searchQuery, setSearchQuery] = useState("")
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
   const [showCustomInput, setShowCustomInput] = useState(false)
+
+  const handleImageError = (address: string) => {
+    setImageErrors((prev) => new Set(prev).add(address))
+  }
   const [customAddress, setCustomAddress] = useState("")
   const [customSymbol, setCustomSymbol] = useState("")
 
@@ -114,27 +122,23 @@ export const TokenSelectorModal = ({
                       : "bg-muted/30 border-border/50 hover:bg-muted/50"
                   )}
                 >
-                  <div className="h-5 w-5">
-                    <img
-                      src={resolveImageUrl(token.logoURI)}
-                      alt={token.symbol}
-                      className="h-full w-full object-contain"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        target.style.display = "none"
-                        const parent = target.parentElement
-                        if (parent) {
-                          parent.innerHTML = `
-                              <svg class="h-full w-full" viewBox="0 0 32 32" fill="none">
-                                <circle cx="16" cy="16" r="16" fill="#6B7280" />
-                                <text x="16" y="20" text-anchor="middle" fill="white" font-size="12" font-weight="bold">
-                                  ${token.symbol.charAt(0)}
-                                </text>
-                              </svg>
-                            `
-                        }
-                      }}
-                    />
+                  <div className="h-5 w-5 min-w-[20px] min-h-[20px] flex items-center justify-center overflow-hidden rounded-full shrink-0">
+                    {!token.logoURI || imageErrors.has(token.address) ? (
+                      <div className="h-full w-full flex items-center justify-center bg-gray-600 text-[10px] font-bold text-white uppercase">
+                        {token.symbol.charAt(0)}
+                      </div>
+                    ) : (
+                      <Image
+                        src={resolveImageUrl(token.logoURI)}
+                        alt={token.symbol}
+                        width={20}
+                        height={20}
+                        className="h-full w-full object-contain"
+                        onError={() => handleImageError(token.address)}
+                        loading="lazy"
+                        unoptimized
+                      />
+                    )}
                   </div>
                   <span className="text-sm font-medium">{token.symbol}</span>
                 </button>
@@ -161,27 +165,23 @@ export const TokenSelectorModal = ({
                   selectedToken === token.symbol ? "bg-primary/10" : "hover:bg-muted/30"
                 )}
               >
-                <div className="h-9 w-9 rounded-full bg-muted/50 flex items-center justify-center p-1.5">
-                  <img
-                    src={resolveImageUrl(token.logoURI)}
-                    alt={token.symbol}
-                    className="h-full w-full object-contain"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement
-                      target.style.display = "none"
-                      const parent = target.parentElement
-                      if (parent) {
-                        parent.innerHTML = `
-                            <svg class="h-full w-full" viewBox="0 0 32 32" fill="none">
-                              <circle cx="16" cy="16" r="16" fill="#6B7280" />
-                              <text x="16" y="20" text-anchor="middle" fill="white" font-size="12" font-weight="bold">
-                                ${token.symbol.charAt(0)}
-                              </text>
-                            </svg>
-                          `
-                      }
-                    }}
-                  />
+                <div className="h-9 w-9 min-w-[36px] min-h-[36px] rounded-full bg-muted/50 flex items-center justify-center overflow-hidden shrink-0">
+                  {!token.logoURI || imageErrors.has(token.address) ? (
+                    <div className="h-full w-full flex items-center justify-center bg-gray-600 text-xs font-bold text-white uppercase">
+                      {token.symbol.charAt(0)}
+                    </div>
+                  ) : (
+                    <Image
+                      src={resolveImageUrl(token.logoURI)}
+                      alt={token.symbol}
+                      width={36}
+                      height={36}
+                      className="h-full w-full object-contain"
+                      onError={() => handleImageError(token.address)}
+                      loading="lazy"
+                      unoptimized
+                    />
+                  )}
                 </div>
                 <div className="flex-1 text-left">
                   <p className="font-medium">{token.symbol}</p>
@@ -268,3 +268,5 @@ export const TokenSelectorModal = ({
     </Dialog>
   )
 }
+
+export const TokenSelectorModal = React.memo(TokenSelectorModalComponent)

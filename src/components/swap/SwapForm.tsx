@@ -1,16 +1,22 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from "react"
+import dynamic from "next/dynamic"
 import { useAccount } from "wagmi"
 import { formatBalance } from "@/lib/utils"
 import { getTokenLists } from "@/lib/swap-logic/token-list"
 import { useSwapForm } from "@/hooks/use-swap-form"
 
 import { SwapInterface } from "./SwapInterface"
-import SwapConfirmationModal from "@/components/modals/SwapConfirmationModal"
-import { TokenSelectorModal } from "./TokenSelectorModal"
-import { AnimatedBackgroundOrbs } from "./OrbAnimatedBackground"
-import { Hero } from "./HeroSection"
+
+const SwapConfirmationModal = dynamic(() => import("@/components/modals/SwapConfirmationModal"), {
+  ssr: false,
+})
+
+const TokenSelectorModal = dynamic(
+  () => import("./TokenSelectorModal").then((m) => m.TokenSelectorModal),
+  { ssr: false }
+)
 
 export function SwapForm() {
   const { address, isConnected } = useAccount()
@@ -42,10 +48,7 @@ export function SwapForm() {
   }
 
   return (
-    <div className="relative flex flex-col items-center justify-start px-4 xs:pt-6  pb-4">
-      <AnimatedBackgroundOrbs />
-      <Hero />
-
+    <div className="relative flex flex-col items-center justify-start w-full min-h-[320px]">
       <SwapInterface
         // Settings Props
         isSettingsOpen={isSettingsOpen}

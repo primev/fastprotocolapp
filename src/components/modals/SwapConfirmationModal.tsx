@@ -134,7 +134,7 @@ function TokenIcon({ token, className }: { token: Token | undefined; className?:
   return (
     <div
       className={cn(
-        "rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden p-2.5",
+        "rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden p-2.5 min-w-[40px] min-h-[40px]",
         className
       )}
     >
@@ -142,6 +142,8 @@ function TokenIcon({ token, className }: { token: Token | undefined; className?:
         <img
           src={token.logoURI}
           alt={token.symbol}
+          width={40}
+          height={40}
           className="h-full w-full object-contain"
           onError={() => setHasImageError(true)}
         />

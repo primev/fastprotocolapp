@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import Image from "next/image"
 // UI Components & Icons
 import { ChevronDown, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -44,7 +45,7 @@ interface SellCardProps {
   setSwappedQuote: (quote: QuoteResult | null) => void
 }
 
-export const SellCard: React.FC<SellCardProps> = ({
+const SellCardComponent: React.FC<SellCardProps> = ({
   fromToken,
   amount,
   sellDisplayValue,
@@ -115,11 +116,11 @@ export const SellCard: React.FC<SellCardProps> = ({
           />
         </div>
 
-        {/* Token Selector Trigger */}
+        {/* Token Selector Trigger - min-w prevents CLS when token loads */}
         <button
           onClick={() => setIsFromTokenSelectorOpen(true)}
           className={cn(
-            "flex items-center gap-2 rounded-[10px] px-3 py-2.5 font-semibold text-sm transition-colors shrink-0",
+            "flex items-center gap-2 rounded-[10px] px-3 py-2.5 font-semibold text-sm transition-colors shrink-0 min-w-[120px] justify-between",
             fromToken
               ? "bg-white/10 hover:bg-white/15 text-white"
               : "bg-primary hover:bg-primary/90 text-white"
@@ -127,17 +128,21 @@ export const SellCard: React.FC<SellCardProps> = ({
         >
           {fromToken ? (
             <>
-              <div className="h-6 w-6 flex items-center justify-center overflow-hidden rounded-full">
-                {hasImageError ? (
+              <div className="h-6 w-6 min-w-[24px] min-h-[24px] flex items-center justify-center overflow-hidden rounded-full shrink-0">
+                {hasImageError || !fromToken.logoURI ? (
                   <div className="h-full w-full flex items-center justify-center bg-gray-600 text-[10px] font-bold text-white uppercase">
                     {fromToken.symbol.charAt(0)}
                   </div>
                 ) : (
-                  <img
+                  <Image
                     src={fromToken.logoURI}
                     alt={fromToken.symbol}
+                    width={24}
+                    height={24}
                     className="h-full w-full object-contain"
                     onError={() => setHasImageError(true)}
+                    loading="lazy"
+                    unoptimized
                   />
                 )}
               </div>
@@ -146,9 +151,11 @@ export const SellCard: React.FC<SellCardProps> = ({
           ) : (
             "Select token"
           )}
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-4 w-4 shrink-0" />
         </button>
       </div>
     </div>
   )
 }
+
+export const SellCard = React.memo(SellCardComponent)

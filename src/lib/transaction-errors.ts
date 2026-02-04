@@ -120,23 +120,12 @@ export function getTransactionShortMessage(error: unknown): string {
 }
 
 /**
- * Returns the full error string including the cause chain.
+ * Returns the full error string for display.
+ * Uses only the top-level error message - Viem/Wagmi errors already include
+ * the full formatted output (Request Arguments, Contract Call, Details, etc.)
+ * in error.message. Walking the cause chain would duplicate this content.
  */
 export function getTransactionFullMessage(error: unknown): string {
   if (!error) return "No error details available."
-
-  const parts: string[] = []
-  let current: unknown = error
-
-  while (current) {
-    if (current instanceof Error) {
-      parts.push(current.message)
-      current = current.cause
-    } else {
-      parts.push(String(current))
-      break
-    }
-  }
-
-  return parts.join("\n\nCause: ")
+  return error instanceof Error ? error.message : String(error)
 }
