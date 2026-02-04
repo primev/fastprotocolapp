@@ -21,7 +21,10 @@ export function useSwapSlippage() {
     const savedDeadline = localStorage.getItem("swapDeadline")
 
     if (savedSlippage) setSlippage(savedSlippage)
-    if (savedAuto !== null) setIsAutoSlippage(savedAuto === "true")
+    // Default to auto when nothing in localStorage; only use saved value when explicitly set
+    if (savedAuto === "true" || savedAuto === "false") {
+      setIsAutoSlippage(savedAuto === "true")
+    }
     if (savedDeadline) {
       const parsed = parseInt(savedDeadline, 10)
       if (!Number.isNaN(parsed)) setDeadline(clampDeadline(parsed))
