@@ -43,6 +43,7 @@ import { mainnet } from "wagmi/chains"
 import { useTokenPrice } from "@/hooks/use-token-price"
 import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
 import { GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
+import { useEthPathGasEstimate } from "@/hooks/use-eth-path-gas-estimate"
 
 const numberFlowStyle = {
   "--number-flow-char-gap": "-0.5px",
@@ -250,6 +251,16 @@ function SwapConfirmationModal({
   const { bufferedPrice: gasPrice } = useBroadcastGasPrice()
   const { price: ethPriceFromApi } = useTokenPrice("ETH")
   const effectiveEthPrice = ethPrice ?? ethPriceFromApi ?? DEFAULT_ETH_PRICE_USD
+
+  // For ETH-path swaps, estimate gas on the actual tx to match wallet display
+  const { gasEstimate: ethPathGasEstimate } = useEthPathGasEstimate(
+    open && !isWrap && !isUnwrap,
+    tokenIn,
+    tokenOut,
+    amountIn,
+    minAmountOut,
+    deadline
+  )
   const [isExpanded, setIsExpanded] = useState(false)
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false)
   const [hasCopied, setHasCopied] = useState(false)
@@ -284,9 +295,11 @@ function SwapConfirmationModal({
 
   const activeGasEstimate = useMemo(() => {
     if (isWrap || isUnwrap) return wethGasEstimate
-    if (!gasEstimate) return null
-    return (gasEstimate * GAS_LIMIT_MULTIPLIER) / 100n
-  }, [isWrap, isUnwrap, wethGasEstimate, gasEstimate])
+    // Use ETH-path estimate when available (matches wallet); else fall back to quote
+    const base = ethPathGasEstimate ?? gasEstimate
+    if (!base) return null
+    return (base * GAS_LIMIT_MULTIPLIER) / 100n
+  }, [isWrap, isUnwrap, wethGasEstimate, ethPathGasEstimate, gasEstimate])
 
   const handleOpenChange = (isOpen: boolean) => {
     // BLOCK CLOSING during active transaction phases

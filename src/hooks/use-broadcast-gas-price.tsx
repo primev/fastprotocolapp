@@ -1,62 +1,66 @@
 "use client"
 
 import { useCallback } from "react"
-import { useEstimateFeesPerGas, useGasPrice as useWagmiGasPrice } from "wagmi"
+import { useBlock } from "wagmi"
 import { formatUnits } from "viem"
 
-// PRODUCTION BUFFERS
-export const GAS_PRICE_MULTIPLIER = 115n
-export const GAS_LIMIT_MULTIPLIER = 120n
+// Gas limit buffer (120 = 20% over estimate to avoid out-of-gas)
+export const GAS_LIMIT_MULTIPLIER = 100n
+export const ETH_PATH_GAS_LIMIT_MULTIPLIER = 140n // 40% buffer
+
+// Matches wallet "Normal" tier: 2 gwei tip per Blocknative
+// https://www.blocknative.com/blog/eip-1559-fees
+// const PRIORITY_FEE_WEI = 1_000_000_000n
+const PRIORITY_FEE_WEI = 0n
 
 export type GasFees =
   | { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }
   | { gasPrice: bigint }
   | undefined
 
-function deriveGasFees(
-  feeData: { maxFeePerGas?: bigint; maxPriorityFeePerGas?: bigint } | undefined,
-  legacyGasPrice: bigint | undefined
-): GasFees {
-  if (feeData?.maxFeePerGas != null && feeData?.maxPriorityFeePerGas != null) {
-    return {
-      maxFeePerGas: (feeData.maxFeePerGas * GAS_PRICE_MULTIPLIER) / 100n,
-      maxPriorityFeePerGas: 0n,
-    }
+/**
+ * Match wallet "Normal" tier: maxFee = base + priority (no 2x buffer).
+ * Wallet displays this as its estimate; 2x buffer caused Custom to show higher than our UI.
+ */
+function gasFeesFromBaseFee(baseFeePerGas: bigint): GasFees {
+  // To match "Normal" with 0 priority:
+  // We set maxFee to exactly the baseFee.
+  // If the wallet adds 2 Gwei to its "Normal" view, we simply provide the raw baseFee.
+
+  return {
+    maxFeePerGas: baseFeePerGas, // Remove any multipliers here
+    maxPriorityFeePerGas: 0n,
   }
-  if (legacyGasPrice != null) {
-    return { gasPrice: (legacyGasPrice * GAS_PRICE_MULTIPLIER) / 100n }
-  }
-  return undefined
 }
 
 export function useBroadcastGasPrice() {
-  const { data: feeData, refetch: refetchFees } = useEstimateFeesPerGas({
+  const { data: block, refetch: refetchBlock } = useBlock({
     query: { refetchInterval: 12_000 },
   })
 
-  const { data: legacyGasPrice, refetch: refetchLegacy } = useWagmiGasPrice({
-    query: { refetchInterval: 12_000 },
-  })
-
-  const gasFees = deriveGasFees(feeData, legacyGasPrice ?? undefined)
+  const baseFeePerGas = block?.baseFeePerGas ?? null
+  const gasFees = baseFeePerGas != null ? gasFeesFromBaseFee(baseFeePerGas) : undefined
 
   const getFreshGasFees = useCallback(async (): Promise<GasFees> => {
-    const [feeResult, legacyResult] = await Promise.all([refetchFees(), refetchLegacy()])
-    const fd = feeResult.data ?? feeData
-    const lp = legacyResult.data ?? legacyGasPrice
-    return deriveGasFees(fd, lp ?? undefined)
-  }, [refetchFees, refetchLegacy, feeData, legacyGasPrice])
+    const { data: freshBlock } = await refetchBlock()
+    const baseFee = freshBlock?.baseFeePerGas
+    if (baseFee != null) {
+      return gasFeesFromBaseFee(baseFee)
+    }
+    return undefined
+  }, [refetchBlock])
 
-  const rawPrice = feeData?.maxFeePerGas ?? legacyGasPrice ?? null
-  const gasPriceGwei = rawPrice != null ? parseFloat(formatUnits(rawPrice, 9)) : null
-  const bufferedPrice =
-    gasFees != null ? ("maxFeePerGas" in gasFees ? gasFees.maxFeePerGas : gasFees.gasPrice) : null
+  // Expected cost at execution = base + priority (user pays this, not the max)
+  const effectivePrice = baseFeePerGas != null ? baseFeePerGas + PRIORITY_FEE_WEI : null
+  const rawPrice = effectivePrice
+  const gasPriceGwei = effectivePrice != null ? parseFloat(formatUnits(effectivePrice, 9)) : null
+  const bufferedPrice = effectivePrice
 
   return {
     gasFees,
     getFreshGasFees,
-    rawMaxFeePerGas: feeData?.maxFeePerGas ?? null,
-    rawLegacyPrice: legacyGasPrice ?? null,
+    rawMaxFeePerGas: effectivePrice,
+    rawLegacyPrice: effectivePrice,
     rawPrice,
     bufferedPrice,
     gasPriceGwei,

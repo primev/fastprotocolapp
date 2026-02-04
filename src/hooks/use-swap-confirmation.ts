@@ -2,6 +2,11 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from "wagmi"
+import {
+  useBroadcastGasPrice,
+  ETH_PATH_GAS_LIMIT_MULTIPLIER,
+} from "@/hooks/use-broadcast-gas-price"
+import { useEthPathGasEstimate } from "@/hooks/use-eth-path-gas-estimate"
 import { parseUnits, type TransactionReceipt } from "viem"
 import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
@@ -9,7 +14,6 @@ import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import { FASTSWAP_API_BASE } from "@/lib/network-config"
 import type { Token } from "@/types/swap"
-import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 
 interface UseSwapConfirmationParams {
   fromToken: Token | undefined
@@ -29,10 +33,23 @@ export function useSwapConfirmation({
   onSuccess,
 }: UseSwapConfirmationParams) {
   const { isConnected, address } = useAccount()
+  const { gasFees, getFreshGasFees } = useBroadcastGasPrice()
+  const isEthPath =
+    !!fromToken &&
+    !!toToken &&
+    fromToken.address === ZERO_ADDRESS &&
+    toToken.address.toLowerCase() !== WETH_ADDRESS.toLowerCase()
+  const { gasEstimate: ethPathGasEstimate } = useEthPathGasEstimate(
+    isEthPath,
+    fromToken,
+    toToken,
+    amount,
+    minAmountOut,
+    deadline
+  )
   const { createIntentSignature } = useSwapIntent()
   const { getFreshNonce, releaseNonce, syncFromChain } = usePermit2Nonce()
   const { sendTransactionAsync, data: sendTxHash } = useSendTransaction()
-  const { gasFees, getFreshGasFees } = useBroadcastGasPrice()
 
   const [isSigning, setIsSigning] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -129,8 +146,9 @@ export function useSwapConfirmation({
     deadline,
     handleSwapError,
     reset,
-    getFreshGasFees,
     gasFees,
+    getFreshGasFees,
+    ethPathGasEstimate,
   ])
 
   async function executeEthPath(inputAmtWei: string, userAmtOutWei: string) {
@@ -159,11 +177,16 @@ export function useSwapConfirmation({
     }
 
     const freshGasFees = await getFreshGasFees()
+    const bufferedGas =
+      ethPathGasEstimate != null
+        ? (ethPathGasEstimate * ETH_PATH_GAS_LIMIT_MULTIPLIER) / 100n
+        : undefined
     const txHash = await sendTransactionAsync({
       to: ethData.to as `0x${string}`,
       data: ethData.data,
       value: BigInt(ethData.value),
-      ...(freshGasFees ?? gasFees),
+      gas: bufferedGas,
+      // ...(freshGasFees ?? gasFees),
     })
 
     if (txHash) {

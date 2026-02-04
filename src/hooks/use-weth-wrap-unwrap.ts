@@ -23,7 +23,6 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
   const [isSuccess, setIsSuccess] = useState(false)
 
   const { gasFees, getFreshGasFees } = useBroadcastGasPrice()
-
   const isWrap = isWrapOperation(fromToken, toToken)
   const isUnwrap = isUnwrapOperation(fromToken, toToken)
   const operationType = isWrap ? "wrap" : "unwrap"
@@ -115,13 +114,13 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         value: amountInWei,
         chain: mainnet,
         account: address,
-        ...(freshGasFees ?? gasFees),
         gas: bufferedEstimate ?? undefined,
+        // ...(freshGasFees ?? gasFees),
       })
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
     }
-  }, [address, amountInWei, writeContract, reset, gasFees, bufferedEstimate, getFreshGasFees])
+  }, [address, amountInWei, writeContract, reset, bufferedEstimate, gasFees, getFreshGasFees])
 
   const unwrap = useCallback(async () => {
     if (amountInWei === 0n) {
@@ -142,8 +141,8 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         args: [amountInWei],
         chain: mainnet,
         account: address,
-        ...(freshGasFees ?? gasFees),
         gas: bufferedEstimate ?? undefined,
+        // ...(freshGasFees ?? gasFees),
       })
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
@@ -154,8 +153,8 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
     writeContract,
     reset,
     wethBalance,
-    gasFees,
     bufferedEstimate,
+    gasFees,
     getFreshGasFees,
   ])
 
