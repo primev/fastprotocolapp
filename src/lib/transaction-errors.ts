@@ -119,13 +119,52 @@ export function getTransactionShortMessage(error: unknown): string {
     : `${firstSentence.slice(0, MAX_SHORT_MESSAGE_LENGTH - 3)}...`
 }
 
+function stringifyErrorValue(value: unknown): string {
+  if (value instanceof Error) return value.message
+  if (value != null && typeof value === "object") {
+    if ("message" in value && typeof (value as { message?: unknown }).message === "string") {
+      return (value as { message: string }).message
+    }
+    if ("details" in value && typeof (value as { details?: unknown }).details === "string") {
+      return (value as { details: string }).details
+    }
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return String(value)
+    }
+  }
+  return String(value)
+}
+
 /**
- * Returns the full error string for display.
- * Uses only the top-level error message - Viem/Wagmi errors already include
- * the full formatted output (Request Arguments, Contract Call, Details, etc.)
- * in error.message. Walking the cause chain would duplicate this content.
+ * Returns the full error string including the cause chain.
+ * Deduplicates: skips cause messages that are already contained in the output,
+ * so Viem-style errors (where the top message already includes cause info) don't repeat.
  */
 export function getTransactionFullMessage(error: unknown): string {
   if (!error) return "No error details available."
-  return error instanceof Error ? error.message : String(error)
+
+  const parts: string[] = []
+  let current: unknown = error
+  let accumulated = ""
+
+  while (current) {
+    let msg: string
+    if (current instanceof Error) {
+      msg = current.message
+      current = current.cause
+    } else {
+      msg = stringifyErrorValue(current)
+      current = null
+    }
+
+    const trimmed = msg.trim()
+    if (trimmed && !accumulated.includes(trimmed)) {
+      parts.push(msg)
+      accumulated += msg
+    }
+  }
+
+  return parts.length > 0 ? parts.join("\n\nCause: ") : "No error details available."
 }
