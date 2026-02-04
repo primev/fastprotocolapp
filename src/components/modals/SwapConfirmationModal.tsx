@@ -42,8 +42,9 @@ import { useAccount } from "wagmi"
 import { mainnet } from "wagmi/chains"
 import { useTokenPrice } from "@/hooks/use-token-price"
 import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
-import { GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
+import { GAS_LIMIT_MULTIPLIER, ETH_PATH_DISPLAY_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
 import { useEthPathGasEstimate } from "@/hooks/use-eth-path-gas-estimate"
+import { ZERO_ADDRESS } from "@/lib/swap-constants"
 
 const numberFlowStyle = {
   "--number-flow-char-gap": "-0.5px",
@@ -239,6 +240,7 @@ function SwapConfirmationModal({
     toToken: tokenOut,
     amount: amountIn,
     minAmountOut,
+    slippage,
     deadline,
     onSuccess: () => {
       setClearSwapState(true)
@@ -252,7 +254,8 @@ function SwapConfirmationModal({
   const { price: ethPriceFromApi } = useTokenPrice("ETH")
   const effectiveEthPrice = ethPrice ?? ethPriceFromApi ?? DEFAULT_ETH_PRICE_USD
 
-  // For ETH-path swaps, estimate gas on the actual tx to match wallet display
+  // For ETH-path swaps, estimate gas on the actual FastSwap tx to match wallet display.
+  // Barter's gasEstimation is for routing, not the tx the user signs.
   const { gasEstimate: ethPathGasEstimate } = useEthPathGasEstimate(
     open && !isWrap && !isUnwrap,
     tokenIn,
@@ -261,6 +264,7 @@ function SwapConfirmationModal({
     minAmountOut,
     deadline
   )
+
   const [isExpanded, setIsExpanded] = useState(false)
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false)
   const [hasCopied, setHasCopied] = useState(false)
@@ -286,6 +290,9 @@ function SwapConfirmationModal({
     [isWrap, isUnwrap, priceImpact]
   )
 
+  const intentPath =
+    !isWrap && !isUnwrap && tokenIn && tokenIn.address?.toLowerCase() !== ZERO_ADDRESS.toLowerCase()
+
   // --- ACTIONS ---
   const resetAllStates = useCallback(() => {
     if (resetWrap) resetWrap()
@@ -295,9 +302,12 @@ function SwapConfirmationModal({
 
   const activeGasEstimate = useMemo(() => {
     if (isWrap || isUnwrap) return wethGasEstimate
-    // Use ETH-path estimate when available (matches wallet); else fall back to quote
     const base = ethPathGasEstimate ?? gasEstimate
     if (!base) return null
+    // ETH path: use display multiplier so estimate aligns with wallet (wallet adds buffers)
+    if (ethPathGasEstimate) {
+      return (base * ETH_PATH_DISPLAY_MULTIPLIER) / 100n
+    }
     return (base * GAS_LIMIT_MULTIPLIER) / 100n
   }, [isWrap, isUnwrap, wethGasEstimate, ethPathGasEstimate, gasEstimate])
 
@@ -629,27 +639,35 @@ function SwapConfirmationModal({
                   <InfoRow
                     label="Network cost"
                     value={
-                      <span className="flex items-center gap-1.5 tabular-nums">
-                        <Fuel className="h-3.5 w-3.5 text-gray-500" />
-                        {gasCostUsd != null ? (
-                          <>
-                            $
-                            <NumberFlow
-                              value={gasCostUsd}
-                              format={{
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                                useGrouping: true,
-                              }}
-                              style={numberFlowStyle}
-                            />
-                          </>
-                        ) : (
-                          "—"
-                        )}
-                      </span>
+                      intentPath ? (
+                        <span className="text-[#3898FF]">Free</span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 tabular-nums">
+                          <Fuel className="h-3.5 w-3.5 text-gray-500" />
+                          {gasCostUsd != null ? (
+                            <>
+                              $
+                              <NumberFlow
+                                value={gasCostUsd}
+                                format={{
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                  useGrouping: true,
+                                }}
+                                style={numberFlowStyle}
+                              />
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </span>
+                      )
                     }
-                    tooltip="Estimated gas fee for this transaction"
+                    tooltip={
+                      intentPath
+                        ? "No gas fee — relayer submits the transaction"
+                        : "Estimated gas fee for this transaction"
+                    }
                   />
                 </div>
 
@@ -714,6 +732,7 @@ function SwapConfirmationModal({
                           : "The minimum amount you will receive after slippage"
                       }
                     />
+
                     <InfoRow
                       label="Max slippage"
                       value={
@@ -733,6 +752,7 @@ function SwapConfirmationModal({
                       }
                       tooltip="Maximum price movement allowed before transaction reverts"
                     />
+
                     <InfoRow
                       label="Order routing"
                       value="Fast Protocol"

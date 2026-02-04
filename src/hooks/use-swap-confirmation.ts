@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react"
 import {
   useAccount,
   usePublicClient,
+  useWalletClient,
   useSendTransaction,
   useWaitForTransactionReceipt,
 } from "wagmi"
@@ -12,12 +13,14 @@ import {
   ETH_PATH_GAS_LIMIT_MULTIPLIER,
 } from "@/hooks/use-broadcast-gas-price"
 import { mainnet } from "wagmi/chains"
-import { parseUnits, type TransactionReceipt } from "viem"
+import { parseUnits, formatUnits, type TransactionReceipt } from "viem"
 import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import { FASTSWAP_API_BASE } from "@/lib/network-config"
+import { fetchBarterRoute } from "@/lib/barter-api"
+import { fetchEthPathTxAndEstimate } from "@/lib/eth-path-tx"
 import type { Token } from "@/types/swap"
 
 interface UseSwapConfirmationParams {
@@ -25,6 +28,7 @@ interface UseSwapConfirmationParams {
   toToken: Token | undefined
   amount: string
   minAmountOut: string
+  slippage: string
   deadline: number
   onSuccess?: () => void
 }
@@ -40,11 +44,13 @@ export function useSwapConfirmation({
   toToken,
   amount,
   minAmountOut,
+  slippage,
   deadline,
   onSuccess,
 }: UseSwapConfirmationParams) {
   const { isConnected, address } = useAccount()
   const { getFreshGasFees } = useBroadcastGasPrice()
+  const { data: walletClient } = useWalletClient({ chainId: mainnet.id })
   const publicClient = usePublicClient({ chainId: mainnet.id })
 
   const { createIntentSignature } = useSwapIntent()
@@ -118,11 +124,25 @@ export function useSwapConfirmation({
     setIsSubmitting(true)
 
     const amountClean = amount.replace(/,/g, "")
-    const minAmountOutClean = minAmountOut.replace(/,/g, "")
     const inputAmtWei = parseUnits(amountClean, fromToken.decimals).toString()
-    const userAmtOutWei = parseUnits(minAmountOutClean, toToken.decimals).toString()
+
+    const source =
+      fromToken.address === ZERO_ADDRESS
+        ? (WETH_ADDRESS as `0x${string}`)
+        : (fromToken.address as `0x${string}`)
+    const target =
+      toToken.address === ZERO_ADDRESS
+        ? (WETH_ADDRESS as `0x${string}`)
+        : (toToken.address as `0x${string}`)
 
     try {
+      const { outputAmount } = await fetchBarterRoute(source, target, inputAmtWei)
+      const slippageBps = BigInt(Math.floor(parseFloat(slippage || "0.5") * 100))
+      const userAmtOutWei = (
+        (BigInt(outputAmount) * (BigInt(10000) - slippageBps)) /
+        BigInt(10000)
+      ).toString()
+
       if (fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS) {
         await executeEthPath(inputAmtWei, userAmtOutWei)
       } else {
@@ -131,78 +151,51 @@ export function useSwapConfirmation({
     } catch (err) {
       handleSwapError(err)
     }
-  }, [
-    isConnected,
-    address,
-    fromToken,
-    toToken,
-    amount,
-    minAmountOut,
-    deadline,
-    handleSwapError,
-    reset,
-  ])
+  }, [isConnected, address, fromToken, toToken, amount, slippage, deadline, handleSwapError, reset])
 
   /**
    * Path for Native ETH swaps: Fetches tx data from API, estimates gas on the exact
-   * tx we're about to send, then sends via wallet. Gas estimate at execution time
-   * ensures it matches the actual transaction (avoids dual-API-call mismatch).
+   * tx we're about to send, then sends via wallet. Uses shared fetchEthPathTxAndEstimate
+   * for both display (useEthPathGasEstimate) and execution.
    */
   async function executeEthPath(inputAmtWei: string, userAmtOutWei: string) {
-    if (!address || !fromToken || !toToken) return
-
-    // Calculate current timestamp (in seconds)
-    const timestamp = Math.floor(Date.now() / 1000)
-    // Calculate deadline as a timestamp N minutes in the future
-    const deadlineUnix = timestamp + deadline * 60
-    console.debug("[Slippage] executeEthPath: deadline", {
-      deadlineProp: deadline,
-      deadlineUnix,
-      timestamp,
-    })
-    // API body must contain a proper 'timestamp'
-    const body = {
-      outputToken: toToken.address,
-      inputAmt: inputAmtWei,
-      userAmtOut: userAmtOutWei,
-      sender: address,
-      deadline: String(timestamp),
+    const estimateClient = walletClient ?? publicClient
+    if (!address || !fromToken || !toToken || !estimateClient) {
+      throw new Error("Wallet connection required. Please reconnect and try again.")
     }
 
-    const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap/eth`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
+    const deadlineUnix = Math.floor(Date.now() / 1000) + deadline * 60
 
-    const data = await resp.json()
-    if (!resp.ok || !data?.to || !data?.data) {
-      const apiError = data?.error || "FastSwap API error"
+    let result
+    try {
+      result = await fetchEthPathTxAndEstimate(
+        {
+          outputToken: toToken.address,
+          inputAmt: inputAmtWei,
+          userAmtOut: userAmtOutWei,
+          sender: address,
+          deadline: String(deadlineUnix),
+        },
+        estimateClient,
+        address as `0x${string}`
+      )
+    } catch (err) {
+      const apiError = err instanceof Error ? err.message : "FastSwap API error"
       let errorMessage = apiError
       if (apiError.toLowerCase().includes("barter api error")) {
-        errorMessage += `\n\nContext:\nInput token: ${fromToken.symbol} (${fromToken.address})\nOutput token: ${toToken.symbol} (${toToken.address})\nRequest body: ${JSON.stringify(body, null, 2)}`
+        errorMessage += `\n\nContext:\nInput token: ${fromToken.symbol} (${fromToken.address})\nOutput token: ${toToken.symbol} (${toToken.address})`
       }
       throw new Error(errorMessage)
     }
 
     await getFreshGasFees()
 
-    // Estimate gas on the exact tx we're about to send (single source of truth)
-    let bufferedGas: bigint | undefined
-    if (publicClient) {
-      const estimated = await publicClient.estimateGas({
-        account: address as `0x${string}`,
-        to: data.to as `0x${string}`,
-        data: data.data as `0x${string}`,
-        value: BigInt(data.value || 0),
-      })
-      bufferedGas = (estimated * ETH_PATH_GAS_LIMIT_MULTIPLIER) / 100n
-    }
+    const bufferedGas = (result.gasEstimate * ETH_PATH_GAS_LIMIT_MULTIPLIER) / 100n
 
     const txHash = await sendTransactionAsync({
-      to: data.to as `0x${string}`,
-      data: data.data,
-      value: BigInt(data.value),
+      to: result.to as `0x${string}`,
+      data: result.data,
+      value: BigInt(result.value),
       gas: bufferedGas,
     })
 
@@ -224,11 +217,12 @@ export function useSwapConfirmation({
     const tokenInAddress = fromToken.address === ZERO_ADDRESS ? WETH_ADDRESS : fromToken.address
     const tokenOutAddress = toToken.address === ZERO_ADDRESS ? WETH_ADDRESS : toToken.address
 
+    const minAmountOutFormatted = formatUnits(BigInt(userAmtOutWei), toToken.decimals)
     const intentData = await createIntentSignature(
       tokenInAddress as `0x${string}`,
       tokenOutAddress as `0x${string}`,
       amount,
-      minAmountOut,
+      minAmountOutFormatted,
       nonce,
       fromToken.decimals,
       toToken.decimals,

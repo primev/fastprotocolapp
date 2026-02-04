@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useAccount, usePublicClient } from "wagmi"
+import { useAccount, usePublicClient, useWalletClient } from "wagmi"
 import { parseUnits } from "viem"
 import { mainnet } from "wagmi/chains"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
-import { FASTSWAP_API_BASE } from "@/lib/network-config"
+import { fetchEthPathTxAndEstimate } from "@/lib/eth-path-tx"
 import type { Token } from "@/types/swap"
 
 /**
@@ -23,6 +23,7 @@ export function useEthPathGasEstimate(
   deadline: number
 ): { gasEstimate: bigint | null; isLoading: boolean } {
   const { address, isConnected } = useAccount()
+  const { data: walletClient } = useWalletClient({ chainId: mainnet.id })
   const publicClient = usePublicClient({ chainId: mainnet.id })
   const [gasEstimate, setGasEstimate] = useState<bigint | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -37,7 +38,8 @@ export function useEthPathGasEstimate(
     tokenOut.address.toLowerCase() !== WETH_ADDRESS.toLowerCase()
 
   const fetchAndEstimate = useCallback(async () => {
-    if (!isEthPath || !address || !tokenIn || !tokenOut || !publicClient) return
+    const estimateClient = walletClient ?? publicClient
+    if (!isEthPath || !address || !tokenIn || !tokenOut || !estimateClient) return
 
     const amountClean = amountIn?.replace(/,/g, "").trim()
     const minAmountClean = minAmountOut?.replace(/,/g, "").trim()
@@ -52,40 +54,35 @@ export function useEthPathGasEstimate(
       const deadlineUnix =
         Math.floor(Date.now() / 1000) + Math.max(5, Math.min(1440, deadline)) * 60
 
-      const body = {
-        outputToken: tokenOut.address,
-        inputAmt: inputAmtWei,
-        userAmtOut: userAmtOutWei,
-        sender: address,
-        deadline: String(deadlineUnix),
-      }
+      const result = await fetchEthPathTxAndEstimate(
+        {
+          outputToken: tokenOut.address,
+          inputAmt: inputAmtWei,
+          userAmtOut: userAmtOutWei,
+          sender: address,
+          deadline: String(deadlineUnix),
+        },
+        estimateClient,
+        address as `0x${string}`
+      )
 
-      const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap/eth`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-
-      const ethData = await resp.json()
-      if (!resp.ok || !ethData?.to || !ethData?.data) {
-        setGasEstimate(null)
-        return
-      }
-
-      const estimated = await publicClient.estimateGas({
-        account: address as `0x${string}`,
-        to: ethData.to as `0x${string}`,
-        data: ethData.data as `0x${string}`,
-        value: BigInt(ethData.value || 0),
-      })
-
-      setGasEstimate(estimated)
+      setGasEstimate(result.gasEstimate)
     } catch {
       setGasEstimate(null)
     } finally {
       setIsLoading(false)
     }
-  }, [isEthPath, address, tokenIn, tokenOut, amountIn, minAmountOut, deadline, publicClient])
+  }, [
+    isEthPath,
+    address,
+    tokenIn,
+    tokenOut,
+    amountIn,
+    minAmountOut,
+    deadline,
+    walletClient,
+    publicClient,
+  ])
 
   useEffect(() => {
     if (!isEthPath) {

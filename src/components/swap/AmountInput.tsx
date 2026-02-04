@@ -114,7 +114,7 @@ export default function AmountInput({
               placeholder="0"
               disabled={isDisabled}
               className={cn(
-                "bg-transparent font-bold outline-none w-full placeholder:text-white/10 leading-none cursor-text caret-white tracking-tighter tabular-nums pr-1",
+                "bg-transparent font-bold outline-none w-full placeholder:text-white leading-none cursor-text caret-white tracking-tighter tabular-nums pr-1",
                 showError ? "text-red-500" : "text-white"
               )}
               style={{ fontSize: `${fontPx}px` }}

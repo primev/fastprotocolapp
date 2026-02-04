@@ -207,9 +207,9 @@ export function useSwapForm(allTokens: Token[]) {
     tokenOut: toToken,
     amountIn: amount,
     slippage: effectiveSlippage,
-    tradeType: editingSide === "sell" ? "exactIn" : "exactOut",
+    tradeType: "exactIn",
     tokenList: allTokens,
-    enabled: !isSwitching && !!amount && !!fromToken && !!toToken && !isWrapUnwrap,
+    enabled: !isSwitching && !!amount && !!fromToken && !!toToken && editingSide === "sell",
   })
 
   const activeQuote = useMemo(() => {
@@ -238,6 +238,9 @@ export function useSwapForm(allTokens: Token[]) {
   // Declared BEFORE handleSwitch to fix hoisting error
   const exchangeRateContent = useMemo(() => {
     if (isWrapUnwrap) return `1 ${fromToken?.symbol} = 1 ${toToken?.symbol}`
+    if (editingSide === "buy" && !displayQuote && fromToken && toToken) {
+      return "Enter the amount you want to sell"
+    }
     if (hasNoLiquidity) return "No liquidity"
     if (displayQuote && fromToken && toToken) {
       const isToStable = isStablecoin(toToken.address ?? "", toToken.symbol)
@@ -246,7 +249,7 @@ export function useSwapForm(allTokens: Token[]) {
       return `1 ${fromToken.symbol} = ${rateFormatted} ${toToken.symbol}`
     }
     return lastValidRate || "Select tokens"
-  }, [isWrapUnwrap, fromToken, toToken, displayQuote, hasNoLiquidity, lastValidRate])
+  }, [isWrapUnwrap, editingSide, fromToken, toToken, displayQuote, hasNoLiquidity, lastValidRate])
 
   // Numeric rate for NumberFlow (subtle animation on refetch; no "Fetching rate..." text)
   const exchangeRateValue = displayQuote && fromToken && toToken ? displayQuote.exchangeRate : null

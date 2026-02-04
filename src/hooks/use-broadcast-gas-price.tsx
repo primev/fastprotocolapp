@@ -5,7 +5,9 @@ import { useBlock } from "wagmi"
 import { formatUnits } from "viem"
 
 export const GAS_LIMIT_MULTIPLIER = 100n
-export const ETH_PATH_GAS_LIMIT_MULTIPLIER = 140n // 40% buffer
+export const ETH_PATH_GAS_LIMIT_MULTIPLIER = 140n // 40% buffer for tx
+/** Display multiplier so our estimate aligns with wallet (wallet adds gas price buffer) */
+export const ETH_PATH_DISPLAY_MULTIPLIER = 195n // ~90% extra for display
 
 const PRIORITY_FEE_WEI = 0n
 

@@ -114,7 +114,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         value: amountInWei,
         chain: mainnet,
         account: address,
-        gas: bufferedEstimate ?? undefined,
+        // gas: bufferedEstimate ?? undefined,
       })
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
@@ -139,7 +139,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         args: [amountInWei],
         chain: mainnet,
         account: address,
-        gas: bufferedEstimate ?? undefined,
+        // gas: bufferedEstimate ?? undefined,
       })
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))

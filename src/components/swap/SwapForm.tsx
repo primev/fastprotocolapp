@@ -57,6 +57,7 @@ export function SwapForm() {
         handleSlippageChange={form.updateSlippage}
         internalDeadline={form.deadline}
         setInternalDeadline={form.updateDeadline}
+        isMounted={form.isMounted}
         // From Token Props
         fromToken={form.fromToken!}
         formattedFromBalance={formatBalance(

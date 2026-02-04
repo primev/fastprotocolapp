@@ -13,6 +13,24 @@ function mapErrorMessage(error: unknown): string | null {
 
   if (isTransactionRejection(error)) return "Transaction Cancelled in Wallet"
 
+  // Barter-specific errors (check before generic network/fetch)
+  if (message.includes("barter api error")) return "Barter routing failed. Please try again."
+  if (message.includes("barter") && (message.includes("api") || message.includes("route"))) {
+    return "Barter API error. Please check your connection."
+  }
+  if (message.includes("no route") || message.includes("route not found")) {
+    return "No route found for this swap."
+  }
+  if (
+    (message.includes("401") ||
+      message.includes("unauthorized") ||
+      message.includes("api_key") ||
+      message.includes("authorization")) &&
+    (message.includes("barter") || message.includes("api key"))
+  ) {
+    return "Barter API key invalid or missing."
+  }
+
   if (
     message.includes("failed to fetch") ||
     message.includes("rpc") ||
