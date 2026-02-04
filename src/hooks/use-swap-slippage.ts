@@ -42,7 +42,9 @@ export function useSwapSlippage() {
   }
 
   const updateDeadline = (val: number) => {
-    const clamped = clampDeadline(val)
+    const num = Number(val)
+    if (Number.isNaN(num)) return
+    const clamped = clampDeadline(num)
     setDeadline(clamped)
     localStorage.setItem("swapDeadline", String(clamped))
   }

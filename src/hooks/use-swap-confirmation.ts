@@ -151,13 +151,22 @@ export function useSwapConfirmation({
   async function executeEthPath(inputAmtWei: string, userAmtOutWei: string) {
     if (!address || !fromToken || !toToken) return
 
-    const deadlineUnix = Math.floor(Date.now() / 1000) + Math.max(5, Math.min(1440, deadline)) * 60
+    // Calculate current timestamp (in seconds)
+    const timestamp = Math.floor(Date.now() / 1000)
+    // Calculate deadline as a timestamp N minutes in the future
+    const deadlineUnix = timestamp + deadline * 60
+    console.debug("[Slippage] executeEthPath: deadline", {
+      deadlineProp: deadline,
+      deadlineUnix,
+      timestamp,
+    })
+    // API body must contain a proper 'timestamp'
     const body = {
       outputToken: toToken.address,
       inputAmt: inputAmtWei,
       userAmtOut: userAmtOutWei,
       sender: address,
-      deadline: String(deadlineUnix),
+      deadline: String(timestamp),
     }
 
     const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap/eth`, {
@@ -167,7 +176,14 @@ export function useSwapConfirmation({
     })
 
     const data = await resp.json()
-    if (!resp.ok || !data?.to || !data?.data) throw new Error(data?.error || "FastSwap API error")
+    if (!resp.ok || !data?.to || !data?.data) {
+      const apiError = data?.error || "FastSwap API error"
+      let errorMessage = apiError
+      if (apiError.toLowerCase().includes("barter api error")) {
+        errorMessage += `\n\nContext:\nInput token: ${fromToken.symbol} (${fromToken.address})\nOutput token: ${toToken.symbol} (${toToken.address})\nRequest body: ${JSON.stringify(body, null, 2)}`
+      }
+      throw new Error(errorMessage)
+    }
 
     await getFreshGasFees()
 

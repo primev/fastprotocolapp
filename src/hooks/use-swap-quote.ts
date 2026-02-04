@@ -440,7 +440,8 @@ export function useQuote({
     latestTradeTypeRef.current = tradeType
     latestTokenListRef.current = tokenList
     latestEnabledRef.current = enabled
-  }, [tokenIn, tokenOut, amountIn, slippage, tradeType, tokenList, enabled])
+    quoteRef.current = quote
+  }, [tokenIn, tokenOut, amountIn, slippage, tradeType, tokenList, enabled, quote])
 
   // Create a stable refetch function that always works, using latest refs
   const refetch = useCallback(async () => {
@@ -625,7 +626,8 @@ export function useQuote({
 
       // --- Slippage limit (worst-case value for contract + Details section) ---
       // slippageLimit is passed to the contract and shown in the modal "Details" section.
-      const slippageBps = BigInt(Math.floor(parseFloat(latestSlippageRef.current) * 100))
+      const slippagePct = latestSlippageRef.current
+      const slippageBps = BigInt(Math.floor(parseFloat(slippagePct) * 100))
 
       let slippageLimit: bigint
       let slippageLimitFormatted: string
@@ -1129,22 +1131,29 @@ export function useQuote({
 
   // Slippage-only update: recalculate Minimum Received instantly without RPC call.
   // When only slippage changes, Market Price (amountOut) stays the same; slippageLimit updates.
+  // Only depend on slippage to avoid excessive runs from quote/tokenList reference churn.
   useEffect(() => {
-    if (!quote || !tokenIn || !tokenOut || !amountIn) return
+    const currentQuote = quoteRef.current
+    const currentTokenIn = latestTokenInRef.current
+    const currentTokenOut = latestTokenOutRef.current
+    const currentAmountIn = latestAmountInRef.current
+    const currentTokenList = latestTokenListRef.current ?? []
+
+    if (!currentQuote || !currentTokenIn || !currentTokenOut || !currentAmountIn) return
 
     const { slippageLimit, slippageLimitFormatted } = recalculateSlippageLimit(
-      quote,
+      currentQuote,
       slippage,
-      tokenIn,
-      tokenOut,
-      tokenList ?? []
+      currentTokenIn,
+      currentTokenOut,
+      currentTokenList
     )
 
     setQuote((prev) => {
       if (!prev || prev.slippageLimit === slippageLimit) return prev
       return { ...prev, slippageLimit, slippageLimitFormatted }
     })
-  }, [slippage, quote, tokenIn, tokenOut, amountIn, tokenList])
+  }, [slippage])
 
   // Cleanup on unmount
   useEffect(() => {

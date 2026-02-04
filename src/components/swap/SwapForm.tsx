@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useMemo } from "react"
 import { useAccount } from "wagmi"
 import { formatBalance } from "@/lib/utils"
 import { getTokenLists } from "@/lib/swap-logic/token-list"
@@ -14,7 +14,7 @@ import { Hero } from "./HeroSection"
 
 export function SwapForm() {
   const { address, isConnected } = useAccount()
-  const { allTokens } = getTokenLists(null)
+  const allTokens = useMemo(() => getTokenLists(null).allTokens, [])
   const form = useSwapForm(allTokens)
 
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
@@ -185,7 +185,9 @@ export function SwapForm() {
           exchangeRate={form.isWrapUnwrap ? 1 : form.displayQuote?.exchangeRate || 1}
           priceImpact={form.isWrapUnwrap ? 0 : form.displayQuote?.priceImpact || 0}
           slippage={form.slippage}
-          deadline={form.deadline}
+          deadline={
+            typeof form.deadline === "number" && !Number.isNaN(form.deadline) ? form.deadline : 30
+          }
           gasEstimate={form.gasEstimate}
           ethPrice={form.ethPrice ?? undefined}
           fromTokenPrice={form.fromPrice ?? undefined}
