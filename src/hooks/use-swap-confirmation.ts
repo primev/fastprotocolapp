@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from "react"
 import {
   useAccount,
   usePublicClient,
-  useWalletClient,
   useSendTransaction,
   useWaitForTransactionReceipt,
 } from "wagmi"
@@ -50,7 +49,6 @@ export function useSwapConfirmation({
 }: UseSwapConfirmationParams) {
   const { isConnected, address } = useAccount()
   const { getFreshGasFees } = useBroadcastGasPrice()
-  const { data: walletClient } = useWalletClient({ chainId: mainnet.id })
   const publicClient = usePublicClient({ chainId: mainnet.id })
 
   const { createIntentSignature } = useSwapIntent()
@@ -159,8 +157,7 @@ export function useSwapConfirmation({
    * for both display (useEthPathGasEstimate) and execution.
    */
   async function executeEthPath(inputAmtWei: string, userAmtOutWei: string) {
-    const estimateClient = walletClient ?? publicClient
-    if (!address || !fromToken || !toToken || !estimateClient) {
+    if (!address || !fromToken || !toToken || !publicClient) {
       throw new Error("Wallet connection required. Please reconnect and try again.")
     }
 
@@ -176,7 +173,7 @@ export function useSwapConfirmation({
           sender: address,
           deadline: String(deadlineUnix),
         },
-        estimateClient,
+        publicClient,
         address as `0x${string}`
       )
     } catch (err) {

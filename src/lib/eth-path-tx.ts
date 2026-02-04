@@ -1,11 +1,10 @@
 /**
  * Shared logic for ETH-path swaps: fetch tx from FastSwap and estimate gas.
  * Used by useEthPathGasEstimate (display) and use-swap-confirmation (execution).
- * Uses the connected wallet client for estimates so they match what the wallet displays.
  */
 
 import type { Address } from "viem"
-import type { PublicClient, WalletClient } from "viem"
+import type { PublicClient } from "viem"
 import { FASTSWAP_API_BASE } from "@/lib/network-config"
 
 export interface EthPathTxParams {
@@ -23,17 +22,12 @@ export interface EthPathTxResult {
   gasEstimate: bigint
 }
 
-/** Client that can estimate gas (wallet preferred, public as fallback) */
-type GasEstimateClient = WalletClient | PublicClient
-
 /**
  * Fetches transaction params from FastSwap /fastswap/eth and estimates gas.
- * Prefer walletClient so estimates match wallet display; fall back to publicClient
- * when wallet client is unavailable (some providers don't expose it).
  */
 export async function fetchEthPathTxAndEstimate(
   params: EthPathTxParams,
-  client: GasEstimateClient,
+  publicClient: PublicClient,
   account: Address
 ): Promise<EthPathTxResult | null> {
   const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap/eth`, {
@@ -54,7 +48,7 @@ export async function fetchEthPathTxAndEstimate(
     throw new Error(apiError)
   }
 
-  const estimated = await client.estimateGas({
+  const estimated = await publicClient.estimateGas({
     account,
     to: data.to as `0x${string}`,
     data: data.data as `0x${string}`,

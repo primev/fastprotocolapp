@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useAccount, usePublicClient, useWalletClient } from "wagmi"
+import { useAccount, usePublicClient } from "wagmi"
 import { parseUnits } from "viem"
 import { mainnet } from "wagmi/chains"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
@@ -23,7 +23,6 @@ export function useEthPathGasEstimate(
   deadline: number
 ): { gasEstimate: bigint | null; isLoading: boolean } {
   const { address, isConnected } = useAccount()
-  const { data: walletClient } = useWalletClient({ chainId: mainnet.id })
   const publicClient = usePublicClient({ chainId: mainnet.id })
   const [gasEstimate, setGasEstimate] = useState<bigint | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -38,8 +37,7 @@ export function useEthPathGasEstimate(
     tokenOut.address.toLowerCase() !== WETH_ADDRESS.toLowerCase()
 
   const fetchAndEstimate = useCallback(async () => {
-    const estimateClient = walletClient ?? publicClient
-    if (!isEthPath || !address || !tokenIn || !tokenOut || !estimateClient) return
+    if (!isEthPath || !address || !tokenIn || !tokenOut || !publicClient) return
 
     const amountClean = amountIn?.replace(/,/g, "").trim()
     const minAmountClean = minAmountOut?.replace(/,/g, "").trim()
@@ -62,7 +60,7 @@ export function useEthPathGasEstimate(
           sender: address,
           deadline: String(deadlineUnix),
         },
-        estimateClient,
+        publicClient,
         address as `0x${string}`
       )
 
@@ -72,17 +70,7 @@ export function useEthPathGasEstimate(
     } finally {
       setIsLoading(false)
     }
-  }, [
-    isEthPath,
-    address,
-    tokenIn,
-    tokenOut,
-    amountIn,
-    minAmountOut,
-    deadline,
-    walletClient,
-    publicClient,
-  ])
+  }, [isEthPath, address, tokenIn, tokenOut, amountIn, minAmountOut, deadline, publicClient])
 
   useEffect(() => {
     if (!isEthPath) {
