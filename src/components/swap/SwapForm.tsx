@@ -210,6 +210,10 @@ export function SwapForm() {
           onCloseAfterSuccess={form.resetFormAfterSuccess}
           isAutoSlippage={form.isAutoSlippage}
           setClearSwapState={form.setClearSwapState}
+          needsPermit2Approval={form.needsPermit2Approval}
+          isApproving={form.isApproving}
+          onApprove={form.approvePermit2}
+          approveTokenSymbol={form.approveTokenSymbol}
         />
       )}
     </div>

@@ -8,6 +8,7 @@ import { useQuote, calculateAutoSlippage, type QuoteResult } from "@/hooks/use-s
 import { useTokenPrice } from "@/hooks/use-token-price"
 import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
+import { usePermit2Allowance } from "@/hooks/use-permit2-allowance"
 import {
   isWrapUnwrapPair,
   isWrapOperation,
@@ -337,6 +338,16 @@ export function useSwapForm(allTokens: Token[]) {
   // --- WETH Context & Gas ---
   const wrapContext = useWethWrapUnwrap({ fromToken, toToken, amount })
 
+  // --- Permit2 Approval (Permit path only) ---
+  const isPermitPath =
+    !isWrapUnwrap && !!fromToken && fromToken.address?.toLowerCase() !== ZERO_ADDRESS.toLowerCase()
+  const permit2Allowance = usePermit2Allowance({
+    token: fromToken,
+    owner: address as `0x${string}` | undefined,
+    amount,
+    enabled: isPermitPath && isConnected && !!address,
+  })
+
   useEffect(() => {
     if (!isWrapUnwrap || !amount || !address || !isConnected) {
       setWrapUnwrapGasEstimate(null)
@@ -418,5 +429,12 @@ export function useSwapForm(allTokens: Token[]) {
     ethPrice: ethPrice ?? null,
     setClearSwapState,
     ...wrapContext,
+    // Permit2 approval state (Permit path only)
+    isPermitPath,
+    needsPermit2Approval: isPermitPath ? permit2Allowance.needsApproval : false,
+    isApproving: isPermitPath ? permit2Allowance.isApproving : false,
+    approvePermit2: permit2Allowance.approve,
+    isApprovalLoading: isPermitPath ? permit2Allowance.isLoading : false,
+    approveTokenSymbol: fromToken?.symbol,
   }
 }

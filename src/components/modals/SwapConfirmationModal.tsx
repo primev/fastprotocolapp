@@ -85,6 +85,11 @@ interface SwapConfirmationModalProps {
   /** Called when the user closes the modal after a successful transaction. Use to reset parent form state. */
   onCloseAfterSuccess?: () => void
   setClearSwapState: (clear: boolean) => void
+  /** Permit2 approval state (Permit path only) */
+  needsPermit2Approval?: boolean
+  isApproving?: boolean
+  onApprove?: () => void
+  approveTokenSymbol?: string
 }
 
 interface InfoRowProps {
@@ -203,6 +208,10 @@ function SwapConfirmationModal({
   refreshBalances,
   onCloseAfterSuccess,
   setClearSwapState,
+  needsPermit2Approval = false,
+  isApproving = false,
+  onApprove,
+  approveTokenSymbol,
 }: SwapConfirmationModalProps) {
   // --- EXTERNAL HOOKS ---
   const { chain: signerChain, isConnected } = useAccount()
@@ -813,8 +822,21 @@ function SwapConfirmationModal({
               {/* CTA Button */}
               <div className="p-5 sm:p-6">
                 <button
-                  onClick={() => (isWrap ? wrap() : isUnwrap ? unwrap() : confirmSwap())}
-                  disabled={isLoading || !isEthereumMainnet || (intentPath && isNonceLoading)}
+                  onClick={() =>
+                    intentPath && needsPermit2Approval && onApprove
+                      ? onApprove()
+                      : isWrap
+                        ? wrap()
+                        : isUnwrap
+                          ? unwrap()
+                          : confirmSwap()
+                  }
+                  disabled={
+                    isLoading ||
+                    !isEthereumMainnet ||
+                    (intentPath && isNonceLoading) ||
+                    (intentPath && needsPermit2Approval && isApproving)
+                  }
                   className={cn(
                     "w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg transition-all active:scale-[0.98]",
                     !isEthereumMainnet
@@ -834,6 +856,13 @@ function SwapConfirmationModal({
                       <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       Initializing...
                     </span>
+                  ) : intentPath && needsPermit2Approval && isApproving ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Approving...
+                    </span>
+                  ) : intentPath && needsPermit2Approval ? (
+                    `Approve ${approveTokenSymbol ?? tokenIn?.symbol ?? ""}`
                   ) : !isEthereumMainnet ? (
                     "Connect to Ethereum"
                   ) : !isWrap && !isUnwrap && impactSeverity === "high" ? (
