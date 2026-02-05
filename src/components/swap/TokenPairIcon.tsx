@@ -9,45 +9,41 @@ interface TokenPairIconProps {
 }
 
 /**
- * Renders two overlapping token icons with clip-path for the overlap effect.
- * Reuses TokenIcon to avoid duplicating token-loading logic.
- * Icons are larger and closer together to match Uniswap-style pairing.
+ * Renders two halves of token icons with a slight vertical gap in the center.
+ * Shadows are removed to keep the interface flat and clean.
  */
 export function TokenPairIcon({ leftToken, rightToken }: TokenPairIconProps) {
+  // Maintaining the requested size
   const SIZE = 44
-  const OVERLAP = 12
+  // This percentage defines how much of the center is "cut away" to create the gap
+  const GAP_OFFSET = 2
 
   return (
     <div
-      className="relative"
+      className="relative overflow-hidden rounded-full shadow-none"
       style={{
-        width: SIZE * 2 - OVERLAP,
+        width: SIZE,
         height: SIZE,
       }}
     >
-      {/* Left token */}
+      {/* Left half: Clipped slightly before the center line */}
       <div
-        className="absolute left-0 top-0"
+        className="absolute inset-0 shadow-none"
         style={{
-          width: SIZE,
-          height: SIZE,
-          clipPath: "inset(0 50% 0 0 round 50%)",
+          clipPath: `inset(0 ${50 + GAP_OFFSET}% 0 0)`,
         }}
       >
-        <TokenIcon token={leftToken} size={SIZE} />
+        <TokenIcon token={leftToken} size={SIZE} hidden={true} />
       </div>
 
-      {/* Right token */}
+      {/* Right half: Clipped slightly after the center line */}
       <div
-        className="absolute top-0"
+        className="absolute inset-0 shadow-none"
         style={{
-          left: SIZE - OVERLAP,
-          width: SIZE,
-          height: SIZE,
-          clipPath: "inset(0 0 0 50% round 50%)",
+          clipPath: `inset(0 0 0 ${50 + GAP_OFFSET}%)`,
         }}
       >
-        <TokenIcon token={rightToken} size={SIZE} />
+        <TokenIcon token={rightToken} size={SIZE} hidden={true} />
       </div>
     </div>
   )

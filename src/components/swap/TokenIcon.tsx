@@ -8,22 +8,27 @@ export function TokenIcon({
   token,
   className,
   size = 40,
+  hidden = false,
 }: {
   token: Token | undefined
   className?: string
   size?: number
+  hidden?: boolean
 }) {
   const [hasImageError, setHasImageError] = useState(false)
   useEffect(() => {
     if (token) setHasImageError(false)
   }, [token?.address])
-  if (!token) return null
+
   return (
     <div
-      className={cn(
-        "rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden p-2.5 min-w-[40px] min-h-[40px]",
-        className
-      )}
+      className={
+        !hidden &&
+        cn(
+          "rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden p-2.5 min-w-[40px] min-h-[40px]",
+          className
+        )
+      }
     >
       {token.logoURI && !hasImageError ? (
         <img
