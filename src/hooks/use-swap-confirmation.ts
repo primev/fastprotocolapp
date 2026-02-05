@@ -207,7 +207,7 @@ export function useSwapConfirmation({
       const apiError = err instanceof Error ? err.message : "FastSwap API error"
       let errorMessage = apiError
       if (apiError.toLowerCase().includes("barter api error")) {
-        errorMessage += `\n\nContext:\nInput token: ${fromToken.symbol} (${fromToken.address})\nOutput token: ${toToken.symbol} (${toToken.address})`
+        errorMessage += `\n\nContext:\nInput token: ${fromToken.symbol} (${fromToken.address})\nOutput token: ${toToken.symbol} (${toToken.address})\nSlippage: ${slippage}\nMinimun Output: ${userAmtOutWei}\nDeadline (minutes): ${deadline}`
       }
       throw new Error(errorMessage)
     }
