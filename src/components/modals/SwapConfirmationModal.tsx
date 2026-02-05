@@ -17,12 +17,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import {
   X,
   Loader2,
-  CheckCircle2,
-  XCircle,
   RefreshCw,
   ChevronDown,
   Info,
-  ExternalLink,
   Fuel,
   AlertTriangle,
   ChevronRight,
@@ -45,6 +42,7 @@ import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
 import { GAS_LIMIT_MULTIPLIER, ETH_PATH_DISPLAY_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
 import { useEthPathGasEstimate } from "@/hooks/use-eth-path-gas-estimate"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
+import { useSwapToastStore } from "@/stores/swapToastStore"
 
 const numberFlowStyle = {
   "--number-flow-char-gap": "-0.5px",
@@ -130,34 +128,7 @@ function InfoRow({ label, value, tooltip, valueClassName }: InfoRowProps) {
   )
 }
 
-function TokenIcon({ token, className }: { token: Token | undefined; className?: string }) {
-  const [hasImageError, setHasImageError] = useState(false)
-  useEffect(() => {
-    if (token) setHasImageError(false)
-  }, [token?.address])
-  if (!token) return null
-  return (
-    <div
-      className={cn(
-        "rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden p-2.5 min-w-[40px] min-h-[40px]",
-        className
-      )}
-    >
-      {token.logoURI && !hasImageError ? (
-        <img
-          src={token.logoURI}
-          alt={token.symbol}
-          width={40}
-          height={40}
-          className="h-full w-full object-contain"
-          onError={() => setHasImageError(true)}
-        />
-      ) : (
-        <span className="text-[10px] font-bold text-white uppercase">{token.symbol.charAt(0)}</span>
-      )}
-    </div>
-  )
-}
+import { TokenIcon } from "@/components/swap/TokenIcon"
 
 function BuyReceiveValue({ value, className }: { value: string; className?: string }) {
   const clean = value?.replace(/,/g, "") ?? ""
@@ -226,24 +197,21 @@ function SwapConfirmationModal({
     isUnwrap,
     wrap,
     unwrap,
-    isPending: isWrapPending, // Wallet Signature Phase
-    isConfirming: isWrapConfirming, // Blockchain Inclusion Phase
-    isSuccess: isWrapSuccess,
     error: wrapError,
-    hash: wrapHash,
     reset: resetWrap,
-    gasEstimate: wethGasEstimate, // This will update every 12s
+    gasEstimate: wethGasEstimate,
   } = useWethWrapUnwrap({
     fromToken: tokenIn,
     toToken: tokenOut,
     amount: amountIn,
   })
 
+  const addToast = useSwapToastStore((s) => s.addToast)
+
   const {
     confirmSwap,
     isSigning,
     isSubmitting,
-    hash: swapHash,
     error: swapError,
     reset: resetSwap,
     isNonceLoading,
@@ -280,22 +248,13 @@ function SwapConfirmationModal({
   const [isExpanded, setIsExpanded] = useState(false)
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false)
   const [hasCopied, setHasCopied] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
 
   // Reset accordion when modal closes so it starts collapsed on next open
   useEffect(() => {
     if (!open) setIsExpanded(false)
   }, [open])
 
-  // --- LOGIC PHASES ---
-  const isWaitingForSignature = isWrapPending || isSigning
-  const isCurrentlyError = !!wrapError || !!swapError
-  const isWaitingForBlock = (isWrapConfirming || isSubmitting) && !isCurrentlyError
-  const isSwapSuccess = !!swapHash && !isSigning && !isSubmitting && !swapError
-  const isCurrentlySuccess = (isWrapSuccess || isSwapSuccess) && !isCurrentlyError
-  const activeHash = wrapHash || swapHash
-
-  const isActive =
-    isWaitingForSignature || isWaitingForBlock || isCurrentlySuccess || isCurrentlyError
   const operationType = isWrap ? "wrap" : isUnwrap ? "unwrap" : "swap"
   const impactSeverity = useMemo(
     () => (isWrap || isUnwrap ? "low" : getPriceImpactSeverity(priceImpact)),
@@ -324,25 +283,51 @@ function SwapConfirmationModal({
   }, [isWrap, isUnwrap, wethGasEstimate, ethPathGasEstimate, gasEstimate])
 
   const handleOpenChange = (isOpen: boolean) => {
-    // BLOCK CLOSING during active transaction phases
-    if (!isOpen && (isWaitingForSignature || isWaitingForBlock)) return
-
     if (!isOpen) {
-      // If we are closing a SUCCESSFUL modal, clear the parent form
-      if (isCurrentlySuccess) {
-        if (refreshBalances) refreshBalances()
-
-        // This ensures the parent "Clear state" logic runs for BOTH Weth and Swaps
-        setClearSwapState(true)
-
-        onCloseAfterSuccess?.()
-      }
-
-      // Reset the internal hook states (hashes, errors, etc.)
       resetAllStates()
     }
     onOpenChange(isOpen)
   }
+
+  const handleConfirm = useCallback(async () => {
+    // Approve: modal-only, NO toast (Uniswap pattern — avoids stacked approve + swap toasts)
+    if (intentPath && needsPermit2Approval && onApprove) {
+      await onApprove()
+      return
+    }
+    setIsConfirming(true)
+    try {
+      const hash = isWrap ? await wrap() : isUnwrap ? await unwrap() : await confirmSwap()
+      addToast(hash, tokenIn, tokenOut, amountIn, amountOut, () => {
+        setClearSwapState(true)
+        if (refreshBalances) setTimeout(() => refreshBalances(), 1000)
+      })
+      onCloseAfterSuccess?.()
+      onOpenChange(false)
+    } catch {
+      // Error is set by hooks (wrapError/swapError); ERROR VIEW shows with "View Error Details" / "Try Again"
+    } finally {
+      setIsConfirming(false)
+    }
+  }, [
+    intentPath,
+    needsPermit2Approval,
+    onApprove,
+    isWrap,
+    isUnwrap,
+    wrap,
+    unwrap,
+    confirmSwap,
+    addToast,
+    tokenIn,
+    tokenOut,
+    amountIn,
+    amountOut,
+    setClearSwapState,
+    refreshBalances,
+    onCloseAfterSuccess,
+    onOpenChange,
+  ])
 
   const gasCostUsd = useMemo(() => {
     if (!activeGasEstimate || !gasPrice) return null
@@ -387,17 +372,6 @@ function SwapConfirmationModal({
     [tokenOut?.address, tokenOut?.symbol]
   )
 
-  // Refresh balances when wrap/unwrap succeeds
-  useEffect(() => {
-    if (isWrapSuccess && refreshBalances) {
-      // Small delay to ensure transaction is fully confirmed on-chain
-      const timeoutId = setTimeout(() => {
-        refreshBalances()
-      }, 1000)
-      return () => clearTimeout(timeoutId)
-    }
-  }, [isWrapSuccess, refreshBalances])
-
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -412,119 +386,41 @@ function SwapConfirmationModal({
           <DialogHeader className="py-5 sm:py-6 px-5 relative">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-lg sm:text-xl font-bold text-white">
-                {isCurrentlyError
-                  ? errorTitle
-                  : isActive
-                    ? "Transaction Status"
-                    : "You're swapping"}
+                {activeError ? errorTitle : "You're swapping"}
               </DialogTitle>
-              {!(isWaitingForSignature || isWaitingForBlock) && (
-                <DialogClose asChild>
-                  <button
-                    onClick={() => handleOpenChange(false)}
-                    className="p-2 rounded-lg hover:bg-white/5 transition-colors"
-                  >
-                    <X className="h-5 w-5 text-gray-400 hover:text-white" />
-                  </button>
-                </DialogClose>
-              )}
+              <DialogClose asChild>
+                <button
+                  onClick={() => handleOpenChange(false)}
+                  className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+                >
+                  <X className="h-5 w-5 text-gray-400 hover:text-white" />
+                </button>
+              </DialogClose>
             </div>
           </DialogHeader>
 
-          {isActive ? (
-            /* STATUS VIEW */
-            <div className="flex flex-col items-center pb-10 px-8 text-center animate-in fade-in zoom-in-95 duration-300">
-              <div className="relative mb-8">
-                <div
-                  className={cn(
-                    "absolute inset-0 blur-3xl rounded-full scale-150 opacity-40 transition-colors duration-500",
-                    isCurrentlySuccess
-                      ? "bg-emerald-500"
-                      : isCurrentlyError
-                        ? "bg-red-500"
-                        : "bg-primary"
-                  )}
+          {activeError ? (
+            /* ERROR VIEW */
+            <div className="flex flex-col items-center pb-10 px-8 text-center animate-in fade-in duration-300">
+              <p className="text-[14px] font-medium text-white/75 max-w-[320px] leading-relaxed mb-6">
+                {getTransactionShortMessage(activeError)}
+              </p>
+              <button
+                onClick={() => setIsErrorModalOpen(true)}
+                className="group flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider transition-all mb-6"
+              >
+                View Error Details
+                <ChevronRight
+                  size={14}
+                  className="group-hover:translate-x-0.5 transition-transform"
                 />
-
-                {isCurrentlySuccess ? (
-                  <CheckCircle2 className="h-20 w-20 text-emerald-500 relative z-10" />
-                ) : isCurrentlyError ? (
-                  <XCircle className="h-20 w-20 text-red-500 relative z-10" />
-                ) : (
-                  <div className="relative">
-                    <Loader2 className="h-20 w-20 text-primary animate-spin relative z-10" />
-                    {isWaitingForBlock && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3 mb-8">
-                <h3
-                  className={cn(
-                    "text-xl font-bold uppercase tracking-tight",
-                    isCurrentlyError ? "text-red-500" : "text-white"
-                  )}
-                >
-                  {isCurrentlyError
-                    ? "Failed"
-                    : isCurrentlySuccess
-                      ? "Confirmed"
-                      : isWaitingForBlock
-                        ? "Processing Transaction"
-                        : "Sign Transaction"}
-                </h3>
-
-                <div className="flex flex-col items-center gap-2">
-                  <p className="text-[14px] font-medium text-white/75 max-w-[320px] leading-relaxed">
-                    {isCurrentlySuccess
-                      ? "Transaction successfully completed."
-                      : isCurrentlyError
-                        ? getTransactionShortMessage(activeError)
-                        : isWaitingForBlock
-                          ? "Waiting for network confirmation..."
-                          : "Please confirm the request in your wallet."}
-                  </p>
-
-                  {isCurrentlyError && (
-                    <button
-                      onClick={() => setIsErrorModalOpen(true)}
-                      className="group flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider transition-all"
-                    >
-                      View Error Details
-                      <ChevronRight
-                        size={14}
-                        className="group-hover:translate-x-0.5 transition-transform"
-                      />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {activeHash && (
-                <a
-                  href={`https://etherscan.io/tx/${activeHash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 mb-8 text-[10px] font-bold uppercase tracking-widest text-primary hover:text-primary/80 transition-colors"
-                >
-                  View on Explorer <ExternalLink size={12} />
-                </a>
-              )}
-
-              <div className="flex flex-col w-full gap-3">
-                {isCurrentlyError && (
-                  <button
-                    onClick={resetAllStates}
-                    className="w-full h-14 bg-white/10 hover:bg-white/15 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3"
-                  >
-                    <RefreshCw size={16} /> Try Again
-                  </button>
-                )}
-              </div>
+              </button>
+              <button
+                onClick={resetAllStates}
+                className="w-full h-14 bg-white/10 hover:bg-white/15 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3"
+              >
+                <RefreshCw size={16} /> Try Again
+              </button>
             </div>
           ) : (
             /* REVIEW VIEW */
@@ -822,17 +718,10 @@ function SwapConfirmationModal({
               {/* CTA Button */}
               <div className="p-5 sm:p-6">
                 <button
-                  onClick={() =>
-                    intentPath && needsPermit2Approval && onApprove
-                      ? onApprove()
-                      : isWrap
-                        ? wrap()
-                        : isUnwrap
-                          ? unwrap()
-                          : confirmSwap()
-                  }
+                  onClick={handleConfirm}
                   disabled={
                     isLoading ||
+                    isConfirming ||
                     !isEthereumMainnet ||
                     (intentPath && isNonceLoading) ||
                     (intentPath && needsPermit2Approval && isApproving)
@@ -846,10 +735,10 @@ function SwapConfirmationModal({
                         : "bg-[#3898FF] text-white hover:bg-[#3898FF]/90"
                   )}
                 >
-                  {isLoading ? (
+                  {isLoading || isConfirming ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Fetching...
+                      {isLoading ? "Fetching..." : "Confirming..."}
                     </span>
                   ) : intentPath && isNonceLoading ? (
                     <span className="flex items-center justify-center gap-2">

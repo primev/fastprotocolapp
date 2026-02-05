@@ -121,8 +121,10 @@ export function useSwapConfirmation({
     setError(err instanceof Error ? err : new Error(String(err)))
   }, [])
 
-  const confirmSwap = useCallback(async () => {
-    if (!isConnected || !address || !fromToken || !toToken || !amount) return
+  const confirmSwap = useCallback(async (): Promise<string> => {
+    if (!isConnected || !address || !fromToken || !toToken || !amount) {
+      throw new Error("Missing required parameters for swap")
+    }
 
     // Guard: Prevent Permit path execution if bitmap isn't loaded yet (race condition)
     const isEthPath = fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS
@@ -146,11 +148,6 @@ export function useSwapConfirmation({
         : (toToken.address as `0x${string}`)
 
     try {
-      console.log("fromToken.address", fromToken.address)
-      console.log("toToken.address", toToken.address)
-      console.log("source", source)
-      console.log("target", target)
-
       const { outputAmount } = await fetchBarterRoute(source, target, inputAmtWei)
       const slippageBps = BigInt(Math.floor(parseFloat(slippage || "0.5") * 100))
       const userAmtOutWei = (
@@ -158,12 +155,13 @@ export function useSwapConfirmation({
         BigInt(10000)
       ).toString()
       if (fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS) {
-        await executeEthPath(inputAmtWei, userAmtOutWei)
+        return await executeEthPath(inputAmtWei, userAmtOutWei)
       } else {
-        await executePermitPath(inputAmtWei, userAmtOutWei)
+        return await executePermitPath(inputAmtWei, userAmtOutWei)
       }
     } catch (err) {
       handleSwapError(err)
+      throw err
     }
   }, [
     isConnected,
@@ -223,17 +221,18 @@ export function useSwapConfirmation({
       gas: bufferedGas,
     })
 
-    if (txHash) {
-      setHash(txHash)
-      setIsSubmitting(false)
-    }
+    setHash(txHash)
+    setIsSubmitting(false)
+    return txHash
   }
 
   /**
    * Path for ERC20 swaps: Collects EIP-712 signature and posts to relayer.
    */
-  async function executePermitPath(inputAmtWei: string, userAmtOutWei: string) {
-    if (!fromToken || !toToken) return
+  async function executePermitPath(inputAmtWei: string, userAmtOutWei: string): Promise<string> {
+    if (!fromToken || !toToken) {
+      throw new Error("Missing token parameters for permit path")
+    }
     setIsSubmitting(false)
     setIsSigning(true)
 
@@ -291,6 +290,7 @@ export function useSwapConfirmation({
 
     setHash(result.txHash)
     setIsSubmitting(false)
+    return result.txHash
   }
 
   return {

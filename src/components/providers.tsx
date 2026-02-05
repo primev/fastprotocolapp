@@ -7,6 +7,7 @@ import { DisclaimerComponent, RainbowKitProvider, darkTheme } from "@rainbow-me/
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as Sonner } from "@/components/ui/sonner"
+import { SwapToastContainer } from "@/components/swap/SwapToastContainer"
 import { config } from "@/lib/wagmi"
 import "@rainbow-me/rainbowkit/styles.css"
 
@@ -149,6 +150,7 @@ export const Providers = ({ children }: { children: React.ReactNode }) => {
             {children}
             <Toaster />
             <Sonner />
+            <SwapToastContainer />
           </TooltipProvider>
         </RainbowKitProvider>
       </QueryClientProvider>

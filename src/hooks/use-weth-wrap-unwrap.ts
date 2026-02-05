@@ -62,7 +62,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
   })
 
   const {
-    writeContract,
+    writeContractAsync,
     data: wagmiHash,
     isPending,
     error: writeError,
@@ -104,47 +104,51 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
   }, [wagmiReset, resetConfirmation])
 
   // --- ACTIONS ---
-  const wrap = useCallback(async () => {
+  const wrap = useCallback(async (): Promise<string> => {
+    reset()
     try {
-      reset()
-      writeContract({
+      const hash = await writeContractAsync({
         address: WETH_ADDRESS,
         abi: WETH_ABI,
         functionName: "deposit",
         value: amountInWei,
         chain: mainnet,
         account: address,
-        // gas: bufferedEstimate ?? undefined,
       })
+      return hash
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
+      throw err
     }
-  }, [address, amountInWei, writeContract, reset, bufferedEstimate])
+  }, [address, amountInWei, writeContractAsync, reset])
 
-  const unwrap = useCallback(async () => {
+  const unwrap = useCallback(async (): Promise<string> => {
     if (amountInWei === 0n) {
-      setError(new Error("Amount is required"))
-      return
+      const err = new Error("Amount is required")
+      setError(err)
+      throw err
     }
+    if (wethBalance && wethBalance.value < amountInWei) {
+      const err = new Error("Insufficient WETH balance.")
+      setError(err)
+      throw err
+    }
+    reset()
     try {
-      reset()
-      if (wethBalance && wethBalance.value < amountInWei) {
-        setError(new Error(`Insufficient WETH balance.`))
-        return
-      }
-      writeContract({
+      const hash = await writeContractAsync({
         address: WETH_ADDRESS,
         abi: WETH_ABI,
         functionName: "withdraw",
         args: [amountInWei],
         chain: mainnet,
         account: address,
-        // gas: bufferedEstimate ?? undefined,
       })
+      return hash
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
+      throw err
     }
-  }, [address, amountInWei, writeContract, reset, wethBalance, bufferedEstimate])
+  }, [address, amountInWei, writeContractAsync, reset, wethBalance])
 
   return {
     isWrap,
