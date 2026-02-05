@@ -79,6 +79,7 @@ interface SwapInterfaceProps {
   isConnected: boolean
   address?: string
   insufficientBalance: boolean
+  isNonceLoading?: boolean
 
   // Quote & Execution Details
   activeQuote: QuoteResult | null
@@ -141,6 +142,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
     isConnected,
     address,
     insufficientBalance,
+    isNonceLoading = false,
     activeQuote,
     displayQuote,
     effectiveQuoteLoading,
@@ -257,6 +259,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         isWrap={isWrap}
         isUnwrap={isUnwrap}
         handleSwapClick={handleSwapClick}
+        isNonceLoading={isNonceLoading}
       />
 
       {/* 4. REWARDS 

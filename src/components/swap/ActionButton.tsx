@@ -21,6 +21,7 @@ interface ActionButtonProps {
   isWrap: boolean
   isUnwrap: boolean
   handleSwapClick: () => void
+  isNonceLoading?: boolean
 }
 
 const ActionButtonComponent: React.FC<ActionButtonProps> = ({
@@ -31,6 +32,7 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
   isWrap,
   isUnwrap,
   handleSwapClick,
+  isNonceLoading = false,
 }) => {
   /**
    * 1. WALLET CONNECTION CHECK
@@ -84,6 +86,17 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
           className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-red-500/20 text-red-400 border border-red-500/30 cursor-not-allowed"
         >
           Insufficient Balance
+        </Button>
+      ) : isNonceLoading ? (
+        // Case: Permit path - waiting for nonce bitmap to load
+        <Button
+          disabled
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-white/10 text-gray-400 cursor-wait"
+        >
+          <span className="flex items-center justify-center gap-2">
+            <span className="h-4 w-4 border-2 border-gray-400/50 border-t-gray-400 rounded-full animate-spin" />
+            Initializing...
+          </span>
         </Button>
       ) : (
         // Case: All checks passed - Ready to Swap, Wrap, or Unwrap

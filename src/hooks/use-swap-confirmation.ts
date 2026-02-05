@@ -52,7 +52,12 @@ export function useSwapConfirmation({
   const publicClient = usePublicClient({ chainId: mainnet.id })
 
   const { createIntentSignature } = useSwapIntent()
-  const { getFreshNonce, releaseNonce, syncFromChain } = usePermit2Nonce()
+  const {
+    getFreshNonce,
+    releaseNonce,
+    syncFromChain,
+    isLoading: isNonceLoading,
+  } = usePermit2Nonce()
   const { sendTransactionAsync } = useSendTransaction()
 
   // --- Transaction State ---
@@ -118,6 +123,13 @@ export function useSwapConfirmation({
 
   const confirmSwap = useCallback(async () => {
     if (!isConnected || !address || !fromToken || !toToken || !amount) return
+
+    // Guard: Prevent Permit path execution if bitmap isn't loaded yet (race condition)
+    const isEthPath = fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS
+    if (!isEthPath && isNonceLoading) {
+      throw new Error("Initializing secure swap (Permit2)... please try again in a moment.")
+    }
+
     reset()
     setIsSubmitting(true)
 
@@ -130,17 +142,21 @@ export function useSwapConfirmation({
         : (fromToken.address as `0x${string}`)
     const target =
       toToken.address === ZERO_ADDRESS
-        ? (WETH_ADDRESS as `0x${string}`)
+        ? (ZERO_ADDRESS as `0x${string}`)
         : (toToken.address as `0x${string}`)
 
     try {
+      console.log("fromToken.address", fromToken.address)
+      console.log("toToken.address", toToken.address)
+      console.log("source", source)
+      console.log("target", target)
+
       const { outputAmount } = await fetchBarterRoute(source, target, inputAmtWei)
       const slippageBps = BigInt(Math.floor(parseFloat(slippage || "0.5") * 100))
       const userAmtOutWei = (
         (BigInt(outputAmount) * (BigInt(10000) - slippageBps)) /
         BigInt(10000)
       ).toString()
-
       if (fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS) {
         await executeEthPath(inputAmtWei, userAmtOutWei)
       } else {
@@ -149,7 +165,18 @@ export function useSwapConfirmation({
     } catch (err) {
       handleSwapError(err)
     }
-  }, [isConnected, address, fromToken, toToken, amount, slippage, deadline, handleSwapError, reset])
+  }, [
+    isConnected,
+    address,
+    fromToken,
+    toToken,
+    amount,
+    slippage,
+    deadline,
+    handleSwapError,
+    reset,
+    isNonceLoading,
+  ])
 
   /**
    * Path for Native ETH swaps: Fetches tx data from API, estimates gas on the exact
@@ -212,7 +239,7 @@ export function useSwapConfirmation({
 
     const nonce = getFreshNonce()
     const tokenInAddress = fromToken.address === ZERO_ADDRESS ? WETH_ADDRESS : fromToken.address
-    const tokenOutAddress = toToken.address === ZERO_ADDRESS ? WETH_ADDRESS : toToken.address
+    const tokenOutAddress = toToken.address
 
     const minAmountOutFormatted = formatUnits(BigInt(userAmtOutWei), toToken.decimals)
     const intentData = await createIntentSignature(
@@ -237,6 +264,18 @@ export function useSwapConfirmation({
       nonce: intentData.intent.nonce.toString(),
       signature: intentData.signature,
     }
+
+    // {
+    //   "user": "0xUserAddress",
+    //   "inputToken": "0xUSDC...",
+    //   "outputToken": "0xWETH...",
+    //   "inputAmt": 1000000000,
+    //   "userAmtOut": 500000000000000000,
+    //   "recipient": "0xRecipientAddress",
+    //   "deadline": 1700000000,
+    //   "nonce": 1,
+    //   "signature": "0x..."
+    // }
 
     const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap`, {
       method: "POST",
@@ -263,5 +302,6 @@ export function useSwapConfirmation({
     hash,
     error,
     reset,
+    isNonceLoading,
   }
 }

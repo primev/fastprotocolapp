@@ -237,6 +237,7 @@ function SwapConfirmationModal({
     hash: swapHash,
     error: swapError,
     reset: resetSwap,
+    isNonceLoading,
   } = useSwapConfirmation({
     fromToken: tokenIn,
     toToken: tokenOut,
@@ -813,7 +814,7 @@ function SwapConfirmationModal({
               <div className="p-5 sm:p-6">
                 <button
                   onClick={() => (isWrap ? wrap() : isUnwrap ? unwrap() : confirmSwap())}
-                  disabled={isLoading || !isEthereumMainnet}
+                  disabled={isLoading || !isEthereumMainnet || (intentPath && isNonceLoading)}
                   className={cn(
                     "w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg transition-all active:scale-[0.98]",
                     !isEthereumMainnet
@@ -827,6 +828,11 @@ function SwapConfirmationModal({
                     <span className="flex items-center justify-center gap-2">
                       <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       Fetching...
+                    </span>
+                  ) : intentPath && isNonceLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Initializing...
                     </span>
                   ) : !isEthereumMainnet ? (
                     "Connect to Ethereum"

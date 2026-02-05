@@ -1,8 +1,11 @@
 "use client"
 
-import { useCallback, useRef } from "react"
-import { useReadContract, useAccount } from "wagmi"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { useAccount } from "wagmi"
+import { createPublicClient, http } from "viem"
+import { mainnet } from "wagmi/chains"
 import { PERMIT2_ADDRESS } from "@/lib/swap-constants"
+import { FALLBACK_RPC_ENDPOINT } from "@/lib/network-config"
 
 const PERMIT2_ABI = [
   {
@@ -23,25 +26,50 @@ const PERMIT2_ABI = [
  */
 const WORD_POS = 0n
 
+const publicClient = createPublicClient({
+  chain: mainnet,
+  transport: http(FALLBACK_RPC_ENDPOINT, {
+    fetchOptions: { cache: "no-store" },
+  }),
+})
+
 export function usePermit2Nonce() {
   const { address } = useAccount()
 
   // Track locally-reserved nonces to prevent reuse within the same session
   const reservedBitsRef = useRef<Set<bigint>>(new Set())
 
-  const {
-    data: bitmap,
-    refetch,
-    isLoading,
-  } = useReadContract({
-    address: PERMIT2_ADDRESS,
-    abi: PERMIT2_ABI,
-    functionName: "nonceBitmap",
-    args: address ? [address, WORD_POS] : undefined,
-    query: {
-      enabled: !!address,
-    },
-  })
+  const [bitmap, setBitmap] = useState<bigint | undefined>(undefined)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const fetchBitmap = useCallback(async () => {
+    if (!address) return
+    setIsLoading(true)
+    try {
+      const result = (await publicClient.readContract({
+        address: PERMIT2_ADDRESS,
+        abi: PERMIT2_ABI,
+        functionName: "nonceBitmap",
+        args: [address, WORD_POS],
+        blockTag: "latest",
+      } as any)) as bigint
+      setBitmap(result)
+    } catch (err) {
+      console.error("Permit2 nonceBitmap fetch failed:", err)
+      setBitmap(undefined)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [address])
+
+  useEffect(() => {
+    if (address) {
+      fetchBitmap()
+    } else {
+      setBitmap(undefined)
+      setIsLoading(false)
+    }
+  }, [address, fetchBitmap])
 
   /**
    * Scans the 256-bit word for the first bit that is both 0 on-chain
@@ -86,14 +114,18 @@ export function usePermit2Nonce() {
    */
   const syncFromChain = useCallback(async () => {
     reservedBitsRef.current.clear()
-    await refetch()
-  }, [refetch])
+    await fetchBitmap()
+  }, [fetchBitmap])
+
+  /** True when the bitmap has been loaded and getFreshNonce can be called safely. */
+  const isReady = !isLoading && !!address && bitmap !== undefined
 
   return {
     isLoading,
+    isReady,
     getFreshNonce,
     releaseNonce,
     syncFromChain,
-    refetchNonce: refetch,
+    refetchNonce: fetchBitmap,
   }
 }

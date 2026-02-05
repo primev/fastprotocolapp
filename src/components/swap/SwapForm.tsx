@@ -4,6 +4,8 @@ import React, { useState, useRef, useEffect, useMemo } from "react"
 import dynamic from "next/dynamic"
 import { useAccount } from "wagmi"
 import { formatBalance } from "@/lib/utils"
+import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
+import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import { getTokenLists } from "@/lib/swap-logic/token-list"
 import { useSwapForm } from "@/hooks/use-swap-form"
 
@@ -22,6 +24,12 @@ export function SwapForm() {
   const { address, isConnected } = useAccount()
   const allTokens = useMemo(() => getTokenLists(null).allTokens, [])
   const form = useSwapForm(allTokens)
+  const { isLoading: isNonceLoading } = usePermit2Nonce()
+
+  const isPermitPath =
+    form.fromToken &&
+    form.toToken &&
+    !(form.fromToken.address === ZERO_ADDRESS && form.toToken.address !== WETH_ADDRESS)
 
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -109,6 +117,7 @@ export function SwapForm() {
         handleSwitch={form.handleSwitch}
         handleSwapClick={handleSwapClick}
         isConnected={isConnected}
+        isNonceLoading={isPermitPath ? isNonceLoading : false}
         address={address}
         insufficientBalance={parseFloat(form.amount || "0") > form.fromBalanceValue}
         // Quote Props
