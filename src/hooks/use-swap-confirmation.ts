@@ -189,6 +189,13 @@ export function useSwapConfirmation({
     const deadlineUnix = Math.floor(Date.now() / 1000) + deadline * 60
 
     let result
+    console.log("body", {
+      outputToken: toToken.address,
+      inputAmt: inputAmtWei,
+      userAmtOut: userAmtOutWei,
+      sender: address,
+      deadline: String(deadlineUnix),
+    })
     try {
       result = await fetchEthPathTxAndEstimate(
         {
@@ -204,6 +211,7 @@ export function useSwapConfirmation({
     } catch (err) {
       const apiError = err instanceof Error ? err.message : "FastSwap API error"
       let errorMessage = apiError
+      console.log("apiError", apiError)
       if (apiError.toLowerCase().includes("barter api error")) {
         errorMessage += `\n\nContext:\nInput token: ${fromToken.symbol} (${fromToken.address})\nOutput token: ${toToken.symbol} (${toToken.address})\nSlippage: ${slippage}\nMinimun Output: ${userAmtOutWei}\nDeadline (minutes): ${deadline}`
       }

@@ -71,6 +71,8 @@ interface SwapConfirmationModalProps {
   /** Transaction deadline in minutes (5–1440). Passed to useSwapConfirmation. */
   deadline: number
   gasEstimate: bigint | null
+  /** Pre-computed gas cost in wei from Barter (when available). Used for Network cost display. */
+  transactionFeeWei?: string
   isAutoSlippage: boolean
   ethPrice?: number | null
   /** USD price per token for the "from" token (used for USD under amount). */
@@ -170,6 +172,7 @@ function SwapConfirmationModal({
   slippage,
   deadline,
   gasEstimate,
+  transactionFeeWei,
   isAutoSlippage,
   ethPrice,
   fromTokenPrice,
@@ -330,6 +333,15 @@ function SwapConfirmationModal({
   ])
 
   const gasCostUsd = useMemo(() => {
+    // Prefer Barter's pre-computed transactionFee when available (for Barter swaps)
+    if (transactionFeeWei && !intentPath) {
+      try {
+        const totalEth = Number(BigInt(transactionFeeWei)) / 1e18
+        return totalEth * effectiveEthPrice
+      } catch {
+        return null
+      }
+    }
     if (!activeGasEstimate || !gasPrice) return null
     try {
       const totalWei = BigInt(activeGasEstimate) * BigInt(gasPrice)
@@ -338,7 +350,7 @@ function SwapConfirmationModal({
     } catch {
       return null
     }
-  }, [activeGasEstimate, gasPrice, effectiveEthPrice])
+  }, [transactionFeeWei, intentPath, activeGasEstimate, gasPrice, effectiveEthPrice])
 
   // USD value under each token amount (match main swap form, NumberFlow + commas)
   const fromUsdValue = useMemo(() => {

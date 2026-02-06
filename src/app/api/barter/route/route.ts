@@ -36,14 +36,17 @@ export async function POST(request: NextRequest) {
     })
 
     const data = await resp.json()
+    console.log("barter data", data)
 
     if (!resp.ok) {
       const msg = data?.error ?? data?.message ?? `Barter API error (${resp.status})`
       return NextResponse.json({ error: msg }, { status: resp.status })
     }
 
-    const outputAmount = data?.outputAmount
+    const outputAmount = data?.outputWithGasAmount
     const gasEstimation = data?.gasEstimation
+    const transactionFee = data?.transactionFee
+    const gasPrice = data?.gasPrice
 
     if (outputAmount == null || gasEstimation == null) {
       return NextResponse.json(
@@ -52,10 +55,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({
+    const response: Record<string, unknown> = {
       outputAmount: String(outputAmount),
       gasEstimation: Number(gasEstimation),
-    })
+    }
+    if (transactionFee != null) response.transactionFee = String(transactionFee)
+    if (gasPrice != null) response.gasPrice = String(gasPrice)
+
+    return NextResponse.json(response)
   } catch (error) {
     console.error("Barter route API error:", error)
     return NextResponse.json(

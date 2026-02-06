@@ -240,6 +240,8 @@ export interface QuoteResult {
   exchangeRate: number
   gasEstimate: bigint
   fee: number // fee tier used
+  /** Pre-computed gas cost in wei from Barter (when available). Used for Network cost display. */
+  transactionFeeWei?: string
 }
 
 export type TradeType = "exactIn" | "exactOut"
@@ -605,7 +607,7 @@ export function useQuote({
         try {
           const amountInWei = parseUnits(currentAmountIn, tokenInDecimals)
           const sellAmount = amountInWei.toString()
-          const { outputAmount, gasEstimation } = await fetchBarterRoute(
+          const { outputAmount, gasEstimation, transactionFee } = await fetchBarterRoute(
             tokenInAddress,
             tokenOutAddress,
             sellAmount
@@ -615,6 +617,7 @@ export function useQuote({
             amountIn: amountInWei,
             gasEstimate: BigInt(gasEstimation),
             fee: 0,
+            ...(transactionFee != null && { transactionFeeWei: transactionFee }),
           }
         } catch (barterError) {
           if (currentRequestId === requestIdRef.current) {
@@ -750,6 +753,10 @@ export function useQuote({
         exchangeRate,
         gasEstimate: bestQuote.gasEstimate,
         fee: bestQuote.fee,
+        ...("transactionFeeWei" in bestQuote &&
+          bestQuote.transactionFeeWei != null && {
+            transactionFeeWei: bestQuote.transactionFeeWei as string,
+          }),
       }
 
       // Only set quote if this is still the latest request

@@ -19,13 +19,18 @@ function getApiBase(): string {
  * @param source - Source token address (use WETH for native ETH)
  * @param target - Target token address
  * @param sellAmount - Amount to sell in wei (as string)
- * @returns outputAmount and gasEstimation from the route
+ * @returns outputAmount, gasEstimation, and optionally transactionFee and gasPrice
  */
 export async function fetchBarterRoute(
   source: Address,
   target: Address,
   sellAmount: string
-): Promise<{ outputAmount: string; gasEstimation: number }> {
+): Promise<{
+  outputAmount: string
+  gasEstimation: number
+  transactionFee?: string
+  gasPrice?: string
+}> {
   const base = getApiBase()
   const resp = await fetch(`${base}/api/barter/route`, {
     method: "POST",
@@ -71,8 +76,17 @@ export async function fetchBarterRoute(
     throw new Error("Barter API error. Invalid route response.")
   }
 
-  return {
+  const result: {
+    outputAmount: string
+    gasEstimation: number
+    transactionFee?: string
+    gasPrice?: string
+  } = {
     outputAmount: String(outputAmount),
     gasEstimation: Number(gasEstimation),
   }
+  if (data?.transactionFee != null) result.transactionFee = String(data.transactionFee)
+  if (data?.gasPrice != null) result.gasPrice = String(data.gasPrice)
+
+  return result
 }

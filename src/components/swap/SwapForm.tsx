@@ -202,6 +202,7 @@ export function SwapForm() {
             typeof form.deadline === "number" && !Number.isNaN(form.deadline) ? form.deadline : 30
           }
           gasEstimate={form.gasEstimate}
+          transactionFeeWei={form.transactionFeeWei ?? undefined}
           ethPrice={form.ethPrice ?? undefined}
           fromTokenPrice={form.fromPrice ?? undefined}
           toTokenPrice={form.toPrice ?? undefined}
