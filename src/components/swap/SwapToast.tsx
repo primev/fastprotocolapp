@@ -73,7 +73,7 @@ export function SwapToast({ hash }: { hash: string }) {
       role="button"
       tabIndex={0}
       onClick={() => window.open(explorerUrl, "_blank")}
-      className="relative w-[320px] cursor-pointer rounded-2xl bg-neutral-900 p-4 shadow-xl transition hover:bg-neutral-800 border border-black/50 border-[1px]"
+      className="relative w-[350px] cursor-pointer rounded-2xl bg-neutral-900 p-4 shadow-xl transition hover:bg-neutral-800 border border-black/50 border-[1px]"
     >
       <div className="flex items-center gap-3">
         <TokenPairIcon leftToken={toast.tokenIn} rightToken={toast.tokenOut} />

@@ -1,7 +1,7 @@
 export const FEATURE_FLAGS = {
   show_global_stats: true,
   /** When true, SwapToast is always visible with placeholder ETH/USDC data for testing. Set to false for production. */
-  test_swap_toast: true,
+  test_swap_toast: false,
 }
 
 /** Placeholder data for SwapToast test mode (ETH → USDC) */

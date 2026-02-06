@@ -23,11 +23,12 @@ export function TokenIcon({
   return (
     <div
       className={
-        !hidden &&
-        cn(
-          "rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden p-2.5 min-w-[40px] min-h-[40px]",
-          className
-        )
+        !hidden
+          ? cn(
+              "rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden p-2.5 min-w-[40px] min-h-[40px]",
+              className
+            )
+          : undefined
       }
     >
       {token.logoURI && !hasImageError ? (
