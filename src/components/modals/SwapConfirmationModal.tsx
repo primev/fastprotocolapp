@@ -763,11 +763,13 @@ function SwapConfirmationModal({
                       Approving...
                     </span>
                   ) : intentPath && needsPermit2Approval ? (
-                    `Approve ${approveTokenSymbol ?? tokenIn?.symbol ?? ""}`
+                    "Approve & Swap"
                   ) : !isEthereumMainnet ? (
                     "Connect to Ethereum"
                   ) : !isWrap && !isUnwrap && impactSeverity === "high" ? (
                     "Swap Anyway"
+                  ) : intentPath ? (
+                    "Approve & Swap"
                   ) : (
                     `Confirm ${operationType}`
                   )}
