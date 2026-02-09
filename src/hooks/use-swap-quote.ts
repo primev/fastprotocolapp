@@ -328,7 +328,7 @@ function recalculateSlippageLimit(
 
 /**
  * Calculate auto slippage based on trade characteristics
- * Returns a value between 0.1% and 5% based on:
+ * Returns a value between 0.5% and 2% based on:
  * - Trade size (larger trades need more slippage tolerance)
  * - Token type (stablecoins need less, volatile tokens need more)
  * - Network conditions (higher gas = more slippage tolerance)
@@ -383,8 +383,8 @@ export function calculateAutoSlippage(
     }
   }
 
-  // Clamp between 0.5% and 5%
-  return Math.max(0.5, Math.min(5.0, slippage))
+  // Clamp between 0.5% and 2% (never exceed 2%)
+  return Math.max(0.5, Math.min(2.0, slippage))
 }
 
 /**

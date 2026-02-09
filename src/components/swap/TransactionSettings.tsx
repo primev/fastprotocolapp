@@ -111,10 +111,18 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
                     type="text"
                     inputMode="decimal"
                     value={isAutoSlippage ? calculatedAutoSlippage.toFixed(2) : slippage}
-                    disabled={isAutoSlippage}
-                    onChange={(e) => handleSlippageChange(e.target.value.replace(/[^0-9.]/g, ""))}
+                    onFocus={() => {
+                      if (isAutoSlippage) {
+                        handleAutoSlippageChange(false)
+                        handleSlippageChange(calculatedAutoSlippage.toFixed(2))
+                      }
+                    }}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9.]/g, "")
+                      handleSlippageChange(val)
+                    }}
                     className={cn(
-                      "w-12 bg-transparent text-right text-[15px] font-medium outline-none focus:ring-0",
+                      "w-12 bg-transparent text-right text-[15px] font-medium outline-none focus:ring-0 cursor-text",
                       isAutoSlippage ? "text-zinc-400" : "text-white"
                     )}
                   />
