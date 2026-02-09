@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import type { TransactionReceipt } from "viem"
-import { pollDatabaseForReceipt, pollDatabaseForStatus } from "@/lib/transaction-receipt-utils"
+import { fetchTransactionReceiptFromDb } from "@/lib/transaction-receipt-utils"
+import { RPCError } from "@/lib/transaction-errors"
 
 const RECEIPT_CHECK_INTERVAL_MS = 500
 
@@ -48,6 +49,7 @@ export function useWaitForTxConfirmation({
   const abortRef = useRef<AbortController | null>(null)
   const hasConfirmedRef = useRef(false)
   const processingHashRef = useRef<string | null>(null)
+  const preConfirmedFiredRef = useRef(false)
 
   // Refs to ensure callbacks stay fresh without re-triggering effects
   const onConfirmedRef = useRef(onConfirmed)
@@ -65,6 +67,7 @@ export function useWaitForTxConfirmation({
     setError(null)
     hasConfirmedRef.current = false
     processingHashRef.current = null
+    preConfirmedFiredRef.current = false
     if (abortRef.current) {
       abortRef.current.abort()
       abortRef.current = null
@@ -75,12 +78,18 @@ export function useWaitForTxConfirmation({
   useEffect(() => {
     if (!hash || !receipt || hasConfirmedRef.current) return
 
-    hasConfirmedRef.current = true
-    setIsConfirmed(true)
-
     if (abortRef.current) abortRef.current.abort()
 
     try {
+      if (receipt.status === "reverted") {
+        hasConfirmedRef.current = true
+        const e = new RPCError("RPC Error", receipt)
+        setError(e)
+        onErrorRef.current?.(e)
+        return
+      }
+      hasConfirmedRef.current = true
+      setIsConfirmed(true)
       if (mode === "receipt") {
         onConfirmedRef.current({ source: "wagmi", receipt })
       } else {
@@ -96,11 +105,14 @@ export function useWaitForTxConfirmation({
     }
   }, [hash, receipt, mode])
 
-  // Effect: Database polling logic
+  // Effect: Database polling logic (one fetch per iteration to detect status flip 0x1 -> 0x0)
+  // Start whenever we have a hash and aren't already polling this hash (don't gate on hasConfirmedRef
+  // so that we still poll when Wagmi receipt isn't ready yet and DB can be first)
   useEffect(() => {
-    if (!hash || hasConfirmedRef.current || processingHashRef.current === hash) return
+    if (!hash || processingHashRef.current === hash) return
 
     processingHashRef.current = hash
+    preConfirmedFiredRef.current = false
     const abortController = new AbortController()
     abortRef.current = abortController
     setIsConfirmed(false)
@@ -109,27 +121,32 @@ export function useWaitForTxConfirmation({
     const dbPoll = async () => {
       try {
         while (!abortController.signal.aborted && !hasConfirmedRef.current) {
-          let result: TxConfirmationResult | null = null
+          const dbReceipt = await fetchTransactionReceiptFromDb(hash, abortController.signal)
 
-          if (mode === "receipt") {
-            const dbReceipt = await pollDatabaseForReceipt(hash, abortController.signal)
-            if (dbReceipt) result = { source: "db", receipt: dbReceipt }
-          } else {
-            const dbStatus = await pollDatabaseForStatus(hash, abortController.signal)
-            if (dbStatus) result = { source: "db", status: dbStatus }
-          }
-
-          // If DB finds result: call onPreConfirmed (do not set hasConfirmedRef; Wagmi continues waiting)
-          if (result && !hasConfirmedRef.current) {
-            abortController.abort()
-            try {
-              onPreConfirmedRef.current?.(result)
-            } catch (err) {
-              const e = err instanceof Error ? err : new Error(String(err))
+          if (dbReceipt) {
+            if (dbReceipt.status === "reverted") {
+              hasConfirmedRef.current = true
+              abortController.abort()
+              const e = new RPCError("RPC Error", dbReceipt)
               setError(e)
               onErrorRef.current?.(e)
+              return
             }
-            return
+            // Success (0x1): fire onPreConfirmed once, then keep polling to detect flip to 0x0
+            if (!preConfirmedFiredRef.current) {
+              preConfirmedFiredRef.current = true
+              const result: TxConfirmationResult =
+                mode === "receipt"
+                  ? { source: "db", receipt: dbReceipt }
+                  : { source: "db", status: { success: true, hash } }
+              try {
+                onPreConfirmedRef.current?.(result)
+              } catch (err) {
+                const e = err instanceof Error ? err : new Error(String(err))
+                setError(e)
+                onErrorRef.current?.(e)
+              }
+            }
           }
 
           await new Promise((r) => setTimeout(r, RECEIPT_CHECK_INTERVAL_MS))
@@ -149,6 +166,7 @@ export function useWaitForTxConfirmation({
     return () => {
       abortController.abort()
       if (abortRef.current === abortController) abortRef.current = null
+      processingHashRef.current = null
     }
   }, [hash, mode])
 

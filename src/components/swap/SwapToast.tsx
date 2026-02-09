@@ -7,12 +7,11 @@ import type { TransactionReceipt } from "viem"
 import { X } from "lucide-react"
 import { useSwapToastStore } from "@/stores/swapToastStore"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
-import { checkTransactionReceiptExists } from "@/lib/transaction-receipt-utils"
+import { RPCError } from "@/lib/transaction-errors"
 import { TokenPairIcon } from "./TokenPairIcon"
 import { cn } from "@/lib/utils"
 
 const PRE_CONFIRM_DURATION_MS = 6000
-const DB_POLL_INTERVAL_MS = 300
 
 /**
  * SwapToast handles the multi-stage lifecycle of a transaction.
@@ -22,6 +21,7 @@ const DB_POLL_INTERVAL_MS = 300
 export function SwapToast({ hash }: { hash: string }) {
   const toast = useSwapToastStore((s) => s.toasts.find((t) => t.hash === hash))
   const setStatus = useSwapToastStore((s) => s.setStatus)
+  const setFailed = useSwapToastStore((s) => s.setFailed)
   const collapse = useSwapToastStore((s) => s.collapse)
   const expand = useSwapToastStore((s) => s.expand)
   const removeToast = useSwapToastStore((s) => s.removeToast)
@@ -35,42 +35,6 @@ export function SwapToast({ hash }: { hash: string }) {
     hash: hash as `0x${string}`,
   })
 
-  // 1. DB polling: High-frequency check for the "Fast" path
-  useEffect(() => {
-    if (!hash || !toast || toast.status !== "pending") return
-
-    const abortController = new AbortController()
-    let mounted = true
-
-    const poll = async () => {
-      while (!abortController.signal.aborted && mounted) {
-        try {
-          const exists = await checkTransactionReceiptExists(hash, abortController.signal)
-          if (exists && mounted && !abortController.signal.aborted) {
-            const currentStatus = useSwapToastStore
-              .getState()
-              .toasts.find((t) => t.hash === hash)?.status
-            if (currentStatus === "confirmed") return
-
-            setStatus(hash, "pre-confirmed")
-            setShowPreConfirmView(true)
-            return
-          }
-        } catch (e) {
-          // Silent catch for polling retries
-        }
-        await new Promise((r) => setTimeout(r, DB_POLL_INTERVAL_MS))
-      }
-    }
-
-    poll()
-    return () => {
-      mounted = false
-      abortController.abort()
-    }
-  }, [hash, toast?.status, setStatus])
-
-  // 2. Final On-Chain Confirmation
   useWaitForTxConfirmation({
     hash,
     receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
@@ -83,12 +47,24 @@ export function SwapToast({ hash }: { hash: string }) {
     },
     onPreConfirmed: () => {
       const currentStatus = useSwapToastStore.getState().toasts.find((t) => t.hash === hash)?.status
-      if (currentStatus === "pending") {
+      // Show pre-confirm unless we already reached final confirmation (e.g. Wagmi won first)
+      if (currentStatus !== "confirmed") {
         setStatus(hash, "pre-confirmed")
         setShowPreConfirmView(true)
+        const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
+        t?.onPreConfirm?.()
       }
     },
+    onError: (err) => {
+      const txReceipt = err instanceof RPCError ? err.receipt : undefined
+      setFailed(hash, txReceipt)
+    },
   })
+
+  // Sync local pre-confirm view from store (onPreConfirmed can run after await; store may update before setState)
+  useEffect(() => {
+    if (toast?.status === "pre-confirmed") setShowPreConfirmView(true)
+  }, [toast?.status])
 
   // 3. Handle the 6s window for the Pre-Confirmed "Brag" screen
   useEffect(() => {
@@ -119,6 +95,10 @@ export function SwapToast({ hash }: { hash: string }) {
 
   const isPending = toast.status === "pending"
   const isConfirmed = toast.status === "confirmed"
+  const isPreConfirmed = toast.status === "pre-confirmed"
+  // Pre-confirm brag (icon swap, ring, progress bar): show when store is pre-confirmed and in 6s window.
+  // After 6s showPreConfirmView becomes false to dim (label stays).
+  const showPreConfirmBrag = isPreConfirmed && showPreConfirmView
   const explorerUrl = `https://etherscan.io/tx/${hash}`
 
   // Collapsed State: Minimalist bubble
@@ -152,7 +132,7 @@ export function SwapToast({ hash }: { hash: string }) {
           <div
             className={cn(
               "absolute inset-0 transition-all duration-700 cubic-bezier(0.2, 0.8, 0.2, 1)",
-              showPreConfirmView
+              showPreConfirmBrag
                 ? "-translate-x-16 opacity-0 scale-75"
                 : "translate-x-0 opacity-100 scale-100"
             )}
@@ -163,7 +143,7 @@ export function SwapToast({ hash }: { hash: string }) {
           <div
             className={cn(
               "absolute inset-0 transition-all duration-700 cubic-bezier(0.2, 0.8, 0.2, 1)",
-              showPreConfirmView
+              showPreConfirmBrag
                 ? "translate-x-0 opacity-100 scale-100"
                 : "translate-x-16 opacity-0 scale-75"
             )}
@@ -184,7 +164,7 @@ export function SwapToast({ hash }: { hash: string }) {
             <div
               className={cn(
                 "absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out",
-                showPreConfirmView ? "-translate-y-full" : "translate-y-0"
+                isPreConfirmed ? "-translate-y-full" : "translate-y-0"
               )}
             >
               {/* Primary Label (Swapping or Complete) */}
@@ -198,7 +178,7 @@ export function SwapToast({ hash }: { hash: string }) {
             </div>
           </div>
 
-          {/* Amount Subtext: Stable anchoring element */}
+          {/* Amount Subtext */}
           <div className="mt-0.5 text-xs text-neutral-500 tabular-nums">
             {toast.amountIn ?? "—"} {toast.tokenIn?.symbol} → {toast.amountOut ?? "—"}{" "}
             {toast.tokenOut?.symbol}
@@ -220,12 +200,12 @@ export function SwapToast({ hash }: { hash: string }) {
               <X className="h-4 w-4 text-white" />
             </button>
           ) : (
-            <div className="relative h-5 w-5 flex items-center justify-center">
+            <div className="relative h-5 w-5 flex items-center justify-center shrink-0">
               {/* The Spinner - transitions color/glow but doesn't vanish */}
               <div
                 className={cn(
                   "h-5 w-5 rounded-full border-2 border-transparent border-t-white animate-spin transition-all duration-700",
-                  showPreConfirmView && "border-t-blue-400"
+                  showPreConfirmBrag && "border-t-blue-400"
                 )}
               />
 
@@ -233,7 +213,7 @@ export function SwapToast({ hash }: { hash: string }) {
               <div
                 className={cn(
                   "absolute -inset-1 rounded-full border border-blue-400/30 transition-all duration-1000 cubic-bezier(0.16, 1, 0.3, 1) scale-50 opacity-0",
-                  showPreConfirmView && "opacity-100 scale-125"
+                  showPreConfirmBrag && "opacity-100 scale-125"
                 )}
               />
 
@@ -245,7 +225,7 @@ export function SwapToast({ hash }: { hash: string }) {
       </div>
 
       {/* Optional: Subtle progress bar at the bottom for the 6s window */}
-      {showPreConfirmView && (
+      {showPreConfirmBrag && (
         <div
           className="absolute bottom-0 left-0 h-[2px] bg-blue-500 animate-progress-shrink"
           style={{ animationDuration: `${PRE_CONFIRM_DURATION_MS}ms` }}

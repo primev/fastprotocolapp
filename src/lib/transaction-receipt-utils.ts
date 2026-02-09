@@ -12,22 +12,6 @@ const DEFAULT_INTERVAL_MS = 1000
 function convertRpcResponseToReceipt(data: any): TransactionReceipt {
   const result = data.result
 
-  // CRITICAL: If we have a receipt but no block number/hash, this is a malformed receipt
-  // This can happen with failed transactions that never made it into a block
-  if (!result.blockNumber || !result.blockHash) {
-    const status =
-      result.status === "0x0" ? "failed" : result.status === "0x1" ? "success" : "unknown"
-    throw new Error(
-      `Transaction receipt has no block number or block hash (status: ${status}). ` +
-        `This indicates the transaction failed to be included in a block.`
-    )
-  }
-
-  // Additional validation: block number should not be 0x0
-  if (result.blockNumber === "0x0") {
-    throw new Error("Transaction receipt has invalid block number (0x0)")
-  }
-
   return {
     transactionHash: result.transactionHash as `0x${string}`,
     transactionIndex: Number(result.transactionIndex),
@@ -189,6 +173,18 @@ export async function pollDatabaseForReceipt(
 
   console.warn(`[pollDatabaseForReceipt] ⏱️ Max attempts (${maxAttempts}) reached for ${txHash}`)
   return null
+}
+
+/**
+ * Fetches transaction receipt from DB (single request).
+ * Returns receipt with status, or null if not found/pending.
+ * Use this when you need to check receipt.status (e.g. 0x0 = failed).
+ */
+export async function fetchTransactionReceiptFromDb(
+  txHash: string,
+  abortSignal?: AbortSignal
+): Promise<TransactionReceipt | null> {
+  return fetchTransactionReceipt(txHash, abortSignal)
 }
 
 /**

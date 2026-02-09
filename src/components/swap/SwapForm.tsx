@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react"
 import dynamic from "next/dynamic"
 import { useAccount } from "wagmi"
+import { useSwapToastStore } from "@/stores/swapToastStore"
 import { formatBalance } from "@/lib/utils"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
@@ -32,6 +33,12 @@ export function SwapForm() {
     !(form.fromToken.address === ZERO_ADDRESS && form.toToken.address !== WETH_ADDRESS)
 
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
+  const lastTxError = useSwapToastStore((s) => s.lastTxError)
+
+  // Reopen confirmation modal when a tx fails after submit (e.g. status 0x0)
+  useEffect(() => {
+    if (lastTxError) setIsConfirmationOpen(true)
+  }, [lastTxError])
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isFromSelectorOpen, setIsFromSelectorOpen] = useState(false)
   const [isToSelectorOpen, setIsToSelectorOpen] = useState(false)
@@ -216,6 +223,7 @@ export function SwapForm() {
           approvalTxHash={form.approvalTxHash}
           onApprove={form.approvePermit2}
           approveTokenSymbol={form.approveTokenSymbol}
+          externalError={lastTxError}
         />
       )}
     </div>

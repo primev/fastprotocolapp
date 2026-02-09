@@ -2,7 +2,26 @@
  * transaction-errors.ts
  */
 
+import type { TransactionReceipt } from "viem"
+
 const MAX_SHORT_MESSAGE_LENGTH = 80
+
+/**
+ * Error for failed transactions (status 0x0).
+ * The receipt is attached as cause for extended error details.
+ */
+export class RPCError extends Error {
+  constructor(
+    message: string,
+    public readonly receipt?: TransactionReceipt
+  ) {
+    super(message)
+    this.name = "RPCError"
+    if (receipt) {
+      this.cause = receipt
+    }
+  }
+}
 
 /**
  * Shared logic to map complex error strings to human-readable summaries.

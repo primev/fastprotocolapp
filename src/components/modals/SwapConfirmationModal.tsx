@@ -34,6 +34,7 @@ import {
   getTransactionErrorTitle,
   getTransactionFullMessage,
   getTransactionShortMessage,
+  RPCError,
 } from "@/lib/transaction-errors"
 import { useAccount } from "wagmi"
 import { mainnet } from "wagmi/chains"
@@ -80,7 +81,7 @@ interface SwapConfirmationModalProps {
   timeLeft?: number
   isLoading?: boolean
   refreshBalances?: () => Promise<void>
-  /** Called when the user closes the modal after a successful transaction. Use to reset parent form state. */
+  /** Called when DB has success receipt (pre-confirmation). Use to reset parent form state. */
   onCloseAfterSuccess?: () => void
   setClearSwapState: (clear: boolean) => void
   /** Permit2 approval state (Permit path only) */
@@ -92,6 +93,8 @@ interface SwapConfirmationModalProps {
   approvalTxHash?: string
   onApprove?: () => void
   approveTokenSymbol?: string
+  /** Error from a failed tx after submit (e.g. status 0x0). Shows error modal. */
+  externalError?: { message: string; receipt?: unknown } | null
 }
 
 interface InfoRowProps {
@@ -189,6 +192,7 @@ function SwapConfirmationModal({
   approvalTxHash,
   onApprove,
   approveTokenSymbol,
+  externalError,
 }: SwapConfirmationModalProps) {
   // --- EXTERNAL HOOKS ---
   const { chain: signerChain, isConnected } = useAccount()
@@ -252,6 +256,11 @@ function SwapConfirmationModal({
 
   const [isExpanded, setIsExpanded] = useState(false)
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false)
+
+  // Auto-open error modal when externalError (e.g. failed tx) is set
+  useEffect(() => {
+    if (externalError) setIsErrorModalOpen(true)
+  }, [externalError])
   const [hasCopied, setHasCopied] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
   const [isApprovalInProgress, setIsApprovalInProgress] = useState(false)
@@ -297,9 +306,12 @@ function SwapConfirmationModal({
     return (base * GAS_LIMIT_MULTIPLIER) / 100n
   }, [isWrap, isUnwrap, wethGasEstimate, ethPathGasEstimate, gasEstimate])
 
+  const clearLastTxError = useSwapToastStore((s) => s.clearLastTxError)
+
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
       resetAllStates()
+      clearLastTxError()
     }
     onOpenChange(isOpen)
   }
@@ -308,11 +320,18 @@ function SwapConfirmationModal({
     setIsConfirming(true)
     try {
       const hash = isWrap ? await wrap() : isUnwrap ? await unwrap() : await confirmSwap()
-      addToast(hash, tokenIn, tokenOut, amountIn, amountOut, () => {
-        setClearSwapState(true)
-        if (refreshBalances) setTimeout(() => refreshBalances(), 1000)
-      })
-      onCloseAfterSuccess?.()
+      addToast(
+        hash,
+        tokenIn,
+        tokenOut,
+        amountIn,
+        amountOut,
+        () => {
+          setClearSwapState(true)
+          if (refreshBalances) setTimeout(() => refreshBalances(), 1000)
+        },
+        onCloseAfterSuccess
+      )
       onOpenChange(false)
     } catch {
       // Error is set by hooks (wrapError/swapError); ERROR VIEW shows with "View Error Details" / "Try Again"
@@ -382,7 +401,12 @@ function SwapConfirmationModal({
     return num * toTokenPrice
   }, [amountOut, toTokenPrice])
 
-  const activeError = wrapError || swapError
+  const activeError = externalError
+    ? new RPCError(
+        externalError.message,
+        externalError.receipt as import("viem").TransactionReceipt | undefined
+      )
+    : wrapError || swapError
 
   const errorTitle = useMemo(
     () => getTransactionErrorTitle(activeError, operationType),
