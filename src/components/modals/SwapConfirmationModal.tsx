@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useCallback, useState } from "react"
+import React, { useEffect, useMemo, useCallback, useState, useRef } from "react"
 import NumberFlow from "@number-flow/react"
 import {
   Dialog,
@@ -88,6 +88,10 @@ interface SwapConfirmationModalProps {
   /** Permit2 approval state (Permit path only) */
   needsPermit2Approval?: boolean
   isApproving?: boolean
+  /** True when user rejected/cancelled the approval in wallet */
+  isApprovalRejected?: boolean
+  /** Set when approval tx is submitted; distinguishes "Confirm in wallet" vs "Approving..." */
+  approvalTxHash?: string
   onApprove?: () => void
   approveTokenSymbol?: string
 }
@@ -184,6 +188,8 @@ function SwapConfirmationModal({
   setClearSwapState,
   needsPermit2Approval = false,
   isApproving = false,
+  isApprovalRejected = false,
+  approvalTxHash,
   onApprove,
   approveTokenSymbol,
 }: SwapConfirmationModalProps) {
@@ -252,11 +258,19 @@ function SwapConfirmationModal({
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false)
   const [hasCopied, setHasCopied] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
+  const [isApprovalInProgress, setIsApprovalInProgress] = useState(false)
+  const [isAutoSwappingAfterApproval, setIsAutoSwappingAfterApproval] = useState(false)
+  const prevNeedsApprovalRef = useRef(needsPermit2Approval)
 
   // Reset accordion when modal closes so it starts collapsed on next open
   useEffect(() => {
     if (!open) setIsExpanded(false)
   }, [open])
+
+  // When user cancels approval in wallet, reset so they can try again
+  useEffect(() => {
+    if (isApprovalRejected) setIsApprovalInProgress(false)
+  }, [isApprovalRejected])
 
   const operationType = isWrap ? "wrap" : isUnwrap ? "unwrap" : "swap"
   const impactSeverity = useMemo(
@@ -272,6 +286,8 @@ function SwapConfirmationModal({
     if (resetWrap) resetWrap()
     if (resetSwap) resetSwap()
     setIsErrorModalOpen(false)
+    setIsApprovalInProgress(false)
+    setIsAutoSwappingAfterApproval(false)
   }, [resetWrap, resetSwap])
 
   const activeGasEstimate = useMemo(() => {
@@ -292,12 +308,7 @@ function SwapConfirmationModal({
     onOpenChange(isOpen)
   }
 
-  const handleConfirm = useCallback(async () => {
-    // Approve: modal-only, NO toast (Uniswap pattern — avoids stacked approve + swap toasts)
-    if (intentPath && needsPermit2Approval && onApprove) {
-      await onApprove()
-      return
-    }
+  const executeSwap = useCallback(async () => {
     setIsConfirming(true)
     try {
       const hash = isWrap ? await wrap() : isUnwrap ? await unwrap() : await confirmSwap()
@@ -311,11 +322,9 @@ function SwapConfirmationModal({
       // Error is set by hooks (wrapError/swapError); ERROR VIEW shows with "View Error Details" / "Try Again"
     } finally {
       setIsConfirming(false)
+      setIsAutoSwappingAfterApproval(false)
     }
   }, [
-    intentPath,
-    needsPermit2Approval,
-    onApprove,
     isWrap,
     isUnwrap,
     wrap,
@@ -331,6 +340,28 @@ function SwapConfirmationModal({
     onCloseAfterSuccess,
     onOpenChange,
   ])
+
+  const handleConfirm = useCallback(async () => {
+    // Approve: modal-only, NO toast (Uniswap pattern — avoids stacked approve + swap toasts)
+    if (intentPath && needsPermit2Approval && onApprove) {
+      setIsApprovalInProgress(true)
+      await onApprove()
+      return
+    }
+    executeSwap()
+  }, [intentPath, needsPermit2Approval, onApprove, executeSwap])
+
+  // When approval completes, auto-trigger swap (intent signature) so user doesn't have to click again
+  useEffect(() => {
+    const prev = prevNeedsApprovalRef.current
+    prevNeedsApprovalRef.current = needsPermit2Approval
+
+    if (prev && !needsPermit2Approval && intentPath && isApprovalInProgress) {
+      setIsAutoSwappingAfterApproval(true)
+      executeSwap()
+    }
+    if (!needsPermit2Approval) setIsApprovalInProgress(false)
+  }, [needsPermit2Approval, intentPath, isApprovalInProgress, executeSwap])
 
   const gasCostUsd = useMemo(() => {
     // Prefer Barter's pre-computed transactionFee when available (for Barter swaps)
@@ -383,6 +414,62 @@ function SwapConfirmationModal({
     () => isStablecoin(tokenOut?.address ?? "", tokenOut?.symbol),
     [tokenOut?.address, tokenOut?.symbol]
   )
+
+  /**
+   * CTA button state for all swap flows.
+   * Handles: approval → auto-swap, intent signing, wrap/unwrap, ETH path, connect prompt, high impact.
+   */
+  const ctaState = useMemo(() => {
+    const isApprovalFlow = intentPath && needsPermit2Approval
+    const isApprovalActive = isApprovalFlow && (isApproving || isApprovalInProgress)
+    const isSwapFlow = intentPath && !needsPermit2Approval
+    const isSwapActive =
+      isSwapFlow && (isSigning || isSubmitting || isConfirming || isAutoSwappingAfterApproval)
+
+    // Disabled when: loading, wrong network, or wallet action in progress
+    const disabled =
+      isLoading ||
+      isConfirming ||
+      !isEthereumMainnet ||
+      (intentPath && isNonceLoading) ||
+      isApprovalActive ||
+      isSwapActive
+
+    // Label and spinner for each state (priority order)
+    // Approval: "Confirm in wallet" (wallet open, no hash yet) → "Approving..." (tx submitted, hash set)
+    if (isLoading) return { label: "Fetching...", disabled, showSpinner: true }
+    if (intentPath && isNonceLoading)
+      return { label: "Initializing...", disabled, showSpinner: true }
+    if (isApprovalActive && approvalTxHash)
+      return { label: "Approving...", disabled, showSpinner: true }
+    if (isApprovalActive) return { label: "Confirm in wallet", disabled, showSpinner: true }
+    if (isSigning || isAutoSwappingAfterApproval)
+      return { label: "Confirm in wallet", disabled, showSpinner: true }
+    if (isSubmitting) return { label: "Submitting...", disabled, showSpinner: true }
+    if (isConfirming) return { label: "Confirming...", disabled, showSpinner: true }
+    if (isApprovalFlow) return { label: "Approve & Swap", disabled, showSpinner: false }
+    if (!isEthereumMainnet) return { label: "Connect to Ethereum", disabled, showSpinner: false }
+    if (!isWrap && !isUnwrap && impactSeverity === "high")
+      return { label: "Swap Anyway", disabled, showSpinner: false }
+    return { label: `Confirm ${operationType}`, disabled, showSpinner: false }
+  }, [
+    intentPath,
+    needsPermit2Approval,
+    isApproving,
+    isApprovalInProgress,
+    approvalTxHash,
+    isSigning,
+    isSubmitting,
+    isConfirming,
+    isAutoSwappingAfterApproval,
+    isLoading,
+    isNonceLoading,
+    isEthereumMainnet,
+    isWrap,
+    isUnwrap,
+    impactSeverity,
+    operationType,
+  ])
 
   return (
     <>
@@ -731,47 +818,23 @@ function SwapConfirmationModal({
               <div className="p-5 sm:p-6">
                 <button
                   onClick={handleConfirm}
-                  disabled={
-                    isLoading ||
-                    isConfirming ||
-                    !isEthereumMainnet ||
-                    (intentPath && isNonceLoading) ||
-                    (intentPath && needsPermit2Approval && isApproving)
-                  }
+                  disabled={ctaState.disabled}
                   className={cn(
-                    "w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg transition-all active:scale-[0.98]",
-                    !isEthereumMainnet
+                    "w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg transition-all",
+                    ctaState.disabled || !isEthereumMainnet
                       ? "bg-white/10 text-gray-500 cursor-not-allowed"
                       : !isWrap && !isUnwrap && impactSeverity === "high"
-                        ? "bg-red-500 text-white hover:bg-red-500/90"
-                        : "bg-[#3898FF] text-white hover:bg-[#3898FF]/90"
+                        ? "bg-red-500 text-white hover:bg-red-500/90 active:scale-[0.98]"
+                        : "bg-[#3898FF] text-white hover:bg-[#3898FF]/90 active:scale-[0.98]"
                   )}
                 >
-                  {isLoading || isConfirming ? (
+                  {ctaState.showSpinner ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      {isLoading ? "Fetching..." : "Confirming..."}
+                      {ctaState.label}
                     </span>
-                  ) : intentPath && isNonceLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Initializing...
-                    </span>
-                  ) : intentPath && needsPermit2Approval && isApproving ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Approving...
-                    </span>
-                  ) : intentPath && needsPermit2Approval ? (
-                    "Approve & Swap"
-                  ) : !isEthereumMainnet ? (
-                    "Connect to Ethereum"
-                  ) : !isWrap && !isUnwrap && impactSeverity === "high" ? (
-                    "Swap Anyway"
-                  ) : intentPath ? (
-                    "Approve & Swap"
                   ) : (
-                    `Confirm ${operationType}`
+                    ctaState.label
                   )}
                 </button>
               </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import { parseUnits, maxUint256 } from "viem"
 import { mainnet } from "wagmi/chains"
@@ -36,11 +36,7 @@ export function usePermit2Allowance({
     }
   }, [amount, token])
 
-  const {
-    data: allowance,
-    isLoading: isLoadingAllowance,
-    refetch: refetchAllowance,
-  } = useReadContract({
+  const { data: allowance, isLoading: isLoadingAllowance } = useReadContract({
     address: token?.address as `0x${string}` | undefined,
     abi: ERC20_APPROVE_ABI,
     functionName: "allowance",
@@ -59,12 +55,28 @@ export function usePermit2Allowance({
     writeContract,
     data: hash,
     isPending: isApproving,
+    isError: isApprovalError,
     reset: resetWrite,
   } = useWriteContract()
 
   const { data: receipt } = useWaitForTransactionReceipt({
     hash: hash ?? undefined,
   })
+
+  const [justApproved, setJustApproved] = useState(false)
+
+  // Receipt is confirmation — no need to refetch allowance
+  useEffect(() => {
+    if (receipt && hash) {
+      setJustApproved(true)
+      resetWrite()
+    }
+  }, [receipt, hash, resetWrite])
+
+  // Reset only when token changes (new token needs its own approval). Amount changes don't matter — we approve maxUint256.
+  useEffect(() => {
+    setJustApproved(false)
+  }, [token?.address])
 
   const approve = useCallback(() => {
     if (!token || !owner) return
@@ -78,21 +90,21 @@ export function usePermit2Allowance({
     })
   }, [token, owner, writeContract])
 
-  useEffect(() => {
-    if (receipt && hash) {
-      refetchAllowance()
-      resetWrite()
-    }
-  }, [receipt, hash, refetchAllowance, resetWrite])
-
   const needsApproval =
-    enabled && !!token && !!owner && allowance !== undefined && allowance < amountInWei
+    !justApproved &&
+    enabled &&
+    !!token &&
+    !!owner &&
+    allowance !== undefined &&
+    allowance < amountInWei
 
   return {
     needsApproval: !!needsApproval,
     isLoading: isLoadingAllowance,
     approve,
     isApproving,
-    refetchAllowance,
+    isApprovalRejected: !!isApprovalError,
+    /** Set when user has signed; use to distinguish "Confirm in wallet" vs "Approving..." */
+    approvalTxHash: hash ?? undefined,
   }
 }

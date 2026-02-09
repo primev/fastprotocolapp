@@ -213,6 +213,8 @@ export function SwapForm() {
           setClearSwapState={form.setClearSwapState}
           needsPermit2Approval={form.needsPermit2Approval}
           isApproving={form.isApproving}
+          isApprovalRejected={form.isApprovalRejected}
+          approvalTxHash={form.approvalTxHash}
           onApprove={form.approvePermit2}
           approveTokenSymbol={form.approveTokenSymbol}
         />

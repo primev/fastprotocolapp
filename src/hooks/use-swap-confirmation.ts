@@ -17,7 +17,6 @@ import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
-import { FASTSWAP_API_BASE } from "@/lib/network-config"
 import { fetchBarterRoute } from "@/lib/barter-api"
 import { fetchEthPathTxAndEstimate } from "@/lib/eth-path-tx"
 import type { Token } from "@/types/swap"
@@ -270,21 +269,10 @@ export function useSwapConfirmation({
       deadline: intentData.intent.deadline.toString(),
       nonce: intentData.intent.nonce.toString(),
       signature: intentData.signature,
+      slippage: (parseFloat(slippage || "0.5") || 0.5).toFixed(1),
     }
 
-    // {
-    //   "user": "0xUserAddress",
-    //   "inputToken": "0xUSDC...",
-    //   "outputToken": "0xWETH...",
-    //   "inputAmt": 1000000000,
-    //   "userAmtOut": 500000000000000000,
-    //   "recipient": "0xRecipientAddress",
-    //   "deadline": 1700000000,
-    //   "nonce": 1,
-    //   "signature": "0x..."
-    // }
-
-    const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap`, {
+    const resp = await fetch("/api/fastswap", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

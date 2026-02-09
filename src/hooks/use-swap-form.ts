@@ -434,6 +434,8 @@ export function useSwapForm(allTokens: Token[]) {
     isPermitPath,
     needsPermit2Approval: isPermitPath ? permit2Allowance.needsApproval : false,
     isApproving: isPermitPath ? permit2Allowance.isApproving : false,
+    isApprovalRejected: isPermitPath ? permit2Allowance.isApprovalRejected : false,
+    approvalTxHash: isPermitPath ? permit2Allowance.approvalTxHash : undefined,
     approvePermit2: permit2Allowance.approve,
     isApprovalLoading: isPermitPath ? permit2Allowance.isLoading : false,
     approveTokenSymbol: fromToken?.symbol,
