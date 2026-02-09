@@ -426,7 +426,6 @@ export function useSwapForm(allTokens: Token[]) {
     setSwappedQuote,
     hasNoLiquidity,
     gasEstimate: isWrapUnwrap ? wrapUnwrapGasEstimate : (displayQuote?.gasEstimate ?? null),
-    transactionFeeWei: displayQuote?.transactionFeeWei ?? null,
     ethPrice: ethPrice ?? null,
     setClearSwapState,
     ...wrapContext,

@@ -7,8 +7,6 @@ import { RPC_ENDPOINT, FALLBACK_RPC_ENDPOINT } from "@/lib/network-config"
 import { sanitizeAmountInput, formatTokenAmount } from "@/lib/utils"
 import { isStablecoin } from "@/lib/stablecoins"
 import { resolveTokenAddress, resolveTokenDecimals, getTokenSymbol } from "@/lib/token-resolver"
-import { isWrapUnwrapPair } from "@/lib/weth-utils"
-import { fetchBarterRoute } from "@/lib/barter-api"
 import type { Token } from "@/types/swap"
 
 // Uniswap V3 Quoter V2 on Ethereum mainnet
@@ -240,8 +238,6 @@ export interface QuoteResult {
   exchangeRate: number
   gasEstimate: bigint
   fee: number // fee tier used
-  /** Pre-computed gas cost in wei from Barter (when available). Used for Network cost display. */
-  transactionFeeWei?: string
 }
 
 export type TradeType = "exactIn" | "exactOut"
@@ -534,22 +530,6 @@ export function useQuote({
       return
     }
 
-    // Barter only supports exactIn. Reject exactOut for non-wrap/unwrap.
-    const isWrapUnwrap = isWrapUnwrapPair(currentTokenIn, currentTokenOut)
-    if (!isWrapUnwrap && currentTradeType === "exactOut") {
-      if (currentRequestId === requestIdRef.current) {
-        setNoLiquidity(true)
-        setQuote(null)
-        setError(
-          new Error(
-            "Barter only supports specifying the sell amount. Enter the amount you want to sell."
-          )
-        )
-        setIsLoading(false)
-      }
-      return
-    }
-
     // Only proceed if this is still the latest request
     if (currentRequestId !== requestIdRef.current) {
       return
@@ -578,54 +558,27 @@ export function useQuote({
         fee: number
       } | null = null
 
-      if (isWrapUnwrap) {
-        // Wrap/unwrap (ETH ↔ WETH): use Uniswap, apply slippage to output
-        const clients = [createClient(FALLBACK_RPC_ENDPOINT)]
-        let workingClient = clients[0]
-        for (const client of clients) {
-          try {
-            const quote = await getBestQuoteFromFeeTiers(
-              client,
-              tokenInAddress,
-              tokenOutAddress,
-              currentAmountIn,
-              currentTradeType,
-              tokenInDecimals,
-              tokenOutDecimals
-            )
-            if (quote) {
-              bestQuote = quote
-              workingClient = client
-              break
-            }
-          } catch (clientError) {
-            console.warn("RPC client error, trying next:", clientError)
-          }
-        }
-      } else {
-        // All other swaps: use Barter API, apply slippage to output
+      // All swaps: use Uniswap V3 Quoter
+      const clients = [createClient(FALLBACK_RPC_ENDPOINT)]
+      let workingClient = clients[0]
+      for (const client of clients) {
         try {
-          const amountInWei = parseUnits(currentAmountIn, tokenInDecimals)
-          const sellAmount = amountInWei.toString()
-          const { outputAmount, gasEstimation, transactionFee } = await fetchBarterRoute(
+          const quote = await getBestQuoteFromFeeTiers(
+            client,
             tokenInAddress,
             tokenOutAddress,
-            sellAmount
+            currentAmountIn,
+            currentTradeType,
+            tokenInDecimals,
+            tokenOutDecimals
           )
-          bestQuote = {
-            amountOut: BigInt(outputAmount),
-            amountIn: amountInWei,
-            gasEstimate: BigInt(gasEstimation),
-            fee: 0,
-            ...(transactionFee != null && { transactionFeeWei: transactionFee }),
+          if (quote) {
+            bestQuote = quote
+            workingClient = client
+            break
           }
-        } catch (barterError) {
-          if (currentRequestId === requestIdRef.current) {
-            setNoLiquidity(true)
-            setQuote(null)
-            setError(barterError instanceof Error ? barterError : new Error(String(barterError)))
-          }
-          return
+        } catch (clientError) {
+          console.warn("RPC client error, trying next:", clientError)
         }
       }
 
@@ -702,40 +655,34 @@ export function useQuote({
       // Calculate exchange rate
       const exchangeRate = amountOutNum / amountInNum
 
-      // Calculate price impact
+      // Calculate price impact by comparing execution price to spot price
       let priceImpact = 0
-      if (isWrapUnwrap) {
-        try {
-          const clients = [createClient(FALLBACK_RPC_ENDPOINT)]
-          const spotAmountIn = parseUnits("0.000001", tokenInDecimals)
-          const spotResult = await clients[0].simulateContract({
-            address: QUOTER_V2_ADDRESS,
-            abi: QUOTER_ABI,
-            functionName: "quoteExactInputSingle",
-            args: [
-              {
-                tokenIn: tokenInAddress,
-                tokenOut: tokenOutAddress,
-                amountIn: spotAmountIn,
-                fee: bestQuote.fee,
-                sqrtPriceLimitX96: BigInt(0),
-              },
-            ],
-          })
-          const [spotAmountOut] = spotResult.result as [bigint, bigint, number, bigint]
-          const spotAmountOutNum = parseFloat(formatUnits(spotAmountOut, tokenOutDecimals))
-          const spotAmountInNum = parseFloat(formatUnits(spotAmountIn, tokenInDecimals))
-          const spotPrice = spotAmountOutNum / spotAmountInNum
-          if (spotPrice > 0) {
-            priceImpact = ((exchangeRate - spotPrice) / spotPrice) * 100
-          }
-        } catch (spotError) {
-          const tradeAmount = currentTradeType === "exactIn" ? amountInNum : amountOutNum
-          priceImpact = -0.01 * Math.log10(tradeAmount + 1)
+      try {
+        const spotAmountIn = parseUnits("0.000001", tokenInDecimals)
+        const spotResult = await workingClient.simulateContract({
+          address: QUOTER_V2_ADDRESS,
+          abi: QUOTER_ABI,
+          functionName: "quoteExactInputSingle",
+          args: [
+            {
+              tokenIn: tokenInAddress,
+              tokenOut: tokenOutAddress,
+              amountIn: spotAmountIn,
+              fee: bestQuote.fee,
+              sqrtPriceLimitX96: BigInt(0),
+            },
+          ],
+        })
+        const [spotAmountOut] = spotResult.result as [bigint, bigint, number, bigint]
+        const spotAmountOutNum = parseFloat(formatUnits(spotAmountOut, tokenOutDecimals))
+        const spotAmountInNum = parseFloat(formatUnits(spotAmountIn, tokenInDecimals))
+        const spotPrice = spotAmountOutNum / spotAmountInNum
+        if (spotPrice > 0) {
+          priceImpact = ((exchangeRate - spotPrice) / spotPrice) * 100
         }
-      } else {
-        // Barter: simplified estimate (no spot price from Barter)
-        priceImpact = Math.max(-0.01 * Math.log10(amountInNum + 1), -50)
+      } catch (spotError) {
+        const tradeAmount = currentTradeType === "exactIn" ? amountInNum : amountOutNum
+        priceImpact = -0.01 * Math.log10(tradeAmount + 1)
       }
 
       priceImpact = Math.max(Math.min(priceImpact, 0), -50)
@@ -753,10 +700,6 @@ export function useQuote({
         exchangeRate,
         gasEstimate: bestQuote.gasEstimate,
         fee: bestQuote.fee,
-        ...("transactionFeeWei" in bestQuote &&
-          bestQuote.transactionFeeWei != null && {
-            transactionFeeWei: bestQuote.transactionFeeWei as string,
-          }),
       }
 
       // Only set quote if this is still the latest request

@@ -17,7 +17,6 @@ import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
-import { fetchBarterRoute } from "@/lib/barter-api"
 import { fetchEthPathTxAndEstimate } from "@/lib/eth-path-tx"
 import type { Token } from "@/types/swap"
 
@@ -147,12 +146,13 @@ export function useSwapConfirmation({
         : (toToken.address as `0x${string}`)
 
     try {
-      const { outputAmount } = await fetchBarterRoute(source, target, inputAmtWei)
-      const slippageBps = BigInt(Math.floor(parseFloat(slippage || "0.5") * 100))
-      const userAmtOutWei = (
-        (BigInt(outputAmount) * (BigInt(10000) - slippageBps)) /
-        BigInt(10000)
-      ).toString()
+      // Use minAmountOut from Uniswap quote (already has slippage applied)
+      const minAmountClean = minAmountOut?.replace(/,/g, "").trim()
+      if (!minAmountClean || parseFloat(minAmountClean) <= 0) {
+        throw new Error("Invalid minimum output amount")
+      }
+      const userAmtOutWei = parseUnits(minAmountClean, toToken.decimals).toString()
+
       if (fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS) {
         return await executeEthPath(inputAmtWei, userAmtOutWei)
       } else {
@@ -168,6 +168,7 @@ export function useSwapConfirmation({
     fromToken,
     toToken,
     amount,
+    minAmountOut,
     slippage,
     deadline,
     handleSwapError,
@@ -211,8 +212,8 @@ export function useSwapConfirmation({
       const apiError = err instanceof Error ? err.message : "FastSwap API error"
       let errorMessage = apiError
       console.log("apiError", apiError)
-      if (apiError.toLowerCase().includes("barter api error")) {
-        errorMessage += `\n\nContext:\nInput token: ${fromToken.symbol} (${fromToken.address})\nOutput token: ${toToken.symbol} (${toToken.address})\nSlippage: ${slippage}\nMinimun Output: ${userAmtOutWei}\nDeadline (minutes): ${deadline}`
+      if (apiError.toLowerCase().includes("api error")) {
+        errorMessage += `\n\nContext:\nInput token: ${fromToken.symbol} (${fromToken.address})\nOutput token: ${toToken.symbol} (${toToken.address})\nSlippage: ${slippage}\nMinimum Output: ${userAmtOutWei}\nDeadline (minutes): ${deadline}`
       }
       throw new Error(errorMessage)
     }
