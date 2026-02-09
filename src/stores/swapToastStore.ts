@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import type { Token } from "@/types/swap"
 
-export type SwapToastStatus = "pending" | "confirmed"
+export type SwapToastStatus = "pending" | "pre-confirmed" | "confirmed"
 
 export type SwapToast = {
   hash: string
@@ -58,7 +58,9 @@ export const useSwapToastStore = create<Store>((set) => ({
   collapse: (hash) =>
     set((s) => ({
       toasts: s.toasts.map((t) =>
-        t.hash === hash && t.status === "pending" ? { ...t, collapsed: true } : t
+        t.hash === hash && (t.status === "pending" || t.status === "pre-confirmed")
+          ? { ...t, collapsed: true }
+          : t
       ),
     })),
 

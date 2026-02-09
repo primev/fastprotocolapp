@@ -19,6 +19,8 @@ export interface UseWaitForTxConfirmationParams {
   receipt: TransactionReceipt | undefined
   mode: WaitForTxConfirmationMode
   onConfirmed: (result: TxConfirmationResult) => void
+  /** Called when DB finds receipt first (before on-chain). Wagmi continues waiting for on-chain confirmation. */
+  onPreConfirmed?: (result: TxConfirmationResult) => void
   onError?: (error: Error) => void
 }
 
@@ -37,6 +39,7 @@ export function useWaitForTxConfirmation({
   receipt,
   mode,
   onConfirmed,
+  onPreConfirmed,
   onError,
 }: UseWaitForTxConfirmationParams): UseWaitForTxConfirmationReturn {
   const [error, setError] = useState<Error | null>(null)
@@ -48,12 +51,14 @@ export function useWaitForTxConfirmation({
 
   // Refs to ensure callbacks stay fresh without re-triggering effects
   const onConfirmedRef = useRef(onConfirmed)
+  const onPreConfirmedRef = useRef(onPreConfirmed)
   const onErrorRef = useRef(onError)
 
   useEffect(() => {
     onConfirmedRef.current = onConfirmed
+    onPreConfirmedRef.current = onPreConfirmed
     onErrorRef.current = onError
-  }, [onConfirmed, onError])
+  }, [onConfirmed, onPreConfirmed, onError])
 
   const reset = useCallback(() => {
     setIsConfirmed(false)
@@ -114,14 +119,11 @@ export function useWaitForTxConfirmation({
             if (dbStatus) result = { source: "db", status: dbStatus }
           }
 
-          // If a result is found and we haven't already confirmed via Wagmi
+          // If DB finds result: call onPreConfirmed (do not set hasConfirmedRef; Wagmi continues waiting)
           if (result && !hasConfirmedRef.current) {
-            hasConfirmedRef.current = true
-            setIsConfirmed(true)
             abortController.abort()
-
             try {
-              onConfirmedRef.current(result)
+              onPreConfirmedRef.current?.(result)
             } catch (err) {
               const e = err instanceof Error ? err : new Error(String(err))
               setError(e)
