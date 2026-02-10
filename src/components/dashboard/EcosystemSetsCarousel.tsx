@@ -15,6 +15,11 @@ const CHAIN_NAMES: Record<number, string> = {
   [CHAIN_HYPERLIQUID]: "Hyperliquid",
 }
 
+const CHAIN_LOGOS: Record<number, string> = {
+  [CHAIN_ETH]: "/assets/ethereum-logo.png",
+  [CHAIN_HYPERLIQUID]: "/assets/hyperliquid-logo.png",
+}
+
 const fetchUserActivity = async (walletAddress: string): Promise<Record<string, boolean>> => {
   const res = await fetch(`/api/user-community-activity/${walletAddress}`)
   if (!res.ok) return {}
@@ -43,8 +48,6 @@ export const EcosystemSetCarousel = () => {
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [manualLoadingId, setManualLoadingId] = useState<string | null>(null)
 
-  // VERBOSE: Initializing arrow state. In loop mode, these will mostly stay true
-  // unless the content is too small to scroll.
   const [canScrollPrev, setCanScrollPrev] = useState(false)
   const [canScrollNext, setCanScrollNext] = useState(false)
 
@@ -57,8 +60,8 @@ export const EcosystemSetCarousel = () => {
   const markAsVerified = useCallback(
     (id: string, chainId: number | null) => {
       if (!userAddress) return
-      saveUserActivity(userAddress, id, true, chainId).catch(() => {
-        // Verbose: error handling
+      saveUserActivity(userAddress, id, true, chainId).catch((err) => {
+        console.error("Save activity failed:", err)
       })
     },
     [userAddress]
@@ -77,18 +80,6 @@ export const EcosystemSetCarousel = () => {
     }))
   }, [userAddress, manualLoadingId])
 
-  // Log what is being checked when verification runs
-  useEffect(() => {
-    if (!manualLoadingId || !userAddress) return
-    const set = ECOSYSTEM_SETS.find((s) => s.id === manualLoadingId)
-    if (!set) return
-    const chainName = (id: number) => CHAIN_NAMES[id] ?? `Chain ${id}`
-    console.log(`[Verify Assets] Checking "${set.name.replace(/\n/g, " ")}" for ${userAddress}:`)
-    set.contracts.forEach((c) => {
-      console.log(`  → ${chainName(c.chainId)} | ${c.address} (${c.label})`)
-    })
-  }, [manualLoadingId, userAddress])
-
   const { data: blockchainData } = useReadContracts({
     contracts,
     query: { enabled: isConnected && !!userAddress && !!manualLoadingId },
@@ -106,13 +97,12 @@ export const EcosystemSetCarousel = () => {
   }, [])
 
   useEffect(() => {
-    if (!isConnected) {
+    if (!isConnected || !userAddress) {
       setVerifiedSets({})
       setFailedSets({})
       setManualLoadingId(null)
       return
     }
-    if (!userAddress) return
     fetchUserActivity(userAddress)
       .then((activities) => {
         const fromApi: Record<string, boolean> = {}
@@ -166,11 +156,9 @@ export const EcosystemSetCarousel = () => {
     setManualLoadingId(id)
   }
 
-  // If we have 5 cards and the screen only fits 3, scrolling is active.
   useEffect(() => {
     if (!emblaApi) return
     const updateScrollState = () => {
-      // In loop mode, these return true if there's enough content to scroll.
       setCanScrollPrev(emblaApi.canScrollPrev())
       setCanScrollNext(emblaApi.canScrollNext())
     }
@@ -182,8 +170,6 @@ export const EcosystemSetCarousel = () => {
       emblaApi.off("reInit", updateScrollState)
     }
   }, [emblaApi])
-
-  const fitsContainer = !canScrollPrev && !canScrollNext
 
   return (
     <div className="bg-card/50 p-6 rounded-xl border border-border/50 text-foreground max-w-5xl mx-auto shadow-2xl font-sans relative">
@@ -220,11 +206,12 @@ export const EcosystemSetCarousel = () => {
 
       <div className="relative group">
         <div className="overflow-hidden" ref={emblaRef}>
-          <div className={`flex ml-[-12px] justify-start`}>
+          <div className="flex ml-[-12px] justify-start">
             {ECOSYSTEM_SETS.map((set) => {
               const isVerified = !!verifiedSets[set.id]
               const isVerifying = manualLoadingId === set.id
               const isFailed = !!failedSets[set.id]
+              const activeChainId = set.contracts[0]?.chainId
 
               return (
                 <div
@@ -232,12 +219,12 @@ export const EcosystemSetCarousel = () => {
                   className={`flex-[0_0_182px] min-w-0 pl-3 ${isFailed ? "animate-shake" : ""}`}
                 >
                   <div
-                    className={`bg-[#161d26] border rounded-xl p-4 flex flex-col items-center h-[210px] transition-all duration-500 
+                    className={`bg-[#161d26] border rounded-xl p-5 flex flex-col items-center h-[220px] transition-all duration-500 relative overflow-hidden
                     ${
                       isVerified
-                        ? "border-blue-500/40 shadow-lg shadow-blue-500/5"
+                        ? "border-blue-500/30 shadow-lg shadow-blue-500/5"
                         : isFailed
-                          ? "border-red-500/50 shadow-lg shadow-red-500/5"
+                          ? "border-red-500/40"
                           : "border-white/5"
                     }`}
                   >
@@ -249,34 +236,70 @@ export const EcosystemSetCarousel = () => {
                       </div>
                     ) : (
                       <>
-                        <div className="relative mb-6">
+                        {activeChainId && (
+                          <div className="absolute -bottom-4 -right-4 w-32 h-32 pointer-events-none select-none">
+                            <img
+                              src={CHAIN_LOGOS[activeChainId]}
+                              alt=""
+                              className="w-full h-full object-contain rotate-[15deg] transition-all duration-1000 ease-out"
+                              style={{
+                                opacity: "0.08",
+                                filter: "grayscale(100%) brightness(150%)",
+                                maskImage:
+                                  "radial-gradient(circle at center, black, transparent 80%)",
+                                WebkitMaskImage:
+                                  "radial-gradient(circle at center, black, transparent 80%)",
+                              }}
+                            />
+                          </div>
+                        )}
+
+                        <div className="relative mb-5 z-10">
+                          {/* Main Asset Circle */}
                           <div
-                            className={`w-14 h-14 rounded-full overflow-hidden border-2 transition-all duration-500 
-                            ${isVerified ? "border-blue-500" : isFailed ? "border-red-500/50" : "border-gray-700"} bg-[#0b0e11] relative`}
+                            className={`w-16 h-16 rounded-full overflow-hidden border border-2 transition-all duration-700 
+                            ${
+                              isVerified
+                                ? "border-blue-500 "
+                                : isFailed
+                                  ? "border-red-500/50"
+                                  : "border-white/10"
+                            } bg-black relative`}
                           >
                             <img
                               src={set.img}
                               alt={set.name}
                               style={{
-                                filter: isVerified ? "none" : "grayscale(100%)",
-                                opacity: isVerified ? "1" : "0.3",
+                                filter: isVerified ? "none" : "grayscale(100%) brightness(0.7)",
+                                opacity: isVerified ? "1" : "0.4",
                               }}
-                              className="w-full h-full object-cover transition-all duration-700"
+                              className="w-full h-full object-cover"
                             />
                           </div>
+
+                          {/* Status Badge */}
                           {isVerified && (
-                            <div className="absolute bottom-0 right-0 bg-blue-500 rounded-full p-0.5 border-2 border-[#161d26] z-10">
-                              <Check className="w-2.5 h-2.5 text-white stroke-[4px]" />
+                            <div className="absolute bottom-0 -right-0 bg-blue-500 rounded-full p-0.5 border border-[#161d26] shadow-lg">
+                              <Check className="w-3 h-3 text-white stroke-[4px]" />
                             </div>
                           )}
                           {isFailed && (
-                            <div className="absolute bottom-0 right-0 bg-red-500 rounded-full p-0.5 border-2 border-[#161d26] z-10">
-                              <X className="w-2.5 h-2.5 text-white stroke-[4px]" />
+                            <div className="absolute bottom-0 -right-1 bg-red-500 rounded-full p-0.5 border border-[#161d26] shadow-lg">
+                              <X className="w-2 h-2 text-white stroke-[4px]" />
                             </div>
                           )}
                         </div>
 
-                        <h3 className="text-[10px] font-bold mb-1 text-foreground uppercase tracking-widest text-center leading-tight whitespace-pre-line min-h-[32px] flex items-center justify-center">
+                        {/* Network Metadata */}
+                        {activeChainId && (
+                          <span
+                            className={`text-[7px] font-black uppercase tracking-[0.2em] mb-1 z-10 transition-colors duration-700 ${isVerified ? "text-blue-400/50" : "text-foreground/20"}`}
+                          >
+                            {CHAIN_NAMES[activeChainId]}
+                          </span>
+                        )}
+
+                        <h3 className="text-[10px] font-bold mb-1 text-foreground/90 uppercase tracking-widest text-center leading-tight whitespace-pre-line min-h-[32px] flex items-center justify-center z-10">
                           {set.name}
                         </h3>
 
@@ -321,7 +344,7 @@ export const EcosystemSetCarousel = () => {
         {canScrollPrev && (
           <button
             onClick={() => emblaApi?.scrollPrev()}
-            className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/80 border border-white/10 rounded-full text-white hover:bg-blue-600 transition-all cursor-pointer shadow-xl backdrop-blur-sm"
+            className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#161d26]/90 border border-white/5 rounded-full text-white/50 hover:text-white transition-all cursor-pointer backdrop-blur-md"
           >
             <ChevronLeft size={14} />
           </button>
@@ -330,7 +353,7 @@ export const EcosystemSetCarousel = () => {
         {canScrollNext && (
           <button
             onClick={() => emblaApi?.scrollNext()}
-            className="absolute -right-3 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/80 border border-white/10 rounded-full text-white hover:bg-blue-600 transition-all cursor-pointer shadow-xl backdrop-blur-sm"
+            className="absolute -right-3 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#161d26]/90 border border-white/5 rounded-full text-white/50 hover:text-white transition-all cursor-pointer backdrop-blur-md"
           >
             <ChevronRight size={14} />
           </button>
