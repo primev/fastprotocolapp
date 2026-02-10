@@ -14,11 +14,12 @@ export const ethereumSets: readonly EcosystemSet[] = [
     id: "pudgy",
     name: "Pudgy\nPenguins",
     img: PUDGY_PENGUINS_IMG,
+    chainId: CHAIN_ETH,
     contracts: [
       {
         address: "0xbd3531da5cf5857e7cfaa92426877b022e612cf8",
         chainId: CHAIN_ETH,
-        label: "Pudgy Penguins (original)",
+        label: "Pudgy Penguins",
       },
       {
         address: "0x524cab2ec69124574082676e6f654a18df49a048",
@@ -31,16 +32,23 @@ export const ethereumSets: readonly EcosystemSet[] = [
         label: "Pudgy Rods",
       },
     ],
+    criteriaStatement: "Hold a balance in any of the following collections.",
+    criteriaLinks: [
+      { label: "Pudgy Penguins", url: "https://opensea.io/collection/pudgypenguins" },
+      { label: "Lil Pudgys", url: "https://opensea.io/collection/lilpudgys" },
+      { label: "Pudgy Rods", url: "https://opensea.io/collection/pudgyrods" },
+    ],
   },
   {
     id: "moonbirds",
     name: "Moonbirds",
     img: MOONBIRDS_IMG,
+    chainId: CHAIN_ETH,
     contracts: [
       {
         address: "0x23581767a106ae21c074b2276d25e5c3e136a68b",
         chainId: CHAIN_ETH,
-        label: "Moonbirds (original)",
+        label: "Moonbirds",
       },
       {
         address: "0x1792a96e5668ad7c167ab804a100ce42395ce54d",
@@ -53,11 +61,18 @@ export const ethereumSets: readonly EcosystemSet[] = [
         label: "Moonbirds Mythics",
       },
     ],
+    criteriaStatement: "Hold a balance in any of the following collections.",
+    criteriaLinks: [
+      { label: "Moonbirds", url: "https://opensea.io/collection/proof-moonbirds" },
+      { label: "Moonbirds Oddities", url: "https://opensea.io/collection/moonbirds-oddities" },
+      { label: "Moonbirds Mythics", url: "https://opensea.io/collection/moonbirds-mythics" },
+    ],
   },
   {
     id: "azuki",
     name: "Azuki",
     img: AZUKI_IMG,
+    chainId: CHAIN_ETH,
     contracts: [
       {
         address: "0xed5af388653567af2f388e6224dc7c4b3241c544",
@@ -75,11 +90,18 @@ export const ethereumSets: readonly EcosystemSet[] = [
         label: "Azuki Elementals",
       },
     ],
+    criteriaStatement: "Hold a balance in any of the following collections.",
+    criteriaLinks: [
+      { label: "Azuki", url: "https://opensea.io/collection/azuki" },
+      { label: "BEANZ Official", url: "https://opensea.io/collection/beanzofficial" },
+      { label: "Azuki Elementals", url: "https://opensea.io/collection/azukielementals" },
+    ],
   },
   {
     id: "yuga",
     name: "Yuga Labs",
     img: YUGA_LABS_IMG,
+    chainId: CHAIN_ETH,
     contracts: [
       { address: "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d", chainId: CHAIN_ETH, label: "BAYC" },
       { address: "0x60e4d786628fea6478f785a6d7e704777c86a7c6", chainId: CHAIN_ETH, label: "MAYC" },
@@ -100,16 +122,26 @@ export const ethereumSets: readonly EcosystemSet[] = [
         label: "Meebits",
       },
     ],
+    criteriaStatement: "Hold a balance in any of the following collections.",
+    criteriaLinks: [
+      { label: "BAYC", url: "https://opensea.io/collection/boredapeyachtclub" },
+      { label: "MAYC", url: "https://opensea.io/collection/mutant-ape-yacht-club" },
+      { label: "BAKC", url: "https://opensea.io/collection/bored-ape-kennel-club" },
+      { label: "Otherdeed", url: "https://opensea.io/collection/otherdeed" },
+      { label: "CryptoPunks", url: "https://opensea.io/collection/cryptopunks" },
+      { label: "Meebits", url: "https://opensea.io/collection/meebits" },
+    ],
   },
   {
     id: "doodles",
     name: "Doodles",
     img: DOODLES_IMG,
+    chainId: CHAIN_ETH,
     contracts: [
       {
         address: "0x8a90cab2b38dba80c64b7734e58ee1db38b8992e",
         chainId: CHAIN_ETH,
-        label: "Doodles (original)",
+        label: "Doodles",
       },
       {
         address: "0x89afdbf071050a67cfdc28b2ccb4277eef598f37",
@@ -121,6 +153,12 @@ export const ethereumSets: readonly EcosystemSet[] = [
         chainId: CHAIN_ETH,
         label: "The Dooplicator",
       },
+    ],
+    criteriaStatement: "Hold a balance in any of the following collections.",
+    criteriaLinks: [
+      { label: "Doodles", url: "https://opensea.io/collection/doodles-official" },
+      { label: "Space Doodles", url: "https://opensea.io/collection/space-doodles" },
+      { label: "The Dooplicator", url: "https://opensea.io/collection/dooplicator" },
     ],
   },
 ]
