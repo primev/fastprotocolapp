@@ -10,7 +10,7 @@ import {
   rabbyWallet,
 } from "@rainbow-me/rainbowkit/wallets"
 import { createConfig, http, fallback } from "wagmi"
-import { mainnet, bsc } from "wagmi/chains"
+import { mainnet, bsc, hyperliquid } from "wagmi/chains"
 
 // 1. Environment Detection & Constants
 const isMobile =
@@ -66,15 +66,27 @@ const bscRpcFallbacks = [
   http("https://rpc.ankr.com/bsc", { timeout: 10000 }),
 ]
 
+const hyperliquidRpcFallbacks = [
+  // PRIMARY: Alchemy
+  http(`https://hyperliquid-mainnet.g.alchemy.com/v2/${alchemyApiKey}`, {
+    timeout: 10000,
+    fetchOptions: { cache: "no-store" },
+  }),
+  // SECONDARY: Public Nodes
+  http("https://rpc.hypurrscan.io", { timeout: 10000 }),
+  http("https://rpc.hyperliquid.xyz/evm", { timeout: 10000 }),
+]
+
 // 4. Final Config
 export const config = createConfig({
-  chains: [mainnet, bsc],
+  chains: [mainnet, bsc, hyperliquid],
   connectors,
   transports: {
     [mainnet.id]: fallback(rpcFallbacks, {
       rank: true, // This will periodically test latency and pick the best one from the list
     }),
     [bsc.id]: fallback(bscRpcFallbacks, { rank: true }),
+    [hyperliquid.id]: fallback(hyperliquidRpcFallbacks, { rank: true }),
   },
   batch: {
     multicall: {
