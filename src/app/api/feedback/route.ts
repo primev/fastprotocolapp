@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     // Sheet has headers: timestamp, wallet_address, tx_type, status, txhash
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: "Sheet1!A:E", // Adjust range as needed
+      range: "'Speed Feedback'!A:E", // Adjust range as needed
       valueInputOption: "USER_ENTERED",
       requestBody: {
         values: [

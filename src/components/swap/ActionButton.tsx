@@ -1,12 +1,18 @@
 "use client"
 
-import React from "react"
+import React, { useEffect, useState } from "react"
 // UI Components
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
+import { useAccount } from "wagmi"
 
 // Types
 import { Token } from "@/types/swap"
+import { useWhitelist } from "@/hooks/use-whitelist"
+
+/** Delay before trusting "disconnected" so we don't flash Connect Wallet during rehydration */
+const CONNECTION_SETTLE_MS = 200
 
 /**
  * Interface for the ActionButton component.
@@ -34,6 +40,32 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
   handleSwapClick,
   isNonceLoading = false,
 }) => {
+  const { status } = useAccount()
+  const { isWhitelisted, isLoading: isWhitelistLoading } = useWhitelist()
+  const [connectionSettled, setConnectionSettled] = useState(false)
+
+  useEffect(() => {
+    const t = setTimeout(() => setConnectionSettled(true), CONNECTION_SETTLE_MS)
+    return () => clearTimeout(t)
+  }, [])
+
+  const connectionUnsettled =
+    !connectionSettled || status === "connecting" || status === "reconnecting"
+
+  /**
+   * 0. WAIT FOR CONNECTION STATE TO SETTLE
+   * Show skeleton until wagmi has finished reconnecting (and a short delay
+   * has passed) so we don't flash "Connect Wallet" when the user is already
+   * connected (rehydration).
+   */
+  if (connectionUnsettled) {
+    return (
+      <div className="mt-3 sm:mt-4">
+        <Skeleton className="h-12 w-full sm:h-[54px] rounded-xl sm:rounded-2xl" />
+      </div>
+    )
+  }
+
   /**
    * 1. WALLET CONNECTION CHECK
    * The highest priority state. If the user isn't connected, we
@@ -57,8 +89,37 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
   }
 
   /**
-   * 2. VALIDATION & SWAP LOGIC
-   * Once connected, we check for token selection, input amounts,
+   * 2. WHITELIST LOADING
+   * Show skeleton so the CTA doesn't switch states before whitelist result settles.
+   */
+  if (isWhitelistLoading) {
+    return (
+      <div className="mt-3 sm:mt-4">
+        <Skeleton className="h-12 w-full sm:h-[54px] rounded-xl sm:rounded-2xl" />
+      </div>
+    )
+  }
+
+  /**
+   * 3. WHITELIST GATING
+   * Connected but not on Swap Whitelist: same-styled button, disabled, "Come back at launch".
+   */
+  if (!isWhitelisted) {
+    return (
+      <div className="mt-3 sm:mt-4">
+        <Button
+          disabled
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-gradient-to-r from-pink-500 to-primary hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Come back at launch
+        </Button>
+      </div>
+    )
+  }
+
+  /**
+   * 4. VALIDATION & SWAP LOGIC
+   * Once connected and whitelisted, we check for token selection, input amounts,
    * and balance sufficiency before allowing the swap action.
    */
   return (
@@ -69,7 +130,7 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
           disabled
           className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-gray-500 cursor-not-allowed"
         >
-          Select a token
+          SELECT A TOKEN
         </Button>
       ) : !amount || amount === "0" ? (
         // Case: Token is selected but no amount has been entered
