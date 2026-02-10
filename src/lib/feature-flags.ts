@@ -2,6 +2,8 @@ export const FEATURE_FLAGS = {
   show_global_stats: true,
   /** When true, SwapToast is always visible with placeholder ETH/USDC data for testing. Set to false for production. */
   test_swap_toast: false,
+  /** When true, swap is gated by the "Swap Whitelist" Google Sheet; when false, all connected wallets can swap. */
+  swap_whitelist_enabled: true,
 }
 
 /** Placeholder data for SwapToast test mode (ETH → USDC) */

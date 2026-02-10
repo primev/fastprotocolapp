@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { useAccount } from "wagmi"
+import { FEATURE_FLAGS } from "@/lib/feature-flags"
 
 const WHITELIST_STALE_TIME_MS = 5 * 60 * 1000 // 5 minutes
 
@@ -25,12 +26,16 @@ export function useWhitelist(): UseWhitelistReturn {
   const { data, isLoading, error } = useQuery({
     queryKey: ["whitelist", address],
     queryFn: () => fetchWhitelistStatus(address!),
-    enabled: Boolean(isConnected && address),
+    enabled: FEATURE_FLAGS.swap_whitelist_enabled && Boolean(isConnected && address),
     staleTime: WHITELIST_STALE_TIME_MS,
   })
 
   if (!isConnected || !address) {
     return { isWhitelisted: false, isLoading: false, error: null }
+  }
+
+  if (!FEATURE_FLAGS.swap_whitelist_enabled) {
+    return { isWhitelisted: true, isLoading: false, error: null }
   }
 
   return {
