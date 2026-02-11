@@ -1,4 +1,61 @@
 const HYPERLIQUID_API = "https://api.hyperliquid.xyz/info"
+const HYPERLIQUID_EVM_RPC = "https://rpc.hyperliquid.xyz/evm"
+
+/** HYPE token on HyperEVM. */
+const HYPE_EVM_CONTRACT = "0x2222222222222222222222222222222222222222"
+/** ERC20 balanceOf(address) selector. */
+const BALANCE_OF_SELECTOR = "0x70a08231"
+
+/** Mainnet spot pair index for HYPE (userFills uses "@107" for spot). */
+const HYPE_SPOT_COIN = "@107"
+/** Mainnet token index for HYPE (used if ledger returns token index). */
+const HYPE_TOKEN_INDEX = 150
+
+async function postInfo(payload: Record<string, unknown>): Promise<unknown> {
+  const response = await fetch(HYPERLIQUID_API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+  return response.json()
+}
+
+function isHypeFill(coin: string | undefined): boolean {
+  return coin === "HYPE" || coin === HYPE_SPOT_COIN
+}
+
+function ledgerHasHype(updates: unknown): boolean {
+  if (!Array.isArray(updates)) return false
+  return updates.some(
+    (item: { coin?: string; token?: number }) =>
+      item?.coin === "HYPE" || item?.token === HYPE_TOKEN_INDEX
+  )
+}
+
+/** Fetches HYPE balance on HyperEVM via eth_call. Returns null on error. */
+async function fetchEvmHypeBalance(walletAddress: string): Promise<bigint | null> {
+  try {
+    const paddedAddress = walletAddress.slice(2).toLowerCase().padStart(64, "0")
+    const data = `${BALANCE_OF_SELECTOR}${paddedAddress}`
+    const response = await fetch(HYPERLIQUID_EVM_RPC, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "eth_call",
+        params: [{ to: HYPE_EVM_CONTRACT, data }, "latest"],
+        id: 1,
+      }),
+    })
+    const json = (await response.json()) as { result?: string; error?: unknown }
+    if (json.error || typeof json.result !== "string") return null
+    const hex = json.result
+    if (hex === "0x" || hex.length < 3) return BigInt(0)
+    return BigInt(hex)
+  } catch {
+    return null
+  }
+}
 
 /**
  * Fetches HYPE balance for a wallet from Hyperliquid spot clearinghouse state.
@@ -6,20 +63,70 @@ const HYPERLIQUID_API = "https://api.hyperliquid.xyz/info"
  */
 export async function fetchHypeBalance(walletAddress: string): Promise<string> {
   try {
-    const response = await fetch(HYPERLIQUID_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "spotClearinghouseState",
-        user: walletAddress,
-      }),
-    })
-    const data = await response.json()
+    const data = (await postInfo({
+      type: "spotClearinghouseState",
+      user: walletAddress,
+    })) as { balances?: Array<{ coin: string; total: string }> }
+
     console.log("data", data)
-    const hypeData = data.balances?.find((item: { coin: string }) => item.coin === "HYPE")
+    const hypeData = data.balances?.find((item) => item.coin === "HYPE")
+    console.log("hypeData", hypeData)
     return hypeData?.total ?? "0"
   } catch (error) {
     console.error("Failed to fetch HYPE balance:", error)
     return "0"
   }
+}
+
+/**
+ * Returns true if the user has ever held HYPE (current balance, ledger updates, fills, or HyperEVM balance).
+ * Uses spotClearinghouseState, userNonFundingLedgerUpdates, userFills, and HyperEVM balanceOf in parallel.
+ */
+export async function hasEverHeldHype(walletAddress: string): Promise<boolean> {
+  const [spotState, ledgerUpdates, fills, evmBalance] = await Promise.all([
+    postInfo({ type: "spotClearinghouseState", user: walletAddress }).catch(() => null),
+    postInfo({ type: "userNonFundingLedgerUpdates", user: walletAddress }).catch(() => null),
+    postInfo({ type: "userFills", user: walletAddress }).catch(() => null),
+    fetchEvmHypeBalance(walletAddress),
+  ])
+
+  console.log("[hasEverHeldHype] spotClearinghouseState response:", spotState)
+  console.log("[hasEverHeldHype] userNonFundingLedgerUpdates response:", ledgerUpdates)
+  console.log("[hasEverHeldHype] userFills response:", fills)
+  console.log("[hasEverHeldHype] HyperEVM HYPE balanceOf result:", evmBalance?.toString() ?? null)
+
+  const currentBalanceNonZero =
+    spotState &&
+    typeof spotState === "object" &&
+    "balances" in spotState &&
+    Array.isArray((spotState as { balances: Array<{ coin: string; total: string }> }).balances)
+      ? Number(
+          (spotState as { balances: Array<{ coin: string; total: string }> }).balances.find(
+            (b) => b.coin === "HYPE"
+          )?.total ?? 0
+        ) > 0
+      : false
+
+  const hasLedgerHype = ledgerUpdates ? ledgerHasHype(ledgerUpdates) : false
+
+  const hasFillHype =
+    Array.isArray(fills) && (fills as Array<{ coin?: string }>).some((f) => isHypeFill(f.coin))
+
+  const hasEvmHype = evmBalance !== null && evmBalance > BigInt(0)
+
+  const result = currentBalanceNonZero || hasLedgerHype || hasFillHype || hasEvmHype
+  console.log(
+    "[hasEverHeldHype] currentBalanceNonZero:",
+    currentBalanceNonZero,
+    "| hasLedgerHype:",
+    hasLedgerHype,
+    "| hasFillHype:",
+    hasFillHype,
+    "| hasEvmHype:",
+    hasEvmHype,
+    "| result:",
+    result
+  )
+
+  return result
 }

@@ -13,7 +13,7 @@ import {
 import { useAccount, useReadContracts } from "wagmi"
 import { erc721Abi, erc20Abi } from "viem"
 import { ECOSYSTEM_SETS } from "@/components/dashboard/ecosystem-carousel/criteria"
-import { fetchHypeBalance } from "@/app/api/hyperliquid/hype-balance"
+import { hasEverHeldHype } from "@/app/api/hyperliquid/hype-balance"
 import { hasActivity } from "@/app/api/hyperliquid/hype-activity"
 
 const CHAIN_ETH = 1
@@ -169,8 +169,7 @@ export const EcosystemSetCarousel = () => {
     const chainId = CHAIN_HYPERLIQUID
 
     if (set.customCriteria.includes("hype_holder")) {
-      fetchHypeBalance(userAddress).then((total) => {
-        const verified = Number(total) > 0
+      hasEverHeldHype(userAddress).then((verified) => {
         if (verified) {
           setVerifiedSets((prev) => ({ ...prev, [manualLoadingId]: true }))
           setFailedSets((prev) => {

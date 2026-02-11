@@ -23,7 +23,7 @@ export const hyperliquidSets: readonly EcosystemSet[] = [
     criteriaLink: "https://drip.trade/collections/hypurr",
   },
   {
-    id: "hype",
+    id: "hype_holder",
     name: "HYPE HOLDER",
     img: HYPERLIQUID_IMG,
     chainId: CHAIN_HYPERLIQUID,
