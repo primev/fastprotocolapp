@@ -94,7 +94,12 @@ interface SwapConfirmationModalProps {
   onApprove?: () => void
   approveTokenSymbol?: string
   /** Error from a failed tx after submit (e.g. status 0x0). Shows error modal. */
-  externalError?: { message: string; receipt?: unknown } | null
+  externalError?: {
+    message: string
+    receipt?: unknown
+    /** Raw DB/RPC result as returned (for Error Log when user clicks). */
+    rawDbRecord?: unknown
+  } | null
 }
 
 interface InfoRowProps {
@@ -217,6 +222,7 @@ function SwapConfirmationModal({
   })
 
   const addToast = useSwapToastStore((s) => s.addToast)
+  const updateToastHash = useSwapToastStore((s) => s.updateToastHash)
 
   const {
     confirmSwap,
@@ -256,11 +262,6 @@ function SwapConfirmationModal({
 
   const [isExpanded, setIsExpanded] = useState(false)
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false)
-
-  // Auto-open error modal when externalError (e.g. failed tx) is set
-  useEffect(() => {
-    if (externalError) setIsErrorModalOpen(true)
-  }, [externalError])
   const [hasCopied, setHasCopied] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
   const [isApprovalInProgress, setIsApprovalInProgress] = useState(false)
@@ -319,20 +320,47 @@ function SwapConfirmationModal({
   const executeSwap = useCallback(async () => {
     setIsConfirming(true)
     try {
-      const hash = isWrap ? await wrap() : isUnwrap ? await unwrap() : await confirmSwap()
-      addToast(
-        hash,
-        tokenIn,
-        tokenOut,
-        amountIn,
-        amountOut,
-        () => {
-          setClearSwapState(true)
-          if (refreshBalances) setTimeout(() => refreshBalances(), 1000)
-        },
-        onCloseAfterSuccess
-      )
-      onOpenChange(false)
+      const onConfirm = () => {
+        setClearSwapState(true)
+        if (refreshBalances) setTimeout(() => refreshBalances(), 1000)
+      }
+      if (isWrap) {
+        const hash = await wrap()
+        addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
+        onOpenChange(false)
+      } else if (isUnwrap) {
+        const hash = await unwrap()
+        addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
+        onOpenChange(false)
+      } else {
+        let pendingPlaceholder: string | null = null
+        const hash = await confirmSwap(
+          intentPath
+            ? {
+                onPendingHash: (ph) => {
+                  pendingPlaceholder = ph
+                  addToast(
+                    ph,
+                    tokenIn,
+                    tokenOut,
+                    amountIn,
+                    amountOut,
+                    onConfirm,
+                    onCloseAfterSuccess
+                  )
+                  // Brief delay so toast is visible before modal closes; sequences more smoothly
+                  setTimeout(() => onOpenChange(false), 120)
+                },
+              }
+            : undefined
+        )
+        if (pendingPlaceholder) {
+          updateToastHash(pendingPlaceholder, hash)
+        } else {
+          addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
+          onOpenChange(false)
+        }
+      }
     } catch {
       // Error is set by hooks (wrapError/swapError); ERROR VIEW shows with "View Error Details" / "Try Again"
     } finally {
@@ -345,7 +373,9 @@ function SwapConfirmationModal({
     wrap,
     unwrap,
     confirmSwap,
+    intentPath,
     addToast,
+    updateToastHash,
     tokenIn,
     tokenOut,
     amountIn,
@@ -413,12 +443,32 @@ function SwapConfirmationModal({
     [activeError, operationType]
   )
 
+  /** Content for Error Log modal: raw DB record when available, else receipt JSON, else full message. */
+  const errorDetailContent = useMemo(() => {
+    if (!activeError) return ""
+    if (externalError?.rawDbRecord != null) {
+      return JSON.stringify(
+        externalError.rawDbRecord,
+        (_, v) => (typeof v === "bigint" ? v.toString() : v),
+        2
+      )
+    }
+    if (externalError?.receipt != null) {
+      return JSON.stringify(
+        externalError.receipt,
+        (_, v) => (typeof v === "bigint" ? v.toString() : v),
+        2
+      )
+    }
+    return getTransactionFullMessage(activeError)
+  }, [activeError, externalError?.rawDbRecord, externalError?.receipt])
+
   const copyErrorToClipboard = useCallback(() => {
-    if (!activeError) return
-    navigator.clipboard.writeText(getTransactionFullMessage(activeError))
+    if (!errorDetailContent) return
+    navigator.clipboard.writeText(errorDetailContent)
     setHasCopied(true)
     setTimeout(() => setHasCopied(false), 2000)
-  }, [activeError])
+  }, [errorDetailContent])
 
   // Rate is "tokenOut per 1 tokenIn"; format by whether tokenOut is stable (match swap form)
   const rateToStable = useMemo(
@@ -882,7 +932,7 @@ function SwapConfirmationModal({
                     whiteSpace: "pre-wrap",
                   }}
                 >
-                  {getTransactionFullMessage(activeError ?? null)}
+                  {errorDetailContent}
                 </code>
               </div>
               <div className="flex justify-end mt-4">

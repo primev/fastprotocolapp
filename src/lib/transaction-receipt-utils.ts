@@ -41,13 +41,20 @@ function convertRpcResponseToReceipt(data: any): TransactionReceipt {
   }
 }
 
+export type TransactionReceiptFromDb = {
+  receipt: TransactionReceipt
+  /** Raw RPC result (data.result) as returned by the DB, unmodified. */
+  rawResult: unknown
+}
+
 /**
- * Makes a single RPC call to get transaction receipt
+ * Makes a single RPC call to get transaction receipt.
+ * Returns both the converted viem receipt and the raw RPC result for display.
  */
 async function fetchTransactionReceipt(
   txHash: string,
   abortSignal?: AbortSignal
-): Promise<TransactionReceipt | null> {
+): Promise<TransactionReceiptFromDb | null> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
@@ -87,7 +94,8 @@ async function fetchTransactionReceipt(
     }
 
     // Has status - convert to receipt (will throw if no block number/hash)
-    return convertRpcResponseToReceipt(data)
+    const receipt = convertRpcResponseToReceipt(data)
+    return { receipt, rawResult: data.result }
   } catch (error) {
     clearTimeout(timeoutId)
     if (abortSignal?.aborted || (error as Error).name === "AbortError") {
@@ -131,10 +139,10 @@ export async function pollDatabaseForReceipt(
     }
 
     try {
-      const receipt = await fetchTransactionReceipt(txHash, abortSignal)
-      if (receipt) {
+      const result = await fetchTransactionReceipt(txHash, abortSignal)
+      if (result) {
         console.log(`[pollDatabaseForReceipt] ✅ Found valid receipt on attempt ${attempt + 1}`)
-        return receipt
+        return result.receipt
       }
       // Only log every 5 attempts to avoid spam
       if (attempt % 5 === 0 && attempt > 0) {
@@ -177,13 +185,13 @@ export async function pollDatabaseForReceipt(
 
 /**
  * Fetches transaction receipt from DB (single request).
- * Returns receipt with status, or null if not found/pending.
+ * Returns receipt + raw RPC result when found, or null if not found/pending.
  * Use this when you need to check receipt.status (e.g. 0x0 = failed).
  */
 export async function fetchTransactionReceiptFromDb(
   txHash: string,
   abortSignal?: AbortSignal
-): Promise<TransactionReceipt | null> {
+): Promise<TransactionReceiptFromDb | null> {
   return fetchTransactionReceipt(txHash, abortSignal)
 }
 
@@ -197,8 +205,8 @@ export async function checkTransactionReceiptExists(
   abortSignal?: AbortSignal
 ): Promise<boolean> {
   try {
-    const receipt = await fetchTransactionReceipt(txHash, abortSignal)
-    return receipt !== null
+    const result = await fetchTransactionReceipt(txHash, abortSignal)
+    return result !== null
   } catch (error) {
     if (abortSignal?.aborted || (error as Error).name === "AbortError") {
       return false

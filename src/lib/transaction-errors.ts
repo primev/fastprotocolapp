@@ -9,11 +9,14 @@ const MAX_SHORT_MESSAGE_LENGTH = 80
 /**
  * Error for failed transactions (status 0x0).
  * The receipt is attached as cause for extended error details.
+ * When failure was detected from DB, rawDbRecord holds the unmodified RPC result.
  */
 export class RPCError extends Error {
   constructor(
     message: string,
-    public readonly receipt?: TransactionReceipt
+    public readonly receipt?: TransactionReceipt,
+    /** Raw RPC result from DB (data.result), when failure was detected from DB poll. */
+    public readonly rawDbRecord?: unknown
   ) {
     super(message)
     this.name = "RPCError"
@@ -148,7 +151,7 @@ function stringifyErrorValue(value: unknown): string {
       return (value as { details: string }).details
     }
     try {
-      return JSON.stringify(value, null, 2)
+      return JSON.stringify(value, (_, v) => (typeof v === "bigint" ? v.toString() : v), 2)
     } catch {
       return String(value)
     }

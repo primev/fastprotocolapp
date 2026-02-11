@@ -7,7 +7,7 @@ import type { TransactionReceipt } from "viem"
 import { X } from "lucide-react"
 import { useSwapToastStore } from "@/stores/swapToastStore"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
-import { RPCError } from "@/lib/transaction-errors"
+import { getTransactionShortMessage, RPCError } from "@/lib/transaction-errors"
 import { TokenPairIcon } from "./TokenPairIcon"
 import { cn } from "@/lib/utils"
 
@@ -28,19 +28,22 @@ export function SwapToast({ hash }: { hash: string }) {
 
   const toastRef = useRef<HTMLDivElement>(null)
 
+  // Placeholder hash (Permit path) until relayer returns real hash; don't poll until then
+  const effectiveHash = hash.startsWith("pending-") ? undefined : hash
+
   // Controls the "swipe" animation state
   const [showPreConfirmView, setShowPreConfirmView] = useState(false)
 
   const { data: receipt } = useWaitForTransactionReceipt({
-    hash: hash as `0x${string}`,
+    hash: effectiveHash as `0x${string}` | undefined,
   })
 
   useWaitForTxConfirmation({
-    hash,
+    hash: effectiveHash ?? undefined,
     receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
     mode: "status",
     onConfirmed: () => {
-      setStatus(hash, "confirmed")
+      if (effectiveHash) setStatus(hash, "confirmed")
       setShowPreConfirmView(false) // Immediately exit pre-confirm view on finality
       const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
       t?.onConfirm?.()
@@ -48,7 +51,7 @@ export function SwapToast({ hash }: { hash: string }) {
     onPreConfirmed: () => {
       const currentStatus = useSwapToastStore.getState().toasts.find((t) => t.hash === hash)?.status
       // Show pre-confirm unless we already reached final confirmation (e.g. Wagmi won first)
-      if (currentStatus !== "confirmed") {
+      if (effectiveHash && currentStatus !== "confirmed") {
         setStatus(hash, "pre-confirmed")
         setShowPreConfirmView(true)
         const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
@@ -57,7 +60,10 @@ export function SwapToast({ hash }: { hash: string }) {
     },
     onError: (err) => {
       const txReceipt = err instanceof RPCError ? err.receipt : undefined
-      setFailed(hash, txReceipt)
+      const rawDbRecord = err instanceof RPCError ? err.rawDbRecord : undefined
+      const message =
+        typeof err?.message === "string" ? err.message : getTransactionShortMessage(err)
+      setFailed(hash, txReceipt, message, rawDbRecord)
     },
   })
 
@@ -158,13 +164,13 @@ export function SwapToast({ hash }: { hash: string }) {
           </div>
         </div>
 
-        {/* MIDDLE TEXT STACK: Vertical slide for status messages */}
+        {/* MIDDLE TEXT STACK: Vertical slide for status messages (same 6s window as brag) */}
         <div className="flex-1 min-w-0 flex flex-col justify-center">
           <div className="relative h-5 overflow-hidden">
             <div
               className={cn(
                 "absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out",
-                isPreConfirmed ? "-translate-y-full" : "translate-y-0"
+                showPreConfirmBrag ? "-translate-y-full" : "translate-y-0"
               )}
             >
               {/* Primary Label (Swapping or Complete) */}

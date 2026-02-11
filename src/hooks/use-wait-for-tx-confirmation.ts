@@ -121,13 +121,14 @@ export function useWaitForTxConfirmation({
     const dbPoll = async () => {
       try {
         while (!abortController.signal.aborted && !hasConfirmedRef.current) {
-          const dbReceipt = await fetchTransactionReceiptFromDb(hash, abortController.signal)
+          const dbResult = await fetchTransactionReceiptFromDb(hash, abortController.signal)
 
-          if (dbReceipt) {
+          if (dbResult) {
+            const { receipt: dbReceipt, rawResult } = dbResult
             if (dbReceipt.status === "reverted") {
               hasConfirmedRef.current = true
               abortController.abort()
-              const e = new RPCError("RPC Error", dbReceipt)
+              const e = new RPCError("RPC Error", dbReceipt, rawResult)
               setError(e)
               onErrorRef.current?.(e)
               return

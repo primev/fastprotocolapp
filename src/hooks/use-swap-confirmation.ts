@@ -30,6 +30,11 @@ interface UseSwapConfirmationParams {
   onSuccess?: () => void
 }
 
+/** Options for confirmSwap. Used by Permit path to show toast before relayer returns. */
+export interface ConfirmSwapOptions {
+  onPendingHash?: (placeholderHash: string) => void
+}
+
 /**
  * Orchestrates the swap execution process.
  * Handles two paths:
@@ -119,62 +124,65 @@ export function useSwapConfirmation({
     setError(err instanceof Error ? err : new Error(String(err)))
   }, [])
 
-  const confirmSwap = useCallback(async (): Promise<string> => {
-    if (!isConnected || !address || !fromToken || !toToken || !amount) {
-      throw new Error("Missing required parameters for swap")
-    }
-
-    // Guard: Prevent Permit path execution if bitmap isn't loaded yet (race condition)
-    const isEthPath = fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS
-    if (!isEthPath && isNonceLoading) {
-      throw new Error("Initializing secure swap (Permit2)... please try again in a moment.")
-    }
-
-    reset()
-    setIsSubmitting(true)
-
-    const amountClean = amount.replace(/,/g, "")
-    const inputAmtWei = parseUnits(amountClean, fromToken.decimals).toString()
-
-    const source =
-      fromToken.address === ZERO_ADDRESS
-        ? (WETH_ADDRESS as `0x${string}`)
-        : (fromToken.address as `0x${string}`)
-    const target =
-      toToken.address === ZERO_ADDRESS
-        ? (ZERO_ADDRESS as `0x${string}`)
-        : (toToken.address as `0x${string}`)
-
-    try {
-      // Use minAmountOut from Uniswap quote (already has slippage applied)
-      const minAmountClean = minAmountOut?.replace(/,/g, "").trim()
-      if (!minAmountClean || parseFloat(minAmountClean) <= 0) {
-        throw new Error("Invalid minimum output amount")
+  const confirmSwap = useCallback(
+    async (options?: ConfirmSwapOptions): Promise<string> => {
+      if (!isConnected || !address || !fromToken || !toToken || !amount) {
+        throw new Error("Missing required parameters for swap")
       }
-      const userAmtOutWei = parseUnits(minAmountClean, toToken.decimals).toString()
 
-      if (fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS) {
-        return await executeEthPath(inputAmtWei, userAmtOutWei)
-      } else {
-        return await executePermitPath(inputAmtWei, userAmtOutWei)
+      // Guard: Prevent Permit path execution if bitmap isn't loaded yet (race condition)
+      const isEthPath = fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS
+      if (!isEthPath && isNonceLoading) {
+        throw new Error("Initializing secure swap (Permit2)... please try again in a moment.")
       }
-    } catch (err) {
-      handleSwapError(err)
-      throw err
-    }
-  }, [
-    isConnected,
-    address,
-    fromToken,
-    toToken,
-    amount,
-    minAmountOut,
-    slippage,
-    deadline,
-    handleSwapError,
-    reset,
-    isNonceLoading,
-  ])
+
+      reset()
+      setIsSubmitting(true)
+
+      const amountClean = amount.replace(/,/g, "")
+      const inputAmtWei = parseUnits(amountClean, fromToken.decimals).toString()
+
+      const source =
+        fromToken.address === ZERO_ADDRESS
+          ? (WETH_ADDRESS as `0x${string}`)
+          : (fromToken.address as `0x${string}`)
+      const target =
+        toToken.address === ZERO_ADDRESS
+          ? (ZERO_ADDRESS as `0x${string}`)
+          : (toToken.address as `0x${string}`)
+
+      try {
+        // Use minAmountOut from Uniswap quote (already has slippage applied)
+        const minAmountClean = minAmountOut?.replace(/,/g, "").trim()
+        if (!minAmountClean || parseFloat(minAmountClean) <= 0) {
+          throw new Error("Invalid minimum output amount")
+        }
+        const userAmtOutWei = parseUnits(minAmountClean, toToken.decimals).toString()
+
+        if (fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS) {
+          return await executeEthPath(inputAmtWei, userAmtOutWei)
+        } else {
+          return await executePermitPath(inputAmtWei, userAmtOutWei, options)
+        }
+      } catch (err) {
+        handleSwapError(err)
+        throw err
+      }
+    },
+    [
+      isConnected,
+      address,
+      fromToken,
+      toToken,
+      amount,
+      minAmountOut,
+      slippage,
+      deadline,
+      handleSwapError,
+      reset,
+      isNonceLoading,
+    ]
+  )
 
   /**
    * Path for Native ETH swaps: Fetches tx data from API, estimates gas on the exact
@@ -236,8 +244,13 @@ export function useSwapConfirmation({
 
   /**
    * Path for ERC20 swaps: Collects EIP-712 signature and posts to relayer.
+   * Calls onPendingHash right after signature so the UI can show the toast before the API returns.
    */
-  async function executePermitPath(inputAmtWei: string, userAmtOutWei: string): Promise<string> {
+  async function executePermitPath(
+    inputAmtWei: string,
+    userAmtOutWei: string,
+    options?: ConfirmSwapOptions
+  ): Promise<string> {
     if (!fromToken || !toToken) {
       throw new Error("Missing token parameters for permit path")
     }
@@ -262,6 +275,9 @@ export function useSwapConfirmation({
 
     setIsSigning(false)
     setIsSubmitting(true)
+
+    const placeholderHash = `pending-${Date.now()}-${nonce}`
+    options?.onPendingHash?.(placeholderHash)
 
     const body = {
       ...intentData.intent,
