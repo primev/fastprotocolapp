@@ -128,7 +128,7 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
         // Case: No destination token selected
         <Button
           disabled
-          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-gray-500 cursor-not-allowed"
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-white cursor-not-allowed"
         >
           SELECT A TOKEN
         </Button>
@@ -136,17 +136,17 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
         // Case: Token is selected but no amount has been entered
         <Button
           disabled
-          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-gray-500 cursor-not-allowed"
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-white cursor-not-allowed"
         >
-          Enter an amount
+          ENTER AN AMOUNT
         </Button>
       ) : insufficientBalance ? (
         // Case: Amount exceeds user's current balance
         <Button
           disabled
-          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-red-500/20 text-red-400 border border-red-500/30 cursor-not-allowed"
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-white cursor-not-allowed"
         >
-          Insufficient Balance
+          INSUFFICIENT BALANCE
         </Button>
       ) : isNonceLoading ? (
         // Case: Permit path - waiting for nonce bitmap to load
