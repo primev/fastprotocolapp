@@ -9,6 +9,7 @@ import {
   X,
   HelpCircle,
   ExternalLink,
+  Trophy,
 } from "lucide-react"
 import { useAccount, useReadContracts } from "wagmi"
 import { erc721Abi, erc20Abi } from "viem"
@@ -258,7 +259,13 @@ export const EcosystemSetCarousel = () => {
           25% { transform: translateX(-4px); }
           75% { transform: translateX(4px); }
         }
+        @keyframes shine-pulse {
+          0% { box-shadow: 0 0 0 0 rgba(77, 161, 255, 0.2); }
+          70% { box-shadow: 0 0 0 10px rgba(77, 161, 255, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(77, 161, 255, 0); }
+        }
         .animate-shake { animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+        .animate-shine-pulse { animation: shine-pulse 2s infinite; }
       `,
         }}
       />
@@ -308,14 +315,14 @@ export const EcosystemSetCarousel = () => {
                     >
                       {/* Front face */}
                       <div
-                        className={`absolute inset-0 bg-[#161d26] border rounded-xl p-5 flex flex-col items-center overflow-hidden
-                        ${
-                          isVerified
-                            ? "border-blue-500/30 shadow-lg shadow-blue-500/5"
-                            : isFailed
-                              ? "border-red-500/40"
-                              : "border-white/5"
-                        }`}
+                        className={`absolute inset-0 transition-all duration-700 bg-[#161d26] border rounded-xl p-5 flex flex-col items-center overflow-hidden
+  ${
+    isVerified
+      ? "border-blue-500/40 shadow-[0_0_20px_rgba(77,161,255,0.15)] bg-gradient-to-b from-[#1c2632] to-[#161d26]"
+      : isFailed
+        ? "border-red-500/40"
+        : "border-white/5"
+  }`}
                         style={{
                           backfaceVisibility: "hidden",
                           WebkitBackfaceVisibility: "hidden",
@@ -329,116 +336,110 @@ export const EcosystemSetCarousel = () => {
                               e.stopPropagation()
                               toggleFlipped(set.id)
                             }}
-                            className="absolute top-2 right-2 z-20 p-1 rounded-full text-foreground/50 hover:text-foreground/80 hover:bg-white/5 transition-colors cursor-pointer"
-                            aria-label="View verification criteria"
+                            className="absolute top-2.5 right-2.5 z-20 p-1 rounded-full text-foreground/30 hover:text-foreground/80 hover:bg-white/5 transition-colors cursor-pointer"
                           >
-                            <HelpCircle className="w-4 h-4" />
+                            <HelpCircle className="w-3.5 h-3.5" />
                           </button>
                         )}
+
                         {isInitialLoading ? (
-                          <div className="w-full animate-pulse flex flex-col items-center">
+                          <div className="w-full animate-pulse flex flex-col items-center mt-2">
                             <div className="w-14 h-14 bg-white/5 rounded-full mb-4" />
                             <div className="h-3 w-16 bg-white/5 rounded-full mb-6" />
                             <div className="h-8 w-full bg-white/5 rounded-full" />
                           </div>
                         ) : (
                           <>
-                            {activeChainId && (
-                              <div className="absolute -bottom-4 -right-4 w-32 h-32 pointer-events-none select-none">
-                                <img
-                                  src={CHAIN_LOGOS[activeChainId]}
-                                  alt=""
-                                  className="w-full h-full object-contain rotate-[15deg] transition-all duration-1000 ease-out"
-                                  style={{
-                                    opacity: "0.08",
-                                    filter: "grayscale(100%) brightness(150%)",
-                                    maskImage:
-                                      "radial-gradient(circle at center, black, transparent 80%)",
-                                    WebkitMaskImage:
-                                      "radial-gradient(circle at center, black, transparent 80%)",
-                                  }}
-                                />
-                              </div>
-                            )}
+                            <div className="relative mt-2 mb-4 z-10">
+                              {/* Verification Glow */}
+                              {isVerified && (
+                                <div className="absolute -inset-4 bg-blue-500/10 rounded-full blur-2xl animate-pulse" />
+                              )}
 
-                            <div className="relative mb-5 z-10">
-                              {/* Main Asset Circle */}
                               <div
-                                className={`w-16 h-16 rounded-full overflow-hidden border border-2 transition-all duration-700 
-                                ${
-                                  isVerified
-                                    ? "border-blue-500 "
-                                    : isFailed
-                                      ? "border-red-500/50"
-                                      : "border-white/10"
-                                } bg-black relative`}
+                                className={`w-16 h-16 rounded-full overflow-hidden border-2 transition-all duration-700 
+          ${
+            isVerified
+              ? "border-blue-400 shadow-[0_0_15px_rgba(77,161,255,0.4)]"
+              : isFailed
+                ? "border-red-500/50"
+                : "border-white/10"
+          } bg-black relative`}
                               >
                                 <img
                                   src={set.img}
                                   alt={set.name}
-                                  style={{
-                                    filter: isVerified ? "none" : "grayscale(100%) brightness(0.7)",
-                                    opacity: isVerified ? "1" : "0.4",
-                                  }}
-                                  className="w-full h-full object-cover"
+                                  className={`w-full h-full object-cover transition-all duration-700 ${
+                                    isVerified
+                                      ? "scale-100 grayscale-0"
+                                      : "scale-110 grayscale brightness-50 opacity-40"
+                                  }`}
                                 />
                               </div>
 
-                              {/* Status Badge */}
                               {isVerified && (
-                                <div className="absolute bottom-0 -right-0 bg-blue-500 rounded-full p-0.5 border border-[#161d26] shadow-lg">
-                                  <Check className="w-3 h-3 text-white stroke-[4px]" />
-                                </div>
-                              )}
-                              {isFailed && (
-                                <div className="absolute bottom-0 -right-1 bg-red-500 rounded-full p-0.5 border border-[#161d26] shadow-lg">
-                                  <X className="w-2 h-2 text-white stroke-[4px]" />
+                                <div className="absolute bottom-0 right-0 bg-blue-500 rounded-full p-0.5 border border-[#161d26] shadow-lg">
+                                  <Check className="w-2.5 h-2.5 text-white stroke-[4px]" />
                                 </div>
                               )}
                             </div>
 
-                            {/* Network Metadata */}
-                            {activeChainId && (
-                              <span
-                                className={`text-[7px] font-black uppercase tracking-[0.2em] mb-1 z-10 transition-colors duration-700 ${isVerified ? "text-blue-400/50" : "text-foreground/20"}`}
-                              >
-                                {CHAIN_NAMES[activeChainId]}
-                              </span>
-                            )}
+                            {/* Chain Name - Clean & Minimal */}
+                            <div className="mb-1 z-10">
+                              {activeChainId && (
+                                <span
+                                  className={`text-[7px] font-black uppercase tracking-[0.2em] transition-colors duration-700 ${
+                                    isVerified ? "text-blue-400/70" : "text-foreground/20"
+                                  }`}
+                                >
+                                  {CHAIN_NAMES[activeChainId]}
+                                </span>
+                              )}
+                            </div>
 
-                            <h3 className="text-[10px] font-bold mb-1 text-foreground/90 uppercase tracking-widest text-center leading-tight whitespace-pre-line min-h-[32px] flex items-center justify-center z-10">
+                            <h3
+                              className={`text-[10px] font-bold mb-1 uppercase tracking-widest text-center leading-tight whitespace-pre-line min-h-[32px] flex items-center justify-center z-10 transition-all ${
+                                isVerified ? "text-white" : "text-foreground/60"
+                              }`}
+                            >
                               {set.name}
                             </h3>
 
-                            <button
-                              onClick={() => handleVerify(set.id)}
-                              disabled={
-                                set.comingSoon ? true : !isConnected || isVerified || isVerifying
-                              }
-                              className={`mt-auto w-full py-2 rounded-full text-[9px] font-bold uppercase border tracking-widest transition-all ${
-                                set.comingSoon
-                                  ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
-                                  : !isConnected || isVerifying
+                            {/* Verified State: Authenticated with Integrated Chain Logo */}
+                            {isVerified ? (
+                              <div className="mt-auto flex flex-col items-center gap-2 pb-2 animate-[fadeIn_0.5s_ease-out]">
+                                <div className="h-[1px] w-6 bg-blue-500/20" />
+                                <div className="flex items-center">
+                                  <span className="text-[7px] font-black text-blue-400/90 tracking-[0.3em] uppercase">
+                                    Authenticated
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleVerify(set.id)}
+                                disabled={set.comingSoon || !isConnected || isVerifying}
+                                className={`mt-auto w-full py-2 rounded-full text-[9px] font-bold uppercase border tracking-widest transition-all ${
+                                  set.comingSoon
                                     ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
-                                    : isVerified
+                                    : !isConnected || isVerifying
                                       ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
                                       : isFailed
                                         ? "border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20"
                                         : "border-[#4da1ff] text-[#4da1ff] hover:bg-[#4da1ff]/10 active:scale-95 cursor-pointer"
-                              }`}
-                            >
-                              {set.comingSoon ? (
-                                "Coming"
-                              ) : isVerifying ? (
-                                <Loader2 className="w-3 h-3 animate-spin mx-auto" />
-                              ) : isVerified ? (
-                                "Verified"
-                              ) : isFailed ? (
-                                "Not Found"
-                              ) : (
-                                "Verify"
-                              )}
-                            </button>
+                                }`}
+                              >
+                                {set.comingSoon ? (
+                                  "Coming"
+                                ) : isVerifying ? (
+                                  <Loader2 className="w-3 h-3 animate-spin mx-auto" />
+                                ) : isFailed ? (
+                                  "Not Found"
+                                ) : (
+                                  "Verify"
+                                )}
+                              </button>
+                            )}
                           </>
                         )}
                       </div>
@@ -463,9 +464,6 @@ export const EcosystemSetCarousel = () => {
                         >
                           <HelpCircle className="w-4 h-4" />
                         </button>
-                        {/* <h4 className="text-[9px] font-bold uppercase tracking-widest text-foreground/60 mb-2">
-                          Verification criteria
-                        </h4> */}
                         <p className="text-[10px] text-foreground/90 leading-snug mb-2 px-1">
                           {set.criteriaStatement}
                         </p>
