@@ -26,4 +26,5 @@ export type EcosystemSet = {
   criteriaLink?: string
   /** When multiple collections: list each as an individual link (label + url). Statement should include "any". */
   criteriaLinks?: readonly { label: string; url: string }[]
+  createdAt: number
 }

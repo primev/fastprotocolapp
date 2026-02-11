@@ -1,8 +1,11 @@
 import type { EcosystemSet } from "./types"
 
 const CHAIN_HYPERLIQUID = 999
-const HYPERLIQUID_IMG = `/assets/hyperliquid-logo.png`
-const HYPRURR_IMG = `/assets/hypurr-logo.png`
+
+const ASSETS_URL = process.env.NEXT_PUBLIC_R2_BASE_URL
+
+const HYPERLIQUID_LOGO_IMG = `${ASSETS_URL}/hyperliquid-logo.png`
+const HYPRURR_IMG = `${ASSETS_URL}/nfts/hypurr-logo.png`
 
 export const hyperliquidSets: readonly EcosystemSet[] = [
   {
@@ -21,27 +24,30 @@ export const hyperliquidSets: readonly EcosystemSet[] = [
     comingSoon: false,
     criteriaStatement: "Hold a balance in Hypurr HFT.",
     criteriaLink: "https://drip.trade/collections/hypurr",
+    createdAt: 1770829242,
   },
   {
     id: "hype_holder",
     name: "HYPE HOLDER",
-    img: HYPERLIQUID_IMG,
+    img: HYPERLIQUID_LOGO_IMG,
     chainId: CHAIN_HYPERLIQUID,
     contracts: [],
     customCriteria: ["hype_holder"],
     comingSoon: false,
     criteriaStatement: "Hold a HYPE balance on Hyperliquid.",
     criteriaLink: "https://app.hyperliquid.xyz/portfolio",
+    createdAt: 1770829242,
   },
   {
     id: "hyperliquid_activity",
     name: "ACTIVE USER",
-    img: HYPERLIQUID_IMG,
+    img: HYPERLIQUID_LOGO_IMG,
     chainId: CHAIN_HYPERLIQUID,
     contracts: [],
     customCriteria: ["active_depositor_trader"],
     comingSoon: false,
     criteriaStatement: "Have done at least one trade or deposit on Hyperliquid.",
     criteriaLink: "https://app.hyperliquid.xyz/portfolio",
+    createdAt: 1770829242,
   },
 ]

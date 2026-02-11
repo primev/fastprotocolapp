@@ -38,6 +38,7 @@ export const ethereumSets: readonly EcosystemSet[] = [
       { label: "Lil Pudgys", url: "https://opensea.io/collection/lilpudgys" },
       { label: "Pudgy Rods", url: "https://opensea.io/collection/pudgyrods" },
     ],
+    createdAt: 1770051639,
   },
   {
     id: "moonbirds",
@@ -67,6 +68,7 @@ export const ethereumSets: readonly EcosystemSet[] = [
       { label: "Moonbirds Oddities", url: "https://opensea.io/collection/moonbirds-oddities" },
       { label: "Moonbirds Mythics", url: "https://opensea.io/collection/moonbirds-mythics" },
     ],
+    createdAt: 1770051639,
   },
   {
     id: "azuki",
@@ -96,6 +98,7 @@ export const ethereumSets: readonly EcosystemSet[] = [
       { label: "BEANZ Official", url: "https://opensea.io/collection/beanzofficial" },
       { label: "Azuki Elementals", url: "https://opensea.io/collection/azukielementals" },
     ],
+    createdAt: 1770051639,
   },
   {
     id: "yuga",
@@ -131,6 +134,7 @@ export const ethereumSets: readonly EcosystemSet[] = [
       { label: "CryptoPunks", url: "https://opensea.io/collection/cryptopunks" },
       { label: "Meebits", url: "https://opensea.io/collection/meebits" },
     ],
+    createdAt: 1770051639,
   },
   {
     id: "doodles",
@@ -160,5 +164,6 @@ export const ethereumSets: readonly EcosystemSet[] = [
       { label: "Space Doodles", url: "https://opensea.io/collection/space-doodles" },
       { label: "The Dooplicator", url: "https://opensea.io/collection/dooplicator" },
     ],
+    createdAt: 1770051639,
   },
 ]
