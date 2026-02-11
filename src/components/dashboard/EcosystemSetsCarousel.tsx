@@ -245,10 +245,10 @@ export const EcosystemSetCarousel = () => {
   }, [manualLoadingId, userAddress, isConnected, markAsVerified, applyVerificationResult])
 
   const handleVerify = (id: string) => {
-    // if (isConnected && !genesisSBT.hasGenesisSBT) {
-    //   setShowSBTGatingModal(true)
-    //   return
-    // }
+    if (isConnected && !genesisSBT.hasGenesisSBT) {
+      setShowSBTGatingModal(true)
+      return
+    }
     setFailedSets((prev) => {
       const next = { ...prev }
       delete next[id]

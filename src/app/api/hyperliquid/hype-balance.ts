@@ -76,38 +76,53 @@ export async function fetchHypeBalance(walletAddress: string): Promise<string> {
   }
 }
 
+function checkSpotHype(spotState: unknown): boolean {
+  if (!spotState || typeof spotState !== "object" || !("balances" in spotState)) return false
+  const balances = (spotState as { balances: Array<{ coin: string; total: string }> }).balances
+  if (!Array.isArray(balances)) return false
+  return Number(balances.find((b) => b.coin === "HYPE")?.total ?? 0) > 0
+}
+
+function checkFillsHype(fills: unknown): boolean {
+  return Array.isArray(fills) && (fills as Array<{ coin?: string }>).some((f) => isHypeFill(f.coin))
+}
+
 /**
  * Returns true if the user has ever held HYPE (current balance, ledger updates, fills, or HyperEVM balance).
- * Uses spotClearinghouseState, userNonFundingLedgerUpdates, userFills, and HyperEVM balanceOf in parallel.
+ * Runs spotClearinghouseState, userNonFundingLedgerUpdates, userFills, and HyperEVM balanceOf in parallel
+ * and resolves with true as soon as any check returns true to reduce fetch time.
  */
 export async function hasEverHeldHype(walletAddress: string): Promise<boolean> {
-  const [spotState, ledgerUpdates, fills, evmBalance] = await Promise.all([
-    postInfo({ type: "spotClearinghouseState", user: walletAddress }).catch(() => null),
-    postInfo({ type: "userNonFundingLedgerUpdates", user: walletAddress }).catch(() => null),
-    postInfo({ type: "userFills", user: walletAddress }).catch(() => null),
-    fetchEvmHypeBalance(walletAddress),
-  ])
+  const spotPromise = postInfo({ type: "spotClearinghouseState", user: walletAddress })
+    .then(checkSpotHype)
+    .catch(() => false)
 
-  const currentBalanceNonZero =
-    spotState &&
-    typeof spotState === "object" &&
-    "balances" in spotState &&
-    Array.isArray((spotState as { balances: Array<{ coin: string; total: string }> }).balances)
-      ? Number(
-          (spotState as { balances: Array<{ coin: string; total: string }> }).balances.find(
-            (b) => b.coin === "HYPE"
-          )?.total ?? 0
-        ) > 0
-      : false
+  const ledgerPromise = postInfo({ type: "userNonFundingLedgerUpdates", user: walletAddress })
+    .then(ledgerHasHype)
+    .catch(() => false)
 
-  const hasLedgerHype = ledgerUpdates ? ledgerHasHype(ledgerUpdates) : false
+  const fillsPromise = postInfo({ type: "userFills", user: walletAddress })
+    .then(checkFillsHype)
+    .catch(() => false)
 
-  const hasFillHype =
-    Array.isArray(fills) && (fills as Array<{ coin?: string }>).some((f) => isHypeFill(f.coin))
+  const evmPromise = fetchEvmHypeBalance(walletAddress)
+    .then((b) => b !== null && b > BigInt(0))
+    .catch(() => false)
 
-  const hasEvmHype = evmBalance !== null && evmBalance > BigInt(0)
-
-  const result = currentBalanceNonZero || hasLedgerHype || hasFillHype || hasEvmHype
-
-  return result
+  return new Promise<boolean>((resolve) => {
+    let settled = 0
+    const total = 4
+    const onSettle = (value: boolean) => {
+      if (value) {
+        resolve(true)
+        return
+      }
+      settled += 1
+      if (settled === total) resolve(false)
+    }
+    spotPromise.then(onSettle)
+    ledgerPromise.then(onSettle)
+    fillsPromise.then(onSettle)
+    evmPromise.then(onSettle)
+  })
 }
