@@ -68,9 +68,7 @@ export async function fetchHypeBalance(walletAddress: string): Promise<string> {
       user: walletAddress,
     })) as { balances?: Array<{ coin: string; total: string }> }
 
-    console.log("data", data)
     const hypeData = data.balances?.find((item) => item.coin === "HYPE")
-    console.log("hypeData", hypeData)
     return hypeData?.total ?? "0"
   } catch (error) {
     console.error("Failed to fetch HYPE balance:", error)
@@ -89,11 +87,6 @@ export async function hasEverHeldHype(walletAddress: string): Promise<boolean> {
     postInfo({ type: "userFills", user: walletAddress }).catch(() => null),
     fetchEvmHypeBalance(walletAddress),
   ])
-
-  console.log("[hasEverHeldHype] spotClearinghouseState response:", spotState)
-  console.log("[hasEverHeldHype] userNonFundingLedgerUpdates response:", ledgerUpdates)
-  console.log("[hasEverHeldHype] userFills response:", fills)
-  console.log("[hasEverHeldHype] HyperEVM HYPE balanceOf result:", evmBalance?.toString() ?? null)
 
   const currentBalanceNonZero =
     spotState &&
@@ -115,18 +108,6 @@ export async function hasEverHeldHype(walletAddress: string): Promise<boolean> {
   const hasEvmHype = evmBalance !== null && evmBalance > BigInt(0)
 
   const result = currentBalanceNonZero || hasLedgerHype || hasFillHype || hasEvmHype
-  console.log(
-    "[hasEverHeldHype] currentBalanceNonZero:",
-    currentBalanceNonZero,
-    "| hasLedgerHype:",
-    hasLedgerHype,
-    "| hasFillHype:",
-    hasFillHype,
-    "| hasEvmHype:",
-    hasEvmHype,
-    "| result:",
-    result
-  )
 
   return result
 }

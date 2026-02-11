@@ -14,7 +14,6 @@ export async function hasActivity(address: string): Promise<boolean> {
       }),
     })
     const fills = await response.json()
-    console.log("fills", fills)
     return Array.isArray(fills) && fills.length > 0
   } catch (error) {
     console.error("Failed to fetch user fills:", error)
