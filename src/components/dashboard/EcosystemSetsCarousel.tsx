@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { flushSync } from "react-dom"
 import useEmblaCarousel from "embla-carousel-react"
 import {
   ShieldCheck,
@@ -33,6 +34,8 @@ const CHAIN_LOGOS: Record<number, string> = {
   [CHAIN_ETH]: "/assets/ethereum-logo.png",
   [CHAIN_HYPERLIQUID]: "/assets/hyperliquid-logo.png",
 }
+
+const CARD_HEIGHT_PX = 240
 
 const fetchUserActivity = async (walletAddress: string): Promise<Record<string, boolean>> => {
   const res = await fetch(`/api/user-community-activity/${walletAddress}`)
@@ -73,6 +76,40 @@ export const EcosystemSetCarousel = () => {
     align: "start",
     skipSnaps: false,
   })
+  const emblaApiRef = useRef(emblaApi)
+  emblaApiRef.current = emblaApi
+
+  const applyVerificationResult = useCallback(
+    (updates: {
+      verified?: string | null
+      failed?: string | null
+      clearManualLoading: boolean
+    }) => {
+      const scrollIndex = emblaApiRef.current?.selectedScrollSnap() ?? null
+      queueMicrotask(() => {
+        flushSync(() => {
+          if (updates.verified) {
+            setVerifiedSets((prev) => ({ ...prev, [updates.verified!]: true }))
+            setFailedSets((prev) => {
+              const next = { ...prev }
+              delete next[updates.verified!]
+              return next
+            })
+          }
+          if (updates.failed) {
+            setFailedSets((prev) => ({ ...prev, [updates.failed!]: true }))
+          }
+          if (updates.clearManualLoading) {
+            setManualLoadingId(null)
+          }
+        })
+        if (scrollIndex !== null && emblaApiRef.current) {
+          emblaApiRef.current.scrollTo(scrollIndex, true)
+        }
+      })
+    },
+    []
+  )
 
   const markAsVerified = useCallback(
     (id: string, chainId: number | null) => {
@@ -145,16 +182,11 @@ export const EcosystemSetCarousel = () => {
     const hasAssets = results.some((res) => res.status === "success" && Number(res.result) > 0)
 
     if (hasAssets) {
-      setVerifiedSets((prev) => ({ ...prev, [manualLoadingId]: true }))
-      setFailedSets((prev) => {
-        const next = { ...prev }
-        delete next[manualLoadingId]
-        return next
-      })
+      applyVerificationResult({ verified: manualLoadingId, clearManualLoading: true })
       localStorage.setItem(`verified_${manualLoadingId}`, "true")
       markAsVerified(manualLoadingId, chainId)
     } else {
-      setFailedSets((prev) => ({ ...prev, [manualLoadingId]: true }))
+      applyVerificationResult({ failed: manualLoadingId, clearManualLoading: true })
       setTimeout(() => {
         setFailedSets((prev) => {
           const next = { ...prev }
@@ -163,8 +195,7 @@ export const EcosystemSetCarousel = () => {
         })
       }, 3000)
     }
-    setManualLoadingId(null)
-  }, [blockchainData, manualLoadingId, markAsVerified])
+  }, [blockchainData, manualLoadingId, markAsVerified, applyVerificationResult])
 
   useEffect(() => {
     if (!manualLoadingId || !userAddress || !isConnected) return
@@ -176,16 +207,11 @@ export const EcosystemSetCarousel = () => {
     if (set.customCriteria.includes("hype_holder")) {
       hasEverHeldHype(userAddress).then((verified) => {
         if (verified) {
-          setVerifiedSets((prev) => ({ ...prev, [manualLoadingId]: true }))
-          setFailedSets((prev) => {
-            const next = { ...prev }
-            delete next[manualLoadingId]
-            return next
-          })
+          applyVerificationResult({ verified: manualLoadingId, clearManualLoading: true })
           localStorage.setItem(`verified_${manualLoadingId}`, "true")
           markAsVerified(manualLoadingId, chainId)
         } else {
-          setFailedSets((prev) => ({ ...prev, [manualLoadingId]: true }))
+          applyVerificationResult({ failed: manualLoadingId, clearManualLoading: true })
           setTimeout(() => {
             setFailedSets((prev) => {
               const next = { ...prev }
@@ -194,7 +220,6 @@ export const EcosystemSetCarousel = () => {
             })
           }, 3000)
         }
-        setManualLoadingId(null)
       })
       return
     }
@@ -202,16 +227,11 @@ export const EcosystemSetCarousel = () => {
     if (set.customCriteria.includes("active_depositor_trader")) {
       hasActivity(userAddress).then((active) => {
         if (active) {
-          setVerifiedSets((prev) => ({ ...prev, [manualLoadingId]: true }))
-          setFailedSets((prev) => {
-            const next = { ...prev }
-            delete next[manualLoadingId]
-            return next
-          })
+          applyVerificationResult({ verified: manualLoadingId, clearManualLoading: true })
           localStorage.setItem(`verified_${manualLoadingId}`, "true")
           markAsVerified(manualLoadingId, chainId)
         } else {
-          setFailedSets((prev) => ({ ...prev, [manualLoadingId]: true }))
+          applyVerificationResult({ failed: manualLoadingId, clearManualLoading: true })
           setTimeout(() => {
             setFailedSets((prev) => {
               const next = { ...prev }
@@ -220,16 +240,15 @@ export const EcosystemSetCarousel = () => {
             })
           }, 3000)
         }
-        setManualLoadingId(null)
       })
     }
-  }, [manualLoadingId, userAddress, isConnected, markAsVerified])
+  }, [manualLoadingId, userAddress, isConnected, markAsVerified, applyVerificationResult])
 
   const handleVerify = (id: string) => {
-    if (isConnected && !genesisSBT.hasGenesisSBT) {
-      setShowSBTGatingModal(true)
-      return
-    }
+    // if (isConnected && !genesisSBT.hasGenesisSBT) {
+    //   setShowSBTGatingModal(true)
+    //   return
+    // }
     setFailedSets((prev) => {
       const next = { ...prev }
       delete next[id]
@@ -297,7 +316,7 @@ export const EcosystemSetCarousel = () => {
       </p>
 
       <div className="relative group">
-        <div className="overflow-hidden" ref={emblaRef}>
+        <div className="overflow-hidden" ref={emblaRef} style={{ height: CARD_HEIGHT_PX }}>
           <div className="flex ml-[-12px] justify-start">
             {ECOSYSTEM_SETS.map((set) => {
               const isVerified = !!verifiedSets[set.id]
@@ -308,11 +327,12 @@ export const EcosystemSetCarousel = () => {
               return (
                 <div
                   key={set.id}
-                  className={`flex-[0_0_182px] min-w-0 pl-3 ${isFailed ? "animate-shake" : ""}`}
+                  className={`flex-[0_0_182px] min-w-0 pl-3 shrink-0 ${isFailed ? "animate-shake" : ""}`}
+                  style={{ contain: "layout" }}
                 >
                   <div
-                    className="h-[220px] overflow-hidden rounded-xl"
-                    style={{ perspective: "1000px" }}
+                    className="overflow-hidden rounded-xl"
+                    style={{ height: CARD_HEIGHT_PX, perspective: "1000px" }}
                   >
                     <div
                       className="relative w-full h-full transition-transform duration-500 ease-in-out"
@@ -413,41 +433,43 @@ export const EcosystemSetCarousel = () => {
                               {set.name}
                             </h3>
 
-                            {/* Verified State: Authenticated with Integrated Chain Logo */}
-                            {isVerified ? (
-                              <div className="mt-auto flex flex-col items-center gap-2 pb-2 animate-[fadeIn_0.5s_ease-out]">
-                                <div className="h-[1px] w-6 bg-blue-500/20" />
-                                <div className="flex items-center">
-                                  <span className="text-[7px] font-black text-blue-400/90 tracking-[0.3em] uppercase">
-                                    Authenticated
-                                  </span>
+                            {/* Bottom section: fixed min-height to prevent layout shift and carousel scroll jump */}
+                            <div className="mt-auto min-h-[44px] w-full flex flex-col justify-end">
+                              {isVerified ? (
+                                <div className="flex flex-col items-center gap-2 pb-2 animate-[fadeIn_0.5s_ease-out]">
+                                  <div className="h-[1px] w-6 bg-blue-500/20" />
+                                  <div className="flex items-center">
+                                    <span className="text-[7px] font-black text-blue-400/90 tracking-[0.3em] uppercase">
+                                      Authenticated
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => handleVerify(set.id)}
-                                disabled={set.comingSoon || !isConnected || isVerifying}
-                                className={`mt-auto w-full py-2 rounded-full text-[9px] font-bold uppercase border tracking-widest transition-all ${
-                                  set.comingSoon
-                                    ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
-                                    : !isConnected || isVerifying
+                              ) : (
+                                <button
+                                  onClick={() => handleVerify(set.id)}
+                                  disabled={set.comingSoon || !isConnected || isVerifying}
+                                  className={`w-full py-2 rounded-full text-[9px] font-bold uppercase border tracking-widest transition-all ${
+                                    set.comingSoon
                                       ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
-                                      : isFailed
-                                        ? "border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20"
-                                        : "border-[#4da1ff] text-[#4da1ff] hover:bg-[#4da1ff]/10 active:scale-95 cursor-pointer"
-                                }`}
-                              >
-                                {set.comingSoon ? (
-                                  "Coming"
-                                ) : isVerifying ? (
-                                  <Loader2 className="w-3 h-3 animate-spin mx-auto" />
-                                ) : isFailed ? (
-                                  "Not Found"
-                                ) : (
-                                  "Verify"
-                                )}
-                              </button>
-                            )}
+                                      : !isConnected || isVerifying
+                                        ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
+                                        : isFailed
+                                          ? "border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20"
+                                          : "border-[#4da1ff] text-[#4da1ff] hover:bg-[#4da1ff]/10 active:scale-95 cursor-pointer"
+                                  }`}
+                                >
+                                  {set.comingSoon ? (
+                                    "Coming"
+                                  ) : isVerifying ? (
+                                    <Loader2 className="w-3 h-3 animate-spin mx-auto" />
+                                  ) : isFailed ? (
+                                    "Not Found"
+                                  ) : (
+                                    "Verify"
+                                  )}
+                                </button>
+                              )}
+                            </div>
                           </>
                         )}
                       </div>
