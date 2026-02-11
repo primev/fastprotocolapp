@@ -144,7 +144,6 @@ const IndexPage = () => {
       openConnectModal()
     } else {
       // If already connected, check tokenId as proof of minting
-      // tokenId must be non-zero to prove they minted
       if (tokenId !== null && tokenId !== undefined && tokenId !== BigInt(0)) {
         router.push("/dashboard")
       } else {

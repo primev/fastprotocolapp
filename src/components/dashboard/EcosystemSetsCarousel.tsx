@@ -16,6 +16,8 @@ import { erc721Abi, erc20Abi } from "viem"
 import { ECOSYSTEM_SETS } from "@/components/dashboard/ecosystem-carousel/criteria"
 import { hasEverHeldHype } from "@/app/api/hyperliquid/hype-balance"
 import { hasActivity } from "@/app/api/hyperliquid/hype-activity"
+import { useGenesisSBT } from "@/hooks/use-genesis-sbt"
+import { SBTGatingModal } from "@/components/modals/SBTGatingModal"
 
 const CHAIN_ETH = 1
 const CHAIN_BSC = 56
@@ -55,10 +57,12 @@ const saveUserActivity = async (
 
 export const EcosystemSetCarousel = () => {
   const { address: userAddress, isConnected } = useAccount()
+  const genesisSBT = useGenesisSBT(isConnected, userAddress ?? undefined)
   const [verifiedSets, setVerifiedSets] = useState<Record<string, boolean>>({})
   const [failedSets, setFailedSets] = useState<Record<string, boolean>>({})
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [manualLoadingId, setManualLoadingId] = useState<string | null>(null)
+  const [showSBTGatingModal, setShowSBTGatingModal] = useState(false)
 
   const [canScrollPrev, setCanScrollPrev] = useState(false)
   const [canScrollNext, setCanScrollNext] = useState(false)
@@ -222,6 +226,10 @@ export const EcosystemSetCarousel = () => {
   }, [manualLoadingId, userAddress, isConnected, markAsVerified])
 
   const handleVerify = (id: string) => {
+    if (isConnected && !genesisSBT.hasGenesisSBT) {
+      setShowSBTGatingModal(true)
+      return
+    }
     setFailedSets((prev) => {
       const next = { ...prev }
       delete next[id]
@@ -520,6 +528,8 @@ export const EcosystemSetCarousel = () => {
           </button>
         )}
       </div>
+
+      <SBTGatingModal open={showSBTGatingModal} onOpenChange={setShowSBTGatingModal} />
     </div>
   )
 }
