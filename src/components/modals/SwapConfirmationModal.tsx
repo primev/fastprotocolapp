@@ -99,6 +99,8 @@ interface SwapConfirmationModalProps {
     receipt?: unknown
     /** Raw DB/RPC result as returned (for Error Log when user clicks). */
     rawDbRecord?: unknown
+    /** True when error occurred after pre-confirmation (e.g. reverted after DB 0x1). Try Again is hidden. */
+    occurredAfterPreConfirm?: boolean
   } | null
 }
 
@@ -575,12 +577,19 @@ function SwapConfirmationModal({
                   className="group-hover:translate-x-0.5 transition-transform"
                 />
               </button>
-              <button
-                onClick={resetAllStates}
-                className="w-full h-14 bg-white/10 hover:bg-white/15 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3"
-              >
-                <RefreshCw size={16} /> Try Again
-              </button>
+              {!externalError?.occurredAfterPreConfirm && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetAllStates()
+                    clearLastTxError()
+                    executeSwap()
+                  }}
+                  className="w-full h-14 bg-white/10 hover:bg-white/15 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3"
+                >
+                  <RefreshCw size={16} /> Try Again
+                </button>
+              )}
             </div>
           ) : (
             /* REVIEW VIEW */

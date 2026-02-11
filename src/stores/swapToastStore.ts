@@ -25,6 +25,8 @@ export type SwapTxError = {
   receipt?: TransactionReceipt
   /** Raw RPC result from DB as returned (unmodified). Shown in Error Log when user clicks. */
   rawDbRecord?: unknown
+  /** True when the tx had already reached pre-confirmed before failing (e.g. reverted after DB 0x1). Hide Try Again. */
+  occurredAfterPreConfirm?: boolean
 }
 
 type Store = {
@@ -88,15 +90,20 @@ export const useSwapToastStore = create<Store>((set) => ({
     })),
 
   setFailed: (hash, receipt, message, rawDbRecord) =>
-    set((s) => ({
-      toasts: s.toasts.filter((t) => t.hash !== hash),
-      lastTxError: {
-        message: message ?? "Transaction failed",
-        receipt,
-        rawDbRecord,
-      },
-      failedTxHash: hash,
-    })),
+    set((s) => {
+      const toast = s.toasts.find((t) => t.hash === hash)
+      const occurredAfterPreConfirm = toast?.status === "pre-confirmed"
+      return {
+        toasts: s.toasts.filter((t) => t.hash !== hash),
+        lastTxError: {
+          message: message ?? "Transaction failed",
+          receipt,
+          rawDbRecord,
+          occurredAfterPreConfirm,
+        },
+        failedTxHash: hash,
+      }
+    }),
 
   clearLastTxError: () => set({ lastTxError: null, failedTxHash: null }),
 
