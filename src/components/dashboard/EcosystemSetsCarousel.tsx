@@ -316,13 +316,13 @@ export const EcosystemSetCarousel = () => {
                       {/* Front face */}
                       <div
                         className={`absolute inset-0 transition-all duration-700 bg-[#161d26] border rounded-xl p-5 flex flex-col items-center overflow-hidden
-  ${
-    isVerified
-      ? "border-blue-500/40 shadow-[0_0_20px_rgba(77,161,255,0.15)] bg-gradient-to-b from-[#1c2632] to-[#161d26]"
-      : isFailed
-        ? "border-red-500/40"
-        : "border-white/5"
-  }`}
+                          ${
+                            isVerified
+                              ? "border-blue-500/40 shadow-[0_0_20px_rgba(77,161,255,0.15)] bg-gradient-to-b from-[#1c2632] to-[#161d26]"
+                              : isFailed
+                                ? "border-red-500/40"
+                                : "border-white/5"
+                          }`}
                         style={{
                           backfaceVisibility: "hidden",
                           WebkitBackfaceVisibility: "hidden",
@@ -350,7 +350,7 @@ export const EcosystemSetCarousel = () => {
                           </div>
                         ) : (
                           <>
-                            <div className="relative mt-2 mb-4 z-10">
+                            <div className="relative mt-2 mb-2 z-10">
                               {/* Verification Glow */}
                               {isVerified && (
                                 <div className="absolute -inset-4 bg-blue-500/10 rounded-full blur-2xl animate-pulse" />
@@ -385,7 +385,7 @@ export const EcosystemSetCarousel = () => {
                             </div>
 
                             {/* Chain Name - Clean & Minimal */}
-                            <div className="mb-1 z-10">
+                            <div className=" z-10">
                               {activeChainId && (
                                 <span
                                   className={`text-[7px] font-black uppercase tracking-[0.2em] transition-colors duration-700 ${
@@ -398,7 +398,7 @@ export const EcosystemSetCarousel = () => {
                             </div>
 
                             <h3
-                              className={`text-[10px] font-bold mb-1 uppercase tracking-widest text-center leading-tight whitespace-pre-line min-h-[32px] flex items-center justify-center z-10 transition-all ${
+                              className={`text-[10px] font-bold mb-5 uppercase tracking-widest text-center leading-tight whitespace-pre-line min-h-[32px] flex items-center justify-center z-10 transition-all ${
                                 isVerified ? "text-white" : "text-foreground/60"
                               }`}
                             >
