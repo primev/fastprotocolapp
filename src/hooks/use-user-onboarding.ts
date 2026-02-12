@@ -105,10 +105,8 @@ export function useUserOnboarding(
       if (response.ok) {
         const data = await response.json()
         setUserOnboarding(data.user)
-        // Update React Query cache
+        // Update React Query cache (no invalidation — avoids redundant GET)
         queryClient.setQueryData(["userOnboarding", address], data)
-        // Invalidate to trigger refetch if needed
-        queryClient.invalidateQueries({ queryKey: ["userOnboarding", address] })
         return true
       } else {
         const error = await response.json()

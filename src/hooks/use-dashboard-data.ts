@@ -66,6 +66,7 @@ export function useUserOnboardingData(address: string | undefined) {
     staleTime: DASHBOARD_CACHE_STALE_TIME,
     gcTime: DASHBOARD_CACHE_GC_TIME,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
   })
 }
 
@@ -80,6 +81,7 @@ export function useUserAnalyticsData(address: string | undefined) {
     staleTime: DASHBOARD_CACHE_STALE_TIME,
     gcTime: DASHBOARD_CACHE_GC_TIME,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
   })
 }
 
