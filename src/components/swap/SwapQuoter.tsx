@@ -1,7 +1,7 @@
 "use client"
 
 import { Timer, RefreshCw } from "lucide-react"
-import { Card } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 import type { Quote } from "@/hooks/use-swap-quote"
 
 interface SwapQuoterProps {
@@ -20,52 +20,59 @@ export default function SwapQuoter({
   tokenOutSymbol,
 }: SwapQuoterProps) {
   return (
-    <Card className="p-4 bg-gray-900/60 backdrop-blur-xl rounded-2xl border border-gray-800/50 shadow-xl">
-      <div className="flex justify-between items-center mb-4">
-        <span className="text-gray-400 text-sm font-medium">Quote Details</span>
-        <div
-          className={`flex items-center gap-2 text-xs bg-indigo-950/30 px-2 py-1 rounded-full ${
-            timeLeft < 5 ? "text-red-400" : "text-indigo-400"
-          }`}
-        >
-          <Timer size={12} className={timeLeft < 5 ? "text-red-400 animate-pulse" : ""} />
-          <span className="font-mono">Refreshing in {timeLeft}s</span>
-        </div>
-      </div>
-
+    <div className="space-y-1.5 text-xs">
       {quote ? (
-        <div className="space-y-2">
-          <div className="flex justify-between">
-            <span className="text-gray-500">Expected Output</span>
-            <span className="text-white font-semibold">
+        <>
+          <div className="flex justify-between items-center">
+            <span className="text-[11px] text-muted-foreground">Expected Output</span>
+            <span className="text-xs font-medium text-foreground tabular-nums">
               {quote.output} {tokenOutSymbol || ""}
             </span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Price</span>
-            <span className="text-gray-300">
+          <div className="flex justify-between items-center">
+            <span className="text-[11px] text-muted-foreground">Price</span>
+            <span className="text-[11px] text-foreground/70 tabular-nums">
               1 {tokenInSymbol || ""} = {quote.price} {tokenOutSymbol || ""}
             </span>
           </div>
-          <div className="flex justify-between text-xs text-gray-500 italic">
-            <span>Relayer Fee (Custom Logic)</span>
-            <span>
+          <div className="flex justify-between items-center pt-1.5 border-t border-border/20">
+            <span className="text-[11px] text-muted-foreground">Relayer Fee</span>
+            <span className="text-[11px] text-foreground/60 tabular-nums">
               {quote.fee} {tokenOutSymbol || ""}
             </span>
           </div>
-        </div>
+          <div className="flex justify-between items-center pt-1">
+            <span className="text-[11px] text-muted-foreground">Quote expires in</span>
+            <div
+              className={cn(
+                "flex items-center gap-1 text-[11px] font-mono",
+                timeLeft < 5 ? "text-destructive" : "text-muted-foreground"
+              )}
+            >
+              <Timer
+                size={10}
+                className={cn(
+                  timeLeft < 5 && "text-destructive animate-pulse"
+                )}
+              />
+              <span className="tabular-nums">{timeLeft}s</span>
+            </div>
+          </div>
+        </>
       ) : (
-        <div className="h-16 flex items-center justify-center text-gray-600 italic">
-          Enter an amount to see a quote...
+        <div className="py-1.5 text-center">
+          <span className="text-[11px] text-muted-foreground">
+            Enter an amount to see a quote...
+          </span>
         </div>
       )}
 
       {isRefreshing && (
-        <div className="mt-2 flex items-center gap-2 text-[10px] text-gray-500 uppercase tracking-widest">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground pt-1.5 border-t border-border/20">
           <RefreshCw size={10} className="animate-spin" />
-          Updating Market Price...
+          <span>Updating...</span>
         </div>
       )}
-    </Card>
+    </div>
   )
 }
