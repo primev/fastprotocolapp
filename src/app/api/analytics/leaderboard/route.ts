@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getEthPrice } from "@/lib/analytics-server"
 import {
   getLeaderboard,
   getUserLeaderboardData,
@@ -56,14 +55,10 @@ export async function GET(request: NextRequest) {
     // Get main leaderboard (top 15)
     const leaderboardRows = await getLeaderboard(15)
 
-    // Get ETH price for USD conversion
-    const ethPrice = await getEthPrice()
-
-    // Transform leaderboard rows using shared transformation utility
-    // useTotalVolume=true means we use total_swap_vol_eth instead of swap_vol_eth_24h
+    // Transform leaderboard rows (USD from DB columns)
+    // useTotalVolume=true means we use total_swap_vol_usd
     let leaderboard = transformLeaderboardRows(
       leaderboardRows,
-      ethPrice,
       currentUserAddress,
       true // Use total volume
     )
@@ -90,8 +85,7 @@ export async function GET(request: NextRequest) {
       } else {
         // Fetch user's data separately to add them to the leaderboard
         try {
-          // Fetch user data, rank, and next rank volume in parallel for speed
-          const [userData, actualRank, nextRankVolEth] = await Promise.all([
+          const [userData, actualRank, nextRankThreshold] = await Promise.all([
             getUserLeaderboardData(currentUserAddress),
             getUserRank(currentUserAddress),
             getNextRankThreshold(currentUserAddress),
@@ -99,31 +93,25 @@ export async function GET(request: NextRequest) {
 
           if (actualRank !== null && userData && userData[0] > 0) {
             const userTotalSwapVolEth = Number(userData[0]) || 0
-            const userSwapCount = Number(userData[1]) || 0
-            const userChange24hPct = Number(userData[3]) || 0
-
-            const userTotalSwapVolUsd =
-              ethPrice !== null ? userTotalSwapVolEth * ethPrice : userTotalSwapVolEth
+            const userTotalSwapVolUsd = Number(userData[1]) || 0
+            const userSwapCount = Number(userData[2]) || 0
+            const userChange24hPct = Number(userData[5]) || 0
 
             userPosition = actualRank
             userVolume = userTotalSwapVolUsd
             userChange24h = userChange24hPct
 
-            // Find the next rank user's volume (for all positions > 1)
             if (userPosition > 1) {
               if (userPosition <= 15) {
-                // User is in top 15, find next rank user from leaderboard
                 const nextRankUser = leaderboard.find((entry) => entry.rank === userPosition! - 1)
                 if (nextRankUser) {
                   nextRankVolume = nextRankUser.swapVolume24h
                 }
-              } else if (nextRankVolEth !== null) {
-                // User is outside top 15, use the next rank threshold from query
-                nextRankVolume = ethPrice !== null ? nextRankVolEth * ethPrice : nextRankVolEth
+              } else if (nextRankThreshold.usd !== null) {
+                nextRankVolume = nextRankThreshold.usd
               }
             }
 
-            // Add current user to leaderboard if not in top 15
             if (userPosition > 15 && currentUserAddress) {
               leaderboard.push({
                 rank: userPosition,
@@ -149,7 +137,6 @@ export async function GET(request: NextRequest) {
       userPosition,
       userVolume,
       nextRankVolume,
-      ethPrice,
     }
 
     // Cache the response

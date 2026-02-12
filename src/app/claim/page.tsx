@@ -22,7 +22,8 @@ const ClaimPage = async () => {
   const totalSupplyString = totalSupply !== null ? totalSupply.toString() : null
   const transactionsString =
     cumulativeTransactions !== null ? cumulativeTransactions.toString() : null
-  const swapVolumeString = cumulativeSwapVolume !== null ? cumulativeSwapVolume.toString() : null
+  const swapVolumeUsdString =
+    cumulativeSwapVolume?.usd != null ? cumulativeSwapVolume.usd.toString() : null
   const ethPriceString = ethPrice !== null ? ethPrice.toString() : null
   const totalPointsString = totalPoints !== null ? totalPoints.toString() : null
 
@@ -30,7 +31,7 @@ const ClaimPage = async () => {
     <ClaimPageClient
       initialTotalSupply={totalSupplyString}
       initialTransactions={transactionsString}
-      initialSwapVolume={swapVolumeString}
+      initialSwapVolumeUsd={swapVolumeUsdString}
       initialEthPrice={ethPriceString}
       initialTotalPoints={totalPointsString}
     />

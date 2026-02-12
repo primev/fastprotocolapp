@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { TrendingUp, ArrowUpRight, Coins } from "lucide-react"
 import { formatNumber } from "@/lib/utils"
-import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
 import { useUserAnalyticsData } from "@/hooks/use-dashboard-data"
 
@@ -14,7 +13,7 @@ interface UserMetricsSectionProps {
     totalTxs: number | null
     swapTxs: number | null
     totalSwapVolEth: number | null
-    ethPrice: number | null
+    totalSwapVolUsd: number | null
   } | null
 }
 
@@ -22,7 +21,7 @@ interface UserMetrics {
   totalTxs: number
   swapTxs: number
   totalSwapVolEth: number
-  ethPrice: number | null
+  totalSwapVolUsd: number
 }
 
 export const UserMetricsSection = ({ address, initialGlobalStats }: UserMetricsSectionProps) => {
@@ -38,7 +37,7 @@ export const UserMetricsSection = ({ address, initialGlobalStats }: UserMetricsS
         totalTxs: initialGlobalStats.totalTxs ?? 0,
         swapTxs: initialGlobalStats.swapTxs ?? 0,
         totalSwapVolEth: initialGlobalStats.totalSwapVolEth ?? 0,
-        ethPrice: initialGlobalStats.ethPrice ?? null,
+        totalSwapVolUsd: initialGlobalStats.totalSwapVolUsd ?? 0,
       }
     }
     // Otherwise, use user-specific data from React Query if available
@@ -84,13 +83,11 @@ export const UserMetricsSection = ({ address, initialGlobalStats }: UserMetricsS
       try {
         // If feature flag is enabled, fetch global stats (same endpoints as claim page)
         if (FEATURE_FLAGS.show_global_stats) {
-          const [transactionsResponse, swapVolumeResponse, swapCountResponse, ethPriceResponse] =
-            await Promise.all([
-              fetch("/api/analytics/transactions"),
-              fetch("/api/analytics/volume/swap"),
-              fetch("/api/analytics/swap-count"),
-              fetch("/api/analytics/eth-price"),
-            ])
+          const [transactionsResponse, swapVolumeResponse, swapCountResponse] = await Promise.all([
+            fetch("/api/analytics/transactions"),
+            fetch("/api/analytics/volume/swap"),
+            fetch("/api/analytics/swap-count"),
+          ])
 
           if (!transactionsResponse.ok || !swapVolumeResponse.ok) {
             throw new Error("Failed to fetch global metrics")
@@ -99,16 +96,12 @@ export const UserMetricsSection = ({ address, initialGlobalStats }: UserMetricsS
           const transactionsData = await transactionsResponse.json()
           const swapVolumeData = await swapVolumeResponse.json()
           const swapCountData = swapCountResponse.ok ? await swapCountResponse.json() : null
-          const ethPriceData = ethPriceResponse.ok ? await ethPriceResponse.json() : null
 
           setMetrics({
             totalTxs: transactionsData.cumulativeSuccessfulTxs || 0,
             swapTxs: swapCountData?.swapTxCount || 0,
             totalSwapVolEth: swapVolumeData.cumulativeSwapVolEth || 0,
-            ethPrice:
-              ethPriceData?.ethPrice !== null && ethPriceData?.ethPrice !== undefined
-                ? Number(ethPriceData.ethPrice)
-                : null,
+            totalSwapVolUsd: swapVolumeData.cumulativeSwapVolUsd ?? 0,
           })
         } else {
           // User-specific data is handled by React Query hook
@@ -130,10 +123,7 @@ export const UserMetricsSection = ({ address, initialGlobalStats }: UserMetricsS
               totalTxs: data.totalTxs || 0,
               swapTxs: data.swapTxs || 0,
               totalSwapVolEth: data.totalSwapVolEth || 0,
-              ethPrice:
-                data.ethPrice !== null && data.ethPrice !== undefined
-                  ? Number(data.ethPrice)
-                  : null,
+              totalSwapVolUsd: data.totalSwapVolUsd ?? 0,
             })
           }
         }
@@ -151,7 +141,7 @@ export const UserMetricsSection = ({ address, initialGlobalStats }: UserMetricsS
   // Show placeholder data when not logged in (only for user-specific stats)
   const showPlaceholder = !FEATURE_FLAGS.show_global_stats && !address
   const displayMetrics = showPlaceholder
-    ? { totalTxs: 0, swapTxs: 0, totalSwapVolEth: 0, ethPrice: null }
+    ? { totalTxs: 0, swapTxs: 0, totalSwapVolEth: 0, totalSwapVolUsd: 0 }
     : metrics
 
   const isGlobalStats = FEATURE_FLAGS.show_global_stats
@@ -219,19 +209,12 @@ export const UserMetricsSection = ({ address, initialGlobalStats }: UserMetricsS
             </div>
             <div className="space-y-2">
               <div className="text-3xl font-bold font-mono">
-                {(() => {
-                  const swapVolume = displayMetrics.totalSwapVolEth
-                  const price =
-                    displayMetrics.ethPrice !== null
-                      ? displayMetrics.ethPrice
-                      : DEFAULT_ETH_PRICE_USD
-                  const totalUsd = swapVolume * price
-                  return `$${totalUsd.toLocaleString(undefined, {
-                    maximumFractionDigits: 1,
-                    notation: "compact",
-                    compactDisplay: "short",
-                  })}`
-                })()}
+                $
+                {(displayMetrics.totalSwapVolUsd ?? 0).toLocaleString(undefined, {
+                  maximumFractionDigits: 1,
+                  notation: "compact",
+                  compactDisplay: "short",
+                })}
               </div>
             </div>
           </Card>

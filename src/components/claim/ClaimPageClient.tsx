@@ -5,13 +5,12 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Zap, TrendingUp, Users, Shield } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
 import { formatNumber } from "@/lib/utils"
 
 interface ClaimPageClientProps {
   initialTotalSupply: string | null
   initialTransactions: string | null
-  initialSwapVolume: string | null
+  initialSwapVolumeUsd: string | null
   initialEthPrice: string | null
   initialTotalPoints: string | null
 }
@@ -19,7 +18,7 @@ interface ClaimPageClientProps {
 export const ClaimPageClient = ({
   initialTotalSupply,
   initialTransactions,
-  initialSwapVolume,
+  initialSwapVolumeUsd,
   initialEthPrice,
   initialTotalPoints,
 }: ClaimPageClientProps) => {
@@ -140,19 +139,12 @@ export const ClaimPageClient = ({
               </div>
               <div className="space-y-2">
                 <p className="text-3xl font-bold font-mono text-primary">
-                  {initialSwapVolume !== null
-                    ? (() => {
-                        const swapVolume = Number(initialSwapVolume)
-                        // Use ETH price if available, otherwise fallback to default price
-                        const price =
-                          initialEthPrice !== null ? Number(initialEthPrice) : DEFAULT_ETH_PRICE_USD
-                        const totalUsd = swapVolume * price
-                        return `$${totalUsd.toLocaleString(undefined, {
-                          maximumFractionDigits: 1,
-                          notation: "compact",
-                          compactDisplay: "short",
-                        })}`
-                      })()
+                  {initialSwapVolumeUsd != null
+                    ? `$${Number(initialSwapVolumeUsd).toLocaleString(undefined, {
+                        maximumFractionDigits: 1,
+                        notation: "compact",
+                        compactDisplay: "short",
+                      })}`
                     : "$0"}
                 </p>
                 <p className="text-sm text-muted-foreground">Swap Volume</p>

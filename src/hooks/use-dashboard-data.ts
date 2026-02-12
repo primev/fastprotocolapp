@@ -21,7 +21,7 @@ interface UserAnalyticsData {
   totalTxs: number
   swapTxs: number
   totalSwapVolEth: number
-  ethPrice: number | null
+  totalSwapVolUsd: number
 }
 
 /**
@@ -51,7 +51,7 @@ async function fetchUserAnalytics(address: string): Promise<UserAnalyticsData> {
     totalTxs: data.totalTxs || 0,
     swapTxs: data.swapTxs || 0,
     totalSwapVolEth: data.totalSwapVolEth || 0,
-    ethPrice: data.ethPrice !== null && data.ethPrice !== undefined ? Number(data.ethPrice) : null,
+    totalSwapVolUsd: data.totalSwapVolUsd || 0,
   }
 }
 

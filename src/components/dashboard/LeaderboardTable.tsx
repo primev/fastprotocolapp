@@ -31,13 +31,12 @@ interface LeaderboardData {
   userVolume?: number | null
   userPosition?: number | null
   nextRankVolume?: number | null
-  ethPrice?: number | null
 }
 
 interface LeaderboardStats {
   activeTraders: number | null
   swapVolumeEth: number | null
-  ethPrice: number | null
+  swapVolumeUsd: number | null
 }
 
 interface LeaderboardTableProps {
@@ -62,20 +61,15 @@ export const LeaderboardTable = ({
   // Get data from props (React Query managed)
   const activeTraders = statsData?.activeTraders ?? null
   const swapVolumeEth = statsData?.swapVolumeEth ?? null
-  const ethPrice = statsData?.ethPrice ?? leaderboardData?.ethPrice ?? null
+  const swapVolumeUsd = statsData?.swapVolumeUsd ?? null
   const lbData = leaderboardData?.leaderboard || []
   const userVol = leaderboardData?.userVolume ?? null
   const userPos = leaderboardData?.userPosition ?? null
   const nextRankVol = leaderboardData?.nextRankVolume ?? null
 
-  // Only userSwapTxs needs separate state since it's not in leaderboardData
   const [userSwapTxs, setUserSwapTxs] = useState<number | null>(null)
 
-  // Computed Values
-  const totalVol = useMemo(
-    () => (swapVolumeEth && ethPrice ? swapVolumeEth * ethPrice : null),
-    [swapVolumeEth, ethPrice]
-  )
+  const totalVol = useMemo(() => swapVolumeUsd ?? null, [swapVolumeUsd])
 
   // Apply testing multiplier to user volume
   const adjustedUserVol = useMemo(
@@ -117,7 +111,7 @@ export const LeaderboardTable = ({
         swapCount: userSwapTxs !== null ? userSwapTxs : undefined,
         change24h: 0,
         isCurrentUser: true,
-        ethValue: ethPrice && adjustedUserVol ? adjustedUserVol / ethPrice : undefined,
+        ethValue: undefined,
       })
     }
 
@@ -165,9 +159,7 @@ export const LeaderboardTable = ({
           swapCount: userSwapTxs !== null ? userSwapTxs : undefined,
           change24h: 0,
           isCurrentUser: true,
-          ethValue:
-            fromLb?.ethValue ??
-            (ethPrice && adjustedUserVol ? adjustedUserVol / ethPrice : undefined),
+          ethValue: fromLb?.ethValue,
         },
       ]
     }

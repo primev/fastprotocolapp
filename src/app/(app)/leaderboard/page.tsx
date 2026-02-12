@@ -2,7 +2,6 @@ import { Suspense } from "react"
 import {
   getActiveTraders,
   getCumulativeSwapVolume,
-  getEthPrice,
   getLeaderboardTop15,
 } from "@/lib/analytics-server"
 import { LeaderboardPageClient } from "./LeaderboardPageClient"
@@ -33,25 +32,16 @@ async function StatsLoader({
   }>
 }) {
   // Start all stats fetches in parallel - they'll complete independently
-  // Don't use Promise.all - let them resolve individually for better streaming
   const activeTradersPromise = getActiveTraders()
-  const swapVolumeEthPromise = getCumulativeSwapVolume()
-  const ethPricePromise = getEthPrice()
+  const swapVolumePromise = getCumulativeSwapVolume()
 
-  // Wait for all stats - but they're already loading in parallel
-  // In a true streaming setup, we'd render each as it completes
-  // For now, we wait for all but they load in parallel
-  const [activeTraders, swapVolumeEth, ethPrice] = await Promise.all([
-    activeTradersPromise,
-    swapVolumeEthPromise,
-    ethPricePromise,
-  ])
+  const [activeTraders, swapVolume] = await Promise.all([activeTradersPromise, swapVolumePromise])
 
   return (
     <LeaderboardPageClient
       preloadedActiveTraders={activeTraders}
-      preloadedSwapVolumeEth={swapVolumeEth}
-      preloadedEthPrice={ethPrice}
+      preloadedSwapVolumeEth={swapVolume?.eth ?? null}
+      preloadedSwapVolumeUsd={swapVolume?.usd ?? null}
       preloadedLeaderboard={leaderboardData}
     />
   )
@@ -88,7 +78,7 @@ export default function LeaderboardPage() {
             <LeaderboardPageClient
               preloadedActiveTraders={null}
               preloadedSwapVolumeEth={null}
-              preloadedEthPrice={null}
+              preloadedSwapVolumeUsd={null}
               preloadedLeaderboard={[]}
             />
           }

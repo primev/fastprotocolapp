@@ -6,7 +6,10 @@ import type { QueryOptions } from "../client"
 /**
  * User swap volume result row
  */
-export type UserSwapVolumeRow = [total_swap_vol_eth: number | null]
+export type UserSwapVolumeRow = [
+  total_swap_vol_eth: number | null,
+  total_swap_vol_usd: number | null,
+]
 
 const client = getAnalyticsClient()
 
@@ -23,19 +26,32 @@ function sanitizeAddress(address: string): string {
 }
 
 /**
- * Get total swap volume for a specific user address
+ * Get total swap volume for a specific user address (ETH and USD from DB)
  * @param address Ethereum address (0x-prefixed hex string)
- * @returns Total swap volume in ETH, or 0 if user has no swaps
  */
-export async function getUserSwapVolume(address: string, options?: QueryOptions): Promise<number> {
+export async function getUserSwapVolume(
+  address: string,
+  options?: QueryOptions
+): Promise<{ eth: number; usd: number }> {
   const addr = sanitizeAddress(address)
 
   const row = await client.executeOne("users/get-user-swap-volume", { addr }, options)
 
-  if (!row || row[0] === null || row[0] === undefined) {
-    return 0
+  if (!row) {
+    return { eth: 0, usd: 0 }
   }
 
-  const volume = Number(row[0])
-  return Number.isFinite(volume) ? volume : 0
+  const eth =
+    row[0] !== null && row[0] !== undefined
+      ? Number.isFinite(Number(row[0]))
+        ? Number(row[0])
+        : 0
+      : 0
+  const usd =
+    row[1] !== null && row[1] !== undefined
+      ? Number.isFinite(Number(row[1]))
+        ? Number(row[1])
+        : 0
+      : 0
+  return { eth, usd }
 }

@@ -28,15 +28,13 @@ export interface TransformedLeaderboardEntry {
 }
 
 /**
- * Transform raw leaderboard rows into formatted entries
+ * Transform raw leaderboard rows into formatted entries (USD from DB columns)
  * @param rows Raw leaderboard rows from database
- * @param ethPrice ETH price for USD conversion
  * @param currentUserAddress Optional current user address for isCurrentUser flag
- * @param useTotalVolume If true, uses total_swap_vol_eth; if false, uses swap_vol_eth_24h
+ * @param useTotalVolume If true, uses total_swap_vol_usd; if false, uses swap_vol_usd_24h
  */
 export function transformLeaderboardRows(
   rows: LeaderboardRow[],
-  ethPrice: number | null,
   currentUserAddress?: string | null,
   useTotalVolume: boolean = true
 ): TransformedLeaderboardEntry[] {
@@ -46,15 +44,14 @@ export function transformLeaderboardRows(
     const wallet = row[0]
     const walletLower = wallet?.toLowerCase() || wallet
     const totalSwapVolEth = Number(row[1]) || 0
-    const swapCount = Number(row[2]) || 0
-    const swapVolEth24h = Number(row[3]) || 0
-    const change24hPct = Number(row[4]) || 0
+    const totalSwapVolUsd = Number(row[2]) || 0
+    const swapCount = Number(row[3]) || 0
+    const swapVolEth24h = Number(row[4]) || 0
+    const swapVolUsd24h = Number(row[5]) || 0
+    const change24hPct = Number(row[6]) || 0
 
-    // Use total volume or 24h volume based on parameter
     const volumeEth = useTotalVolume ? totalSwapVolEth : swapVolEth24h
-
-    // Convert volume to USD
-    const volumeUsd = ethPrice !== null ? volumeEth * ethPrice : volumeEth
+    const volumeUsd = useTotalVolume ? totalSwapVolUsd : swapVolUsd24h
 
     return {
       rank: index + 1,
