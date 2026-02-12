@@ -19,7 +19,11 @@ export type TransactionsAnalyticsRow = [
 /**
  * Swap count result row
  */
-export type SwapCountRow = [swap_tx_count: number, total_swap_vol_eth: number]
+export type SwapCountRow = [
+  swap_tx_count: number,
+  total_swap_vol_eth: number,
+  total_swap_vol_usd: number,
+]
 
 /**
  * Swap volume result row
@@ -28,6 +32,8 @@ export type SwapVolumeRow = [
   day: string,
   cumulative_total_tx_vol_eth: number,
   cumulative_total_swap_vol_eth: number,
+  cumulative_total_tx_vol_usd: number,
+  cumulative_total_swap_vol_usd: number,
 ]
 
 const client = getAnalyticsClient()
@@ -116,23 +122,24 @@ export async function getSwapCount(options?: QueryOptions): Promise<number | nul
 }
 
 /**
- * Get cumulative swap volume over time
+ * Get cumulative swap volume over time (ETH and USD)
  * Returns the most recent day's cumulative swap volume
  */
-export async function getSwapVolume(options?: QueryOptions): Promise<number | null> {
+export async function getSwapVolume(
+  options?: QueryOptions
+): Promise<{ eth: number | null; usd: number | null }> {
   const rows = await client.execute("transactions/get-swap-volume", undefined, options)
 
   if (rows.length === 0) {
-    return null
+    return { eth: null, usd: null }
   }
 
-  // Get the first row (most recent day) - the query already orders by day DESC
-  // Format: [day, cumulative_total_tx_vol_eth, cumulative_total_swap_vol_eth]
   const latestRow = rows[0] as SwapVolumeRow
+  const eth = latestRow[2] !== null && latestRow[2] !== undefined ? Number(latestRow[2]) : null
+  const usd = latestRow[4] !== null && latestRow[4] !== undefined ? Number(latestRow[4]) : null
 
-  // Extract cumulative_total_swap_vol_eth from index 2 (swap volume)
-  const cumulativeSwapVolume =
-    latestRow[2] !== null && latestRow[2] !== undefined ? Number(latestRow[2]) : null
-
-  return cumulativeSwapVolume !== null && !isNaN(cumulativeSwapVolume) ? cumulativeSwapVolume : null
+  return {
+    eth: eth !== null && !isNaN(eth) ? eth : null,
+    usd: usd !== null && !isNaN(usd) ? usd : null,
+  }
 }

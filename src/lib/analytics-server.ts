@@ -34,61 +34,29 @@ export async function getCumulativeTransactions(): Promise<number | null> {
 }
 
 /**
- * Server-side function to fetch current ETH price from Alchemy
+ * Server-side function to fetch current ETH price from Alchemy (used by claim page and eth-price API)
  */
 export async function getEthPrice(): Promise<number | null> {
   try {
     const apiKey = env.ALCHEMY_API_KEY
-
     if (!apiKey) {
       console.error("ALCHEMY_API_KEY not configured")
       return null
     }
-
     const response = await fetch(
       `https://api.g.alchemy.com/prices/v1/${apiKey}/tokens/by-symbol?symbols=ETH`,
-      {
-        method: "GET",
-        headers: {
-          accept: "application/json",
-        },
-        cache: "no-store",
-      }
+      { method: "GET", headers: { accept: "application/json" }, cache: "no-store" }
     )
-
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error("Failed to fetch ETH price:", response.status, errorText)
+      console.error("Failed to fetch ETH price:", response.status, await response.text())
       return null
     }
-
     const data = await response.json()
-
-    // Alchemy returns data in format:
-    // {
-    //   "data": [
-    //     {
-    //       "symbol": "ETH",
-    //       "prices": [
-    //         {
-    //           "currency": "usd",
-    //           "value": "2933.1463611734",
-    //           "lastUpdatedAt": "2025-12-29T16:38:25Z"
-    //         }
-    //       ]
-    //     }
-    //   ]
-    // }
-    if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+    if (data.data?.length > 0) {
       const ethData = data.data.find((item: any) => item.symbol === "ETH")
-      if (ethData && ethData.prices && Array.isArray(ethData.prices) && ethData.prices.length > 0) {
-        const usdPrice = ethData.prices.find((price: any) => price.currency === "usd")
-        if (usdPrice && usdPrice.value) {
-          return Number(usdPrice.value)
-        }
-      }
+      const usdPrice = ethData?.prices?.find((p: any) => p.currency === "usd")
+      if (usdPrice?.value) return Number(usdPrice.value)
     }
-
     return null
   } catch (error) {
     console.error("Error fetching ETH price:", error)
@@ -100,9 +68,11 @@ export async function getEthPrice(): Promise<number | null> {
  * Server-side function to fetch cumulative swap volume from analytics API
  * Calls the internal API route which handles the external API call
  */
-export async function getCumulativeSwapVolume(): Promise<number | null> {
+export async function getCumulativeSwapVolume(): Promise<{
+  eth: number | null
+  usd: number | null
+}> {
   try {
-    // Call the internal API route
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
     const response = await fetch(`${baseUrl}/api/analytics/volume/swap`, {
       cache: "no-store",
@@ -110,19 +80,18 @@ export async function getCumulativeSwapVolume(): Promise<number | null> {
 
     if (!response.ok) {
       console.error("Failed to fetch swap volume:", response.statusText)
-      return null
+      return { eth: null, usd: null }
     }
 
     const data = await response.json()
+    if (!data.success) return { eth: null, usd: null }
 
-    if (data.success && data.cumulativeSwapVolEth !== null) {
-      return Number(data.cumulativeSwapVolEth)
-    }
-
-    return null
+    const eth = data.cumulativeSwapVolEth != null ? Number(data.cumulativeSwapVolEth) : null
+    const usd = data.cumulativeSwapVolUsd != null ? Number(data.cumulativeSwapVolUsd) : null
+    return { eth, usd }
   } catch (error) {
     console.error("Error fetching cumulative swap volume:", error)
-    return null
+    return { eth: null, usd: null }
   }
 }
 
@@ -212,7 +181,7 @@ export async function getActiveTraders(): Promise<number | null> {
 
 /**
  * Server-side function to fetch leaderboard data (top 15) without user-specific data
- * This can be used for SSR to show the leaderboard immediately
+ * This can be used for SSR to show the leaderboard immediately (USD from DB)
  */
 export async function getLeaderboardTop15(): Promise<{
   leaderboard: Array<{
@@ -224,28 +193,13 @@ export async function getLeaderboardTop15(): Promise<{
     isCurrentUser: boolean
     ethValue: number
   }>
-  ethPrice: number | null
 } | null> {
   try {
-    // Get ETH price for USD conversion
-    const ethPrice = await getEthPrice()
-
-    // Use the SQL flow via leaderboard service
     const leaderboardRows = await getLeaderboard(15)
+    // useTotalVolume=false: use swap_vol_usd_24h for SSR
+    const leaderboard = transformLeaderboardRows(leaderboardRows, null, false)
 
-    // Transform to expected format with USD conversion using shared utility
-    // useTotalVolume=false means we use swap_vol_eth_24h (24h volume) for SSR
-    const leaderboard = transformLeaderboardRows(
-      leaderboardRows,
-      ethPrice,
-      null, // No current user for SSR
-      false // Use 24h volume for SSR
-    )
-
-    return {
-      leaderboard,
-      ethPrice,
-    }
+    return { leaderboard }
   } catch (error) {
     console.error("Error fetching leaderboard top 15:", error)
     return null

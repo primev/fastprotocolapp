@@ -6,13 +6,14 @@ export async function GET() {
   try {
     const cumulativeSwapVolume = await getSwapVolume()
 
-    if (cumulativeSwapVolume === null) {
+    if (cumulativeSwapVolume.eth === null && cumulativeSwapVolume.usd === null) {
       return NextResponse.json({ error: "No data returned from analytics API" }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
-      cumulativeSwapVolEth: cumulativeSwapVolume,
+      cumulativeSwapVolEth: cumulativeSwapVolume.eth,
+      cumulativeSwapVolUsd: cumulativeSwapVolume.usd,
     })
   } catch (error) {
     console.error("Error fetching transaction volume analytics:", error)

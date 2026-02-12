@@ -61,7 +61,8 @@ ORDER BY day_utc DESC
 export const GET_SWAP_COUNT = `
 SELECT
   COUNT(*) AS swap_tx_count,
-  SUM(COALESCE(p.swap_vol_eth, 0)) AS total_swap_vol_eth
+  SUM(COALESCE(p.swap_vol_eth, 0)) AS total_swap_vol_eth,
+  SUM(COALESCE(p.swap_vol_usd, 0)) AS total_swap_vol_usd
 FROM mevcommit_57173.processed_l1_txns_v2 p
 WHERE p.is_swap = TRUE
   AND EXISTS (
@@ -76,7 +77,9 @@ WITH daily AS (
   SELECT
     date_trunc('day', l1_timestamp) AS day,
     SUM(COALESCE(total_vol_eth, 0)) AS daily_total_tx_vol_eth,
-    SUM(COALESCE(swap_vol_eth, 0))  AS daily_total_swap_vol_eth
+    SUM(COALESCE(swap_vol_eth, 0))  AS daily_total_swap_vol_eth,
+    SUM(COALESCE(total_vol_usd, 0)) AS daily_total_tx_vol_usd,
+    SUM(COALESCE(swap_vol_usd, 0))  AS daily_total_swap_vol_usd
   FROM mevcommit_57173.processed_l1_txns_v2
   GROUP BY 1
 ),
@@ -90,13 +93,23 @@ cumulative AS (
     SUM(daily_total_swap_vol_eth) OVER (
       ORDER BY day ASC
       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-    ) AS cumulative_total_swap_vol_eth
+    ) AS cumulative_total_swap_vol_eth,
+    SUM(daily_total_tx_vol_usd) OVER (
+      ORDER BY day ASC
+      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS cumulative_total_tx_vol_usd,
+    SUM(daily_total_swap_vol_usd) OVER (
+      ORDER BY day ASC
+      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS cumulative_total_swap_vol_usd
   FROM daily
 )
 SELECT
   day,
   cumulative_total_tx_vol_eth,
-  cumulative_total_swap_vol_eth
+  cumulative_total_swap_vol_eth,
+  cumulative_total_tx_vol_usd,
+  cumulative_total_swap_vol_usd
 FROM cumulative
 WHERE CAST(day AS DATE) >= DATE '2025-11-20'
 ORDER BY day DESC
@@ -108,6 +121,7 @@ WITH all_time AS (
   SELECT 
     lower(from_address) AS wallet,
     SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth,
+    SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
     COUNT(*) AS swap_count
   FROM mevcommit_57173.processed_l1_txns_v2
   WHERE is_swap = TRUE
@@ -116,7 +130,8 @@ WITH all_time AS (
 current_24h AS (
   SELECT 
     lower(from_address) AS wallet,
-    SUM(COALESCE(swap_vol_eth, 0)) AS swap_vol_eth_24h
+    SUM(COALESCE(swap_vol_eth, 0)) AS swap_vol_eth_24h,
+    SUM(COALESCE(swap_vol_usd, 0)) AS swap_vol_usd_24h
   FROM mevcommit_57173.processed_l1_txns_v2
   WHERE is_swap = TRUE
     AND l1_timestamp >= date_trunc('day', CURRENT_TIMESTAMP) - INTERVAL '1' DAY
@@ -135,8 +150,10 @@ previous_24h AS (
 SELECT 
   a.wallet,
   COALESCE(a.total_swap_vol_eth, 0) AS total_swap_vol_eth,
+  COALESCE(a.total_swap_vol_usd, 0) AS total_swap_vol_usd,
   COALESCE(a.swap_count, 0) AS swap_count,
   COALESCE(c.swap_vol_eth_24h, 0) AS swap_vol_eth_24h,
+  COALESCE(c.swap_vol_usd_24h, 0) AS swap_vol_usd_24h,
   CASE 
     WHEN COALESCE(p.swap_vol_eth_prev_24h, 0) > 0 
     THEN ((COALESCE(c.swap_vol_eth_24h, 0) - COALESCE(p.swap_vol_eth_prev_24h, 0)) / p.swap_vol_eth_prev_24h * 100)
@@ -156,6 +173,7 @@ export const LEADERBOARD_USER_DATA = `
 WITH all_time_user AS (
   SELECT 
     SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth,
+    SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
     COUNT(*) AS swap_count
   FROM mevcommit_57173.processed_l1_txns_v2
   WHERE is_swap = TRUE
@@ -163,7 +181,8 @@ WITH all_time_user AS (
 ),
 current_24h_user AS (
   SELECT 
-    SUM(COALESCE(swap_vol_eth, 0)) AS swap_vol_eth_24h
+    SUM(COALESCE(swap_vol_eth, 0)) AS swap_vol_eth_24h,
+    SUM(COALESCE(swap_vol_usd, 0)) AS swap_vol_usd_24h
   FROM mevcommit_57173.processed_l1_txns_v2
   WHERE is_swap = TRUE
     AND lower(from_address) = lower(:addr)
@@ -180,8 +199,10 @@ previous_24h_user AS (
 )
 SELECT 
   COALESCE(a.total_swap_vol_eth, 0) AS total_swap_vol_eth,
+  COALESCE(a.total_swap_vol_usd, 0) AS total_swap_vol_usd,
   COALESCE(a.swap_count, 0) AS swap_count,
   COALESCE(c.swap_vol_eth_24h, 0) AS swap_vol_eth_24h,
+  COALESCE(c.swap_vol_usd_24h, 0) AS swap_vol_usd_24h,
   CASE 
     WHEN COALESCE(p.swap_vol_eth_prev_24h, 0) > 0 
     THEN ((COALESCE(c.swap_vol_eth_24h, 0) - COALESCE(p.swap_vol_eth_prev_24h, 0)) / p.swap_vol_eth_prev_24h * 100)
@@ -214,11 +235,13 @@ FROM (
 
 export const LEADERBOARD_NEXT_RANK_THRESHOLD = `
 SELECT 
-  MIN(total_swap_vol_eth) AS total_swap_vol_eth
+  MIN(total_swap_vol_eth) AS total_swap_vol_eth,
+  MIN(total_swap_vol_usd) AS total_swap_vol_usd
 FROM (
   SELECT 
     lower(from_address) AS wallet,
-    SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
+    SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth,
+    SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd
   FROM mevcommit_57173.processed_l1_txns_v2
   WHERE is_swap = TRUE
   GROUP BY lower(from_address)
@@ -234,7 +257,8 @@ FROM (
 // Users domain
 export const GET_USER_SWAP_VOLUME = `
 SELECT
-  SUM(COALESCE(p.swap_vol_eth, 0)) AS total_swap_vol_eth
+  SUM(COALESCE(p.swap_vol_eth, 0)) AS total_swap_vol_eth,
+  SUM(COALESCE(p.swap_vol_usd, 0)) AS total_swap_vol_usd
 FROM mevcommit_57173.processed_l1_txns_v2 p
 WHERE lower(p.from_address) = lower(:addr)
   AND p.is_swap = TRUE

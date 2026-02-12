@@ -19,13 +19,12 @@ export interface LeaderboardData {
   userPosition?: number | null
   userVolume?: number | null
   nextRankVolume?: number | null
-  ethPrice?: number | null
 }
 
 interface LeaderboardStats {
   activeTraders: number | null
   swapVolumeEth: number | null
-  ethPrice: number | null
+  swapVolumeUsd: number | null
 }
 
 /**
@@ -47,20 +46,18 @@ async function fetchLeaderboard(currentUserAddress?: string | null): Promise<Lea
  * Fetches leaderboard stats (active traders, volume, etc.)
  */
 async function fetchLeaderboardStats(): Promise<LeaderboardStats> {
-  const [activeTradersRes, swapVolumeRes, ethPriceRes] = await Promise.all([
+  const [activeTradersRes, swapVolumeRes] = await Promise.all([
     fetch("/api/analytics/active-traders"),
     fetch("/api/analytics/volume/swap"),
-    fetch("/api/analytics/eth-price"),
   ])
 
   const activeTradersData = activeTradersRes.ok ? await activeTradersRes.json() : null
   const swapVolumeData = swapVolumeRes.ok ? await swapVolumeRes.json() : null
-  const ethPriceData = ethPriceRes.ok ? await ethPriceRes.json() : null
 
   return {
     activeTraders: activeTradersData?.activeTraders ?? null,
     swapVolumeEth: swapVolumeData?.cumulativeSwapVolEth ?? null,
-    ethPrice: ethPriceData?.ethPrice ?? null,
+    swapVolumeUsd: swapVolumeData?.cumulativeSwapVolUsd ?? null,
   }
 }
 

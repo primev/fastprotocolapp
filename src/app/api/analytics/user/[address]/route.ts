@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { env } from "@/env/server"
-import { getEthPrice } from "@/lib/analytics-server"
 import { getUserSwapVolume } from "@/lib/analytics/services/users.service"
 import { AnalyticsClientError } from "@/lib/analytics/client"
 
@@ -56,12 +55,14 @@ export async function GET(
     const totalTxs = fastRpcData.txn_count || 0
     const swapTxs = fastRpcData.swap_count || 0
 
-    // Get swap volume from analytics database
+    // Get swap volume from analytics database (ETH and USD)
     let totalSwapVolEth = 0
+    let totalSwapVolUsd = 0
     try {
-      totalSwapVolEth = await getUserSwapVolume(normalizedAddress)
+      const vol = await getUserSwapVolume(normalizedAddress)
+      totalSwapVolEth = vol.eth
+      totalSwapVolUsd = vol.usd
     } catch (error) {
-      // Log error but don't fail the request - return partial data
       if (error instanceof AnalyticsClientError) {
         console.error("Analytics DB API error:", error.message)
       } else {
@@ -69,13 +70,11 @@ export async function GET(
       }
     }
 
-    const ethPrice = await getEthPrice()
-
     return NextResponse.json({
       totalTxs,
       swapTxs,
       totalSwapVolEth,
-      ethPrice,
+      totalSwapVolUsd,
     })
   } catch (error) {
     console.error("Error fetching user metrics:", error)

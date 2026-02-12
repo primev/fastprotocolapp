@@ -19,7 +19,7 @@ import { LeaderboardTable } from "@/components/dashboard/LeaderboardTable"
 interface LeaderboardPageClientProps {
   preloadedActiveTraders: number | null
   preloadedSwapVolumeEth: number | null
-  preloadedEthPrice: number | null
+  preloadedSwapVolumeUsd: number | null
   preloadedLeaderboard: Array<{
     rank: number
     wallet: string
@@ -34,7 +34,7 @@ interface LeaderboardPageClientProps {
 export function LeaderboardPageClient({
   preloadedActiveTraders,
   preloadedSwapVolumeEth,
-  preloadedEthPrice,
+  preloadedSwapVolumeUsd,
   preloadedLeaderboard,
 }: LeaderboardPageClientProps) {
   const [isMounted, setIsMounted] = useState(false)
@@ -47,19 +47,17 @@ export function LeaderboardPageClient({
   // Prepare initial data for React Query hydration
   const initialLeaderboardData =
     preloadedLeaderboard.length > 0
-      ? {
-          success: true,
-          leaderboard: preloadedLeaderboard,
-          ethPrice: preloadedEthPrice,
-        }
+      ? { success: true, leaderboard: preloadedLeaderboard }
       : undefined
 
   const initialStatsData =
-    preloadedActiveTraders !== null || preloadedSwapVolumeEth !== null || preloadedEthPrice !== null
+    preloadedActiveTraders !== null ||
+    preloadedSwapVolumeEth !== null ||
+    preloadedSwapVolumeUsd !== null
       ? {
           activeTraders: preloadedActiveTraders,
           swapVolumeEth: preloadedSwapVolumeEth,
-          ethPrice: preloadedEthPrice,
+          swapVolumeUsd: preloadedSwapVolumeUsd,
         }
       : undefined
 
