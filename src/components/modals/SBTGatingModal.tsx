@@ -7,9 +7,10 @@ import { useRouter } from "next/navigation"
 
 interface SBTGatingModalProps {
   open: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export const SBTGatingModal = ({ open }: SBTGatingModalProps) => {
+export const SBTGatingModal = ({ open, onOpenChange }: SBTGatingModalProps) => {
   const router = useRouter()
 
   const handleMintClick = () => {
@@ -17,7 +18,7 @@ export const SBTGatingModal = ({ open }: SBTGatingModalProps) => {
   }
 
   return (
-    <Dialog open={open} onOpenChange={() => {}} modal>
+    <Dialog open={open} onOpenChange={(v) => onOpenChange?.(v)} modal>
       <DialogContent
         className="sm:max-w-md border-primary/50 glow-border"
         onInteractOutside={(e) => e.preventDefault()}
@@ -30,8 +31,7 @@ export const SBTGatingModal = ({ open }: SBTGatingModalProps) => {
             </div>
           </div>
           <DialogDescription className="text-center text-base pt-2">
-            You must mint your Genesis SBT to access the Fast Points System and Season 1
-            leaderboard.
+            You must mint your Genesis SBT to continue.
           </DialogDescription>
         </DialogHeader>
         <div className="pt-4">

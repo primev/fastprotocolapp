@@ -1,169 +1,36 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { flushSync } from "react-dom"
 import useEmblaCarousel from "embla-carousel-react"
-import { ShieldCheck, ChevronLeft, ChevronRight, Loader2, Check, X } from "lucide-react"
+import {
+  ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Check,
+  X,
+  HelpCircle,
+  ExternalLink,
+  Trophy,
+} from "lucide-react"
 import { useAccount, useReadContracts } from "wagmi"
-import { erc721Abi } from "viem"
-
-const ASSETS_URL = process.env.NEXT_PUBLIC_R2_BASE_URL
-
-const AZUKI_IMG = `${ASSETS_URL}/nfts/azuki.jpg`
-const DOODLES_IMG = `${ASSETS_URL}/nfts/doodles.jpg`
-const MOONBIRDS_IMG = `${ASSETS_URL}/nfts/moonbirds.jpg`
-const PUDGY_PENGUINS_IMG = `${ASSETS_URL}/nfts/pudgy-penguins.jpg`
-const YUGA_LABS_IMG = `${ASSETS_URL}/nfts/yuga-labs.jpg`
-const TEST_IMG = `/assets/fast-icon.png`
-const HYPERLIQUID_IMG = `/assets/hyperliquid-logo.png`
+import { erc721Abi, erc20Abi } from "viem"
+import { ECOSYSTEM_SETS } from "@/components/dashboard/ecosystem-carousel/criteria"
+import { hasEverHeldHype } from "@/app/api/hyperliquid/hype-balance"
+import { hasActivity } from "@/app/api/hyperliquid/hype-activity"
+import { useGenesisSBT } from "@/hooks/use-genesis-sbt"
+import { SBTGatingModal } from "@/components/modals/SBTGatingModal"
 
 const CHAIN_ETH = 1
 const CHAIN_BSC = 56
+const CHAIN_HYPERLIQUID = 999
 
 const CHAIN_NAMES: Record<number, string> = {
   [CHAIN_ETH]: "Ethereum",
   [CHAIN_BSC]: "BSC",
+  [CHAIN_HYPERLIQUID]: "Hyperliquid",
 }
 
-type ContractEntry = {
-  address: `0x${string}`
-  chainId: number
-  label: string
-}
-
-const ECOSYSTEM_SETS: {
-  id: string
-  name: string
-  img: string
-  contracts: readonly ContractEntry[]
-  comingSoon?: boolean
-}[] = [
-  // {
-  //   id: "test",
-  //   name: "Test",
-  //   img: TEST_IMG,
-  //   contracts: [
-  //     { address: "0xd0E132C73C9425072AAB9256d63aa14D798D063A", chainId: CHAIN_ETH, label: "Test" },
-  //   ],
-  // },
-  {
-    id: "pudgy",
-    name: "Pudgy\nPenguins",
-    img: PUDGY_PENGUINS_IMG,
-    contracts: [
-      {
-        address: "0xbd3531da5cf5857e7cfaa92426877b022e612cf8",
-        chainId: CHAIN_ETH,
-        label: "Pudgy Penguins (original)",
-      },
-      {
-        address: "0x524cab2ec69124574082676e6f654a18df49a048",
-        chainId: CHAIN_ETH,
-        label: "Lil Pudgys",
-      },
-      {
-        address: "0x062e691c2054de82f28008a8ccc6d7a1c8ce060d",
-        chainId: CHAIN_ETH,
-        label: "Pudgy Rods",
-      },
-    ],
-  },
-  {
-    id: "moonbirds",
-    name: "Moonbirds",
-    img: MOONBIRDS_IMG,
-    contracts: [
-      {
-        address: "0x23581767a106ae21c074b2276d25e5c3e136a68b",
-        chainId: CHAIN_ETH,
-        label: "Moonbirds (original)",
-      },
-      {
-        address: "0x1792a96e5668ad7c167ab804a100ce42395ce54d",
-        chainId: CHAIN_ETH,
-        label: "Moonbirds Oddities",
-      },
-      {
-        address: "0xc0ffee8ff7e5497c2d6f7684859709225fcc5be8",
-        chainId: CHAIN_ETH,
-        label: "Moonbirds Mythics",
-      },
-    ],
-  },
-  {
-    id: "azuki",
-    name: "Azuki",
-    img: AZUKI_IMG,
-    contracts: [
-      {
-        address: "0xed5af388653567af2f388e6224dc7c4b3241c544",
-        chainId: CHAIN_ETH,
-        label: "Azuki (primary)",
-      },
-      {
-        address: "0x306b1ea3ecdf94ab739f1910bbda052ed4a9f949",
-        chainId: CHAIN_ETH,
-        label: "BEANZ Official",
-      },
-      {
-        address: "0xb6a37b5d14d502c3ab0ae6f3a0e058bc9517786e",
-        chainId: CHAIN_ETH,
-        label: "Azuki Elementals",
-      },
-    ],
-  },
-  {
-    id: "yuga",
-    name: "Yuga Labs",
-    img: YUGA_LABS_IMG,
-    contracts: [
-      { address: "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d", chainId: CHAIN_ETH, label: "BAYC" },
-      { address: "0x60e4d786628fea6478f785a6d7e704777c86a7c6", chainId: CHAIN_ETH, label: "MAYC" },
-      { address: "0xba30e5f9bb24caa003e9f2f0497ad287fdf95623", chainId: CHAIN_ETH, label: "BAKC" },
-      {
-        address: "0x34d85c9cdeb23fa97cb08333b511ac86e1c4e258",
-        chainId: CHAIN_ETH,
-        label: "Otherdeed",
-      },
-      {
-        address: "0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb",
-        chainId: CHAIN_ETH,
-        label: "CryptoPunks",
-      },
-      {
-        address: "0x7bd29408f11d2bfc23c34f18275bbf23bb716bc7",
-        chainId: CHAIN_ETH,
-        label: "Meebits",
-      },
-    ],
-  },
-  {
-    id: "doodles",
-    name: "Doodles",
-    img: DOODLES_IMG,
-    contracts: [
-      {
-        address: "0x8a90cab2b38dba80c64b7734e58ee1db38b8992e",
-        chainId: CHAIN_ETH,
-        label: "Doodles (original)",
-      },
-      {
-        address: "0x89afdbf071050a67cfdc28b2ccb4277eef598f37",
-        chainId: CHAIN_ETH,
-        label: "Space Doodles",
-      },
-      {
-        address: "0x466cfcd0525189b573e794f554b8a751279213ac",
-        chainId: CHAIN_ETH,
-        label: "The Dooplicator",
-      },
-    ],
-  },
-  {
-    id: "hyperliquid",
-    name: "Hyperliquid",
-    img: HYPERLIQUID_IMG,
-    contracts: [],
-    comingSoon: true,
-  },
-]
+const CARD_HEIGHT_PX = 240
 
 const fetchUserActivity = async (walletAddress: string): Promise<Record<string, boolean>> => {
   const res = await fetch(`/api/user-community-activity/${walletAddress}`)
@@ -188,27 +55,62 @@ const saveUserActivity = async (
 
 export const EcosystemSetCarousel = () => {
   const { address: userAddress, isConnected } = useAccount()
+  const genesisSBT = useGenesisSBT(isConnected, userAddress ?? undefined)
   const [verifiedSets, setVerifiedSets] = useState<Record<string, boolean>>({})
   const [failedSets, setFailedSets] = useState<Record<string, boolean>>({})
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [manualLoadingId, setManualLoadingId] = useState<string | null>(null)
+  const [showSBTGatingModal, setShowSBTGatingModal] = useState(false)
 
-  // VERBOSE: Initializing arrow state. In loop mode, these will mostly stay true
-  // unless the content is too small to scroll.
   const [canScrollPrev, setCanScrollPrev] = useState(false)
   const [canScrollNext, setCanScrollNext] = useState(false)
+  const [flippedCards, setFlippedCards] = useState<Record<string, boolean>>({})
 
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: true,
     align: "start",
     skipSnaps: false,
   })
+  const emblaApiRef = useRef(emblaApi)
+  emblaApiRef.current = emblaApi
+
+  const applyVerificationResult = useCallback(
+    (updates: {
+      verified?: string | null
+      failed?: string | null
+      clearManualLoading: boolean
+    }) => {
+      const scrollIndex = emblaApiRef.current?.selectedScrollSnap() ?? null
+      queueMicrotask(() => {
+        flushSync(() => {
+          if (updates.verified) {
+            setVerifiedSets((prev) => ({ ...prev, [updates.verified!]: true }))
+            setFailedSets((prev) => {
+              const next = { ...prev }
+              delete next[updates.verified!]
+              return next
+            })
+          }
+          if (updates.failed) {
+            setFailedSets((prev) => ({ ...prev, [updates.failed!]: true }))
+          }
+          if (updates.clearManualLoading) {
+            setManualLoadingId(null)
+          }
+        })
+        if (scrollIndex !== null && emblaApiRef.current) {
+          emblaApiRef.current.scrollTo(scrollIndex, true)
+        }
+      })
+    },
+    []
+  )
 
   const markAsVerified = useCallback(
     (id: string, chainId: number | null) => {
       if (!userAddress) return
-      saveUserActivity(userAddress, id, true, chainId).catch(() => {
-        // Verbose: error handling
+      saveUserActivity(userAddress, id, true, chainId).catch((err) => {
+        console.error("Save activity failed:", err)
       })
     },
     [userAddress]
@@ -220,24 +122,12 @@ export const EcosystemSetCarousel = () => {
     if (!set) return []
     return set.contracts.map((c) => ({
       address: c.address,
-      abi: erc721Abi,
+      abi: c.kind === "erc20" ? erc20Abi : erc721Abi,
       functionName: "balanceOf",
       args: [userAddress],
       chainId: c.chainId,
     }))
   }, [userAddress, manualLoadingId])
-
-  // Log what is being checked when verification runs
-  useEffect(() => {
-    if (!manualLoadingId || !userAddress) return
-    const set = ECOSYSTEM_SETS.find((s) => s.id === manualLoadingId)
-    if (!set) return
-    const chainName = (id: number) => CHAIN_NAMES[id] ?? `Chain ${id}`
-    console.log(`[Verify Assets] Checking "${set.name.replace(/\n/g, " ")}" for ${userAddress}:`)
-    set.contracts.forEach((c) => {
-      console.log(`  → ${chainName(c.chainId)} | ${c.address} (${c.label})`)
-    })
-  }, [manualLoadingId, userAddress])
 
   const { data: blockchainData } = useReadContracts({
     contracts,
@@ -256,13 +146,12 @@ export const EcosystemSetCarousel = () => {
   }, [])
 
   useEffect(() => {
-    if (!isConnected) {
+    if (!isConnected || !userAddress) {
       setVerifiedSets({})
       setFailedSets({})
       setManualLoadingId(null)
       return
     }
-    if (!userAddress) return
     fetchUserActivity(userAddress)
       .then((activities) => {
         const fromApi: Record<string, boolean> = {}
@@ -279,23 +168,20 @@ export const EcosystemSetCarousel = () => {
 
   useEffect(() => {
     if (!blockchainData || !manualLoadingId) return
-    const results = blockchainData as { status: string; result?: unknown }[]
     const set = ECOSYSTEM_SETS.find((s) => s.id === manualLoadingId)
-    const chainId = set?.contracts[0]?.chainId ?? null
+    if (!set || set.contracts.length === 0) return
+
+    const results = blockchainData as { status: string; result?: unknown }[]
+    const chainId = set.contracts[0]?.chainId ?? null
 
     const hasAssets = results.some((res) => res.status === "success" && Number(res.result) > 0)
 
     if (hasAssets) {
-      setVerifiedSets((prev) => ({ ...prev, [manualLoadingId]: true }))
-      setFailedSets((prev) => {
-        const next = { ...prev }
-        delete next[manualLoadingId]
-        return next
-      })
+      applyVerificationResult({ verified: manualLoadingId, clearManualLoading: true })
       localStorage.setItem(`verified_${manualLoadingId}`, "true")
       markAsVerified(manualLoadingId, chainId)
     } else {
-      setFailedSets((prev) => ({ ...prev, [manualLoadingId]: true }))
+      applyVerificationResult({ failed: manualLoadingId, clearManualLoading: true })
       setTimeout(() => {
         setFailedSets((prev) => {
           const next = { ...prev }
@@ -304,10 +190,60 @@ export const EcosystemSetCarousel = () => {
         })
       }, 3000)
     }
-    setManualLoadingId(null)
-  }, [blockchainData, manualLoadingId, markAsVerified])
+  }, [blockchainData, manualLoadingId, markAsVerified, applyVerificationResult])
+
+  useEffect(() => {
+    if (!manualLoadingId || !userAddress || !isConnected) return
+    const set = ECOSYSTEM_SETS.find((s) => s.id === manualLoadingId)
+    if (!set || set.contracts.length > 0 || !set.customCriteria?.length) return
+
+    const chainId = CHAIN_HYPERLIQUID
+
+    if (set.customCriteria.includes("hype_holder")) {
+      hasEverHeldHype(userAddress).then((verified) => {
+        if (verified) {
+          applyVerificationResult({ verified: manualLoadingId, clearManualLoading: true })
+          localStorage.setItem(`verified_${manualLoadingId}`, "true")
+          markAsVerified(manualLoadingId, chainId)
+        } else {
+          applyVerificationResult({ failed: manualLoadingId, clearManualLoading: true })
+          setTimeout(() => {
+            setFailedSets((prev) => {
+              const next = { ...prev }
+              delete next[manualLoadingId!]
+              return next
+            })
+          }, 3000)
+        }
+      })
+      return
+    }
+
+    if (set.customCriteria.includes("active_depositor_trader")) {
+      hasActivity(userAddress).then((active) => {
+        if (active) {
+          applyVerificationResult({ verified: manualLoadingId, clearManualLoading: true })
+          localStorage.setItem(`verified_${manualLoadingId}`, "true")
+          markAsVerified(manualLoadingId, chainId)
+        } else {
+          applyVerificationResult({ failed: manualLoadingId, clearManualLoading: true })
+          setTimeout(() => {
+            setFailedSets((prev) => {
+              const next = { ...prev }
+              delete next[manualLoadingId!]
+              return next
+            })
+          }, 3000)
+        }
+      })
+    }
+  }, [manualLoadingId, userAddress, isConnected, markAsVerified, applyVerificationResult])
 
   const handleVerify = (id: string) => {
+    if (isConnected && !genesisSBT.hasGenesisSBT) {
+      setShowSBTGatingModal(true)
+      return
+    }
     setFailedSets((prev) => {
       const next = { ...prev }
       delete next[id]
@@ -316,11 +252,13 @@ export const EcosystemSetCarousel = () => {
     setManualLoadingId(id)
   }
 
-  // If we have 5 cards and the screen only fits 3, scrolling is active.
+  const toggleFlipped = (id: string) => {
+    setFlippedCards((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
   useEffect(() => {
     if (!emblaApi) return
     const updateScrollState = () => {
-      // In loop mode, these return true if there's enough content to scroll.
       setCanScrollPrev(emblaApi.canScrollPrev())
       setCanScrollNext(emblaApi.canScrollNext())
     }
@@ -333,8 +271,6 @@ export const EcosystemSetCarousel = () => {
     }
   }, [emblaApi])
 
-  const fitsContainer = !canScrollPrev && !canScrollNext
-
   return (
     <div className="bg-card/50 p-6 rounded-xl border border-border/50 text-foreground max-w-5xl mx-auto shadow-2xl font-sans relative">
       <style
@@ -345,7 +281,13 @@ export const EcosystemSetCarousel = () => {
           25% { transform: translateX(-4px); }
           75% { transform: translateX(4px); }
         }
+        @keyframes shine-pulse {
+          0% { box-shadow: 0 0 0 0 rgba(77, 161, 255, 0.2); }
+          70% { box-shadow: 0 0 0 10px rgba(77, 161, 255, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(77, 161, 255, 0); }
+        }
         .animate-shake { animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+        .animate-shine-pulse { animation: shine-pulse 2s infinite; }
       `,
         }}
       />
@@ -369,98 +311,215 @@ export const EcosystemSetCarousel = () => {
       </p>
 
       <div className="relative group">
-        <div className="overflow-hidden" ref={emblaRef}>
-          <div className={`flex ml-[-12px] justify-start`}>
+        <div className="overflow-hidden" ref={emblaRef} style={{ height: CARD_HEIGHT_PX }}>
+          <div className="flex ml-[-12px] justify-start">
             {ECOSYSTEM_SETS.map((set) => {
               const isVerified = !!verifiedSets[set.id]
               const isVerifying = manualLoadingId === set.id
               const isFailed = !!failedSets[set.id]
+              const activeChainId = set.chainId ?? set.contracts[0]?.chainId
 
               return (
                 <div
                   key={set.id}
-                  className={`flex-[0_0_182px] min-w-0 pl-3 ${isFailed ? "animate-shake" : ""}`}
+                  className={`flex-[0_0_182px] min-w-0 pl-3 shrink-0 ${isFailed ? "animate-shake" : ""}`}
+                  style={{ contain: "layout" }}
                 >
                   <div
-                    className={`bg-[#161d26] border rounded-xl p-4 flex flex-col items-center h-[210px] transition-all duration-500 
-                    ${
-                      isVerified
-                        ? "border-blue-500/40 shadow-lg shadow-blue-500/5"
-                        : isFailed
-                          ? "border-red-500/50 shadow-lg shadow-red-500/5"
-                          : "border-white/5"
-                    }`}
+                    className="overflow-hidden rounded-xl"
+                    style={{ height: CARD_HEIGHT_PX, perspective: "1000px" }}
                   >
-                    {isInitialLoading ? (
-                      <div className="w-full animate-pulse flex flex-col items-center">
-                        <div className="w-14 h-14 bg-white/5 rounded-full mb-4" />
-                        <div className="h-3 w-16 bg-white/5 rounded-full mb-6" />
-                        <div className="h-8 w-full bg-white/5 rounded-full" />
-                      </div>
-                    ) : (
-                      <>
-                        <div className="relative mb-6">
-                          <div
-                            className={`w-14 h-14 rounded-full overflow-hidden border-2 transition-all duration-500 
-                            ${isVerified ? "border-blue-500" : isFailed ? "border-red-500/50" : "border-gray-700"} bg-[#0b0e11] relative`}
-                          >
-                            <img
-                              src={set.img}
-                              alt={set.name}
-                              style={{
-                                filter: isVerified ? "none" : "grayscale(100%)",
-                                opacity: isVerified ? "1" : "0.3",
-                              }}
-                              className="w-full h-full object-cover transition-all duration-700"
-                            />
-                          </div>
-                          {isVerified && (
-                            <div className="absolute bottom-0 right-0 bg-blue-500 rounded-full p-0.5 border-2 border-[#161d26] z-10">
-                              <Check className="w-2.5 h-2.5 text-white stroke-[4px]" />
-                            </div>
-                          )}
-                          {isFailed && (
-                            <div className="absolute bottom-0 right-0 bg-red-500 rounded-full p-0.5 border-2 border-[#161d26] z-10">
-                              <X className="w-2.5 h-2.5 text-white stroke-[4px]" />
-                            </div>
-                          )}
-                        </div>
-
-                        <h3 className="text-[10px] font-bold mb-1 text-foreground uppercase tracking-widest text-center leading-tight whitespace-pre-line min-h-[32px] flex items-center justify-center">
-                          {set.name}
-                        </h3>
-
-                        <button
-                          onClick={() => handleVerify(set.id)}
-                          disabled={
-                            set.comingSoon ? true : !isConnected || isVerified || isVerifying
-                          }
-                          className={`mt-auto w-full py-2 rounded-full text-[9px] font-bold uppercase border tracking-widest transition-all ${
-                            set.comingSoon
-                              ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
-                              : !isConnected || isVerifying
-                                ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
-                                : isVerified
-                                  ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
-                                  : isFailed
-                                    ? "border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20"
-                                    : "border-[#4da1ff] text-[#4da1ff] hover:bg-[#4da1ff]/10 active:scale-95 cursor-pointer"
+                    <div
+                      className="relative w-full h-full transition-transform duration-500 ease-in-out"
+                      style={{
+                        transformStyle: "preserve-3d",
+                        transform: flippedCards[set.id] ? "rotateY(180deg)" : "rotateY(0deg)",
+                      }}
+                    >
+                      {/* Front face */}
+                      <div
+                        className={`absolute inset-0 transition-all duration-700 bg-[#161d26] border rounded-xl p-5 flex flex-col items-center overflow-hidden
+                          ${
+                            isVerified
+                              ? "border-blue-500/40 shadow-[0_0_20px_rgba(77,161,255,0.15)] bg-gradient-to-b from-[#1c2632] to-[#161d26]"
+                              : isFailed
+                                ? "border-red-500/40"
+                                : "border-white/5"
                           }`}
+                        style={{
+                          backfaceVisibility: "hidden",
+                          WebkitBackfaceVisibility: "hidden",
+                          transform: "rotateY(0deg)",
+                        }}
+                      >
+                        {!isInitialLoading && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleFlipped(set.id)
+                            }}
+                            className="absolute top-2.5 right-2.5 z-20 p-1 rounded-full text-foreground/30 hover:text-foreground/80 hover:bg-white/5 transition-colors cursor-pointer"
+                          >
+                            <HelpCircle className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {isInitialLoading ? (
+                          <div className="w-full animate-pulse flex flex-col items-center mt-2">
+                            <div className="w-14 h-14 bg-white/5 rounded-full mb-4" />
+                            <div className="h-3 w-16 bg-white/5 rounded-full mb-6" />
+                            <div className="h-8 w-full bg-white/5 rounded-full" />
+                          </div>
+                        ) : (
+                          <>
+                            <div className="relative mt-2 mb-2 z-10">
+                              {/* Verification Glow */}
+                              {isVerified && (
+                                <div className="absolute -inset-4 bg-blue-500/10 rounded-full blur-2xl animate-pulse" />
+                              )}
+
+                              <div
+                                className={`w-16 h-16 rounded-full overflow-hidden border-2 transition-all duration-700 
+          ${
+            isVerified
+              ? "border-blue-400 shadow-[0_0_15px_rgba(77,161,255,0.4)]"
+              : isFailed
+                ? "border-red-500/50"
+                : "border-white/10"
+          } bg-black relative`}
+                              >
+                                <img
+                                  src={set.img}
+                                  alt={set.name}
+                                  className={`w-full h-full object-cover transition-all duration-700 ${
+                                    isVerified
+                                      ? "scale-100 grayscale-0"
+                                      : "scale-110 grayscale brightness-50 opacity-40"
+                                  }`}
+                                />
+                              </div>
+
+                              {isVerified && (
+                                <div className="absolute bottom-0 right-0 bg-blue-500 rounded-full p-0.5 border border-[#161d26] shadow-lg">
+                                  <Check className="w-2.5 h-2.5 text-white stroke-[4px]" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Chain Name - Clean & Minimal */}
+                            <div className=" z-10">
+                              {activeChainId && (
+                                <span
+                                  className={`text-[7px] font-black uppercase tracking-[0.2em] transition-colors duration-700 ${
+                                    isVerified ? "text-blue-400/70" : "text-foreground/20"
+                                  }`}
+                                >
+                                  {CHAIN_NAMES[activeChainId]}
+                                </span>
+                              )}
+                            </div>
+
+                            <h3
+                              className={`text-[10px] font-bold mb-5 uppercase tracking-widest text-center leading-tight whitespace-pre-line min-h-[32px] flex items-center justify-center z-10 transition-all ${
+                                isVerified ? "text-white" : "text-foreground/60"
+                              }`}
+                            >
+                              {set.name}
+                            </h3>
+
+                            {/* Bottom section: fixed min-height to prevent layout shift and carousel scroll jump */}
+                            <div className="mt-auto min-h-[44px] w-full flex flex-col justify-end">
+                              {isVerified ? (
+                                <div className="flex flex-col items-center gap-2 pb-2 animate-[fadeIn_0.5s_ease-out]">
+                                  <div className="h-[1px] w-6 bg-blue-500/20" />
+                                  <div className="flex items-center">
+                                    <span className="text-[7px] font-black text-blue-400/90 tracking-[0.3em] uppercase">
+                                      Authenticated
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleVerify(set.id)}
+                                  disabled={set.comingSoon || !isConnected || isVerifying}
+                                  className={`w-full py-2 rounded-full text-[9px] font-bold uppercase border tracking-widest transition-all ${
+                                    set.comingSoon
+                                      ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
+                                      : !isConnected || isVerifying
+                                        ? "border-blue-900/50 text-[#4da1ff] bg-blue-900/20 cursor-not-allowed opacity-60"
+                                        : isFailed
+                                          ? "border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20"
+                                          : "border-[#4da1ff] text-[#4da1ff] hover:bg-[#4da1ff]/10 active:scale-95 cursor-pointer"
+                                  }`}
+                                >
+                                  {set.comingSoon ? (
+                                    "Coming"
+                                  ) : isVerifying ? (
+                                    <Loader2 className="w-3 h-3 animate-spin mx-auto" />
+                                  ) : isFailed ? (
+                                    "Not Found"
+                                  ) : (
+                                    "Verify"
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Back face */}
+                      <div
+                        className="absolute inset-0 bg-[#161d26] border border-white/5 rounded-xl p-4 flex flex-col items-center justify-center text-center"
+                        style={{
+                          backfaceVisibility: "hidden",
+                          WebkitBackfaceVisibility: "hidden",
+                          transform: "rotateY(180deg)",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleFlipped(set.id)
+                          }}
+                          className="absolute top-2 right-2 p-1 rounded-full text-foreground/50 hover:text-foreground/80 hover:bg-white/5 transition-colors cursor-pointer"
+                          aria-label="Back to card"
                         >
-                          {set.comingSoon ? (
-                            "Coming"
-                          ) : isVerifying ? (
-                            <Loader2 className="w-3 h-3 animate-spin mx-auto" />
-                          ) : isVerified ? (
-                            "Verified"
-                          ) : isFailed ? (
-                            "Not Found"
-                          ) : (
-                            "Verify"
-                          )}
+                          <HelpCircle className="w-4 h-4" />
                         </button>
-                      </>
-                    )}
+                        <p className="text-[10px] text-foreground/90 leading-snug mb-2 px-1">
+                          {set.criteriaStatement}
+                        </p>
+                        {set.criteriaLinks && set.criteriaLinks.length > 0 ? (
+                          <div className="flex flex-col gap-1 w-full">
+                            {set.criteriaLinks.map((item, i) => (
+                              <a
+                                key={`${item.label}-${i}`}
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex w-full items-center justify-between text-[9px] font-bold text-[#4da1ff] hover:underline"
+                              >
+                                <span className="flex-shrink-0 text-left">{item.label}</span>
+                                <ExternalLink className="w-3 h-3 shrink-0 flex-shrink-0" />
+                              </a>
+                            ))}
+                          </div>
+                        ) : set.criteriaLink ? (
+                          <a
+                            href={set.criteriaLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[9px] font-bold text-[#4da1ff] hover:underline"
+                          >
+                            Learn more
+                            <ExternalLink className="w-3 h-3 shrink-0" />
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )
@@ -471,7 +530,7 @@ export const EcosystemSetCarousel = () => {
         {canScrollPrev && (
           <button
             onClick={() => emblaApi?.scrollPrev()}
-            className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/80 border border-white/10 rounded-full text-white hover:bg-blue-600 transition-all cursor-pointer shadow-xl backdrop-blur-sm"
+            className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#161d26]/90 border border-white/5 rounded-full text-white/50 hover:text-white transition-all cursor-pointer backdrop-blur-md"
           >
             <ChevronLeft size={14} />
           </button>
@@ -480,12 +539,14 @@ export const EcosystemSetCarousel = () => {
         {canScrollNext && (
           <button
             onClick={() => emblaApi?.scrollNext()}
-            className="absolute -right-3 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/80 border border-white/10 rounded-full text-white hover:bg-blue-600 transition-all cursor-pointer shadow-xl backdrop-blur-sm"
+            className="absolute -right-3 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#161d26]/90 border border-white/5 rounded-full text-white/50 hover:text-white transition-all cursor-pointer backdrop-blur-md"
           >
             <ChevronRight size={14} />
           </button>
         )}
       </div>
+
+      <SBTGatingModal open={showSBTGatingModal} onOpenChange={setShowSBTGatingModal} />
     </div>
   )
 }
