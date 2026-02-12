@@ -179,7 +179,7 @@ export const AppHeader = ({
                 </Button>
               )}
               <div className="hidden lg:block">
-                <ConnectButton showBalance={false} accountStatus="address" />
+                <ConnectButton showBalance={false} accountStatus="address" chainStatus="none" />
               </div>
             </div>
           </ClientOnly>
