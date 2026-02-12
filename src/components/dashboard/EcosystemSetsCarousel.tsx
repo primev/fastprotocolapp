@@ -30,11 +30,6 @@ const CHAIN_NAMES: Record<number, string> = {
   [CHAIN_HYPERLIQUID]: "Hyperliquid",
 }
 
-const CHAIN_LOGOS: Record<number, string> = {
-  [CHAIN_ETH]: "/assets/ethereum-logo.png",
-  [CHAIN_HYPERLIQUID]: "/assets/hyperliquid-logo.png",
-}
-
 const CARD_HEIGHT_PX = 240
 
 const fetchUserActivity = async (walletAddress: string): Promise<Record<string, boolean>> => {
