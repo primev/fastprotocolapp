@@ -9,6 +9,7 @@ import { ArrowRight } from "lucide-react"
 import { Fuul } from "@fuul/sdk"
 import { isAddress } from "viem"
 import "@/lib/fuul"
+import { ReferralPageSkeleton } from "@/components/referral/ReferralPageSkeleton"
 
 function ReferralPageContent() {
   const router = useRouter()
@@ -166,13 +167,7 @@ function ReferralPageContent() {
 
 export default function ReferralPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="animate-pulse text-muted-foreground">Loading...</div>
-        </div>
-      }
-    >
+    <Suspense fallback={<ReferralPageSkeleton />}>
       <ReferralPageContent />
     </Suspense>
   )
