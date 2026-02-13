@@ -1,32 +1,24 @@
 import { env } from "@/env/server"
 import { getLeaderboard } from "@/lib/analytics/services/leaderboard.service"
 import { transformLeaderboardRows } from "@/lib/analytics/services/leaderboard-transform"
-import { getActiveTraders as getActiveTradersService } from "@/lib/analytics/services/transactions.service"
+import {
+  getActiveTraders as getActiveTradersService,
+  getCumulativeSuccessfulTransactions as getCumulativeSuccessfulTransactionsService,
+  getSwapVolume as getSwapVolumeService,
+} from "@/lib/analytics/services/transactions.service"
+
+const FUUL_PAYOUTS_SUMMARY_URL = "https://api.fuul.xyz/api/v1/payouts/summary"
 
 /**
- * Server-side function to fetch cumulative successful transactions from analytics API
- * Calls the internal API route which handles the external API call
+ * Server-side function to fetch cumulative successful transactions.
+ * Calls the analytics service directly to avoid self-referencing HTTP on Vercel.
  */
 export async function getCumulativeTransactions(): Promise<number | null> {
   try {
-    // Call the internal API route
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-    const response = await fetch(`${baseUrl}/api/analytics/transactions`, {
-      cache: "no-store",
+    const cumulativeTxs = await getCumulativeSuccessfulTransactionsService({
+      catalog: "fastrpc",
     })
-
-    if (!response.ok) {
-      console.error("Failed to fetch transactions:", response.statusText)
-      return null
-    }
-
-    const data = await response.json()
-
-    if (data.success && data.cumulativeSuccessfulTxs !== null) {
-      return Number(data.cumulativeSuccessfulTxs)
-    }
-
-    return null
+    return cumulativeTxs
   } catch (error) {
     console.error("Error fetching cumulative transactions:", error)
     return null
@@ -65,30 +57,15 @@ export async function getEthPrice(): Promise<number | null> {
 }
 
 /**
- * Server-side function to fetch cumulative swap volume from analytics API
- * Calls the internal API route which handles the external API call
+ * Server-side function to fetch cumulative swap volume.
+ * Calls the analytics service directly to avoid self-referencing HTTP on Vercel.
  */
 export async function getCumulativeSwapVolume(): Promise<{
   eth: number | null
   usd: number | null
 }> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-    const response = await fetch(`${baseUrl}/api/analytics/volume/swap`, {
-      cache: "no-store",
-    })
-
-    if (!response.ok) {
-      console.error("Failed to fetch swap volume:", response.statusText)
-      return { eth: null, usd: null }
-    }
-
-    const data = await response.json()
-    if (!data.success) return { eth: null, usd: null }
-
-    const eth = data.cumulativeSwapVolEth != null ? Number(data.cumulativeSwapVolEth) : null
-    const usd = data.cumulativeSwapVolUsd != null ? Number(data.cumulativeSwapVolUsd) : null
-    return { eth, usd }
+    return await getSwapVolumeService()
   } catch (error) {
     console.error("Error fetching cumulative swap volume:", error)
     return { eth: null, usd: null }
@@ -126,33 +103,34 @@ export async function getSwapTransactionCount(): Promise<number | null> {
 }
 
 /**
- * Server-side function to fetch total points earned from Fuul payout summary
- * Calls the internal API route which handles the external API call
+ * Server-side function to fetch total points earned from Fuul payout summary.
+ * Calls Fuul API directly to avoid self-referencing HTTP on Vercel.
  */
 export async function getTotalPointsEarned(): Promise<number | null> {
   try {
-    // Call the internal API route
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-    const response = await fetch(`${baseUrl}/api/fuul/payouts-summary?currency=point`, {
-      cache: "no-store",
-    })
-
-    if (!response.ok) {
-      console.error("Failed to fetch payout summary:", response.statusText)
+    const fuulApiKey = env.FUUL_API_KEY
+    if (!fuulApiKey) {
+      console.error("FUUL_API_KEY not configured")
       return null
     }
-
+    const url = new URL(FUUL_PAYOUTS_SUMMARY_URL)
+    url.searchParams.set("currency", "point")
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        accept: "application/json",
+        Authorization: `Bearer ${fuulApiKey}`,
+      },
+      cache: "no-store",
+    })
+    if (!response.ok) {
+      console.error("Failed to fetch payout summary:", response.status, await response.text())
+      return null
+    }
     const data = await response.json()
-
-    if (
-      data.success &&
-      data.data &&
-      data.data.total_payouts !== null &&
-      data.data.total_payouts !== undefined
-    ) {
+    if (data.data && data.data.total_payouts !== null && data.data.total_payouts !== undefined) {
       return Number(data.data.total_payouts)
     }
-
     return null
   } catch (error) {
     console.error("Error fetching total points earned:", error)
