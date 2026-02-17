@@ -1,391 +1,512 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from "react"
-import { ArrowUpDown, Settings2, ChevronDown, Info } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { toast } from "sonner"
-import { useBalance, useAccount } from "wagmi"
+import { ChevronDown, ArrowDown, Wallet } from "lucide-react"
+import { useAccount, useBalance } from "wagmi"
+import { useConnectModal } from "@rainbow-me/rainbowkit"
 import { formatUnits } from "viem"
-import { cn } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 import TokenSelector from "./TokenSelector"
-import SwapQuoter from "./SwapQuoter"
-import { useSwapQuote } from "@/hooks/use-swap-quote"
-import { useSwapIntent } from "@/hooks/use-swap-intent"
-import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
-import { INTENT_DEADLINE_MINUTES } from "@/lib/swap-constants"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import tokenList from "@/lib/token-list.json"
 import type { Token } from "@/types/swap"
 
-const DEADLINE_PRESETS = [
-  { label: "15m", value: 15 },
-  { label: "30m", value: 30 },
-  { label: "1h", value: 60 },
-  { label: "12h", value: 720 },
-]
+// Stablecoin symbols (2 decimals)
+const STABLECOIN_SYMBOLS = ["USDC", "USDT", "DAI", "BUSD", "TUSD", "FRAX", "USDP", "LUSD"]
 
-const STORAGE_KEY = "swap-intent-deadline-minutes"
+// Major asset symbols (4-6 decimals)
+const MAJOR_ASSET_SYMBOLS = ["ETH", "WBTC", "BTC"]
 
-interface SwapInterfaceProps {
-  tokens: Token[]
-  isLoading?: boolean
+/**
+ * Smart formatter for display amounts
+ * Handles different token types with appropriate decimal precision
+ */
+const formatDisplayAmount = (amount: string | number, token?: Token): string => {
+  const num = typeof amount === "string" ? parseFloat(amount) : amount
+  
+  if (isNaN(num) || num === 0) return "0"
+  
+  const symbol = token?.symbol?.toUpperCase() || ""
+  
+  // Stablecoins: 2 decimals
+  if (STABLECOIN_SYMBOLS.includes(symbol)) {
+    return new Intl.NumberFormat('en-US', {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
+    }).format(num)
+  }
+  
+  // Very small numbers (< 0.001): use significant digits
+  if (num < 0.001) {
+    return num.toLocaleString('en-US', { 
+      maximumSignificantDigits: 6,
+      notation: 'standard'
+    })
+  }
+  
+  // Major assets: 4-6 decimals based on value
+  if (MAJOR_ASSET_SYMBOLS.includes(symbol)) {
+    // For values >= 1, show 4 decimals. For < 1, show 6 decimals
+    const decimals = num >= 1 ? 4 : 6
+    return new Intl.NumberFormat('en-US', {
+      maximumFractionDigits: decimals,
+      minimumFractionDigits: 0,
+    }).format(num)
+  }
+  
+  // Default: 4-6 decimals based on value
+  const decimals = num >= 1 ? 4 : 6
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: decimals,
+    minimumFractionDigits: 0,
+  }).format(num)
 }
 
-export default function SwapInterface({ tokens, isLoading = false }: SwapInterfaceProps) {
-  const { createIntentSignature } = useSwapIntent()
-  const { nonce, refetchNonce } = usePermit2Nonce()
-  const { address } = useAccount()
-
-  // Load deadline preference from localStorage
-  const [deadlineMinutes, setDeadlineMinutes] = useState<number>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        const parsed = parseInt(stored, 10)
-        if (!isNaN(parsed) && parsed >= 5 && parsed <= 1440) {
-          return parsed
-        }
-      }
-    }
-    return INTENT_DEADLINE_MINUTES
-  })
-
-  // Save deadline preference to localStorage
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, deadlineMinutes.toString())
-    }
-  }, [deadlineMinutes])
-
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [tokenIn, setTokenIn] = useState<Token | undefined>(tokens?.[0])
-  const [tokenOut, setTokenOut] = useState<Token | undefined>(tokens?.[1])
-  const [amountIn, setAmountIn] = useState("")
-  const [isSigning, setIsSigning] = useState(false)
-  const [tokenSelectorOpen, setTokenSelectorOpen] = useState<"in" | "out" | null>(null)
-
-  // Update tokens when they change
-  React.useEffect(() => {
-    if (tokens.length > 0 && !tokenIn) {
-      setTokenIn(tokens[0])
-    }
-    if (tokens.length > 1 && !tokenOut) {
-      setTokenOut(tokens[1])
-    }
-  }, [tokens, tokenIn, tokenOut])
-
-  // Fetch token balance for the selected input token
-  const { data: tokenBalance } = useBalance({
-    address,
-    token: tokenIn?.address as `0x${string}` | undefined,
-  })
-
-  // Calculate balance in token units
-  const balance = useMemo(() => {
-    if (!tokenBalance || !tokenIn) return "0"
-    try {
-      return formatUnits(tokenBalance.value, tokenIn.decimals)
-    } catch {
-      return "0"
-    }
-  }, [tokenBalance, tokenIn])
-
-  // Swap quote logic
-  const { quote, timeLeft, isRefreshing } = useSwapQuote({ tokenIn, tokenOut, amountIn })
-
-  // Action Handler
-  const handleSwap = async () => {
-    if (!tokenIn || !tokenOut || !quote || !nonce) {
-      toast.error("Please fill in all swap details")
-      return
-    }
-
-    if (!amountIn || parseFloat(amountIn) <= 0) {
-      toast.error("Please enter a valid amount")
-      return
-    }
-
-    try {
-      setIsSigning(true)
-      toast.info("Please sign the intent in your wallet...")
-
-      const { signature, intent, permit } = await createIntentSignature(
-        tokenIn.address as `0x${string}`,
-        tokenOut.address as `0x${string}`,
-        amountIn,
-        quote.output, // minAmountOut
-        nonce,
-        tokenIn.decimals,
-        tokenOut.decimals,
-        deadlineMinutes
+/**
+ * Formats amount with visual contrast (graying trailing digits)
+ */
+const formatAmountWithContrast = (amount: string, token?: Token): React.ReactNode => {
+  const formatted = formatDisplayAmount(amount, token)
+  const num = parseFloat(amount)
+  
+  if (isNaN(num) || num === 0) return "0"
+  
+  // For very precise numbers, show trailing digits in gray
+  const fullStr = num.toString()
+  const formattedStr = formatted.replace(/,/g, '')
+  
+  // If the formatted string is shorter, show trailing digits in gray
+  if (fullStr.length > formattedStr.length && num < 1) {
+    const matchIndex = formattedStr.length
+    const significantPart = formattedStr
+    const trailingPart = fullStr.substring(matchIndex)
+    
+    // Only show gray if there are meaningful trailing digits
+    if (trailingPart.length > 0 && trailingPart !== '0') {
+      return (
+        <>
+          {significantPart}
+          <span className="text-white/20">{trailingPart.substring(0, 4)}</span>
+        </>
       )
-
-      // Log the signature that will be passed to the API
-      console.log("=== Signature to be sent to API ===")
-      console.log("Signature:", signature)
-      console.log("===================================")
-
-      // Serialize bigint values to strings for JSON
-      const serializedIntent = {
-        ...intent,
-        inputAmt: intent.inputAmt.toString(),
-        userAmtOut: intent.userAmtOut.toString(),
-        deadline: intent.deadline.toString(),
-        nonce: intent.nonce.toString(),
-      }
-
-      const serializedPermit = {
-        ...permit,
-        permitted: {
-          ...permit.permitted,
-          amount: permit.permitted.amount.toString(),
-        },
-        nonce: permit.nonce.toString(),
-        deadline: permit.deadline.toString(),
-      }
-
-      // Log the full payload being sent to the API
-      const apiPayload = {
-        signature,
-        intent: serializedIntent,
-        permit: serializedPermit,
-      }
-      console.log("=== Full API Payload ===")
-      console.log(JSON.stringify(apiPayload, null, 2))
-      console.log("=========================")
-
-      const response = await fetch("/api/relay", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(apiPayload),
-      })
-
-      const data = await response.json()
-
-      if (response.ok && data.success) {
-        toast.success("Swap Intent submitted to relayer!")
-        setAmountIn("")
-        refetchNonce() // Refresh nonce for next swap
-      } else {
-        toast.error(data.message || "Swap failed")
-      }
-    } catch (err: any) {
-      if (err?.message?.includes("User rejected")) {
-        toast.error("Signature rejected")
-      } else {
-        toast.error("Swap failed or was rejected")
-      }
-      console.error("Swap error:", err)
-    } finally {
-      setIsSigning(false)
     }
   }
+  
+  return formatted
+}
 
-  const switchTokens = () => {
-    setTokenIn(tokenOut)
-    setTokenOut(tokenIn)
-    setAmountIn("")
-  }
+// Default ETH token for when wallet is not connected
+const DEFAULT_ETH_TOKEN: Token = {
+  address: "0x0000000000000000000000000000000000000000",
+  symbol: "ETH",
+  decimals: 18,
+  name: "Ethereum",
+  logoURI: "https://token-icons.s3.amazonaws.com/eth.png",
+}
 
-  // Format balance safely
-  const formattedBalance = useMemo(() => {
-    const num = parseFloat(balance)
-    if (isNaN(num) || num === 0) return "0"
-    return num.toLocaleString(undefined, { maximumFractionDigits: 4 })
-  }, [balance])
+export default function SwapInterface() {
+  const { isConnected, address } = useAccount()
+  const { openConnectModal } = useConnectModal()
+  
+  // Use token list from JSON file
+  const tokens = (tokenList as Token[])
+  
+  const [amount, setAmount] = useState("")
+  const [isInputFocused, setIsInputFocused] = useState(false)
+  const [fromToken, setFromToken] = useState<Token | undefined>(DEFAULT_ETH_TOKEN)
+  const [toToken, setToToken] = useState<Token | undefined>(undefined)
+  const [isFromTokenSelectorOpen, setIsFromTokenSelectorOpen] = useState(false)
+  const [isToTokenSelectorOpen, setIsToTokenSelectorOpen] = useState(false)
+  const [tokenPrice, setTokenPrice] = useState<number | null>(null)
+  const [isLoadingPrice, setIsLoadingPrice] = useState(false)
+
+  // Default to ETH when wallet is not connected or when tokens load
+  useEffect(() => {
+    if (!isConnected) {
+      // When wallet is not connected, always default to ETH
+      const ethToken = tokens.find(t => t.symbol === "ETH") || DEFAULT_ETH_TOKEN
+      setFromToken(ethToken)
+    } else if (tokens.length > 0 && !fromToken) {
+      // When wallet connects and tokens are loaded, default to ETH if no token selected
+      const ethToken = tokens.find(t => t.symbol === "ETH") || DEFAULT_ETH_TOKEN
+      setFromToken(ethToken)
+    }
+  }, [isConnected, tokens, fromToken])
+
+  // Fetch token price when fromToken changes
+  useEffect(() => {
+    if (!fromToken?.symbol) {
+      setTokenPrice(null)
+      return
+    }
+
+    setIsLoadingPrice(true)
+    fetch(`/api/token-price?symbol=${encodeURIComponent(fromToken.symbol)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.price) {
+          setTokenPrice(data.price)
+        } else {
+          setTokenPrice(null)
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching token price:", error)
+        setTokenPrice(null)
+      })
+      .finally(() => {
+        setIsLoadingPrice(false)
+      })
+  }, [fromToken])
+
+  // Fetch balance for native ETH or ERC20 token
+  const { data: balance, isLoading: isLoadingBalance } = useBalance({
+    address: isConnected && address ? address : undefined,
+    token: fromToken?.address && fromToken.address !== "0x0000000000000000000000000000000000000000" 
+      ? fromToken.address as `0x${string}` 
+      : undefined,
+    query: {
+      enabled: isConnected && !!address && !!fromToken,
+    },
+  })
+
+  // Format balance for display using smart formatter
+  const balanceValue = balance && fromToken
+    ? parseFloat(formatUnits(balance.value, fromToken.decimals))
+    : 0
+  const formattedBalance = balanceValue > 0 
+    ? formatDisplayAmount(balanceValue, fromToken)
+    : "0"
+
+  // Common tokens for quick select: ETH, USDC, USDT, WBTC, WETH
+  const commonTokens = useMemo(() => {
+    const symbols = ["ETH", "USDC", "USDT", "WBTC", "WETH"]
+    const foundTokens: Token[] = []
+    
+    // Always start with ETH (DEFAULT_ETH_TOKEN) if it's not the from token
+    if (!fromToken || fromToken.symbol.toUpperCase() !== "ETH") {
+      const ethToken = tokens.find(t => t.symbol.toUpperCase() === "ETH") || DEFAULT_ETH_TOKEN
+      foundTokens.push(ethToken)
+    }
+    
+    // Add other tokens in order
+    symbols.forEach(symbol => {
+      if (symbol.toUpperCase() === "ETH") return // Already added above
+      
+      const token = tokens.find(t => t.symbol.toUpperCase() === symbol.toUpperCase())
+      
+      // Only add if token exists and is not the from token
+      if (token && token.address !== fromToken?.address) {
+        foundTokens.push(token)
+      }
+    })
+    
+    return foundTokens
+  }, [tokens, fromToken])
 
   return (
-    <div className="w-full max-w-[440px] mx-auto">
-      <Card className="relative p-0 bg-card/95 backdrop-blur-xl border-border/40 shadow-lg rounded-3xl overflow-hidden">
-        
-        {/* Top Navigation / Header */}
-        <div className="flex justify-between items-center px-5 pt-4 pb-1">
-          <span className="text-xs font-medium text-muted-foreground tracking-tight">Swap</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full h-7 w-7 hover:bg-muted/40 transition-colors"
-            onClick={() => setIsSettingsOpen(true)}
-          >
-            <Settings2 size={16} className="text-muted-foreground" />
-          </Button>
-        </div>
-
-        <div className="px-4 pb-2 space-y-0">
-          {/* Input Module: Minimal Google Style */}
-          <div className="group relative p-4 bg-muted/20 rounded-2xl border border-border/20 focus-within:border-border/40 transition-all duration-200">
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-xs font-medium text-muted-foreground">Sell</label>
-              {address && tokenIn && (
-                <div className="flex gap-2 items-center">
-                  <span className="text-[10px] text-muted-foreground/80 tabular-nums">Balance: {formattedBalance}</span>
+    <div className="w-full max-w-[500px] bg-[#131313] border border-white/10 rounded-[24px] p-2 flex flex-col gap-1 shadow-2xl relative z-0">
+      
+      {/* SELL SECTION */}
+      <div className="group bg-[#1B1B1B] rounded-[20px] p-4 flex flex-col gap-2 border border-transparent focus-within:border-white/5 transition-all">
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Sell</span>
+          {/* Quick Select Percentages - Only visible on hover */}
+          {isConnected && balance && fromToken && (
+            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              {['25%', '50%', '75%', 'Max'].map((pct) => {
+                const handlePercentageClick = () => {
+                  if (!balance || !fromToken) return
+                  
+                  const balanceValue = parseFloat(formatUnits(balance.value, fromToken.decimals))
+                  
+                  if (pct === 'Max') {
+                    setAmount(balanceValue.toString())
+                  } else {
+                    const percent = parseFloat(pct) / 100
+                    const amountValue = balanceValue * percent
+                    setAmount(amountValue.toString())
+                  }
+                }
+                
+                return (
                   <button 
-                    onClick={() => setAmountIn(balance)}
-                    className="text-[10px] font-semibold text-foreground/80 hover:text-foreground uppercase tracking-wider transition-colors"
+                    key={pct}
+                    onClick={handlePercentageClick}
+                    className="px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-bold text-muted-foreground hover:bg-white/10 hover:text-white transition-colors"
                   >
-                    Max
+                    {pct}
                   </button>
-                </div>
-              )}
+                )
+              })}
             </div>
+          )}
+        </div>
 
-            <div className="flex items-center gap-3">
-              <Input
-                type="text"
-                inputMode="decimal"
-                placeholder="0"
-                value={amountIn}
-                onChange={(e) => setAmountIn(e.target.value)}
-                className="flex-1 text-3xl font-light tracking-tight border-0 bg-transparent focus-visible:ring-0 p-0 h-auto placeholder:text-muted-foreground/20 text-foreground"
-              />
-              <Button
-                variant="outline"
-                onClick={() => setTokenSelectorOpen("in")}
-                className="flex items-center gap-1.5 pr-2.5 pl-2 h-10 border-border/30 bg-background/80 hover:bg-background transition-all rounded-xl min-w-[100px]"
-              >
-                {tokenIn?.logoURI && <img src={tokenIn.logoURI} alt={tokenIn.symbol} className="w-5 h-5 rounded-full" />}
-                <span className="font-medium text-xs text-foreground">{tokenIn?.symbol || "Select"}</span>
-                <ChevronDown size={12} className="text-muted-foreground/50" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Minimal Switcher */}
-          <div className="relative h-1 flex justify-center items-center z-20 -my-0.5">
-            <Button
-              size="icon"
-              variant="ghost"
-              className="absolute rounded-xl h-9 w-9 bg-card border-2 border-card shadow-md hover:scale-105 active:scale-95 transition-all group"
-              onClick={switchTokens}
-            >
-              <ArrowUpDown size={16} className="text-foreground/60 group-hover:rotate-180 transition-transform duration-300" />
-            </Button>
-          </div>
-
-          {/* Output Module */}
-          <div className="p-4 bg-muted/10 rounded-2xl border border-border/15 transition-all duration-200">
-            <div className="flex justify-between items-center mb-2 text-xs font-medium text-muted-foreground">
-              <span>Buy</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex-1 text-3xl font-light tracking-tight text-foreground/80 tabular-nums overflow-hidden text-ellipsis">
-                {quote?.output || "0"}
+        <div className="flex justify-between items-center mt-1">
+          {(() => {
+            const displayValue = isInputFocused || !amount 
+              ? amount 
+              : formatDisplayAmount(amount, fromToken)
+            const fullValue = amount && parseFloat(amount) > 0 
+              ? parseFloat(amount).toString()
+              : null
+            const isTrimmed = fullValue && displayValue !== fullValue
+            
+            if (isTrimmed) {
+              return (
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex-1 relative">
+                        <input 
+                          type="text" 
+                          value={displayValue}
+                          onChange={(e) => {
+                            // Allow user to type freely, store raw value
+                            const value = e.target.value.replace(/[^0-9.]/g, '')
+                            // Prevent multiple decimal points
+                            const parts = value.split('.')
+                            const cleaned = parts.length > 2 
+                              ? parts[0] + '.' + parts.slice(1).join('')
+                              : value
+                            setAmount(cleaned)
+                          }}
+                          onFocus={() => setIsInputFocused(true)}
+                          onBlur={() => {
+                            setIsInputFocused(false)
+                            // Format on blur if needed
+                            if (amount) {
+                              const num = parseFloat(amount)
+                              if (!isNaN(num)) {
+                                setAmount(num.toString())
+                              }
+                            }
+                          }}
+                          placeholder="0"
+                          className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20"
+                          disabled={!isConnected}
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs font-mono bg-zinc-900 border-zinc-700">
+                      <p className="text-white/70">{parseFloat(amount).toLocaleString('en-US', { 
+                        maximumFractionDigits: 18,
+                        useGrouping: false
+                      })}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )
+            }
+            
+            return (
+              <div className="flex-1 relative">
+                <input 
+                  type="text" 
+                  value={displayValue}
+                  onChange={(e) => {
+                    // Allow user to type freely, store raw value
+                    const value = e.target.value.replace(/[^0-9.]/g, '')
+                    // Prevent multiple decimal points
+                    const parts = value.split('.')
+                    const cleaned = parts.length > 2 
+                      ? parts[0] + '.' + parts.slice(1).join('')
+                      : value
+                    setAmount(cleaned)
+                  }}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => {
+                    setIsInputFocused(false)
+                    // Format on blur if needed
+                    if (amount) {
+                      const num = parseFloat(amount)
+                      if (!isNaN(num)) {
+                        setAmount(num.toString())
+                      }
+                    }
+                  }}
+                  placeholder="0"
+                  className="bg-transparent text-4xl font-medium outline-none w-full placeholder:text-white/20"
+                  disabled={!isConnected}
+                />
               </div>
-              <Button
-                variant="outline"
-                onClick={() => setTokenSelectorOpen("out")}
-                className="flex items-center gap-1.5 pr-2.5 pl-2 h-10 border-border/30 bg-background/80 hover:bg-background transition-all rounded-xl min-w-[100px]"
-              >
-                {tokenOut?.logoURI && <img src={tokenOut.logoURI} alt={tokenOut.symbol} className="w-5 h-5 rounded-full" />}
-                <span className="font-medium text-xs text-foreground">{tokenOut?.symbol || "Select"}</span>
-                <ChevronDown size={12} className="text-muted-foreground/50" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Info & Quote Section - More Compact */}
-        <div className="px-5 py-3">
-          <SwapQuoter
-            quote={quote}
-            timeLeft={timeLeft}
-            isRefreshing={isRefreshing}
-            tokenInSymbol={tokenIn?.symbol}
-            tokenOutSymbol={tokenOut?.symbol}
-          />
-        </div>
-
-        {/* Main Action: Minimal Google Button */}
-        <div className="px-4 pb-4">
-          <Button
-            className={cn(
-              "w-full h-12 rounded-xl text-sm font-medium transition-all duration-200",
-              "bg-foreground text-background shadow-sm",
-              "hover:bg-foreground/90 hover:shadow-md",
-              "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-sm"
-            )}
-            disabled={!amountIn || isRefreshing || isSigning || isLoading || !quote}
-            onClick={handleSwap}
+            )
+          })()}
+          <button 
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setIsFromTokenSelectorOpen(true)
+            }}
+            className="flex items-center gap-2 bg-[#131313] hover:bg-[#222] border border-white/10 rounded-full pl-1 pr-3 py-1 shadow-sm transition-all"
           >
-            {isSigning ? (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
-                <span>Signing...</span>
-              </div>
-            ) : isLoading ? (
-              "Loading..."
+            {fromToken ? (
+              <>
+                {fromToken.logoURI ? (
+                  <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center">
+                    <img src={fromToken.logoURI} alt={fromToken.symbol} className="w-full h-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-white/10 overflow-hidden flex items-center justify-center">
+                    <span className="text-xs font-bold">{fromToken.symbol[0]}</span>
+                  </div>
+                )}
+                <span className="font-bold text-lg">{fromToken.symbol}</span>
+              </>
             ) : (
-              "Review Swap"
+              <span className="font-bold text-lg">Select</span>
             )}
-          </Button>
+            <ChevronDown size={16} className="text-white/40" />
+          </button>
         </div>
-      </Card>
 
-      {/* Settings Modal */}
-      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogContent className="rounded-[32px] border-border/50 shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-semibold tracking-tight">Settings</DialogTitle>
-            <DialogDescription className="text-base text-muted-foreground">
-              Configure how your intent is executed.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6 py-4">
-            <div className="space-y-3">
-              <Label className="text-sm font-bold text-foreground ml-1">Signature Deadline</Label>
-              <div className="flex flex-wrap gap-2">
-                {DEADLINE_PRESETS.map((p) => (
-                  <Button
-                    key={p.value}
-                    variant={deadlineMinutes === p.value ? "default" : "secondary"}
-                    className="rounded-2xl px-5 h-10 transition-all"
-                    onClick={() => setDeadlineMinutes(p.value)}
-                  >
-                    {p.label}
-                  </Button>
+        <div className="flex justify-between items-center text-xs font-medium text-muted-foreground">
+          <span>
+            {amount && parseFloat(amount) > 0 && tokenPrice
+              ? (() => {
+                  const usdValue = parseFloat(amount) * tokenPrice
+                  return `$${usdValue.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                    useGrouping: true
+                  })}`
+                })()
+              : amount && parseFloat(amount) > 0 && isLoadingPrice
+              ? "—"
+              : "—"}
+          </span>
+          {isConnected && address && fromToken && balance && (
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 cursor-help">
+                    <Wallet size={12} className="opacity-40" />
+                    <span>
+                      {isLoadingBalance ? "—" : `${formattedBalance} ${fromToken.symbol}`}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs font-mono bg-zinc-900 border-zinc-700">
+                  <p className="text-white/90">Full balance:</p>
+                  <p className="text-white/70">
+                    {balanceValue.toLocaleString('en-US', { 
+                      maximumFractionDigits: 18,
+                      useGrouping: false
+                    })} {fromToken.symbol}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      </div>
+
+      {/* SWITCH BUTTON (Centered) */}
+      <div className="relative h-2 w-full flex justify-center z-20">
+        <button 
+          onClick={() => {
+            const temp = fromToken
+            setFromToken(toToken)
+            setToToken(temp)
+            setAmount("")
+          }}
+          className="absolute -top-4 p-2 bg-[#1B1B1B] border-[4px] border-[#131313] rounded-xl hover:scale-110 transition-transform text-white shadow-lg"
+        >
+          <ArrowDown size={18} strokeWidth={3} />
+        </button>
+      </div>
+
+      {/* BUY SECTION */}
+      <div className="group relative bg-[#1B1B1B] rounded-[20px] p-4 flex flex-col gap-2 border border-transparent hover:bg-[#1e1e1e] transition-all">
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Buy</span>
+          {/* Common Tokens Quick Select - Only visible on hover */}
+          {commonTokens.length > 0 && (
+            <TooltipProvider delayDuration={0}>
+              <div className="flex gap-1.5 pointer-events-none opacity-0 group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200">
+                {commonTokens.map((token) => (
+                  <Tooltip key={token.address}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setToToken(token)}
+                        className="p-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all"
+                      >
+                        {token.logoURI ? (
+                          <img
+                            src={token.logoURI}
+                            alt={token.symbol}
+                            className="w-5 h-5 rounded-full"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                            <span className="text-[10px] font-bold">{token.symbol[0]}</span>
+                          </div>
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{token.symbol}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 ))}
               </div>
-            </div>
-            <div className="p-3 bg-muted/30 border border-border/30 rounded-xl flex gap-2.5 items-start">
-              <Info size={16} className="text-muted-foreground mt-0.5 shrink-0" />
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Short deadlines protect you from market volatility. We recommend 30 minutes for the best balance of security and execution reliability.
-              </p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </TooltipProvider>
+          )}
+        </div>
 
-      {/* Modals */}
+        <div className="flex justify-between items-center mt-1">
+          <span className="text-4xl font-medium text-white/40">0</span>
+          <button 
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setIsToTokenSelectorOpen(true)
+            }}
+            className="flex items-center gap-1.5 bg-primary hover:opacity-90 text-primary-foreground rounded-full px-3 py-1.5 shadow-lg transition-all"
+          >
+            {toToken ? (
+              <>
+                {toToken.logoURI && (
+                  <div className="w-4 h-4 rounded-full overflow-hidden">
+                    <img src={toToken.logoURI} alt={toToken.symbol} className="w-full h-full object-contain" />
+                  </div>
+                )}
+                <span className="font-bold text-sm">{toToken.symbol}</span>
+              </>
+            ) : (
+              <span className="font-bold text-sm">Select token</span>
+            )}
+            <ChevronDown size={14} />
+          </button>
+        </div>
+
+        <div className="h-4" /> {/* Spacer to match height */}
+      </div>
+
+      {/* ACTION BUTTON */}
+      <button
+        className="mt-1 w-full py-4 rounded-[20px] bg-primary/10 text-primary hover:bg-primary/20 font-bold text-lg transition-all"
+      >
+        Get Started
+      </button>
+
+      {/* Token Selectors */}
       <TokenSelector
-        open={tokenSelectorOpen === "in"}
-        onOpenChange={(open) => setTokenSelectorOpen(open ? "in" : null)}
-        tokens={tokens}
-        selectedToken={tokenIn}
-        onSelect={(token) => {
-          setTokenIn(token)
-          setTokenSelectorOpen(null)
-        }}
+        open={isFromTokenSelectorOpen}
+        onOpenChange={setIsFromTokenSelectorOpen}
+        tokens={tokens.length > 0 ? tokens : [DEFAULT_ETH_TOKEN]}
+        selectedToken={fromToken}
+        onSelect={setFromToken}
       />
       <TokenSelector
-        open={tokenSelectorOpen === "out"}
-        onOpenChange={(open) => setTokenSelectorOpen(open ? "out" : null)}
-        tokens={tokens}
-        selectedToken={tokenOut}
-        onSelect={(token) => {
-          setTokenOut(token)
-          setTokenSelectorOpen(null)
-        }}
+        open={isToTokenSelectorOpen}
+        onOpenChange={setIsToTokenSelectorOpen}
+        tokens={tokens.length > 0 
+          ? tokens.filter(t => t.address !== fromToken?.address)
+          : [DEFAULT_ETH_TOKEN]}
+        selectedToken={toToken}
+        onSelect={setToToken}
       />
     </div>
   )
