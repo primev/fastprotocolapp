@@ -4,6 +4,8 @@ export const FEATURE_FLAGS = {
   test_swap_toast: false,
   /** When true, swap is gated by the "Swap Whitelist" Google Sheet; when false, all connected wallets can swap. */
   swap_whitelist_enabled: true,
+  /** When true, users not on the whitelist see the landing page on the app route instead of the swap UI. */
+  swapPrivateMode: true,
 }
 
 /** Placeholder data for SwapToast test mode (ETH → USDC) */
