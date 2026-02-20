@@ -209,6 +209,11 @@ export function EarlyAccessForm({ initialWalletAddress }: EarlyAccessFormProps) 
             )}
           </div>
 
+          <p className="text-sm text-muted-foreground rounded-lg border border-primary/15 bg-primary/5 px-3 py-2">
+            Use your real X and Discord profiles—if you&apos;re approved, we&apos;ll reach out to
+            you there.
+          </p>
+
           <div className="space-y-2">
             <Label htmlFor="x">X handle</Label>
             <Input
