@@ -178,8 +178,8 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         <SellCard
           fromToken={fromToken}
           amount={
-            editingSide === "buy" && displayQuote
-              ? displayQuote.amountInFormatted.replace(/,/g, "")
+            editingSide === "buy"
+              ? (displayQuote?.amountInFormatted?.replace(/,/g, "") ?? "")
               : amount
           }
           sellDisplayValue={sellDisplayValue}

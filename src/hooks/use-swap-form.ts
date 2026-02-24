@@ -54,6 +54,7 @@ export function useSwapForm(allTokens: Token[]) {
   const [wrapUnwrapGasEstimate, setWrapUnwrapGasEstimate] = useState<bigint | null>(null)
 
   const prevConnectedRef = useRef<boolean | undefined>(undefined)
+  const lastValidQuotePairKeyRef = useRef<string>("")
 
   // --- Market Data ---
   const { price: fromPrice, isLoading: isLoadingFromPrice } = useTokenPrice(fromToken?.symbol || "")
@@ -205,11 +206,22 @@ export function useSwapForm(allTokens: Token[]) {
     enabled: !isSwitching && !!amount && !!fromToken && !!toToken && !isWrapUnwrap,
   })
 
+  // Keep lastValidQuotePairKeyRef in sync so the activeQuote memo can read it synchronously.
+  useEffect(() => {
+    if (quote && !isQuoteLoading) {
+      lastValidQuotePairKeyRef.current = pairKey
+    }
+  }, [quote, isQuoteLoading, pairKey])
+
   const activeQuote = useMemo(() => {
-    if (quote && !isQuoteLoading) return quote
     if (isManualInversion && swappedQuote) return swappedQuote
+    if (quote && !isQuoteLoading) return quote
+    // During a periodic refresh of the same pair (15s timer), keep the last quote so the buy
+    // amount, swap button, price impact, and USD values don't flicker to empty/zero states.
+    // When tokens change, pairKey differs → we fall through and return null as before.
+    if (isQuoteLoading && quote && lastValidQuotePairKeyRef.current === pairKey) return quote
     return null
-  }, [isManualInversion, swappedQuote, quote, isQuoteLoading])
+  }, [isManualInversion, swappedQuote, quote, isQuoteLoading, pairKey])
 
   // Don't use cached quotes for wrap/unwrap pairs - they don't have quotes
   // Also ensure we only use cache if it matches the current pair (defensive check)
@@ -253,8 +265,10 @@ export function useSwapForm(allTokens: Token[]) {
   // Declared BEFORE handleSwitch to fix hoisting error
   const exchangeRateContent = useMemo(() => {
     if (isWrapUnwrap) return `1 ${fromToken?.symbol} = 1 ${toToken?.symbol}`
-    if (editingSide === "buy" && !displayQuote && fromToken && toToken) {
-      return "Enter the amount you want to buy"
+    if (!displayQuote && fromToken && toToken) {
+      return editingSide === "buy"
+        ? "Enter the amount you want to buy"
+        : "Enter the amount you want to sell"
     }
     if (hasNoLiquidity) return "No liquidity"
     if (displayQuote && fromToken && toToken) {

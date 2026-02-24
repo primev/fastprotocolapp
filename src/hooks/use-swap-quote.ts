@@ -704,11 +704,12 @@ export function useQuote({
 
       // Only set quote if this is still the latest request
       if (currentRequestId === requestIdRef.current) {
-        // Compare new vs old quote to prevent unnecessary re-renders
+        // Compare formatted display strings — if what the user sees hasn't changed, skip the
+        // update to prevent unnecessary NumberFlow animations on tiny wei-level fluctuations.
         const isIdentical =
-          prevQuoteRef.current?.amountOut === newQuote.amountOut &&
-          prevQuoteRef.current?.fee === newQuote.fee &&
-          prevQuoteRef.current?.amountIn === newQuote.amountIn
+          prevQuoteRef.current?.amountOutFormatted === newQuote.amountOutFormatted &&
+          prevQuoteRef.current?.amountInFormatted === newQuote.amountInFormatted &&
+          prevQuoteRef.current?.fee === newQuote.fee
 
         if (isIdentical) {
           setIsLoading(false)
@@ -1021,11 +1022,12 @@ export function useQuote({
 
       // Only set quote if this is still the latest request
       if (currentRequestId === requestIdRef.current) {
-        // Compare new vs old quote to prevent unnecessary re-renders
+        // Compare formatted display strings — if what the user sees hasn't changed, skip the
+        // update to prevent unnecessary NumberFlow animations on tiny wei-level fluctuations.
         const isIdentical =
-          prevQuoteRef.current?.amountOut === newQuote.amountOut &&
-          prevQuoteRef.current?.fee === newQuote.fee &&
-          prevQuoteRef.current?.amountIn === newQuote.amountIn
+          prevQuoteRef.current?.amountOutFormatted === newQuote.amountOutFormatted &&
+          prevQuoteRef.current?.amountInFormatted === newQuote.amountInFormatted &&
+          prevQuoteRef.current?.fee === newQuote.fee
 
         if (isIdentical) {
           setIsLoading(false)

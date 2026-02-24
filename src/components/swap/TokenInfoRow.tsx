@@ -52,7 +52,7 @@ export default React.memo(function TokenInfoRow({
 
   const renderUsdContent = () => {
     if (isEmptyAmount && !keepShowingLastDuringRefetch) {
-      return <span>$0</span>
+      return null
     }
     if (valueToDisplay != null) {
       return (

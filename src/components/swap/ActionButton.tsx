@@ -128,7 +128,7 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
         // Case: No destination token selected
         <Button
           disabled
-          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-white cursor-not-allowed"
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-white/40 cursor-not-allowed"
         >
           SELECT A TOKEN
         </Button>
@@ -136,7 +136,7 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
         // Case: Token is selected but no amount has been entered
         <Button
           disabled
-          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-white cursor-not-allowed"
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-white/40 cursor-not-allowed"
         >
           ENTER AN AMOUNT
         </Button>
@@ -144,7 +144,7 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
         // Case: Amount exceeds user's current balance
         <Button
           disabled
-          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-white cursor-not-allowed"
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-white/40 cursor-not-allowed"
         >
           INSUFFICIENT BALANCE
         </Button>

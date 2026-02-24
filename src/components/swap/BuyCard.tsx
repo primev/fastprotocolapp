@@ -97,7 +97,7 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
       <div className="flex items-center justify-between">
         <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Buy</span>
         {toToken && (
-          <span className="flex items-center gap-1 text-sm font-medium text-white/70">
+          <span className="flex items-center gap-1 text-sm font-medium text-white/40">
             <Wallet size={14} /> {formattedToBalance}
           </span>
         )}
