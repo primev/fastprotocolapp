@@ -126,7 +126,12 @@ export function SwapForm() {
         isConnected={isConnected}
         isNonceLoading={isPermitPath ? isNonceLoading : false}
         address={address}
-        insufficientBalance={parseFloat(form.amount || "0") > form.fromBalanceValue}
+        insufficientBalance={
+          form.editingSide === "buy" && form.displayQuote
+            ? parseFloat(form.displayQuote.amountInFormatted.replace(/,/g, "") || "0") >
+              form.fromBalanceValue
+            : parseFloat(form.amount || "0") > form.fromBalanceValue
+        }
         // Quote Props
         activeQuote={form.activeQuote}
         displayQuote={form.displayQuote}
@@ -185,7 +190,11 @@ export function SwapForm() {
           onOpenChange={setIsConfirmationOpen}
           tokenIn={form.fromToken}
           tokenOut={form.toToken}
-          amountIn={form.amount}
+          amountIn={
+            !form.isWrapUnwrap && form.editingSide === "buy"
+              ? form.displayQuote?.amountInFormatted?.replace(/,/g, "") || "0"
+              : form.amount
+          }
           amountOut={
             form.isWrapUnwrap ? form.amount : form.displayQuote?.amountOutFormatted || form.amount
           }

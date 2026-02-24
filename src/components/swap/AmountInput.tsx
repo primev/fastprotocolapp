@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useRef, useState, useLayoutEffect } from "react"
+import React, { useRef, useState, useLayoutEffect, useEffect } from "react"
 import NumberFlow from "@number-flow/react"
 import { cn } from "@/lib/utils"
 
@@ -39,6 +39,13 @@ const AmountInputComponent = ({
   const numericValue = value && !isNaN(parseFloat(cleanValue)) ? parseFloat(cleanValue) : null
   const decimalPlaces = cleanValue.includes(".") ? cleanValue.split(".")[1]?.length || 0 : 0
   const minFractionDigits = Math.min(decimalPlaces, 6)
+
+  // Auto-focus the input when this side becomes active (e.g. user clicked the inactive display div)
+  useEffect(() => {
+    if (isActive && inputRef?.current) {
+      inputRef.current.focus()
+    }
+  }, [isActive, inputRef])
 
   // 2. DYNAMIC FONT SCALING STATE & REFS
   const [fontPx, setFontPx] = useState(36)
@@ -121,8 +128,9 @@ const AmountInputComponent = ({
             />
           ) : (
             <div
+              onClick={onFocus}
               className={cn(
-                "font-bold leading-none tracking-tighter whitespace-nowrap pr-1",
+                "font-bold leading-none tracking-tighter whitespace-nowrap pr-1 cursor-text",
                 showError ? "text-red-500" : "text-white"
               )}
               style={{

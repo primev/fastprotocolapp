@@ -186,7 +186,11 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
       <div className="relative flex flex-col">
         <SellCard
           fromToken={fromToken}
-          amount={amount}
+          amount={
+            editingSide === "buy" && displayQuote
+              ? displayQuote.amountInFormatted.replace(/,/g, "")
+              : amount
+          }
           sellDisplayValue={sellDisplayValue}
           formattedFromBalance={formattedFromBalance}
           fromBalance={fromBalance}

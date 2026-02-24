@@ -208,9 +208,9 @@ export function useSwapForm(allTokens: Token[]) {
     tokenOut: toToken,
     amountIn: amount,
     slippage: effectiveSlippage,
-    tradeType: "exactIn",
+    tradeType: editingSide === "buy" ? "exactOut" : "exactIn",
     tokenList: allTokens,
-    enabled: !isSwitching && !!amount && !!fromToken && !!toToken && editingSide === "sell",
+    enabled: !isSwitching && !!amount && !!fromToken && !!toToken && !isWrapUnwrap,
   })
 
   const activeQuote = useMemo(() => {
@@ -221,13 +221,20 @@ export function useSwapForm(allTokens: Token[]) {
 
   // Don't use cached quotes for wrap/unwrap pairs - they don't have quotes
   // Also ensure we only use cache if it matches the current pair (defensive check)
-  const displayQuote = activeQuote || (!isWrapUnwrap ? quoteCache[pairKey] : null)
+  const displayQuote =
+    activeQuote || (!isWrapUnwrap && editingSide === "sell" ? quoteCache[pairKey] : null)
 
   useEffect(() => {
-    if (quote && fromToken?.symbol && toToken?.symbol && !isManualInversion) {
+    if (
+      quote &&
+      fromToken?.symbol &&
+      toToken?.symbol &&
+      !isManualInversion &&
+      editingSide === "sell"
+    ) {
       setQuoteCache((prev) => ({ ...prev, [pairKey]: quote }))
     }
-  }, [quote, fromToken?.symbol, toToken?.symbol, isManualInversion, pairKey])
+  }, [quote, fromToken?.symbol, toToken?.symbol, isManualInversion, pairKey, editingSide])
 
   const hasNoLiquidity = useMemo(() => {
     if (isManualInversion && swappedQuote) return false
@@ -240,7 +247,7 @@ export function useSwapForm(allTokens: Token[]) {
   const exchangeRateContent = useMemo(() => {
     if (isWrapUnwrap) return `1 ${fromToken?.symbol} = 1 ${toToken?.symbol}`
     if (editingSide === "buy" && !displayQuote && fromToken && toToken) {
-      return "Enter the amount you want to sell"
+      return "Enter the amount you want to buy"
     }
     if (hasNoLiquidity) return "No liquidity"
     if (displayQuote && fromToken && toToken) {
@@ -341,10 +348,12 @@ export function useSwapForm(allTokens: Token[]) {
   // --- Permit2 Approval (Permit path only) ---
   const isPermitPath =
     !isWrapUnwrap && !!fromToken && fromToken.address?.toLowerCase() !== ZERO_ADDRESS.toLowerCase()
+  const permit2Amount =
+    editingSide === "buy" ? displayQuote?.amountInFormatted?.replace(/,/g, "") || "" : amount
   const permit2Allowance = usePermit2Allowance({
     token: fromToken,
     owner: address as `0x${string}` | undefined,
-    amount,
+    amount: permit2Amount,
     enabled: isPermitPath && isConnected && !!address,
   })
 

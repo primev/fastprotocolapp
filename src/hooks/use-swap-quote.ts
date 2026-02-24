@@ -1091,6 +1091,13 @@ export function useQuote({
 
     lastInputKeyRef.current = inputKey
 
+    // Clear stale quote immediately when tradeType changes (sell→buy or buy→sell)
+    // to avoid briefly showing an exactIn quote while an exactOut quote is loading
+    if (prevTradeTypeRef.current !== tradeType) {
+      setQuote(null)
+      setNoLiquidity(false)
+    }
+
     // Determine if this is a structural change (tokens/type) or just typing (amount)
     const isStructuralChange =
       prevTokenInRef.current?.address !== tokenIn?.address ||
