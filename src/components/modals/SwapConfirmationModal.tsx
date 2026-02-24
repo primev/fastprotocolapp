@@ -34,6 +34,7 @@ import {
   getTransactionErrorTitle,
   getTransactionFullMessage,
   getTransactionShortMessage,
+  parseBarterSlippageError,
   RPCError,
 } from "@/lib/transaction-errors"
 import { useAccount } from "wagmi"
@@ -72,7 +73,6 @@ interface SwapConfirmationModalProps {
   /** Transaction deadline in minutes (5–1440). Passed to useSwapConfirmation. */
   deadline: number
   gasEstimate: bigint | null
-  isAutoSlippage: boolean
   ethPrice?: number | null
   /** USD price per token for the "from" token (used for USD under amount). */
   fromTokenPrice?: number | null
@@ -93,6 +93,8 @@ interface SwapConfirmationModalProps {
   approvalTxHash?: string
   onApprove?: () => void
   approveTokenSymbol?: string
+  /** Called with the recommended slippage when a barter slippage error is detected. */
+  onRetryWithSlippage?: (slippage: string) => void
   /** Error from a failed tx after submit (e.g. status 0x0). Shows error modal. */
   externalError?: {
     message: string
@@ -184,7 +186,6 @@ function SwapConfirmationModal({
   slippage,
   deadline,
   gasEstimate,
-  isAutoSlippage,
   ethPrice,
   fromTokenPrice,
   toTokenPrice,
@@ -199,6 +200,7 @@ function SwapConfirmationModal({
   approvalTxHash,
   onApprove,
   approveTokenSymbol,
+  onRetryWithSlippage,
   externalError,
 }: SwapConfirmationModalProps) {
   // --- EXTERNAL HOOKS ---
@@ -445,6 +447,11 @@ function SwapConfirmationModal({
     [activeError, operationType]
   )
 
+  const barterSlippageInfo = useMemo(() => {
+    if (!activeError) return null
+    return parseBarterSlippageError(activeError.message)
+  }, [activeError])
+
   /** Content for Error Log modal: raw DB record when available, else receipt JSON, else full message. */
   const errorDetailContent = useMemo(() => {
     if (!activeError) return ""
@@ -564,31 +571,69 @@ function SwapConfirmationModal({
           {activeError ? (
             /* ERROR VIEW */
             <div className="flex flex-col items-center pb-10 px-8 text-center animate-in fade-in duration-300">
-              <p className="text-[14px] font-medium text-white/75 max-w-[320px] leading-relaxed mb-6">
-                {getTransactionShortMessage(activeError)}
-              </p>
-              <button
-                onClick={() => setIsErrorModalOpen(true)}
-                className="group flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider transition-all mb-6"
-              >
-                View Error Details
-                <ChevronRight
-                  size={14}
-                  className="group-hover:translate-x-0.5 transition-transform"
-                />
-              </button>
-              {!externalError?.occurredAfterPreConfirm && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetAllStates()
-                    clearLastTxError()
-                    executeSwap()
-                  }}
-                  className="w-full h-14 bg-white/10 hover:bg-white/15 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3"
-                >
-                  <RefreshCw size={16} /> Try Again
-                </button>
+              {barterSlippageInfo ? (
+                <>
+                  <p className="text-[14px] font-medium text-white/75 max-w-[320px] leading-relaxed mb-2">
+                    Slippage too low for this swap.
+                  </p>
+                  <p className="text-[13px] text-zinc-400 max-w-[300px] leading-relaxed mb-6">
+                    Minimum required slippage:{" "}
+                    <span className="text-white font-semibold">
+                      {barterSlippageInfo.recommendedSlippage}%
+                    </span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetAllStates()
+                      clearLastTxError()
+                      onRetryWithSlippage?.(barterSlippageInfo.recommendedSlippage)
+                    }}
+                    className="w-full h-14 bg-[#3898FF] hover:bg-[#3898FF]/90 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3 mb-3"
+                  >
+                    <RefreshCw size={16} /> Retry with {barterSlippageInfo.recommendedSlippage}%
+                    slippage
+                  </button>
+                  <button
+                    onClick={() => setIsErrorModalOpen(true)}
+                    className="group flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider transition-all"
+                  >
+                    View Error Details
+                    <ChevronRight
+                      size={14}
+                      className="group-hover:translate-x-0.5 transition-transform"
+                    />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-[14px] font-medium text-white/75 max-w-[320px] leading-relaxed mb-6">
+                    {getTransactionShortMessage(activeError)}
+                  </p>
+                  <button
+                    onClick={() => setIsErrorModalOpen(true)}
+                    className="group flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider transition-all mb-6"
+                  >
+                    View Error Details
+                    <ChevronRight
+                      size={14}
+                      className="group-hover:translate-x-0.5 transition-transform"
+                    />
+                  </button>
+                  {!externalError?.occurredAfterPreConfirm && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetAllStates()
+                        clearLastTxError()
+                        executeSwap()
+                      }}
+                      className="w-full h-14 bg-white/10 hover:bg-white/15 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3"
+                    >
+                      <RefreshCw size={16} /> Try Again
+                    </button>
+                  )}
+                </>
               )}
             </div>
           ) : (
@@ -813,12 +858,7 @@ function SwapConfirmationModal({
                     <InfoRow
                       label="Max slippage"
                       value={
-                        <span className="flex items-center gap-2 tabular-nums">
-                          {isAutoSlippage && (
-                            <span className="px-2 py-0.5 rounded bg-white/10 text-xs font-medium">
-                              Auto
-                            </span>
-                          )}
+                        <span className="tabular-nums">
                           {(parseFloat(slippage) || 0).toLocaleString("en-US", {
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 2,

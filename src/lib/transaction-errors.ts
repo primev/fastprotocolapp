@@ -4,6 +4,42 @@
 
 import type { TransactionReceipt } from "viem"
 
+/**
+ * Parses a barter minReturn error to compute the minimum required slippage.
+ * Matches: "barter minReturn (1987949) < user required (2000000)"
+ *
+ * The error context also includes the current slippage ("Slippage: 0.5"), which we use
+ * to reconstruct the original Uniswap amountOut from the already-slippage-adjusted
+ * userRequired. This gives an accurate recommendation regardless of whether the failing
+ * swap was exactIn or exactOut.
+ */
+export function parseBarterSlippageError(message: string): {
+  barterMinReturn: number
+  userRequired: number
+  recommendedSlippage: string
+} | null {
+  const match = message.match(/barter\s+minReturn\s*\((\d+)\)\s*<\s*user\s+required\s*\((\d+)\)/i)
+  if (!match) return null
+  const barterMinReturn = parseInt(match[1])
+  const userRequired = parseInt(match[2])
+  if (isNaN(barterMinReturn) || isNaN(userRequired) || userRequired <= 0) return null
+
+  // Parse the current slippage from the context block ("Slippage: 0.5")
+  const slippageMatch = message.match(/Slippage:\s*([\d.]+)/i)
+  const currentSlippage = slippageMatch ? parseFloat(slippageMatch[1]) : 0
+
+  // Reconstruct the original Uniswap amountOut before slippage was applied.
+  // userRequired = amountOut * (1 - currentSlippage/100), so:
+  const slippageFactor = 1 - currentSlippage / 100
+  const amountOut = slippageFactor > 0 ? userRequired / slippageFactor : userRequired
+
+  // Required slippage = how far barterMinReturn falls short of the original quote
+  const requiredSlippagePct = ((amountOut - barterMinReturn) / amountOut) * 100
+  // Round up to nearest 0.1%, add 0.1% safety buffer, cap at 2.0%
+  const recommended = Math.min(2.0, Math.ceil(requiredSlippagePct * 10) / 10 + 0.1)
+  return { barterMinReturn, userRequired, recommendedSlippage: recommended.toFixed(1) }
+}
+
 const MAX_SHORT_MESSAGE_LENGTH = 80
 
 /**

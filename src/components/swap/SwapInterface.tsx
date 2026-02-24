@@ -35,9 +35,6 @@ interface SwapInterfaceProps {
   // Global Transaction Settings State
   isSettingsOpen: boolean
   setIsSettingsOpen: (open: boolean) => void
-  isAutoSlippage: boolean
-  handleAutoSlippageChange: (isAuto: boolean) => void
-  calculatedAutoSlippage: number
   slippage: string
   handleSlippageChange: (slippage: string) => void
   internalDeadline: number
@@ -104,9 +101,6 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
   const {
     isSettingsOpen,
     setIsSettingsOpen,
-    isAutoSlippage,
-    handleAutoSlippageChange,
-    calculatedAutoSlippage,
     slippage,
     handleSlippageChange,
     internalDeadline,
@@ -170,9 +164,6 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
       <TransactionSettings
         isSettingsOpen={isSettingsOpen}
         setIsSettingsOpen={setIsSettingsOpen}
-        isAutoSlippage={isAutoSlippage}
-        handleAutoSlippageChange={handleAutoSlippageChange}
-        calculatedAutoSlippage={calculatedAutoSlippage}
         slippage={slippage}
         handleSlippageChange={handleSlippageChange}
         internalDeadline={internalDeadline}

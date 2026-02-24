@@ -68,9 +68,6 @@ export function SwapForm() {
         // Settings Props
         isSettingsOpen={isSettingsOpen}
         setIsSettingsOpen={setIsSettingsOpen}
-        isAutoSlippage={form.isAutoSlippage}
-        handleAutoSlippageChange={form.updateAutoSlippage}
-        calculatedAutoSlippage={form.calculatedAutoSlippage || 0}
         slippage={form.slippage}
         handleSlippageChange={form.updateSlippage}
         internalDeadline={form.deadline}
@@ -187,7 +184,10 @@ export function SwapForm() {
         <SwapConfirmationModal
           key={`${form.fromToken.address}-${form.toToken.address}`}
           open={isConfirmationOpen}
-          onOpenChange={setIsConfirmationOpen}
+          onOpenChange={(isOpen) => {
+            setIsConfirmationOpen(isOpen)
+            if (!isOpen) form.resetSlippage()
+          }}
           tokenIn={form.fromToken}
           tokenOut={form.toToken}
           amountIn={
@@ -198,13 +198,7 @@ export function SwapForm() {
           amountOut={
             form.isWrapUnwrap ? form.amount : form.displayQuote?.amountOutFormatted || form.amount
           }
-          minAmountOut={
-            form.isWrapUnwrap
-              ? form.amount
-              : form.displayQuote?.isMaxIn
-                ? form.displayQuote?.amountOutFormatted || form.amount
-                : form.displayQuote?.slippageLimitFormatted || form.amount
-          }
+          minAmountOut={form.isWrapUnwrap ? form.amount : form.computedMinAmountOut || form.amount}
           slippageLimitFormatted={
             form.isWrapUnwrap
               ? form.amount
@@ -224,7 +218,6 @@ export function SwapForm() {
           timeLeft={form.timeLeft}
           refreshBalances={form.refreshBalances}
           onCloseAfterSuccess={form.resetFormAfterSuccess}
-          isAutoSlippage={form.isAutoSlippage}
           setClearSwapState={form.setClearSwapState}
           needsPermit2Approval={form.needsPermit2Approval}
           isApproving={form.isApproving}
@@ -233,6 +226,11 @@ export function SwapForm() {
           onApprove={form.approvePermit2}
           approveTokenSymbol={form.approveTokenSymbol}
           externalError={lastTxError}
+          onRetryWithSlippage={(newSlippage) => {
+            form.updateSlippage(newSlippage)
+            setIsConfirmationOpen(false)
+            requestAnimationFrame(() => setIsConfirmationOpen(true))
+          }}
         />
       )}
     </div>

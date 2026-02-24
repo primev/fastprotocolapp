@@ -6,6 +6,7 @@ const DEADLINE_MIN_MINUTES = 5
 const DEADLINE_MAX_MINUTES = 1440
 const SLIPPAGE_MIN = 0
 const SLIPPAGE_MAX = 2
+const DEFAULT_SLIPPAGE = "0.5"
 
 function clampDeadline(minutes: number): number {
   return Math.max(DEADLINE_MIN_MINUTES, Math.min(DEADLINE_MAX_MINUTES, minutes))
@@ -28,21 +29,13 @@ function clampSlippage(val: string): string {
 }
 
 export function useSwapSlippage() {
-  const [slippage, setSlippage] = useState("0.5")
-  const [isAutoSlippage, setIsAutoSlippage] = useState(true)
+  const [slippage, setSlippage] = useState(DEFAULT_SLIPPAGE)
   const [deadline, setDeadline] = useState(30)
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
-    const savedSlippage = localStorage.getItem("swapSlippage")
-    const savedAuto = localStorage.getItem("swapSlippageAuto")
     const savedDeadline = localStorage.getItem("swapDeadline")
 
-    if (savedSlippage) setSlippage(clampSlippage(savedSlippage))
-    // Default to auto when nothing in localStorage; only use saved value when explicitly set
-    if (savedAuto === "true" || savedAuto === "false") {
-      setIsAutoSlippage(savedAuto === "true")
-    }
     if (savedDeadline) {
       const parsed = parseInt(savedDeadline, 10)
       if (!Number.isNaN(parsed)) setDeadline(clampDeadline(parsed))
@@ -54,12 +47,10 @@ export function useSwapSlippage() {
   const updateSlippage = (val: string) => {
     const clamped = clampSlippage(val)
     setSlippage(clamped)
-    localStorage.setItem("swapSlippage", clamped)
   }
 
-  const updateAutoSlippage = (val: boolean) => {
-    setIsAutoSlippage(val)
-    localStorage.setItem("swapSlippageAuto", String(val))
+  const resetSlippage = () => {
+    setSlippage(DEFAULT_SLIPPAGE)
   }
 
   const updateDeadline = (val: number) => {
@@ -72,10 +63,9 @@ export function useSwapSlippage() {
 
   return {
     slippage,
-    isAutoSlippage,
     deadline,
     updateSlippage,
-    updateAutoSlippage,
+    resetSlippage,
     updateDeadline,
     isMounted,
   }

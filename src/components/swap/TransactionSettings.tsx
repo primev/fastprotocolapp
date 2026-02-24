@@ -9,9 +9,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 interface TransactionSettingsProps {
   isSettingsOpen: boolean
   setIsSettingsOpen: (open: boolean) => void
-  isAutoSlippage: boolean
-  handleAutoSlippageChange: (isAuto: boolean) => void
-  calculatedAutoSlippage: number
   slippage: string
   handleSlippageChange: (slippage: string) => void
   internalDeadline: number
@@ -22,15 +19,12 @@ interface TransactionSettingsProps {
 const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
   isSettingsOpen,
   setIsSettingsOpen,
-  isAutoSlippage,
-  handleAutoSlippageChange,
-  calculatedAutoSlippage,
   slippage,
   handleSlippageChange,
   internalDeadline,
   setInternalDeadline,
 }) => {
-  const showManual = !isAutoSlippage
+  const hasCustomSlippage = slippage !== "0.5"
 
   return (
     <div className="flex items-center justify-between w-full mb-2">
@@ -42,7 +36,7 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
             type="button"
             className={cn(
               "group relative flex items-center justify-end rounded-xl transition-all duration-300 active:scale-95 outline-none border-none h-9 overflow-hidden",
-              showManual ? "bg-primary/10 text-primary w-[88px] px-3" : "bg-transparent w-9"
+              hasCustomSlippage ? "bg-primary/10 text-primary w-[88px] px-3" : "bg-transparent w-9"
             )}
             aria-label="Transaction settings"
           >
@@ -50,7 +44,7 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
               <div
                 className={cn(
                   "overflow-hidden transition-all duration-300 flex items-center justify-end",
-                  showManual ? "w-11 opacity-100" : "w-0 opacity-0"
+                  hasCustomSlippage ? "w-11 opacity-100" : "w-0 opacity-0"
                 )}
               >
                 <span className="text-[13px] font-bold whitespace-nowrap">{slippage}%</span>
@@ -59,7 +53,7 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
               <Settings
                 className={cn(
                   "h-5 w-5 transition-all duration-300 ease-in-out group-hover:rotate-90 shrink-0",
-                  showManual ? "text-primary" : "text-zinc-400 group-hover:text-white"
+                  hasCustomSlippage ? "text-primary" : "text-zinc-400 group-hover:text-white"
                 )}
               />
             </div>
@@ -85,46 +79,24 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
                       className="max-w-[200px] bg-[#161b22] border-white/10"
                     >
                       <p className="text-xs text-gray-300">
-                        Maximum price movement allowed before transaction reverts
+                        Maximum price movement allowed before transaction reverts. Max 2%.
                       </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
 
-              <div className="flex items-center border border-white/10 rounded-full px-3 py-1.5 min-w-[140px] justify-between bg-white/[0.02]">
-                <button
-                  type="button"
-                  onClick={() => handleAutoSlippageChange(!isAutoSlippage)}
-                  className={cn(
-                    "text-[13px] font-bold px-3 py-0.5 rounded-full transition-colors",
-                    isAutoSlippage
-                      ? "bg-primary/10 text-primary"
-                      : "text-zinc-500 hover:text-zinc-300"
-                  )}
-                >
-                  Auto
-                </button>
-
+              <div className="flex items-center border border-white/10 rounded-full px-3 py-1.5 min-w-[100px] justify-end bg-white/[0.02]">
                 <div className="flex items-center">
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={isAutoSlippage ? calculatedAutoSlippage.toFixed(2) : slippage}
-                    onFocus={() => {
-                      if (isAutoSlippage) {
-                        handleAutoSlippageChange(false)
-                        handleSlippageChange(calculatedAutoSlippage.toFixed(2))
-                      }
-                    }}
+                    value={slippage}
                     onChange={(e) => {
                       const val = e.target.value.replace(/[^0-9.]/g, "")
                       handleSlippageChange(val)
                     }}
-                    className={cn(
-                      "w-12 bg-transparent text-right text-[15px] font-medium outline-none focus:ring-0 cursor-text",
-                      isAutoSlippage ? "text-zinc-400" : "text-white"
-                    )}
+                    className="w-12 bg-transparent text-right text-[15px] font-medium outline-none focus:ring-0 cursor-text text-white"
                   />
                   <span className="text-[15px] text-zinc-500 ml-0.5 font-medium">%</span>
                 </div>

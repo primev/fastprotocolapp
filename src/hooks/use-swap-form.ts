@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useAccount, useBalance, useChainId, useWatchBlockNumber } from "wagmi"
 import { formatUnits } from "viem"
 import { useQueryClient } from "@tanstack/react-query"
-import { useQuote, calculateAutoSlippage, type QuoteResult } from "@/hooks/use-swap-quote"
+import { useQuote, type QuoteResult } from "@/hooks/use-swap-quote"
 import { useTokenPrice } from "@/hooks/use-token-price"
 import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
@@ -187,15 +187,7 @@ export function useSwapForm(allTokens: Token[]) {
     }
   }, [pairKey, isWrapUnwrap])
 
-  const calculatedAutoSlippage = useMemo(() => {
-    if (!settings.isAutoSlippage || !amount || !fromToken || !toToken) return null
-    return calculateAutoSlippage(parseFloat(amount), fromToken, toToken, gasPriceGwei)
-  }, [settings.isAutoSlippage, amount, fromToken, toToken, gasPriceGwei])
-
-  const effectiveSlippage =
-    settings.isAutoSlippage && calculatedAutoSlippage
-      ? calculatedAutoSlippage.toFixed(2)
-      : settings.slippage
+  const effectiveSlippage = settings.slippage
 
   const {
     quote,
@@ -240,6 +232,21 @@ export function useSwapForm(allTokens: Token[]) {
     if (isManualInversion && swappedQuote) return false
     return noLiquidity || (quoteError && quoteError.message?.includes("No liquidity found"))
   }, [noLiquidity, quoteError, isManualInversion, swappedQuote])
+
+  // Compute minAmountOut inline from current slippage + amountOut.
+  // Intentionally NOT derived from displayQuote.slippageLimit, which is updated inside a
+  // useEffect in useQuote and lags one render cycle behind slippage changes. Computing here
+  // ensures the value is always in sync with effectiveSlippage (e.g. after a retry).
+  //
+  // Slippage is applied to the output for BOTH exactIn and exactOut. For exactOut the
+  // barter API still treats userAmtOut as a minimum return, so it must have slippage applied
+  // or the swap will always fail when barter's price deviates from the Uniswap quote.
+  const computedMinAmountOut = useMemo(() => {
+    if (isWrapUnwrap || !displayQuote || !toToken) return null
+    const slippageBps = BigInt(Math.floor(parseFloat(effectiveSlippage || "0") * 100))
+    const limit = (displayQuote.amountOut * (10000n - slippageBps)) / 10000n
+    return formatUnits(limit, toToken.decimals)
+  }, [isWrapUnwrap, displayQuote, toToken, effectiveSlippage])
 
   // --- UI Content Generation ---
 
@@ -419,6 +426,7 @@ export function useSwapForm(allTokens: Token[]) {
     isLoadingToBalance,
     activeQuote,
     displayQuote,
+    computedMinAmountOut,
     isQuoteLoading,
     quoteError,
     timeLeft,
@@ -428,7 +436,6 @@ export function useSwapForm(allTokens: Token[]) {
     exchangeRateToSymbol,
     exchangeRateToStable,
     isWrapUnwrap,
-    calculatedAutoSlippage,
     isManualInversion,
     setIsManualInversion,
     swappedQuote,
