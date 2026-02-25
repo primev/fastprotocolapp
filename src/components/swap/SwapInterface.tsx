@@ -231,7 +231,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
           Only show price impact and rate when both tokens are present.
           The ActionButton handles all connection and validation states.
       */}
-      {fromToken && toToken && (
+      {fromToken && toToken && (isWrapUnwrap || !!amount) && (
         <ExchangeRate
           exchangeRateContent={exchangeRateContent}
           exchangeRateValue={exchangeRateValue}
