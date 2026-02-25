@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Address, PublicClient, TransactionReceipt } from "viem"
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import { toast } from "sonner"
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from "@/lib/contract-config"
 import { parseTokenIdFromReceipt } from "@/lib/onboarding-utils"
-import { pollDatabaseForReceipt } from "@/lib/transaction-receipt-utils"
+import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
 
 export interface UseMintingProps {
   isConnected: boolean
@@ -32,8 +32,6 @@ export function useMinting({
   const [isMinting, setIsMinting] = useState(false)
   const [alreadyMinted, setAlreadyMinted] = useState(false)
   const [existingTokenId, setExistingTokenId] = useState<string | null>(null)
-  const receiptProcessedRef = useRef(false)
-  const pollingAbortRef = useRef<AbortController | null>(null)
 
   const {
     writeContract,
@@ -50,6 +48,26 @@ export function useMinting({
     isError: isConfirmError,
     error: confirmError,
   } = useWaitForTransactionReceipt({ hash })
+
+  const onConfirmed = useCallback(
+    (result: { receipt?: TransactionReceipt }) => {
+      const receiptToUse = result.receipt
+      if (!receiptToUse) return
+      const tokenId = parseTokenIdFromReceipt(receiptToUse)
+      if (tokenId && hash) {
+        localStorage.setItem("claimTxHash", hash)
+        router.push(`/dashboard?tokenId=${tokenId.toString()}`)
+      }
+    },
+    [hash, router]
+  )
+
+  const { isConfirming: isConfirmingTx } = useWaitForTxConfirmation({
+    hash: hash ?? undefined,
+    receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
+    mode: "receipt",
+    onConfirmed,
+  })
 
   // Check if user already has a token minted on page load
   useEffect(() => {
@@ -87,71 +105,9 @@ export function useMinting({
     checkExistingToken()
   }, [address, publicClient])
 
-  // Race condition: Wait for txReceipt and poll DB simultaneously
-  useEffect(() => {
-    if (!hash || receiptProcessedRef.current) return
-
-    receiptProcessedRef.current = false
-    let isProcessing = false
-
-    const abortController = new AbortController()
-    pollingAbortRef.current = abortController
-
-    const processReceipt = (receipt: TransactionReceipt | null, source: string) => {
-      if (isProcessing || !receipt || abortController.signal.aborted) {
-        return
-      }
-
-      isProcessing = true
-      receiptProcessedRef.current = true
-
-      const tokenId = parseTokenIdFromReceipt(receipt)
-      if (tokenId) {
-        // Save transaction hash to localStorage for feedback submission
-        if (hash) {
-          localStorage.setItem("claimTxHash", hash)
-        }
-        router.push(`/dashboard?tokenId=${tokenId.toString()}`)
-      }
-
-      abortController.abort()
-    }
-
-    // Start database polling
-    pollDatabaseForReceipt(hash, abortController.signal)
-      .then((dbReceipt) => {
-        if (!abortController.signal.aborted && dbReceipt) {
-          processReceipt(dbReceipt, "db")
-        }
-      })
-      .catch((error) => {
-        if (!abortController.signal.aborted) {
-          console.error("Database polling error:", error)
-        }
-      })
-
-    // Watch for wagmi receipt
-    const checkWagmiReceipt = () => {
-      if (receipt && !abortController.signal.aborted) {
-        processReceipt(receipt as TransactionReceipt, "wagmi")
-      }
-    }
-
-    checkWagmiReceipt()
-    const receiptCheckInterval = setInterval(checkWagmiReceipt, 100)
-
-    return () => {
-      clearInterval(receiptCheckInterval)
-      if (pollingAbortRef.current) {
-        pollingAbortRef.current.abort()
-        pollingAbortRef.current = null
-      }
-    }
-  }, [hash, receipt, router])
-
   // Update minting state based on transaction status
   useEffect(() => {
-    if (isWriting || isConfirming) {
+    if (isWriting || isConfirming || isConfirmingTx) {
       setIsMinting(true)
       return
     }
@@ -172,7 +128,15 @@ export function useMinting({
         return
       }
     }
-  }, [isWriting, isConfirming, isWriteError, isConfirmError, writeError, confirmError])
+  }, [
+    isWriting,
+    isConfirming,
+    isConfirmingTx,
+    isWriteError,
+    isConfirmError,
+    writeError,
+    confirmError,
+  ])
 
   const handleMintSbt = async () => {
     if (!isConnected || !address) {

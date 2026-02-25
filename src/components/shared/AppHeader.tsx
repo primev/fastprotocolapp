@@ -2,27 +2,40 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
 import { useAccount } from "wagmi"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Wallet, Settings, Menu } from "lucide-react"
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetClose,
+} from "@/components/ui/sheet"
+import {
+  Wallet,
+  Menu,
+  Award,
+  LayoutDashboard,
+  Trophy,
+  Repeat,
+  PlusCircle,
+  Network,
+  Zap,
+} from "lucide-react"
 import { ConnectButton, useAccountModal, useConnectModal } from "@rainbow-me/rainbowkit"
 import { toast } from "sonner"
 import { SocialIcon } from "react-social-icons"
 import { DISCORD_INVITE_URL } from "@/lib/constants"
 import { usePrefetchOnHover } from "@/hooks/use-page-prefetch"
+import { useUserPoints } from "@/hooks/use-user-points"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import NumberFlow from "@number-flow/react"
+import { usePathname, useRouter } from "next/navigation"
+import { ClientOnly } from "./ClientOnly" // 1. Import ClientOnly
 
 interface AppHeaderProps {
   isConnected: boolean
@@ -32,7 +45,6 @@ interface AppHeaderProps {
   onAddNetwork: () => void
   onRpcSetup: () => void
   onTestRpc: () => void
-  // Optional tabs for dashboard
   activeTab?: string
   onTabChange?: (value: string) => void
   showTabs?: boolean
@@ -46,319 +58,268 @@ export const AppHeader = ({
   onAddNetwork,
   onRpcSetup,
   onTestRpc,
-  activeTab,
-  onTabChange,
-  showTabs = false,
 }: AppHeaderProps) => {
   const pathname = usePathname()
   const { address } = useAccount()
   const { openAccountModal } = useAccountModal()
   const { openConnectModal } = useConnectModal()
+  const { points } = useUserPoints()
+  const router = useRouter()
 
-  // Hover prefetching for faster navigation
-  const { handleDashboardHover, handleLeaderboardHover } = usePrefetchOnHover()
+  const { handleDashboardHover, handleLeaderboardHover, handleSwapHover } = usePrefetchOnHover()
 
-  // Navigation items for mobile drawer
-  const navItems = [
-    { label: "Genesis SBT", href: "/dashboard", active: pathname?.startsWith("/dashboard") },
-    { label: "Leaderboard", href: "/leaderboard", active: pathname?.startsWith("/leaderboard") },
+  const menuNavItems = [
+    {
+      label: "Swap",
+      href: "/",
+      active: pathname === "/" || pathname?.startsWith("/swap"),
+      icon: Repeat,
+      hover: handleSwapHover,
+    },
+    {
+      label: "My Miles",
+      href: "/dashboard",
+      active: pathname?.startsWith("/dashboard"),
+      icon: LayoutDashboard,
+      hover: handleDashboardHover,
+    },
+    {
+      label: "Leaderboard",
+      href: "/leaderboard",
+      active: pathname?.startsWith("/leaderboard"),
+      icon: Trophy,
+      hover: handleLeaderboardHover,
+    },
   ]
 
   return (
-    <>
-      <header className="border-b border-border/50 backdrop-blur-sm bg-background/80">
-        <div className="container mx-auto px-4 py-2.5 flex items-center justify-between">
-          <Link href="/dashboard" className="relative">
-            <Image
-              src="/assets/fast-icon.png"
-              alt="Fast Protocol"
-              width={40}
-              height={40}
-              className="md:hidden h-10 w-auto"
-            />
-            <Image
-              src="/assets/fast-protocol-logo-icon.png"
-              alt="Fast Protocol"
-              width={150}
-              height={75}
-              className="hidden md:block h-10 w-auto"
-            />
-          </Link>
+    <header className="border-b border-border/50 backdrop-blur-sm bg-background/80 relative py-2">
+      <div className="mx-5 px-4 py-2.5 flex items-center justify-between">
+        {/* Logo Section */}
+        <Link href="/" className="relative z-10">
+          <Image
+            src="/assets/fast-icon.png"
+            alt="Fast Protocol"
+            width={40}
+            height={40}
+            className="md:hidden h-10 w-auto"
+          />
+          <Image
+            src="/assets/fast-protocol-logo-icon.png"
+            alt="Fast Protocol"
+            width={150}
+            height={75}
+            className="hidden md:block h-10 w-auto"
+          />
+        </Link>
 
-          {/* Tab Bar - Centered (conditional based on route) */}
-          {(pathname?.startsWith("/dashboard") || pathname?.startsWith("/leaderboard")) && (
-            <div className="hidden md:flex items-center justify-center flex-1 mx-8">
-              <div className="inline-flex items-center rounded-full bg-muted/50 p-1 gap-1">
-                <Link
-                  href="/dashboard"
-                  prefetch={false}
-                  onMouseEnter={handleDashboardHover(address)}
-                  className={cn(
-                    "px-4 py-2 rounded-full text-sm font-medium transition-all",
-                    pathname?.startsWith("/dashboard")
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
+        {/* Central Tab Bar */}
+        <div className="hidden md:flex items-center justify-center absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <div className="inline-flex items-center rounded-full bg-muted/50 p-1 gap-1">
+            <Link
+              href="/"
+              prefetch={false}
+              onMouseEnter={handleSwapHover(address)}
+              className={cn(
+                "px-6 py-2 rounded-full text-sm font-medium transition-all cursor-pointer",
+                pathname === "/" || pathname?.startsWith("/swap")
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Swap
+            </Link>
+            <div
+              className={cn(
+                "px-6 py-2 rounded-full text-sm font-medium transition-all cursor-pointer",
+                pathname?.startsWith("/dashboard")
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => router.push("/dashboard")}
+            >
+              My Miles
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Badge
+            variant="outline"
+            className="h-10 px-3 text-sm border-primary/50 hidden sm:flex items-center"
+          >
+            <Award className="w-4 h-4 mr-2 text-primary" />
+            <NumberFlow
+              value={points}
+              format={{ minimumFractionDigits: 0, maximumFractionDigits: 0 }}
+            />
+            <span className="ml-1">Miles</span>
+          </Badge>
+
+          {/* Wallet Section - Wrapped in ClientOnly to avoid ID mismatch */}
+          <ClientOnly fallback={<Skeleton className="h-10 w-10 lg:w-32 rounded-full" />}>
+            <div className="flex items-center">
+              {isConnected ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="lg:hidden"
+                  onClick={openAccountModal}
                 >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/leaderboard"
-                  prefetch={false}
-                  onMouseEnter={handleLeaderboardHover(address)}
-                  className={cn(
-                    "px-4 py-2 rounded-full text-sm font-medium transition-all",
-                    pathname?.startsWith("/leaderboard")
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
+                  <Wallet className="h-5 w-5" />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="lg:hidden"
+                  onClick={openConnectModal}
                 >
-                  Leaders
-                </Link>
-                <button
-                  disabled
-                  className="px-4 py-2 rounded-full text-sm font-medium text-muted-foreground opacity-60 cursor-not-allowed"
-                >
-                  Miles
-                </button>
+                  <Wallet className="h-5 w-5" />
+                </Button>
+              )}
+              <div className="hidden lg:block">
+                <ConnectButton showBalance={false} accountStatus="address" chainStatus="none" />
               </div>
             </div>
-          )}
+          </ClientOnly>
 
-          <div className="flex items-center gap-2 sm:gap-4">
-            {/* Mobile: Wallet icon (only on xs, to the left of hamburger) */}
-            {isConnected ? (
+          {/* Menu Drawer - Wrapped in ClientOnly because it's a Radix Primitive (Sheet) */}
+          <ClientOnly
+            fallback={
               <Button
                 variant="ghost"
                 size="icon"
-                className="sm:hidden"
-                onClick={openAccountModal}
-                aria-label="Wallet"
+                className="w-10 h-10 rounded-full border border-border/50"
               >
-                <Wallet className="h-5 w-5" />
+                <Menu className="h-5 w-5" />
               </Button>
-            ) : (
-              <>
-                {!isMounted || status === "connecting" || status === "reconnecting" ? (
-                  <Skeleton className="h-10 w-10 rounded-full sm:hidden" />
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="sm:hidden"
-                    onClick={openConnectModal}
-                    aria-label="Connect Wallet"
-                  >
-                    <Wallet className="h-5 w-5" />
-                  </Button>
-                )}
-              </>
-            )}
-
-            {/* Medium screens: Wallet icon (when connected) - Show before hamburger on sm */}
-            {isConnected && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="hidden sm:flex lg:hidden"
-                onClick={openAccountModal}
-              >
-                <Wallet className="w-4 h-4" />
-              </Button>
-            )}
-
-            {/* Mobile Hamburger Menu - Show on sm and below, hide on md+ */}
+            }
+          >
             <Sheet>
               <SheetTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="md:hidden sm:ml-auto"
-                  aria-label="Open navigation menu"
+                  className="w-10 h-10 rounded-full border border-border/50 hover:bg-muted"
                 >
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[320px] sm:w-[400px]">
-                <div className="flex flex-col h-full">
-                  {/* Header */}
-                  <div className="mb-8">
-                    <h2 className="text-xl font-semibold text-foreground">Menu</h2>
-                    <p className="text-sm text-muted-foreground mt-1">Fast Protocol</p>
-                  </div>
+              <SheetContent side="right" className="w-[320px] sm:w-[380px] flex flex-col">
+                <SheetHeader className="text-left px-2 pt-4">
+                  <SheetTitle className="text-xl font-bold">Fast Protocol</SheetTitle>
+                  <SheetDescription>Navigation & Settings</SheetDescription>
+                </SheetHeader>
 
-                  {/* Navigation Section */}
-                  <div className="flex-1 space-y-6">
-                    <div>
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1">
-                        Navigation
-                      </h3>
-                      <div className="flex flex-col gap-1">
-                        {navItems.map((item) => (
-                          <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`px-4 py-3 rounded-lg transition-all text-left font-medium ${
-                              item.active
-                                ? "bg-primary text-primary-foreground shadow-sm"
-                                : "text-foreground hover:bg-muted/50"
-                            }`}
-                          >
-                            {item.label}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Network Settings Section */}
-                    {isConnected && (
-                      <div>
-                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1">
-                          Network
-                        </h3>
-                        <div className="flex flex-col gap-1">
-                          {isMetaMask && (
-                            <button
-                              onClick={onAddNetwork}
-                              className="px-4 py-3 rounded-lg transition-all text-left font-medium text-foreground hover:bg-muted/50 flex items-center gap-3"
-                            >
-                              <span className="inline-block w-2 h-2 rounded-full bg-primary" />
-                              Add RPC to Wallet
-                            </button>
-                          )}
-                          <button
-                            onClick={onRpcSetup}
-                            className="px-4 py-3 rounded-lg transition-all text-left font-medium text-foreground hover:bg-muted/50 flex items-center gap-3"
-                          >
-                            <span className="inline-block w-2 h-2 rounded-full bg-muted-foreground" />
-                            {isMetaMask ? "Toggle Network" : "Setup RPC"}
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (!isConnected) {
-                                toast.error("Please connect your wallet first")
-                                return
-                              }
-                              onTestRpc()
-                            }}
-                            className="px-4 py-3 rounded-lg transition-all text-left font-medium text-foreground hover:bg-muted/50 flex items-center gap-3"
-                          >
-                            <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
-                            Test RPC Connection
-                          </button>
+                <div className="flex-1 overflow-y-auto mt-6 space-y-8 px-2">
+                  <div className="sm:hidden block px-2 mb-6">
+                    <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-primary/10 p-2 rounded-full">
+                          <Award className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                            Balance
+                          </p>
+                          <div className="text-lg font-bold flex items-center gap-1">
+                            <NumberFlow value={points} />
+                            <span className="text-sm font-medium text-muted-foreground">Miles</span>
+                          </div>
                         </div>
                       </div>
-                    )}
+                    </div>
+                  </div>
 
-                    {/* Community Section */}
-                    <div>
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1">
-                        Community
-                      </h3>
+                  <div className="space-y-3">
+                    <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-2">
+                      Navigation
+                    </h3>
+                    <nav className="flex flex-col gap-1">
+                      {menuNavItems.map((item) => (
+                        <SheetClose key={item.href} asChild>
+                          <Link
+                            href={item.href}
+                            onMouseEnter={item.hover ? item.hover(address) : undefined}
+                            className={cn(
+                              "flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium",
+                              item.active
+                                ? "bg-primary text-primary-foreground shadow-sm"
+                                : "hover:bg-muted text-foreground"
+                            )}
+                          >
+                            <item.icon className="w-5 h-5" />
+                            {item.label}
+                          </Link>
+                        </SheetClose>
+                      ))}
+                    </nav>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-2">
+                      Settings
+                    </h3>
+                    <div className="flex flex-col gap-1">
+                      {isMetaMask && (
+                        <SheetClose asChild>
+                          <button
+                            onClick={onAddNetwork}
+                            className="flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-muted rounded-xl w-full text-left"
+                          >
+                            <PlusCircle className="w-5 h-5 text-primary" />
+                            Add RPC to Wallet
+                          </button>
+                        </SheetClose>
+                      )}
+                      <SheetClose asChild>
+                        <button
+                          onClick={onRpcSetup}
+                          className="flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-muted rounded-xl w-full text-left"
+                        >
+                          <Network className="w-5 h-5 text-muted-foreground" />
+                          {isMetaMask ? "Toggle Network" : "Setup RPC"}
+                        </button>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <button
+                          onClick={() => {
+                            if (!isConnected) {
+                              toast.error("Please connect your wallet first")
+                              return
+                            }
+                            onTestRpc()
+                          }}
+                          className="flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-muted rounded-xl w-full text-left"
+                        >
+                          <Zap className="w-5 h-5 text-amber-500" />
+                          Test RPC Connection
+                        </button>
+                      </SheetClose>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-2">
+                      Community
+                    </h3>
+                    <SheetClose asChild>
                       <button
                         onClick={() => window.open(DISCORD_INVITE_URL, "_blank")}
-                        className="w-full px-4 py-3 rounded-lg transition-all text-left font-medium text-foreground hover:bg-muted/50 flex items-center gap-3"
+                        className="flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-muted rounded-xl w-full text-left"
                       >
                         <SocialIcon network="discord" style={{ height: 20, width: 20 }} />
-                        <span>Discord</span>
+                        Discord Server
                       </button>
-                    </div>
+                    </SheetClose>
                   </div>
                 </div>
               </SheetContent>
             </Sheet>
-
-            {/* Large screens: Full ConnectButton (no network selector) */}
-            {isConnected ? (
-              <div className="hidden lg:block">
-                <ConnectButton showBalance={false} accountStatus="address" chainStatus="none" />
-              </div>
-            ) : (
-              <>
-                {!isMounted || status === "connecting" || status === "reconnecting" ? (
-                  <Skeleton className="h-10 w-32 rounded-full hidden lg:block" />
-                ) : (
-                  <div className="hidden lg:block">
-                    <ConnectButton showBalance={false} accountStatus="address" chainStatus="none" />
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Medium/Large screens: Discord and Settings (when connected) */}
-            {isConnected && (
-              <>
-                <div
-                  onClick={() => window.open(DISCORD_INVITE_URL, "_blank")}
-                  className="hidden md:block cursor-pointer hover:opacity-80 transition-opacity"
-                  aria-label="Discord"
-                >
-                  <SocialIcon network="discord" style={{ height: 35, width: 35 }} />
-                </div>
-                <div className="hidden md:block relative">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Account Settings"
-                        className="w-10 h-10 rounded-full border border-border shadow-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary/50 transition"
-                      >
-                        <Settings className="w-5 h-5 text-primary" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="min-w-[220px] rounded-lg shadow-lg border border-border p-2 bg-background"
-                    >
-                      <DropdownMenuLabel className="text-[13px] text-foreground/80 font-semibold pb-1">
-                        Fast Protocol Network
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {isMetaMask && (
-                        <DropdownMenuItem
-                          className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-accent/60 rounded"
-                          onSelect={(e) => {
-                            e.preventDefault()
-                            onAddNetwork()
-                          }}
-                        >
-                          <span className="inline-block w-2 h-2 rounded-full bg-primary mr-2" />
-                          Add RPC to Wallet
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem
-                        className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-accent/60 rounded"
-                        onSelect={(e) => {
-                          e.preventDefault()
-                          onRpcSetup()
-                        }}
-                      >
-                        <span className="inline-block w-2 h-2 rounded-full bg-muted-foreground mr-2" />
-                        {isMetaMask ? "Toggle Network" : "Setup RPC"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-accent/60 rounded"
-                        onSelect={(e) => {
-                          e.preventDefault()
-                          if (!isConnected) {
-                            toast.error("Please connect your wallet first")
-                            return
-                          }
-                          onTestRpc()
-                        }}
-                      >
-                        <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-2" />
-                        Test RPC Connection
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </>
-            )}
-          </div>
+          </ClientOnly>
         </div>
-      </header>
-    </>
+      </div>
+    </header>
   )
 }

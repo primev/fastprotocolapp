@@ -42,7 +42,22 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'coin-images.coingecko.com',
+        pathname: '/coins/images/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'cryptologos.cc',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'token-icons.s3.amazonaws.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'raw.githubusercontent.com',
         pathname: '/**',
       },
     ],

@@ -1,14 +1,14 @@
 "use client"
 
-import { useState, Fragment, useEffect, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAccount } from "wagmi"
 import { useConnectModal } from "@rainbow-me/rainbowkit"
 import { Button } from "@/components/ui/button"
 import { useReadOnlyContractCall } from "@/hooks/use-read-only-contract-call"
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "@/lib/contract-config"
-import { Input } from "@/components/ui/input"
 import {
   Dialog,
   DialogContent,
@@ -16,12 +16,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { toast } from "sonner"
-import { captureEmailAction } from "@/actions/capture-email"
 import { Check } from "lucide-react"
 import { SocialIcon } from "react-social-icons"
 import { AnimatedBackground } from "@/components/AnimatedBackground"
-import type { CaptureEmailResult } from "@/lib/email"
 import { useAddFastToMetamask } from "@/hooks/use-add-fast-to-metamask"
 import Marquee from "react-fast-marquee"
 import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL, TWITTER_INVITE_URL } from "@/lib/constants"
@@ -81,9 +78,6 @@ const IndexPage = () => {
   const router = useRouter()
   const { isConnected, address } = useAccount()
   const { openConnectModal } = useConnectModal()
-  const [email, setEmail] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
   const [rpcAdded, setRpcAdded] = useState(false)
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false)
   const { isProcessing, addFastToMetamask } = useAddFastToMetamask()
@@ -97,36 +91,6 @@ const IndexPage = () => {
     args: address ? [address] : [],
     enabled: isConnected && !!address,
   })
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email?.includes("@")) {
-      toast.error("Invalid email", { description: "Please enter a valid email address" })
-      return
-    }
-
-    setIsLoading(true)
-    try {
-      const result: CaptureEmailResult = await captureEmailAction({ email })
-      toast.success(result.alreadySubscribed ? "You're already subscribed!" : "Success!", {
-        description: result.alreadySubscribed ? undefined : "You've been added to the waitlist",
-      })
-      if (!result.alreadySubscribed) {
-        setIsSuccess(true)
-        setTimeout(() => {
-          setEmail("")
-          setIsSuccess(false)
-        }, 2000)
-      }
-    } catch (err) {
-      console.error("Failed to capture email", err)
-      toast.error("Something went wrong", {
-        description: "We could not add your email right now. Please try again.",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   const handleAddRPC = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -186,9 +150,7 @@ const IndexPage = () => {
 
   return (
     <div className="relative h-screen flex flex-col overflow-hidden bg-background">
-      {/* Animated Background */}
       <AnimatedBackground />
-
       <div className="relative z-10 w-full px-4 flex-1 flex flex-col justify-between py-4 sm:py-6 tablet:py-8 lg:py-6">
         <div className="max-w-6xl mx-auto w-full text-center flex-1 flex flex-col justify-between">
           {/* Launch App Button - Top Right */}
@@ -196,10 +158,10 @@ const IndexPage = () => {
             <Button
               variant="glass"
               size="lg"
-              onClick={() => router.push("/dashboard")}
+              asChild
               className="h-9 sm:h-10 px-4 sm:px-6 text-xs sm:text-sm"
             >
-              Launch App
+              <Link href="/dashboard">Launch App</Link>
             </Button>
           </div>
 
@@ -215,44 +177,22 @@ const IndexPage = () => {
             />
           </section>
 
-          {/* Tagline, Email & Social */}
+          {/* Tagline & CTA */}
           <section className="flex-1 flex flex-col justify-center space-y-3 xs:space-y-4 sm:space-y-5 tablet:space-y-8 lg:space-y-6">
-            <div className="text-sm xs:text-base sm:text-lg tablet:text-xl lg:text-base xl:text-xl text-muted-foreground px-3 xs:px-4 sm:px-6 tablet:px-8 lg:px-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-              <span>Lightning-fast transactions on L1.</span>
-              <span>Tokenized mev rewards.</span>
-            </div>
+            <h2 className="text-sm xs:text-base sm:text-lg tablet:text-xl lg:text-base xl:text-xl text-muted-foreground px-3 xs:px-4 sm:px-6 tablet:px-8 lg:px-6 font-normal">
+              Get access to Fast Swap, with lightning-fast transactions on L1 and tokenized mev
+              rewards.
+            </h2>
 
             <div className="backdrop-blur-sm bg-card/60 border border-primary/20 rounded-xl sm:rounded-xl p-2.5 xs:p-3 sm:p-3.5 tablet:p-6 lg:p-3.5 shadow-xl w-full max-w-xs xs:max-w-sm sm:max-w-md tablet:max-w-xl lg:max-w-xl xl:max-w-3xl mx-auto">
-              <form
-                onSubmit={handleSubmit}
-                className="space-y-3 xs:space-y-4 tablet:space-y-5 lg:space-y-4"
+              <Button
+                variant="hero"
+                size="lg"
+                onClick={openConnectModal}
+                className="h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-11 px-6 xs:px-7 sm:px-8 tablet:px-10 lg:px-7 whitespace-nowrap text-sm xs:text-base sm:text-base tablet:text-lg lg:text-sm w-full"
               >
-                <div className="flex flex-col sm:flex-row gap-2 xs:gap-3 tablet:gap-4">
-                  <Input
-                    type="email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="flex-1 h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-11 text-sm xs:text-base sm:text-base tablet:text-lg lg:text-sm bg-background/50 border-primary/30 focus:border-primary"
-                    disabled={isLoading}
-                  />
-                  <Button
-                    type="submit"
-                    variant="hero"
-                    size="lg"
-                    disabled={isLoading}
-                    className="h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-11 px-6 xs:px-7 sm:px-8 tablet:px-10 lg:px-7 whitespace-nowrap text-sm xs:text-base sm:text-base tablet:text-lg lg:text-sm"
-                  >
-                    {isSuccess ? (
-                      <Check className="w-5 h-5 xs:w-6 xs:h-6 tablet:w-7 tablet:h-7 lg:w-5 lg:h-5 text-green-500 animate-scale-in" />
-                    ) : isLoading ? (
-                      "Joining..."
-                    ) : (
-                      "Join Waitlist"
-                    )}
-                  </Button>
-                </div>
-              </form>
+                Get Early Access
+              </Button>
             </div>
 
             {/* Add RPC & Claim SBT Badge Buttons */}
@@ -309,22 +249,19 @@ const IndexPage = () => {
             <div className="flex flex-col items-center space-y-3 xs:space-y-3 tablet:space-y-4 px-3 xs:px-4 tablet:px-6">
               <div className="flex flex-wrap gap-4 xs:gap-5 sm:gap-6 tablet:gap-7 justify-center">
                 {socialLinks.map(({ name, network, url }) => (
-                  <a
+                  <SocialIcon
                     key={name}
-                    href={url}
+                    network={network}
+                    url={url}
+                    label={name}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label={name}
+                    style={{
+                      height: "40px",
+                      width: "40px",
+                    }}
                     className="cursor-pointer hover:opacity-80 transition-opacity"
-                  >
-                    <SocialIcon
-                      network={network}
-                      style={{
-                        height: "40px",
-                        width: "40px",
-                      }}
-                    />
-                  </a>
+                  />
                 ))}
               </div>
               <div className="flex items-center gap-2">

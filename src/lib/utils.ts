@@ -1,5 +1,7 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { MAJOR_ASSET_SYMBOLS } from "@/lib/swap-constants"
+import { isStablecoin as isStablecoinByAddress } from "@/lib/stablecoins"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -77,4 +79,147 @@ export function formatWalletAddress(
     return address
   }
   return `${address.slice(0, startChars)}...${address.slice(-endChars)}`
+}
+
+/**
+ * Check if a token is a stablecoin (by address and/or symbol).
+ * Re-exported from stablecoins; use isStablecoin("", symbol) for symbol-only check.
+ */
+export const isStablecoin = isStablecoinByAddress
+
+/**
+ * Format a number with 6 significant digits and strip trailing zeros (volatile token style).
+ */
+function toSignificant6(num: number): string {
+  if (num === 0) return "0"
+  if (num < 0.000001) return "<0.000001"
+  if (num < 0.001) {
+    return num
+      .toLocaleString("en-US", { maximumSignificantDigits: 6, notation: "standard" })
+      .replace(/\.?0+$/, "")
+  }
+  return num.toPrecision(6).replace(/\.?0+$/, "")
+}
+
+/**
+ * Format amount by token type: stablecoins → toFixed(2), volatile → toSignificant(6).
+ */
+export function formatAmountByTokenType(value: number, isStable: boolean): string {
+  if (value === 0 || !Number.isFinite(value)) return "0"
+  if (isStable) return value.toFixed(2)
+  return toSignificant6(value)
+}
+
+/**
+ * Sanitize and validate amount input
+ * @param input - Raw input string
+ * @returns Sanitized number or null if invalid
+ */
+export function sanitizeAmountInput(input: string): number | null {
+  if (!input || typeof input !== "string") return null
+
+  // Remove any non-numeric characters except decimal point
+  const sanitized = input.replace(/[^0-9.]/g, "")
+
+  // Ensure only one decimal point
+  const parts = sanitized.split(".")
+  const cleanedAmount = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join("")}` : sanitized
+
+  const num = parseFloat(cleanedAmount)
+
+  // Validate the number
+  if (isNaN(num) || num < 0 || !isFinite(num)) return null
+
+  // Reject numbers that are too large (potential overflow)
+  if (num > Number.MAX_SAFE_INTEGER) return null
+
+  return num
+}
+
+/**
+ * Formats token amount for display based on token type.
+ * Stablecoins → toFixed(2); volatile → toSignificant(6).
+ * @param amount - Amount to format (string or number)
+ * @param tokenSymbol - Optional token symbol for stable/volatile detection
+ * @param maxDecimals - Optional maximum decimals override (default: auto-detect)
+ * @param tokenAddress - Optional token address for stablecoin detection (O(1) for core stables)
+ */
+export function formatTokenAmount(
+  amount: string | number,
+  tokenSymbol?: string,
+  maxDecimals?: number,
+  tokenAddress?: string
+): string {
+  const num = typeof amount === "string" ? parseFloat(amount) : amount
+
+  if (isNaN(num) || num === 0) return "0"
+
+  const symbol = tokenSymbol?.toUpperCase() || ""
+  const isStable = isStablecoinByAddress(tokenAddress ?? "", tokenSymbol)
+
+  // Stablecoins: 2 decimals (fiat-style)
+  if (isStable) {
+    return new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
+    }).format(num)
+  }
+
+  // Volatile: toSignificant(6) style
+  if (num < 0.000001) return "<0.000001"
+  if (num < 0.001) {
+    return num
+      .toLocaleString("en-US", { maximumSignificantDigits: 6, notation: "standard" })
+      .replace(/\.?0+$/, "")
+  }
+
+  // Major assets (ETH, WBTC, BTC): keep 4-6 decimals by value when not stable
+  if (MAJOR_ASSET_SYMBOLS.includes(symbol as (typeof MAJOR_ASSET_SYMBOLS)[number])) {
+    const decimals = num >= 1 ? 4 : 6
+    return new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: decimals,
+      minimumFractionDigits: 0,
+    }).format(num)
+  }
+
+  if (maxDecimals !== undefined) {
+    return new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: maxDecimals,
+      minimumFractionDigits: 0,
+    }).format(num)
+  }
+
+  return toSignificant6(num)
+}
+
+/**
+ * Formats a balance for display
+ * @param balanceValue - Balance value as number
+ * @param tokenSymbol - Token symbol for formatting rules
+ * @returns Formatted balance string
+ */
+export const resolveImageUrl = (url?: string) => {
+  if (!url) return "/fallback-token.png"
+  if (url.startsWith("ipfs://")) {
+    return url.replace("ipfs://", "https://ipfs.io/ipfs/")
+  }
+  return url
+}
+
+export function formatBalance(
+  balanceValue: number,
+  tokenSymbol?: string,
+  tokenAddress?: string
+): string {
+  if (balanceValue <= 0) return "0"
+  return formatTokenAmount(balanceValue, tokenSymbol, undefined, tokenAddress)
+}
+
+export function isValidAddress(addr: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(addr)
+}
+
+export function truncateAddress(address: string): string {
+  if (!address) return ""
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
 }

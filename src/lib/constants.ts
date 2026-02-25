@@ -98,3 +98,10 @@ export const LEADERBOARD_CACHE_GC_TIME = 5 * 60 * 1000 // 5 minutes in milliseco
  */
 export const DASHBOARD_CACHE_STALE_TIME = 1 * 60 * 1000 // 1 minute in milliseconds.  Controls freshness (when to refetch)
 export const DASHBOARD_CACHE_GC_TIME = 5 * 60 * 1000 // 5 minutes in milliseconds. Controls how long to keep cached data (when to delete)
+
+/**
+ * React Query cache settings for swap token list data
+ * Token list changes infrequently, so we can cache longer
+ */
+export const SWAP_CACHE_STALE_TIME = 10 * 60 * 1000 // 10 minutes in milliseconds. Controls freshness (when to refetch)
+export const SWAP_CACHE_GC_TIME = 30 * 60 * 1000 // 30 minutes in milliseconds. Controls how long to keep cached data (when to delete)

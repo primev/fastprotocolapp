@@ -7,46 +7,54 @@ const DEFAULT_INTERVAL_MS = 1000
 
 /**
  * Converts RPC response to viem TransactionReceipt format
+ * Throws an error if the receipt doesn't have a valid block number
  */
 function convertRpcResponseToReceipt(data: any): TransactionReceipt {
+  const result = data.result
+
   return {
-    transactionHash: data.result.transactionHash as `0x${string}`,
-    transactionIndex: Number(data.result.transactionIndex),
-    blockHash: data.result.blockHash as `0x${string}`,
-    blockNumber: BigInt(data.result.blockNumber),
-    from: data.result.from as `0x${string}`,
-    to: data.result.to as `0x${string}` | null,
-    cumulativeGasUsed: BigInt(data.result.cumulativeGasUsed),
-    gasUsed: BigInt(data.result.gasUsed),
-    contractAddress: data.result.contractAddress as `0x${string}` | null,
-    logs: (data.result.logs || []).map((log: any) => ({
+    transactionHash: result.transactionHash as `0x${string}`,
+    transactionIndex: Number(result.transactionIndex),
+    blockHash: result.blockHash as `0x${string}`,
+    blockNumber: BigInt(result.blockNumber),
+    from: result.from as `0x${string}`,
+    to: result.to as `0x${string}` | null,
+    cumulativeGasUsed: BigInt(result.cumulativeGasUsed),
+    gasUsed: BigInt(result.gasUsed),
+    contractAddress: result.contractAddress as `0x${string}` | null,
+    logs: (result.logs || []).map((log: any) => ({
       address: log.address as `0x${string}`,
       topics: log.topics as readonly `0x${string}`[],
       data: log.data as `0x${string}`,
-      blockNumber: BigInt(log.blockNumber || data.result.blockNumber),
-      blockHash: (log.blockHash as `0x${string}`) || (data.result.blockHash as `0x${string}`),
+      blockNumber: BigInt(log.blockNumber || result.blockNumber),
+      blockHash: (log.blockHash as `0x${string}`) || (result.blockHash as `0x${string}`),
       transactionHash:
-        (log.transactionHash as `0x${string}`) || (data.result.transactionHash as `0x${string}`),
-      transactionIndex: Number(log.transactionIndex || data.result.transactionIndex),
+        (log.transactionHash as `0x${string}`) || (result.transactionHash as `0x${string}`),
+      transactionIndex: Number(log.transactionIndex || result.transactionIndex),
       logIndex: Number(log.logIndex || 0),
       removed: log.removed || false,
     })),
-    logsBloom: data.result.logsBloom as `0x${string}`,
-    status: data.result.status === "0x1" ? "success" : "reverted",
-    type: data.result.type || "0x2",
-    effectiveGasPrice: data.result.effectiveGasPrice
-      ? BigInt(data.result.effectiveGasPrice)
-      : undefined,
+    logsBloom: result.logsBloom as `0x${string}`,
+    status: result.status === "0x1" ? "success" : "reverted",
+    type: result.type || "0x2",
+    effectiveGasPrice: result.effectiveGasPrice ? BigInt(result.effectiveGasPrice) : undefined,
   }
 }
 
+export type TransactionReceiptFromDb = {
+  receipt: TransactionReceipt
+  /** Raw RPC result (data.result) as returned by the DB, unmodified. */
+  rawResult: unknown
+}
+
 /**
- * Makes a single RPC call to get transaction receipt
+ * Makes a single RPC call to get transaction receipt.
+ * Returns both the converted viem receipt and the raw RPC result for display.
  */
 async function fetchTransactionReceipt(
   txHash: string,
   abortSignal?: AbortSignal
-): Promise<TransactionReceipt | null> {
+): Promise<TransactionReceiptFromDb | null> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
@@ -73,16 +81,27 @@ async function fetchTransactionReceipt(
 
     const data = await response.json()
 
-    if (data.result && data.result.status) {
-      return convertRpcResponseToReceipt(data)
+    // No result means transaction not found in DB yet
+    if (!data.result) {
+      // This is normal - DB hasn't indexed the transaction yet
+      return null
     }
 
-    return null
+    // Has result but no status means pending/not confirmed
+    if (!data.result.status) {
+      console.log(`[fetchTransactionReceipt] Receipt found but no status (pending) for ${txHash}`)
+      return null
+    }
+
+    // Has status - convert to receipt (will throw if no block number/hash)
+    const receipt = convertRpcResponseToReceipt(data)
+    return { receipt, rawResult: data.result }
   } catch (error) {
     clearTimeout(timeoutId)
     if (abortSignal?.aborted || (error as Error).name === "AbortError") {
       return null
     }
+    // Propagate all errors - including "no block number/hash" errors
     throw error
   }
 }
@@ -102,6 +121,8 @@ async function waitWithAbort(intervalMs: number, abortSignal?: AbortSignal): Pro
 
 /**
  * Polls the database RPC endpoint for transaction receipt
+ * Throws an error if receipt exists without block number/hash
+ * Returns the receipt when found, or null if aborted/max attempts reached
  */
 export async function pollDatabaseForReceipt(
   txHash: string,
@@ -109,55 +130,96 @@ export async function pollDatabaseForReceipt(
   maxAttempts: number = DEFAULT_MAX_ATTEMPTS,
   intervalMs: number = DEFAULT_INTERVAL_MS
 ): Promise<TransactionReceipt | null> {
+  console.log(`[pollDatabaseForReceipt] Starting polling for ${txHash}`)
+
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (abortSignal?.aborted) {
+      console.log(`[pollDatabaseForReceipt] Aborted at attempt ${attempt + 1}`)
       return null
     }
 
     try {
-      const receipt = await fetchTransactionReceipt(txHash, abortSignal)
-      if (receipt) {
-        return receipt
+      const result = await fetchTransactionReceipt(txHash, abortSignal)
+      if (result) {
+        console.log(`[pollDatabaseForReceipt] ✅ Found valid receipt on attempt ${attempt + 1}`)
+        return result.receipt
+      }
+      // Only log every 5 attempts to avoid spam
+      if (attempt % 5 === 0 && attempt > 0) {
+        console.log(
+          `[pollDatabaseForReceipt] Still waiting... (attempt ${attempt + 1}/${maxAttempts})`
+        )
       }
     } catch (error) {
       if (abortSignal?.aborted || (error as Error).name === "AbortError") {
+        console.log(`[pollDatabaseForReceipt] Aborted during error handling`)
         return null
       }
-      console.error(`Poll attempt ${attempt + 1} failed:`, error)
+
+      const errorMsg = (error as Error).message
+
+      // If the error is about missing block number/hash, throw it immediately
+      // This is a fatal error - the transaction failed to be included in a block
+      if (errorMsg.includes("no block number") || errorMsg.includes("no block hash")) {
+        console.error(`[pollDatabaseForReceipt] ❌ Fatal error - receipt without block:`, error)
+        throw error
+      }
+
+      // For other errors, log and continue trying
+      console.error(`[pollDatabaseForReceipt] Poll attempt ${attempt + 1} failed:`, error)
     }
 
     // Wait before next attempt
     if (attempt < maxAttempts - 1) {
       await waitWithAbort(intervalMs, abortSignal)
       if (abortSignal?.aborted) {
+        console.log(`[pollDatabaseForReceipt] Aborted during wait`)
         return null
       }
     }
   }
 
+  console.warn(`[pollDatabaseForReceipt] ⏱️ Max attempts (${maxAttempts}) reached for ${txHash}`)
   return null
 }
 
 /**
+ * Fetches transaction receipt from DB (single request).
+ * Returns receipt + raw RPC result when found, or null if not found/pending.
+ * Use this when you need to check receipt.status (e.g. 0x0 = failed).
+ */
+export async function fetchTransactionReceiptFromDb(
+  txHash: string,
+  abortSignal?: AbortSignal
+): Promise<TransactionReceiptFromDb | null> {
+  return fetchTransactionReceipt(txHash, abortSignal)
+}
+
+/**
  * Checks if transaction receipt exists in database (for status checks)
+ * Returns true only if receipt exists with a valid block number/hash
+ * Throws an error if receipt exists without block number/hash
  */
 export async function checkTransactionReceiptExists(
   txHash: string,
   abortSignal?: AbortSignal
 ): Promise<boolean> {
   try {
-    const receipt = await fetchTransactionReceipt(txHash, abortSignal)
-    return receipt !== null
+    const result = await fetchTransactionReceipt(txHash, abortSignal)
+    return result !== null
   } catch (error) {
     if (abortSignal?.aborted || (error as Error).name === "AbortError") {
       return false
     }
+    // Propagate the error (including "no block number/hash" errors)
     throw error
   }
 }
 
 /**
  * Polls the database to check if transaction receipt exists
+ * Throws an error if receipt exists without block number/hash
+ * Returns status object when found, or null if aborted/max attempts reached
  */
 export async function pollDatabaseForStatus(
   hash: string,
@@ -165,23 +227,44 @@ export async function pollDatabaseForStatus(
   maxAttempts: number = DEFAULT_MAX_ATTEMPTS,
   intervalMs: number = DEFAULT_INTERVAL_MS
 ): Promise<{ success: boolean; hash: string } | null> {
+  console.log(`[pollDatabaseForStatus] Starting polling for ${hash}`)
+
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (abortSignal?.aborted) {
+      console.log(`[pollDatabaseForStatus] Aborted at attempt ${attempt + 1}`)
       return null
     }
 
     try {
       const exists = await checkTransactionReceiptExists(hash, abortSignal)
       if (exists) {
+        console.log(`[pollDatabaseForStatus] ✅ Found valid receipt on attempt ${attempt + 1}`)
         return { success: true, hash }
+      }
+      // Only log every 5 attempts to avoid spam
+      if (attempt % 5 === 0 && attempt > 0) {
+        console.log(
+          `[pollDatabaseForStatus] Still waiting... (attempt ${attempt + 1}/${maxAttempts})`
+        )
       }
     } catch (error) {
       if (abortSignal?.aborted || (error as Error).name === "AbortError") {
+        console.log(`[pollDatabaseForStatus] Aborted during error handling`)
         return null
       }
-      // Don't log errors for early attempts, only after a few tries
+
+      const errorMsg = (error as Error).message
+
+      // If the error is about missing block number/hash, throw it immediately
+      // This is a fatal error - the transaction failed to be included in a block
+      if (errorMsg.includes("no block number") || errorMsg.includes("no block hash")) {
+        console.error(`[pollDatabaseForStatus] ❌ Fatal error - receipt without block:`, error)
+        throw error
+      }
+
+      // For other errors, don't log for early attempts, only after a few tries
       if (attempt >= 3) {
-        console.error(`Status poll attempt ${attempt + 1} failed:`, error)
+        console.error(`[pollDatabaseForStatus] Status poll attempt ${attempt + 1} failed:`, error)
       }
     }
 
@@ -189,10 +272,12 @@ export async function pollDatabaseForStatus(
     if (attempt < maxAttempts - 1) {
       await waitWithAbort(intervalMs, abortSignal)
       if (abortSignal?.aborted) {
+        console.log(`[pollDatabaseForStatus] Aborted during wait`)
         return null
       }
     }
   }
 
+  console.warn(`[pollDatabaseForStatus] ⏱️ Max attempts (${maxAttempts}) reached for ${hash}`)
   return null
 }
