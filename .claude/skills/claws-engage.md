@@ -18,6 +18,36 @@ description: |
 
 You are a Primev team agent with access to the #claws Slack channel via the `claws_send`, `claws_read`, and `claws_reply` MCP tools. This channel is a shared space where all Claude agents and human team members on the Primev team communicate.
 
+## Prerequisites
+
+Before you can use this skill, ensure you have:
+
+1. **The claws MCP server installed** — provides `claws_send`, `claws_read`, `claws_reply` tools
+2. **This skill file** saved at `~/.claude/skills/claws-engage.md`
+3. **A configured agent name** via the `CLAWS_AGENT_NAME` env var in your MCP config
+
+If you don't have the MCP tools available, tell the user to run the setup:
+```
+mkdir -p ~/.claude/claws
+curl -o ~/.claude/claws/index.js https://raw.githubusercontent.com/primev/fastprotocolapp/main/.claude/claws/index.js
+curl -o ~/.claude/claws/package.json https://raw.githubusercontent.com/primev/fastprotocolapp/main/.claude/claws/package.json
+cd ~/.claude/claws && npm install
+```
+
+Then add to `~/.claude/mcp.json` under `mcpServers`:
+```json
+"claws": {
+  "command": "node",
+  "args": ["<HOME_DIR>/.claude/claws/index.js"],
+  "env": {
+    "CLAWS_SLACK_TOKEN": "(ask admin for bot token)",
+    "CLAWS_CHANNEL_ID": "C0AH1KMU42H",
+    "CLAWS_AGENT_NAME": "your-name-claude"
+  }
+}
+```
+Replace `<HOME_DIR>` with the actual home directory path (e.g. `/Users/yourname`).
+
 ## Core Behavior
 
 **You are expected to be an active participant, not a silent worker.** The #claws channel is how the distributed agent workforce stays coordinated. Treat it like a team standup channel.
@@ -71,7 +101,7 @@ Q: Does anyone know if fastrpc.mev-commit.xyz/fastswap/eth is expected to be dow
 **This is the most important part.** After every session, you MUST:
 
 1. **Read #claws** for any new insights from other agents
-2. **Edit this file** (`/Users/zion/.claude/skills/claws-engage.md`) to append new learnings to the appropriate Collective Knowledge subsection
+2. **Edit this file** (find it at `~/.claude/skills/claws-engage.md`) to append new learnings to the appropriate Collective Knowledge subsection
 3. **Remove outdated info** — if something was fixed or changed, update or remove the old entry
 4. **Keep entries concise** — one line per learning, with date and source agent
 
@@ -119,6 +149,7 @@ Format for knowledge entries:
 ## Architecture & Infrastructure
 
 ### fastprotocolapp (Fast Protocol)
+- Next.js app, repo: `primev/fastprotocolapp`, deployed on Vercel (Primev team `primev-da84fd63`)
 - Swap backend: everything routes through `https://fastrpc.mev-commit.xyz`
 - Barter routing API: `https://api2.eth.barterswap.xyz/route` (proxied via `/api/barter/route`, needs `BARTER_API_KEY`)
 - FastSwap permit path: client → `/api/fastswap` → `fastrpc.mev-commit.xyz/fastswap` (relayer executes)
@@ -134,9 +165,9 @@ Format for knowledge entries:
 
 ### agentstore
 - Monorepo: packages/web (Vite+React), packages/api (Next.js), packages/cli, packages/gateway, packages/wallet
-- DB: Supabase project `pqjntpkfdcfsvnnjkbny`
-- Vercel: api on primev team (`primev-da84fd63`)
+- Vercel: api on Primev team (`primev-da84fd63`)
 - x402 payments: USDC via EIP-3009, 20% platform fee, 80% publisher split
+- Website: `agentstore.tools`, API: `api.agentstore.tools`
 
 ### builder-observer
 - Next.js 15, data from StarRocks indexer at `analyticsdb.mev-commit.xyz`
@@ -146,6 +177,11 @@ Format for knowledge entries:
 ### x402-facilitator
 - Vercel project on Primev team, deploy from `api/` subdirectory
 - Domain: `facilitator.primev.xyz`, Hono edge runtime
+
+### mev-commit
+- Core preconfirmation protocol for Ethereum
+- Docs: `docs.primev.xyz`
+- Mainnet and testnet deployments
 
 ## Bugs & Gotchas
 
@@ -158,6 +194,7 @@ Format for knowledge entries:
 - Always check Vercel team attribution before deploying — Primev (`primev-da84fd63`) vs Personal (`murats-projects-79e38649`)
 - x402-facilitator must deploy from `api/` subdirectory — root deploy fails due to contracts/ git submodule
 - GitHub clone counts are inflated by CI/bots — real engagement is unique views, not clones
+- Always write "mev" lowercase, not "MEV". Use "Mev" only at the start of a sentence. Compound terms: mev-commit, mev-boost, mev-share.
 
 ## Active Investigations
 
@@ -174,3 +211,4 @@ Format for knowledge entries:
 - Primev workspace: `primevworkspace.slack.com`
 - #claws channel ID: `C0AH1KMU42H`
 - Bot: `primevagenthub` (Claws Slack app)
+- Claws MCP server repo: `primev/fastprotocolapp` under `.claude/claws/`
