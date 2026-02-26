@@ -1,12 +1,12 @@
 "use client"
 
-import Image from "next/image"
 import { useAccount } from "wagmi"
-import { Copy } from "lucide-react"
+import { Copy, CheckCircle2, Users, ArrowRight } from "lucide-react"
 import { FaXTwitter } from "react-icons/fa6"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { HoverBorderGradient } from "@/components/ui/hover-border-gradient"
+import { WaitlistHeader } from "@/components/landing/WaitlistHeader"
 import { useAffiliateCode } from "@/hooks/use-affiliate-code"
 
 interface ApprovedExperienceProps {
@@ -30,62 +30,63 @@ export function ApprovedExperience({ onStartSwapping, onBack }: ApprovedExperien
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-background overflow-hidden">
-      {/* Header — mirrors OnboardingHeader / AlreadyOnWaitlistMessage style */}
-      <header className="border-b border-border/50 shrink-0">
-        <div className="container mx-auto px-4 py-4 lg:py-3 flex items-center justify-between">
-          <div className="relative">
-            <Image
-              src="/assets/fast-icon.png"
-              alt="Fast Protocol"
-              width={40}
-              height={40}
-              className="sm:hidden"
-              quality={100}
-              placeholder="empty"
-            />
-            <Image
-              src="/assets/fast-protocol-logo-icon.png"
-              alt="Fast Protocol"
-              width={150}
-              height={75}
-              className="hidden sm:block"
-              quality={100}
-              placeholder="empty"
-            />
-          </div>
+      <WaitlistHeader title="Early Access" onBack={onBack} />
 
-          <div className="flex items-center gap-2">
-            <h1 className="text-muted-foreground font-bold">Early Access</h1>
-            <span className="w-px h-6 bg-border mx-1" />
-            <Button variant="outline" size="sm" onClick={onBack} className="shrink-0">
-              Back to Fast Protocol
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.04] blur-3xl" />
+        <div className="absolute bottom-1/4 right-0 w-[400px] h-[400px] rounded-full bg-primary/[0.03] blur-3xl" />
+      </div>
+
+      <main className="relative flex-1 flex items-center justify-center overflow-y-auto px-4">
+        <div className="w-full max-w-2xl mx-auto py-8 space-y-8">
+          {/* Hero section */}
+          <div className="text-center space-y-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-primary/20 bg-primary/[0.05] text-primary text-xs font-semibold tracking-wide">
+              <CheckCircle2 size={12} />
+              Pre-approved
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+              You&apos;re in
+            </h1>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+              Your wallet is on the whitelist. Start swapping now or invite friends to earn referral
+              rewards.
+            </p>
+
+            <Button variant="hero" size="lg" className="mt-2" onClick={onStartSwapping}>
+              Start swapping
+              <ArrowRight size={16} className="ml-1" />
             </Button>
           </div>
-        </div>
-      </header>
 
-      {/* Content */}
-      <main className="flex-1 flex items-center justify-center overflow-y-auto px-4">
-        <div className="w-full max-w-lg mx-auto py-8 text-center">
-          <div className="space-y-6">
-            <div className="text-center">
-              <h1 className="text-xl font-medium text-foreground mb-2">
-                You&apos;re pre-approved!
-              </h1>
-              <p className="text-muted-foreground">Your wallet is on the whitelist.</p>
-            </div>
+          {/* Decorative divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+          </div>
 
-            {/* Referral Section */}
-            <div className="rounded-xl border border-primary/20 bg-card/60 backdrop-blur-sm p-4 space-y-3 text-left">
+          {/* Referral Section */}
+          <div className="rounded-2xl border border-primary/20 bg-card/60 backdrop-blur-sm p-5 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg text-primary shadow-inner">
+                <Users size={16} />
+              </div>
               <div>
-                <h3 className="text-sm font-semibold text-foreground mb-1">Invite friends</h3>
-                <p className="text-xs text-muted-foreground">
+                <h3 className="text-sm font-semibold text-foreground leading-none mb-1">
+                  Invite friends
+                </h3>
+                <p className="text-xs text-muted-foreground leading-snug">
                   Share your referral link and earn rewards when friends start swapping.
                 </p>
               </div>
+            </div>
 
-              <div className="flex items-center gap-2 bg-secondary/10 rounded-lg px-3 py-2 border border-border/50">
-                <code className="text-xs truncate flex-1 text-foreground" title={referralLink}>
+            <div className="flex flex-col sm:flex-row items-stretch gap-3">
+              <div className="flex items-center gap-2 bg-secondary/10 rounded-lg px-3 py-2.5 border border-border/50 flex-1 min-w-0">
+                <code
+                  className="text-xs truncate flex-1 text-foreground/80 font-mono"
+                  title={referralLink}
+                >
                   {isLoadingCode ? (
                     <span className="text-muted-foreground">Generating...</span>
                   ) : (
@@ -97,12 +98,12 @@ export function ApprovedExperience({ onStartSwapping, onBack }: ApprovedExperien
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="group h-6 w-6 rounded-md flex-shrink-0 hover:bg-transparent p-1"
+                  className="group/copy h-7 w-7 rounded-md flex-shrink-0 hover:bg-primary/10 p-1 transition-colors"
                   onClick={copyReferralLink}
                   disabled={!isConnected || !referralLink}
                   aria-label="Copy referral link"
                 >
-                  <Copy className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  <Copy className="h-3.5 w-3.5 text-muted-foreground group-hover/copy:text-primary transition-colors" />
                 </Button>
               </div>
 
@@ -110,17 +111,13 @@ export function ApprovedExperience({ onStartSwapping, onBack }: ApprovedExperien
                 onClick={handleShareOnX}
                 disabled={!isConnected || !referralLink}
                 aria-label="Share on X"
-                containerClassName="w-full"
-                className="flex items-center justify-center gap-2 w-full text-sm font-bold"
+                containerClassName="sm:w-auto"
+                className="flex items-center justify-center gap-2 text-sm font-bold px-6 whitespace-nowrap"
               >
                 <span>Share on</span>
                 <FaXTwitter className="h-4 w-4" />
               </HoverBorderGradient>
             </div>
-
-            <Button variant="hero" size="lg" className="w-full" onClick={onStartSwapping}>
-              Start swapping
-            </Button>
           </div>
         </div>
       </main>

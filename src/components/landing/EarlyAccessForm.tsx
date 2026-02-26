@@ -1,18 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useAccount } from "wagmi"
 import { isAddress } from "viem"
 import { toast } from "sonner"
+import { Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AnimatedBackground } from "@/components/AnimatedBackground"
+import { AlreadyOnWaitlistMessage } from "@/components/landing/AlreadyOnWaitlistMessage"
 import { ApprovedExperience } from "@/components/landing/ApprovedExperience"
-import { WaitlistExperience } from "@/components/landing/WaitlistExperience"
+import { WaitlistHeader } from "@/components/landing/WaitlistHeader"
 import { useGateStatus } from "@/hooks/use-gate-status"
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -104,138 +103,119 @@ export function EarlyAccessForm({ initialWalletAddress }: EarlyAccessFormProps) 
       )
     }
 
-    return (
-      <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-background">
-        <AnimatedBackground />
-        <div className="relative z-10 w-full px-4 flex flex-col items-center justify-center text-center max-w-lg mx-auto">
-          <div className="isolate mb-6">
-            <Image
-              src="/assets/fast-protocol-logo-icon.png"
-              alt="Fast Protocol"
-              width={256}
-              height={256}
-              quality={100}
-              placeholder="empty"
-              className="h-24 w-auto"
-            />
-          </div>
-          <WaitlistExperience onBack={handleBackToProtocol} />
-        </div>
-      </div>
-    )
+    return <AlreadyOnWaitlistMessage onBack={handleBackToProtocol} />
   }
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-background">
-      <AnimatedBackground />
-      <div className="relative z-10 w-full px-4 flex flex-col items-center max-w-lg mx-auto">
-        <Link href="/" className="mb-6 isolate block">
-          <Image
-            src="/assets/fast-protocol-logo-icon.png"
-            alt="Fast Protocol"
-            width={160}
-            height={160}
-            quality={100}
-            placeholder="empty"
-            className="h-20 w-auto"
-          />
-        </Link>
-        <h1 className="text-xl font-medium text-foreground mb-1">Get Early Access</h1>
-        <p className="text-muted-foreground text-sm mb-6 text-center">
-          Submit your details to join the waitlist for Fast Swap.
-        </p>
+    <div className="fixed inset-0 z-40 flex flex-col bg-background overflow-hidden">
+      <WaitlistHeader title="Early Access" onBack={handleBackToProtocol} />
 
-        <form
-          onSubmit={handleSubmit}
-          className="w-full space-y-4 p-6 rounded-xl border border-primary/20 bg-card/60 backdrop-blur-sm"
-        >
-          <div className="space-y-2">
-            <Label htmlFor="wallet">Wallet address</Label>
-            <Input
-              id="wallet"
-              placeholder="0x..."
-              value={walletAddress}
-              onChange={(e) => setWalletAddress(e.target.value)}
-              className={errors.walletAddress ? "border-destructive" : ""}
-              disabled={isLoading || !!initialWalletAddress}
-            />
-            {errors.walletAddress && (
-              <p className="text-sm text-destructive">{errors.walletAddress}</p>
-            )}
-          </div>
-
-          <p className="text-sm text-muted-foreground rounded-lg border border-primary/15 bg-primary/5 px-3 py-2">
-            Use your real X and Discord profiles—if you&apos;re approved, we&apos;ll reach out to
-            you there.
-          </p>
-
-          <div className="space-y-2">
-            <Label htmlFor="x">X handle</Label>
-            <Input
-              id="x"
-              placeholder="@username"
-              value={xHandle}
-              onChange={(e) => setXHandle(e.target.value)}
-              className={errors.xHandle ? "border-destructive" : ""}
-              disabled={isLoading}
-            />
-            {errors.xHandle && <p className="text-sm text-destructive">{errors.xHandle}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="discord">Discord handle</Label>
-            <Input
-              id="discord"
-              placeholder="username#1234 or username"
-              value={discordHandle}
-              onChange={(e) => setDiscordHandle(e.target.value)}
-              className={errors.discordHandle ? "border-destructive" : ""}
-              disabled={isLoading}
-            />
-            {errors.discordHandle && (
-              <p className="text-sm text-destructive">{errors.discordHandle}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={errors.email ? "border-destructive" : ""}
-              disabled={isLoading}
-            />
-            {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
-          </div>
-
-          <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isLoading}>
-            {isLoading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                Submitting…
-              </span>
-            ) : (
-              "Submit"
-            )}
-          </Button>
-        </form>
-
-        <p className="mt-4 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              invalidateGate()
-              router.push("/")
-            }}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Back to Fast Protocol
-          </button>
-        </p>
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.04] blur-3xl" />
+        <div className="absolute bottom-1/3 right-0 w-[400px] h-[400px] rounded-full bg-primary/[0.03] blur-3xl" />
       </div>
+
+      <main className="relative flex-1 overflow-y-auto px-4">
+        <div className="w-full max-w-lg mx-auto py-12 space-y-8">
+          {/* Hero section */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-primary/20 bg-primary/[0.05] text-primary text-xs font-semibold tracking-wide">
+              <Zap size={12} />
+              Early Access
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+              Get on the waitlist
+            </h1>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
+              Submit your details below to join the waitlist for Fast Swap.
+            </p>
+          </div>
+
+          {/* Decorative divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+          </div>
+
+          <form
+            onSubmit={handleSubmit}
+            className="w-full space-y-4 p-6 rounded-xl border border-primary/20 bg-card/60 backdrop-blur-sm"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="wallet">Wallet address</Label>
+              <Input
+                id="wallet"
+                placeholder="0x..."
+                value={walletAddress}
+                onChange={(e) => setWalletAddress(e.target.value)}
+                className={errors.walletAddress ? "border-destructive" : ""}
+                disabled={isLoading || !!initialWalletAddress}
+              />
+              {errors.walletAddress && (
+                <p className="text-sm text-destructive">{errors.walletAddress}</p>
+              )}
+            </div>
+
+            <p className="text-sm text-muted-foreground rounded-lg border border-primary/15 bg-primary/5 px-3 py-2">
+              Use your real X and Discord profiles—if you&apos;re approved, we&apos;ll reach out to
+              you there.
+            </p>
+
+            <div className="space-y-2">
+              <Label htmlFor="x">X handle</Label>
+              <Input
+                id="x"
+                placeholder="@username"
+                value={xHandle}
+                onChange={(e) => setXHandle(e.target.value)}
+                className={errors.xHandle ? "border-destructive" : ""}
+                disabled={isLoading}
+              />
+              {errors.xHandle && <p className="text-sm text-destructive">{errors.xHandle}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="discord">Discord handle</Label>
+              <Input
+                id="discord"
+                placeholder="username#1234 or username"
+                value={discordHandle}
+                onChange={(e) => setDiscordHandle(e.target.value)}
+                className={errors.discordHandle ? "border-destructive" : ""}
+                disabled={isLoading}
+              />
+              {errors.discordHandle && (
+                <p className="text-sm text-destructive">{errors.discordHandle}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={errors.email ? "border-destructive" : ""}
+                disabled={isLoading}
+              />
+              {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+            </div>
+
+            <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Submitting…
+                </span>
+              ) : (
+                "Submit"
+              )}
+            </Button>
+          </form>
+        </div>
+      </main>
     </div>
   )
 }
