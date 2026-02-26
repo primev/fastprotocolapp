@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { WagmiProvider, useAccount } from "wagmi"
 import { DisclaimerComponent, RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -9,29 +9,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { Toaster as Sonner } from "@/components/ui/sonner"
 import { SwapToastContainer } from "@/components/swap/SwapToastContainer"
 import { config } from "@/lib/wagmi"
-import { FEATURE_FLAGS } from "@/lib/feature-flags"
-import { fetchWhitelistList, fetchWaitlistList } from "@/lib/gate-data"
 import "@rainbow-me/rainbowkit/styles.css"
-
-const GATE_DATA_STALE_TIME_MS = 5 * 60 * 1000
-
-function GateDataPrefetcher() {
-  const queryClient = useQueryClient()
-  useEffect(() => {
-    if (!FEATURE_FLAGS.swap_whitelist_enabled) return
-    void queryClient.prefetchQuery({
-      queryKey: ["whitelist", "list"],
-      queryFn: fetchWhitelistList,
-      staleTime: GATE_DATA_STALE_TIME_MS,
-    })
-    void queryClient.prefetchQuery({
-      queryKey: ["waitlist", "list"],
-      queryFn: fetchWaitlistList,
-      staleTime: GATE_DATA_STALE_TIME_MS,
-    })
-  }, [queryClient])
-  return null
-}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -167,7 +145,6 @@ export const Providers = ({ children }: { children: React.ReactNode }) => {
             disclaimer: Disclaimer,
           }}
         >
-          <GateDataPrefetcher />
           <WalletDisconnectHandler />
           <TooltipProvider>
             {children}

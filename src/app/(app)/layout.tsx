@@ -10,12 +10,11 @@ import { AppHeader } from "@/components/shared/AppHeader"
 import { AnimatedBackground } from "@/components/AnimatedBackground"
 import { useRPCTest } from "@/hooks/use-rpc-test"
 import { useWalletInfo } from "@/hooks/use-wallet-info"
-import { useWhitelist } from "@/hooks/use-whitelist"
-import { useWaitlist } from "@/hooks/use-waitlist"
 import { isMetaMaskWallet, isRabbyWallet } from "@/lib/onboarding-utils"
 import { NETWORK_CONFIG } from "@/lib/network-config"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
 import { DashboardTabProvider, useDashboardTab } from "./DashboardTabContext"
+import { GateViewProvider, useGateView } from "./GateViewContext"
 
 // Modal Components
 import { RPCTestModal } from "@/components/network-checker"
@@ -36,18 +35,14 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const { isConnected, status, connector, address } = useAccount()
   const { connectors } = useConnect()
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected)
-  const { isWhitelisted, isLoading: isWhitelistLoading } = useWhitelist()
-  const { onWaitlist, isLoading: isWaitlistLoading } = useWaitlist()
   const rpcTest = useRPCTest()
   const { openConnectModal } = useConnectModal()
+  const { passedGate } = useGateView()
   const [hasCheckedStatus, setHasCheckedStatus] = useState(false)
 
-  const canSwap = isWhitelisted && onWaitlist
   const isGateRoute = pathname === "/"
-  const hideLayout =
-    isGateRoute &&
-    FEATURE_FLAGS.swapPrivateMode &&
-    (isWhitelistLoading || isWaitlistLoading || !canSwap)
+  // Hide the app header on the gate route until the user clicks through to swap
+  const hideLayout = isGateRoute && FEATURE_FLAGS.swapPrivateMode && !passedGate
 
   // Wallet detection
   const isMetaMask = isMetaMaskWallet(connector)
@@ -245,9 +240,11 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={<div className="min-h-screen bg-background" />}>
-      <DashboardTabProvider>
-        <AppLayoutContent>{children}</AppLayoutContent>
-      </DashboardTabProvider>
+      <GateViewProvider>
+        <DashboardTabProvider>
+          <AppLayoutContent>{children}</AppLayoutContent>
+        </DashboardTabProvider>
+      </GateViewProvider>
     </Suspense>
   )
 }

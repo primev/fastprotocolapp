@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useQueryClient } from "@tanstack/react-query"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { useAccount, useDisconnect } from "wagmi"
+import { useAccount } from "wagmi"
 import { isAddress } from "viem"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AnimatedBackground } from "@/components/AnimatedBackground"
+import { ApprovedExperience } from "@/components/landing/ApprovedExperience"
+import { WaitlistExperience } from "@/components/landing/WaitlistExperience"
+import { useGateStatus } from "@/hooks/use-gate-status"
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -22,9 +24,9 @@ interface EarlyAccessFormProps {
 
 export function EarlyAccessForm({ initialWalletAddress }: EarlyAccessFormProps) {
   const router = useRouter()
-  const queryClient = useQueryClient()
   const { address } = useAccount()
-  const { disconnect } = useDisconnect()
+  const { invalidate: invalidateGate, setOnWaitlist } = useGateStatus()
+
   const [walletAddress, setWalletAddress] = useState("")
   const [xHandle, setXHandle] = useState("")
   const [discordHandle, setDiscordHandle] = useState("")
@@ -76,28 +78,8 @@ export function EarlyAccessForm({ initialWalletAddress }: EarlyAccessFormProps) 
         return
       }
 
-      if (data.alreadyOnWaitlist) {
-        toast.info("You're already on the waitlist", {
-          description: "No need to submit again. You're all set.",
-        })
-        if (data.approved) {
-          const addr = walletAddress.trim().toLowerCase()
-          queryClient.setQueryData(
-            ["waitlist", "list"],
-            (prev: { addresses: string[] } | undefined) => {
-              const addresses = prev?.addresses ?? []
-              if (addresses.includes(addr)) return prev ?? { addresses }
-              return { addresses: [...addresses, addr] }
-            }
-          )
-          void queryClient.invalidateQueries({ queryKey: ["waitlist"] })
-          router.push("/")
-        } else {
-          setIsLoading(false)
-        }
-        return
-      }
-
+      // Invalidate gate status so WaitlistExperience picks up fresh position
+      invalidateGate()
       setSubmitted({ approved: data.approved })
     } catch {
       toast.error("Something went wrong", { description: "Please try again." })
@@ -106,29 +88,22 @@ export function EarlyAccessForm({ initialWalletAddress }: EarlyAccessFormProps) 
   }
 
   const handleStartSwapping = () => {
-    if (address) {
-      const addr = address.toLowerCase().trim()
-      queryClient.setQueryData(
-        ["waitlist", "list"],
-        (prev: { addresses: string[] } | undefined) => {
-          const addresses = prev?.addresses ?? []
-          if (addresses.includes(addr)) return prev ?? { addresses }
-          return { addresses: [...addresses, addr] }
-        }
-      )
-    }
-    void queryClient.invalidateQueries({ queryKey: ["waitlist"] })
+    invalidateGate()
     router.push("/")
   }
 
   const handleBackToProtocol = () => {
-    disconnect()
+    invalidateGate()
     router.push("/")
-    void queryClient.invalidateQueries({ queryKey: ["whitelist"] })
-    void queryClient.invalidateQueries({ queryKey: ["waitlist"] })
   }
 
   if (submitted) {
+    if (submitted.approved) {
+      return (
+        <ApprovedExperience onStartSwapping={handleStartSwapping} onBack={handleBackToProtocol} />
+      )
+    }
+
     return (
       <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-background">
         <AnimatedBackground />
@@ -144,27 +119,7 @@ export function EarlyAccessForm({ initialWalletAddress }: EarlyAccessFormProps) 
               className="h-24 w-auto"
             />
           </div>
-          {submitted.approved ? (
-            <>
-              <h1 className="text-xl font-medium text-foreground mb-2">
-                You&apos;re pre-approved!
-              </h1>
-              <p className="text-muted-foreground mb-8">Your wallet is on the whitelist.</p>
-              <Button variant="hero" size="lg" onClick={handleStartSwapping}>
-                Start swapping
-              </Button>
-            </>
-          ) : (
-            <>
-              <h1 className="text-xl font-medium text-foreground mb-2">Thanks for signing up</h1>
-              <p className="text-muted-foreground mb-8">
-                You&apos;re on the waitlist. We&apos;ll be in touch soon with next steps.
-              </p>
-              <Button variant="hero" size="lg" onClick={handleBackToProtocol}>
-                Back to Fast Protocol
-              </Button>
-            </>
-          )}
+          <WaitlistExperience onBack={handleBackToProtocol} />
         </div>
       </div>
     )
@@ -272,12 +227,10 @@ export function EarlyAccessForm({ initialWalletAddress }: EarlyAccessFormProps) 
           <button
             type="button"
             onClick={() => {
-              disconnect()
+              invalidateGate()
               router.push("/")
-              void queryClient.invalidateQueries({ queryKey: ["whitelist"] })
-              void queryClient.invalidateQueries({ queryKey: ["waitlist"] })
             }}
-            className="text-sm text-muted-foreground hover:text-foreground"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Back to Fast Protocol
           </button>

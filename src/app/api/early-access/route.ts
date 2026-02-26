@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { isAddress } from "viem"
+import { getSheetsClient } from "@/lib/google-sheets"
+import {
+  getWaitlistSheetCache,
+  setWaitlistSheetCache,
+  invalidateWaitlistSheetCache,
+  getWhitelistSheetCache,
+  setWhitelistSheetCache,
+} from "@/lib/waitlist-sheet-cache"
 
-const WAITLIST_RANGE = "'Swap Waitlist'!A:F"
-const WHITELIST_RANGE = "'Swap Whitelist'!A:A"
+const WAITLIST_RANGE = "'Swap Waitlist'!A:G"
+const WHITELIST_RANGE = "'Swap Whitelist'!A:G"
 
 interface EarlyAccessPayload {
   wallet_address: string
@@ -13,42 +21,24 @@ interface EarlyAccessPayload {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-async function checkWhitelist(
-  sheets: {
-    spreadsheets: { values: { get: (opts: unknown) => Promise<{ data: { values?: string[][] } }> } }
-  },
-  spreadsheetId: string,
-  address: string
-): Promise<boolean> {
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: WHITELIST_RANGE,
-  })
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchWaitlistRows(sheets: any, spreadsheetId: string): Promise<string[][]> {
+  const cached = getWaitlistSheetCache()
+  if (cached) return cached
+  const result = await sheets.spreadsheets.values.get({ spreadsheetId, range: WAITLIST_RANGE })
   const rows = (result.data.values ?? []) as string[][]
-  const normalized = address.toLowerCase().trim()
-  return rows.some((row) => {
-    const cell = row[0]?.trim().toLowerCase()
-    return cell && cell === normalized
-  })
+  setWaitlistSheetCache(rows)
+  return rows
 }
 
-async function isOnWaitlist(
-  sheets: {
-    spreadsheets: { values: { get: (opts: unknown) => Promise<{ data: { values?: string[][] } }> } }
-  },
-  spreadsheetId: string,
-  address: string
-): Promise<boolean> {
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: WAITLIST_RANGE,
-  })
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchWhitelistRows(sheets: any, spreadsheetId: string): Promise<string[][]> {
+  const cached = getWhitelistSheetCache()
+  if (cached) return cached
+  const result = await sheets.spreadsheets.values.get({ spreadsheetId, range: WHITELIST_RANGE })
   const rows = (result.data.values ?? []) as string[][]
-  const normalized = address.toLowerCase().trim()
-  return rows.some((row) => {
-    const cell = row[1]?.trim().toLowerCase()
-    return cell && cell === normalized
-  })
+  setWhitelistSheetCache(rows)
+  return rows
 }
 
 export async function POST(request: NextRequest) {
@@ -76,39 +66,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid email address" }, { status: 400 })
     }
 
-    const spreadsheetId = process.env.GOOGLE_SHEETS_ID
-    const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n")
-
-    if (!spreadsheetId || !serviceAccountEmail || !privateKey) {
-      console.error("Google Sheets configuration missing for early access")
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
-    }
-
-    let googleModule
-    try {
-      googleModule = await import("googleapis")
-    } catch {
-      return NextResponse.json(
-        { error: "Server configuration error: googleapis not installed" },
-        { status: 500 }
-      )
-    }
-
-    const { google } = googleModule
-    const auth = new google.auth.JWT({
-      email: serviceAccountEmail,
-      key: privateKey,
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    })
-
-    const sheets = google.sheets({ version: "v4", auth })
+    const { sheets, spreadsheetId } = await getSheetsClient()
     const wallet = wallet_address.trim()
+    const normalized = wallet.toLowerCase().trim()
 
-    const [alreadyOnWaitlist, hasAccess] = await Promise.all([
-      isOnWaitlist(sheets, spreadsheetId, wallet).catch(() => false),
-      checkWhitelist(sheets, spreadsheetId, wallet).catch(() => false),
+    // Fetch both sheets in parallel, using server-side caches
+    const [waitlistRows, whitelistRows] = await Promise.all([
+      fetchWaitlistRows(sheets, spreadsheetId).catch(() => [] as string[][]),
+      fetchWhitelistRows(sheets, spreadsheetId).catch(() => [] as string[][]),
     ])
+
+    const alreadyOnWaitlist = waitlistRows.some(
+      (row) => row[1]?.trim().toLowerCase() === normalized
+    )
+    const hasAccess = whitelistRows.some((row) => row[0]?.trim().toLowerCase() === normalized)
 
     if (alreadyOnWaitlist) {
       return NextResponse.json(
@@ -136,6 +107,9 @@ export async function POST(request: NextRequest) {
         ],
       },
     })
+
+    // Bust the server cache so the next status fetch reflects the new row
+    invalidateWaitlistSheetCache()
 
     return NextResponse.json({ ok: true, approved: hasAccess }, { status: 200 })
   } catch (error) {

@@ -74,14 +74,25 @@ const footerLogos = [
   },
 ]
 
-const IndexPage = () => {
+interface IndexPageProps {
+  onEarlyAccessClick?: () => void
+  isCheckingAccess?: boolean
+}
+
+const IndexPage = ({ onEarlyAccessClick, isCheckingAccess = false }: IndexPageProps) => {
   const router = useRouter()
   const { isConnected, address } = useAccount()
   const { openConnectModal } = useConnectModal()
   const [rpcAdded, setRpcAdded] = useState(false)
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false)
+  const [isPending, setIsPending] = useState(false)
   const { isProcessing, addFastToMetamask } = useAddFastToMetamask()
   const shouldNavigateAfterConnectRef = useRef(false)
+
+  // Warm the server-side sheet caches on mount so gate/status is fast after wallet connect
+  useEffect(() => {
+    fetch("/api/gate/warm").catch(() => {})
+  }, [])
 
   // Direct contract call to check if user has minted
   const { data: tokenId, isLoading: isLoadingTokenId } = useReadOnlyContractCall<bigint>({
@@ -188,10 +199,24 @@ const IndexPage = () => {
               <Button
                 variant="hero"
                 size="lg"
-                onClick={openConnectModal}
+                disabled={isCheckingAccess || isPending}
+                onClick={() => {
+                  setIsPending(true)
+                  onEarlyAccessClick?.()
+                  if (!isConnected) openConnectModal?.()
+                  // pending resets if we stay on the page (e.g. connect modal opened)
+                  setTimeout(() => setIsPending(false), 2000)
+                }}
                 className="h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-11 px-6 xs:px-7 sm:px-8 tablet:px-10 lg:px-7 whitespace-nowrap text-sm xs:text-base sm:text-base tablet:text-lg lg:text-sm w-full"
               >
-                Get Early Access
+                {isCheckingAccess || isPending ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Checking access…
+                  </span>
+                ) : (
+                  "Get Early Access"
+                )}
               </Button>
             </div>
 

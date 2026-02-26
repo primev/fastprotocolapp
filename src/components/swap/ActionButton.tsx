@@ -9,7 +9,7 @@ import { useAccount } from "wagmi"
 
 // Types
 import { Token } from "@/types/swap"
-import { useWhitelist } from "@/hooks/use-whitelist"
+import { useGateStatus } from "@/hooks/use-gate-status"
 
 /** Delay before trusting "disconnected" so we don't flash Connect Wallet during rehydration */
 const CONNECTION_SETTLE_MS = 200
@@ -41,7 +41,7 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
   isNonceLoading = false,
 }) => {
   const { status } = useAccount()
-  const { isWhitelisted, isLoading: isWhitelistLoading } = useWhitelist()
+  const { isPreApproved, isLoading: isWhitelistLoading } = useGateStatus()
   const [connectionSettled, setConnectionSettled] = useState(false)
 
   useEffect(() => {
@@ -104,7 +104,7 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
    * 3. WHITELIST GATING
    * Connected but not on Swap Whitelist: same-styled button, disabled, "Come back at launch".
    */
-  if (!isWhitelisted) {
+  if (!isPreApproved) {
     return (
       <div className="mt-3 sm:mt-4">
         <Button
