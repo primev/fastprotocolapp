@@ -4,9 +4,11 @@ import { getSheetsClient } from "@/lib/google-sheets"
 import { invalidateWhitelistSheetCache } from "@/lib/waitlist-sheet-cache"
 
 const LIMIT = 100
-// const SHEET_NAME = "Swap Whitelist"
-const SHEET_NAME = "testing-whitelist"
+const SHEET_NAME = "Swap Whitelist"
+// const SHEET_NAME = "testing-whitelist"
 const SHEET_RANGE = `'${SHEET_NAME}'!A:G`
+const BACKUP_SHEET_NAME = "Swap Whitelist Master Backup"
+const BACKUP_RANGE = `'${BACKUP_SHEET_NAME}'!A:G`
 const HEADERS = ["address", "listA", "listB", "listC", "priority", "acceptedInvite", "swapCount"]
 
 interface WhitelistEntry {
@@ -15,6 +17,33 @@ interface WhitelistEntry {
   listB: boolean
   listC: boolean
   priority: boolean
+}
+
+async function backupCurrentSheet(
+  sheets: Awaited<ReturnType<typeof getSheetsClient>>["sheets"],
+  spreadsheetId: string
+): Promise<void> {
+  // Read all current data from the target sheet
+  const result = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: SHEET_RANGE,
+  })
+  const currentData = (result.data.values ?? []) as string[][]
+
+  // Clear the backup sheet, then write the current data
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId,
+    range: BACKUP_RANGE,
+  })
+
+  if (currentData.length > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${BACKUP_SHEET_NAME}'!A1`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values: currentData },
+    })
+  }
 }
 
 async function fetchSheetState(
@@ -92,7 +121,10 @@ export async function GET() {
     const { existingAddresses, hasHeader } = await fetchSheetState(sheets, spreadsheetId)
     const newEntries = wallets.filter((w) => !existingAddresses.has(w.address))
 
-    // Step 5: write header if missing, then append new rows
+    // Step 5: backup current sheet state before modifying
+    await backupCurrentSheet(sheets, spreadsheetId)
+
+    // Step 6: write header if missing, then append new rows
     if (!hasHeader) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
