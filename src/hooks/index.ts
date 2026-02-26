@@ -7,7 +7,7 @@ export { useRPCTest, type UseRPCTestReturn } from "./use-rpc-test"
 
 // Wallet hooks
 export { useWalletInfo, type UseWalletInfoReturn } from "./use-wallet-info"
-export { useWhitelist, type UseWhitelistReturn } from "./use-whitelist"
+export { useGateStatus, type GateStatusData } from "./use-gate-status"
 
 // Onboarding hooks
 export {

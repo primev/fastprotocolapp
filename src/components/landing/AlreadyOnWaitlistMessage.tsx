@@ -1,41 +1,49 @@
 "use client"
 
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import { useQueryClient } from "@tanstack/react-query"
-import { useDisconnect } from "wagmi"
-import { Button } from "@/components/ui/button"
-import { AnimatedBackground } from "@/components/AnimatedBackground"
+import { Clock } from "lucide-react"
+import { WaitlistHeader } from "@/components/landing/WaitlistHeader"
+import { WaitlistExperience } from "@/components/landing/WaitlistExperience"
 
-export function AlreadyOnWaitlistMessage() {
-  const router = useRouter()
-  const queryClient = useQueryClient()
-  const { disconnect } = useDisconnect()
+interface AlreadyOnWaitlistMessageProps {
+  onBack: () => void
+}
 
-  const handleBackToProtocol = () => {
-    disconnect()
-    router.push("/")
-    void queryClient.invalidateQueries({ queryKey: ["whitelist"] })
-    void queryClient.invalidateQueries({ queryKey: ["waitlist"] })
-  }
-
+export function AlreadyOnWaitlistMessage({ onBack }: AlreadyOnWaitlistMessageProps) {
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-background">
-      <AnimatedBackground />
-      <div className="relative z-10 w-full px-4 flex flex-col items-center justify-center text-center max-w-md mx-auto">
-        <Image
-          src="/assets/fast-protocol-logo-icon.png"
-          alt="Fast Protocol"
-          width={128}
-          height={128}
-          className="h-24 w-auto mb-6"
-        />
-        <h1 className="text-xl font-medium text-foreground mb-2">You&apos;re on the waitlist</h1>
-        <p className="text-muted-foreground mb-8">We&apos;ll be in touch soon with next steps.</p>
-        <Button variant="hero" size="lg" onClick={handleBackToProtocol}>
-          Back to Fast Protocol
-        </Button>
+    <div className="fixed inset-0 z-40 flex flex-col bg-background overflow-hidden">
+      <WaitlistHeader title="Waitlist" onBack={onBack} />
+
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.04] blur-3xl" />
+        <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] rounded-full bg-primary/[0.03] blur-3xl" />
       </div>
+
+      <main className="relative flex-1 flex items-center justify-center overflow-y-auto px-4">
+        <div className="w-full max-w-2xl mx-auto py-8 space-y-8">
+          {/* Hero status */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-primary/20 bg-primary/[0.05] text-primary text-xs font-semibold tracking-wide">
+              <Clock size={12} />
+              Pending review
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+              You&apos;re on the waitlist
+            </h1>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
+              Share your link to move up. When a friend joins through your referral, you both climb
+              the queue.
+            </p>
+          </div>
+
+          {/* Decorative divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+          </div>
+
+          <WaitlistExperience />
+        </div>
+      </main>
     </div>
   )
 }

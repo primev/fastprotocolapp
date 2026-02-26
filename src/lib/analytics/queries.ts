@@ -254,6 +254,50 @@ FROM (
 ) higher_volumes
 `.trim()
 
+// Whitelist generation domain
+export const WHITELIST_TOP_BY_VOLUME = `
+SELECT
+  lower(from_address) AS wallet,
+  SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
+  SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth,
+  COUNT(*) AS swap_count
+FROM mevcommit_57173.processed_l1_txns_v2
+WHERE is_swap = TRUE
+GROUP BY lower(from_address)
+HAVING SUM(COALESCE(swap_vol_usd, 0)) > 0
+ORDER BY total_swap_vol_usd DESC
+LIMIT :limit
+`.trim()
+
+export const WHITELIST_TOP_BY_COUNT = `
+SELECT
+  lower(from_address) AS wallet,
+  COUNT(*) AS swap_count,
+  SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
+  SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
+FROM mevcommit_57173.processed_l1_txns_v2
+WHERE is_swap = TRUE
+GROUP BY lower(from_address)
+HAVING COUNT(*) > 0
+ORDER BY swap_count DESC
+LIMIT :limit
+`.trim()
+
+export const WHITELIST_TOP_BY_RECENT_COUNT = `
+SELECT
+  lower(from_address) AS wallet,
+  COUNT(*) AS recent_swap_count,
+  SUM(COALESCE(swap_vol_usd, 0)) AS recent_swap_vol_usd,
+  SUM(COALESCE(swap_vol_eth, 0)) AS recent_swap_vol_eth
+FROM mevcommit_57173.processed_l1_txns_v2
+WHERE is_swap = TRUE
+  AND l1_timestamp >= CURRENT_TIMESTAMP - INTERVAL '14' DAY
+GROUP BY lower(from_address)
+HAVING COUNT(*) > 0
+ORDER BY recent_swap_count DESC
+LIMIT :limit
+`.trim()
+
 // Users domain
 export const GET_USER_SWAP_VOLUME = `
 SELECT
@@ -283,4 +327,9 @@ export const QUERIES = {
 
   // Users domain
   "users/get-user-swap-volume": GET_USER_SWAP_VOLUME,
+
+  // Whitelist generation domain
+  "whitelist/top-by-volume": WHITELIST_TOP_BY_VOLUME,
+  "whitelist/top-by-count": WHITELIST_TOP_BY_COUNT,
+  "whitelist/top-by-recent-count": WHITELIST_TOP_BY_RECENT_COUNT,
 } as const
