@@ -39,3 +39,8 @@ out/
 
 .vercel
 .env*.local
+
+#Claude
+.mcp.json
+.claude/settings.local.json
+
