@@ -28,13 +28,23 @@ export const metadata: Metadata = {
   metadataBase: new URL(deploymentUrlString),
   title: "Fast Protocol - Lightning-fast transactions on L1",
   description:
-    "Lightning-fast transactions on L1. Tokenized mev rewards. Join the waitlist for exclusive early access to Fast Protocol.",
+    "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Earn tokenized MEV rewards with every trade on Fast Protocol.",
   icons: { icon: "/icon.png" },
-  keywords: ["blockchain", "protocol", "crypto", "fast transactions", "L1", "mev rewards", "web3"],
+  keywords: [
+    "fast swaps",
+    "ethereum swaps",
+    "preconfirmations",
+    "mev rewards",
+    "L1 transactions",
+    "fast protocol",
+    "crypto trading",
+    "token swap",
+  ],
   authors: [{ name: "Fast Protocol" }],
   openGraph: {
     title: "Fast Protocol - Lightning-fast transactions on L1",
-    description: "Lightning-fast transactions on L1. Tokenized mev rewards.",
+    description:
+      "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Earn tokenized MEV rewards with every trade on Fast Protocol.",
     url: "/",
     type: "website",
   },
@@ -42,7 +52,8 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     site: "@Fast_Protocol",
     title: "Fast Protocol - Lightning-fast transactions on L1",
-    description: "Lightning-fast transactions on L1. Tokenized mev rewards.",
+    description:
+      "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Earn tokenized MEV rewards with every trade on Fast Protocol.",
   },
 }
 
