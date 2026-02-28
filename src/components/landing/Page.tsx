@@ -86,12 +86,23 @@ const IndexPage = ({ onEarlyAccessClick, isCheckingAccess = false }: IndexPagePr
   const [rpcAdded, setRpcAdded] = useState(false)
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false)
   const [isPending, setIsPending] = useState(false)
+  const [waitlistCount, setWaitlistCount] = useState<number | null>(null)
   const { isProcessing, addFastToMetamask } = useAddFastToMetamask()
   const shouldNavigateAfterConnectRef = useRef(false)
 
   // Warm the server-side sheet caches on mount so gate/status is fast after wallet connect
   useEffect(() => {
     fetch("/api/gate/warm").catch(() => {})
+  }, [])
+
+  // Fetch waitlist count for social proof
+  useEffect(() => {
+    fetch("/api/waitlist/count")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.count > 100) setWaitlistCount(data.count)
+      })
+      .catch(() => {})
   }, [])
 
   // Direct contract call to check if user has minted
@@ -220,6 +231,12 @@ const IndexPage = ({ onEarlyAccessClick, isCheckingAccess = false }: IndexPagePr
                 )}
               </Button>
             </div>
+
+            {waitlistCount && (
+              <p className="text-xs xs:text-sm text-muted-foreground animate-in fade-in duration-700">
+                {waitlistCount.toLocaleString()} wallets on the waitlist
+              </p>
+            )}
 
             {/* Add RPC & Claim SBT Badge Buttons */}
             <div className="flex flex-col items-center space-y-3 xs:space-y-3 tablet:space-y-4 px-3 xs:px-4 tablet:px-6 mb-4 xs:mb-6 sm:mb-8 tablet:mb-0">
