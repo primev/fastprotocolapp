@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   title: "Claim Rewards",
   description:
     "Claim your earned mev rewards from preconfirmed swaps on Fast Protocol.",
+  alternates: { canonical: "https://fastprotocol.io/claim" },
   openGraph: {
     title: "Claim Rewards — Fast Protocol",
     description:

@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Swap",
   description:
     "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Faster than any DEX, settled on L1.",
+  alternates: { canonical: "https://fastprotocol.io" },
   openGraph: {
     title: "Swap — Fast Protocol",
     description:

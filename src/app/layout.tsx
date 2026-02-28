@@ -44,6 +44,9 @@ export const metadata: Metadata = {
     "token swap",
   ],
   authors: [{ name: "Fast Protocol" }],
+  alternates: {
+    canonical: "https://fastprotocol.io",
+  },
   verification: {
     google: "p5re5yzQsP2RyFgyBQ0IbBPtQbWAwpb1cz5QrHi-JUU",
   },
@@ -63,10 +66,30 @@ export const metadata: Metadata = {
   },
 }
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Fast Protocol",
+  url: "https://fastprotocol.io",
+  logo: "https://fastprotocol.io/assets/fast-protocol-logo-icon.png",
+  description:
+    "The only swap on Ethereum that confirms before the block. Sub-second preconfirmations on L1 with tokenized mev rewards.",
+  sameAs: [
+    "https://x.com/Fast_Protocol",
+    "https://discord.com/invite/fastprotocol",
+    "https://t.me/Fast_Protocol",
+  ],
+  founder: { "@type": "Organization", name: "Primev" },
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="scroll-smooth overflow-x-hidden">
       <body className="overflow-x-hidden">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <Providers>{children}</Providers>
         <Analytics />
         <SpeedInsights />

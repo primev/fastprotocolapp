@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   title: "Leaderboard",
   description:
     "See top swappers ranked by volume and rewards earned on Fast Protocol.",
+  alternates: { canonical: "https://fastprotocol.io/leaderboard" },
   openGraph: {
     title: "Leaderboard — Fast Protocol",
     description:
@@ -73,6 +74,12 @@ async function LeaderboardContent() {
 export default function LeaderboardPage() {
   return (
     <div className="w-full container mx-auto px-0 sm:px-0 pb-2 md:pb-4 overflow-x-hidden">
+      <section className="px-4 pt-4 pb-2">
+        <h1 className="text-2xl font-bold mb-1">Fast Protocol Leaderboard</h1>
+        <p className="text-muted-foreground text-sm">
+          Top Ethereum swappers ranked by 24-hour volume. Powered by preconfirmations on L1. Updated in real-time.
+        </p>
+      </section>
       <Suspense
         fallback={
           <LeaderboardTable

@@ -4,6 +4,7 @@ export const metadata: Metadata = {
   title: "Get Started",
   description:
     "Connect your wallet and set up Fast RPC to start swapping with sub-second confirmations.",
+  alternates: { canonical: "https://fastprotocol.io/claim/onboarding" },
   openGraph: {
     title: "Get Started — Fast Protocol",
     description:
