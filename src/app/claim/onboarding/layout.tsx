@@ -1,10 +1,11 @@
 import type { Metadata } from "next"
+import { SITE_URL } from "@/lib/site-config"
 
 export const metadata: Metadata = {
   title: "Get Started",
   description:
     "Connect your wallet and set up Fast RPC to start swapping with sub-second confirmations.",
-  alternates: { canonical: "https://fastprotocol.io/claim/onboarding" },
+  alternates: { canonical: `${SITE_URL}/claim/onboarding` },
   openGraph: {
     title: "Get Started — Fast Protocol",
     description:

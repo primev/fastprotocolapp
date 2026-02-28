@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { SITE_URL } from "@/lib/site-config"
 import { Suspense } from "react"
 import {
   getActiveTraders,
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   title: "Leaderboard",
   description:
     "See top swappers ranked by volume and rewards earned on Fast Protocol.",
-  alternates: { canonical: "https://fastprotocol.io/leaderboard" },
+  alternates: { canonical: `${SITE_URL}/leaderboard` },
   openGraph: {
     title: "Leaderboard — Fast Protocol",
     description:

@@ -4,20 +4,7 @@ import type { Metadata, Viewport } from "next"
 import { Providers } from "@/components/providers"
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
-
-function addProtocolIfMissing(url: string): string {
-  if (/^https?:\/\//i.test(url)) {
-    return url
-  }
-  return `https://${url}`
-}
-
-const vercelEnv = process.env.VERCEL_ENV
-const preferredDomainWithoutProtocol =
-  vercelEnv === "production" ? process.env.VERCEL_PROJECT_PRODUCTION_URL : process.env.VERCEL_URL
-const deploymentUrlString =
-  (preferredDomainWithoutProtocol && addProtocolIfMissing(preferredDomainWithoutProtocol)) ||
-  "http://localhost:3000"
+import { getBaseUrl, SITE_URL } from "@/lib/site-config"
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -25,7 +12,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL(deploymentUrlString),
+  metadataBase: new URL(getBaseUrl()),
   title: {
     default: "Fast Protocol — Sub-second swaps on Ethereum",
     template: "%s | Fast Protocol",
@@ -45,7 +32,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Fast Protocol" }],
   alternates: {
-    canonical: "https://fastprotocol.io",
+    canonical: SITE_URL,
   },
   verification: {
     google: "p5re5yzQsP2RyFgyBQ0IbBPtQbWAwpb1cz5QrHi-JUU",
@@ -70,8 +57,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "Fast Protocol",
-  url: "https://fastprotocol.io",
-  logo: "https://fastprotocol.io/assets/fast-protocol-logo-icon.png",
+  url: SITE_URL,
+  logo: `${SITE_URL}/assets/fast-protocol-logo-icon.png`,
   description:
     "The only swap on Ethereum that confirms before the block. Sub-second preconfirmations on L1 with tokenized mev rewards.",
   sameAs: [

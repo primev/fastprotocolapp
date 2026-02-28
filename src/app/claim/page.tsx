@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { SITE_URL } from "@/lib/site-config"
 import { getTotalSupply } from "@/lib/contract-server"
 import {
   getCumulativeTransactions,
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   title: "Claim Rewards",
   description:
     "Claim your earned mev rewards from preconfirmed swaps on Fast Protocol.",
-  alternates: { canonical: "https://fastprotocol.io/claim" },
+  alternates: { canonical: `${SITE_URL}/claim` },
   openGraph: {
     title: "Claim Rewards — Fast Protocol",
     description:
