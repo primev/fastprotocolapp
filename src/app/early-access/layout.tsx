@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     "Join the waitlist for the fastest swap experience on Ethereum. Preconfirmed trades, tokenized mev rewards.",
   alternates: { canonical: `${SITE_URL}/early-access` },
   openGraph: {
-    title: "Get Early Access — Fast Protocol",
+    title: "Get Early Access | Fast Protocol",
     description:
       "Join the waitlist for the fastest swap experience on Ethereum. Preconfirmed trades, tokenized mev rewards.",
   },

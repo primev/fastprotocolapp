@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     "Configure your wallet to use Fast Protocol RPC for sub-second transaction confirmations.",
   alternates: { canonical: `${SITE_URL}/network-checker` },
   openGraph: {
-    title: "Network Checker — Fast Protocol",
+    title: "Network Checker | Fast Protocol",
     description:
       "Configure your wallet to use Fast Protocol RPC for sub-second transaction confirmations.",
   },

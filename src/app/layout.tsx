@@ -38,18 +38,27 @@ export const metadata: Metadata = {
     google: "p5re5yzQsP2RyFgyBQ0IbBPtQbWAwpb1cz5QrHi-JUU",
   },
   openGraph: {
-    title: "Fast Protocol — Sub-second swaps on Ethereum",
+    title: "Fast Protocol | Sub-second swaps on Ethereum",
     description:
       "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Earn tokenized mev rewards with every trade on Fast Protocol.",
-    url: "/",
+    url: SITE_URL,
     type: "website",
+    images: [
+      {
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Fast Protocol — Sub-second swaps on Ethereum",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     site: "@Fast_Protocol",
-    title: "Fast Protocol — Sub-second swaps on Ethereum",
+    title: "Fast Protocol | Sub-second swaps on Ethereum",
     description:
       "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Earn tokenized mev rewards with every trade on Fast Protocol.",
+    images: ["/opengraph-image.png"],
   },
 }
 

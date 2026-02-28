@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     "Track your Fast Miles, manage your Genesis SBT, and monitor your swap activity on Fast Protocol.",
   alternates: { canonical: `${SITE_URL}/dashboard` },
   openGraph: {
-    title: "Dashboard — Fast Protocol",
+    title: "Dashboard | Fast Protocol",
     description:
       "Track your Fast Miles, manage your Genesis SBT, and monitor your swap activity on Fast Protocol.",
   },

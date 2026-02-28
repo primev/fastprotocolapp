@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     "See top swappers ranked by volume and rewards earned on Fast Protocol.",
   alternates: { canonical: `${SITE_URL}/leaderboard` },
   openGraph: {
-    title: "Leaderboard — Fast Protocol",
+    title: "Leaderboard | Fast Protocol",
     description:
       "See top swappers ranked by volume and rewards earned on Fast Protocol.",
   },
