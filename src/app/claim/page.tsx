@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { getTotalSupply } from "@/lib/contract-server"
 import {
   getCumulativeTransactions,
@@ -6,6 +7,17 @@ import {
   getTotalPointsEarned,
 } from "@/lib/analytics-server"
 import { ClaimPageClient } from "@/components/claim/ClaimPageClient"
+
+export const metadata: Metadata = {
+  title: "Claim Rewards",
+  description:
+    "Claim your earned mev rewards from preconfirmed swaps on Fast Protocol.",
+  openGraph: {
+    title: "Claim Rewards — Fast Protocol",
+    description:
+      "Claim your earned mev rewards from preconfirmed swaps on Fast Protocol.",
+  },
+}
 
 const ClaimPage = async () => {
   // Fetch data on the server before rendering

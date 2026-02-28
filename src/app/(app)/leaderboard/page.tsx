@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { Suspense } from "react"
 import {
   getActiveTraders,
@@ -6,6 +7,17 @@ import {
 } from "@/lib/analytics-server"
 import { LeaderboardPageClient } from "./LeaderboardPageClient"
 import { LeaderboardTable } from "@/components/dashboard/LeaderboardTable"
+
+export const metadata: Metadata = {
+  title: "Leaderboard",
+  description:
+    "See top swappers ranked by volume and rewards earned on Fast Protocol.",
+  openGraph: {
+    title: "Leaderboard — Fast Protocol",
+    description:
+      "See top swappers ranked by volume and rewards earned on Fast Protocol.",
+  },
+}
 
 // Progressive rendering: Fetch leaderboard first (most important), then stats
 // This allows the leaderboard to render immediately while stats load in parallel

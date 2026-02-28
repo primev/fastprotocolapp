@@ -26,9 +26,12 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(deploymentUrlString),
-  title: "Fast Protocol - Lightning-fast transactions on L1",
+  title: {
+    default: "Fast Protocol — Sub-second swaps on Ethereum",
+    template: "%s | Fast Protocol",
+  },
   description:
-    "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Earn tokenized MEV rewards with every trade on Fast Protocol.",
+    "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Earn tokenized mev rewards with every trade on Fast Protocol.",
   icons: { icon: "/icon.png" },
   keywords: [
     "fast swaps",
@@ -45,18 +48,18 @@ export const metadata: Metadata = {
     google: "p5re5yzQsP2RyFgyBQ0IbBPtQbWAwpb1cz5QrHi-JUU",
   },
   openGraph: {
-    title: "Fast Protocol - Lightning-fast transactions on L1",
+    title: "Fast Protocol — Sub-second swaps on Ethereum",
     description:
-      "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Earn tokenized MEV rewards with every trade on Fast Protocol.",
+      "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Earn tokenized mev rewards with every trade on Fast Protocol.",
     url: "/",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     site: "@Fast_Protocol",
-    title: "Fast Protocol - Lightning-fast transactions on L1",
+    title: "Fast Protocol — Sub-second swaps on Ethereum",
     description:
-      "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Earn tokenized MEV rewards with every trade on Fast Protocol.",
+      "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Earn tokenized mev rewards with every trade on Fast Protocol.",
   },
 }
 
