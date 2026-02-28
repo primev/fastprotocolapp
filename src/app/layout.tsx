@@ -41,6 +41,9 @@ export const metadata: Metadata = {
     "token swap",
   ],
   authors: [{ name: "Fast Protocol" }],
+  verification: {
+    google: "p5re5yzQsP2RyFgyBQ0IbBPtQbWAwpb1cz5QrHi-JUU",
+  },
   openGraph: {
     title: "Fast Protocol - Lightning-fast transactions on L1",
     description:
