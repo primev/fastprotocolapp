@@ -3,6 +3,14 @@
     "app/**": {
       "includeFiles": "src/lib/analytics/sql/**"
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.fastprotocol.io" }],
+      "destination": "https://fastprotocol.io/:path*",
+      "permanent": true
+    }
+  ]
 }
 
