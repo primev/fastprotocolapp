@@ -20,10 +20,13 @@ export async function GET() {
       return cell && cell.startsWith("0x")
     }).length
 
-    return NextResponse.json({ count }, {
-      status: 200,
-      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
-    })
+    return NextResponse.json(
+      { count },
+      {
+        status: 200,
+        headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+      }
+    )
   } catch (error) {
     console.error("Waitlist count error:", error)
     return NextResponse.json({ count: 0 }, { status: 200 })

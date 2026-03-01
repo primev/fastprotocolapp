@@ -15,13 +15,9 @@ export async function generateMetadata({
   const af = params.af
 
   const hasReferrer = af && (isAddress(af) || /^[a-zA-Z0-9-]+$/.test(af))
-  const referrerLabel = hasReferrer
-    ? isAddress(af) ? shortenAddress(af) : af
-    : null
+  const referrerLabel = hasReferrer ? (isAddress(af) ? shortenAddress(af) : af) : null
 
-  const title = referrerLabel
-    ? `Invited by ${referrerLabel}`
-    : "Refer & Earn"
+  const title = referrerLabel ? `Invited by ${referrerLabel}` : "Refer & Earn"
 
   const description = referrerLabel
     ? `You've been invited to Fast Protocol by ${referrerLabel}. Connect your wallet to register and start earning mev rewards.`

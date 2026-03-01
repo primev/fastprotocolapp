@@ -11,13 +11,11 @@ import { ClaimPageClient } from "@/components/claim/ClaimPageClient"
 
 export const metadata: Metadata = {
   title: "Claim Rewards",
-  description:
-    "Claim your earned mev rewards from preconfirmed swaps on Fast Protocol.",
+  description: "Claim your earned mev rewards from preconfirmed swaps on Fast Protocol.",
   alternates: { canonical: `${SITE_URL}/claim` },
   openGraph: {
     title: "Claim Rewards | Fast Protocol",
-    description:
-      "Claim your earned mev rewards from preconfirmed swaps on Fast Protocol.",
+    description: "Claim your earned mev rewards from preconfirmed swaps on Fast Protocol.",
   },
 }
 
