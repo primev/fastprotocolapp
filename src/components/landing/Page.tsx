@@ -189,7 +189,9 @@ const IndexPage = ({ onEarlyAccessClick, isCheckingAccess = false }: IndexPagePr
 
           {/* Logo */}
           <section className="flex-1 flex items-center justify-center pt-6 sm:pt-0">
-            <h1 className="sr-only">Fast Protocol — Sub-second swaps on Ethereum with tokenized mev rewards</h1>
+            <h1 className="sr-only">
+              Fast Protocol — Sub-second swaps on Ethereum with tokenized mev rewards
+            </h1>
             <Image
               src="/assets/fast-protocol-logo-icon.png"
               alt="Fast Protocol"
