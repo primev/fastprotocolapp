@@ -1,14 +1,5 @@
 import type { MetadataRoute } from "next"
-
-function getBaseUrl(): string {
-  const vercelEnv = process.env.VERCEL_ENV
-  const domain =
-    vercelEnv === "production" ? process.env.VERCEL_PROJECT_PRODUCTION_URL : process.env.VERCEL_URL
-  if (domain) {
-    return /^https?:\/\//i.test(domain) ? domain : `https://${domain}`
-  }
-  return "http://localhost:3000"
-}
+import { getBaseUrl } from "@/lib/site-config"
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = getBaseUrl()
@@ -44,6 +35,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.5,
+    },
+    {
+      url: `${baseUrl}/dashboard`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/network-checker`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.4,
     },
   ]
 }

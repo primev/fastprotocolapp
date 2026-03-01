@@ -1,6 +1,6 @@
 # Fast Protocol App
 
-The official web application for [Fast Protocol](https://fastprotocol.xyz) - a coordinated rewards layer providing lightning-fast transactions on Ethereum L1 with tokenized mev rewards.
+The official web application for [Fast Protocol](https://fastprotocol.io) - a coordinated rewards layer providing lightning-fast transactions on Ethereum L1 with tokenized mev rewards.
 
 ## Overview
 
@@ -45,7 +45,7 @@ contracts/            # Solidity smart contracts (Foundry)
 
 ## Links
 
-- **Website**: [fastprotocol.xyz](https://fastprotocol.xyz)
+- **Website**: [fastprotocol.io](https://fastprotocol.io)
 - **OpenSea**: [Fast Protocol Genesis SBT](https://opensea.io/collection/fast-protocol-genesis-sbt)
 - **Discord**: [discord.com/invite/fastprotocol](https://discord.com/invite/fastprotocol)
 - **Telegram**: [t.me/Fast_Protocol](https://t.me/Fast_Protocol)

@@ -1,13 +1,15 @@
 import type { Metadata } from "next"
+import { SITE_URL } from "@/lib/site-config"
 
 export const metadata: Metadata = {
-  title: "Refer & Earn",
+  title: "Refer Friends",
   description:
-    "Invite friends to Fast Protocol and earn rewards when they swap.",
+    "Invite friends to Fast Protocol and earn bonus rewards. Share your referral link for sub-second swaps on Ethereum.",
+  alternates: { canonical: `${SITE_URL}/referral` },
   openGraph: {
-    title: "Refer & Earn — Fast Protocol",
+    title: "Refer Friends | Fast Protocol",
     description:
-      "Invite friends to Fast Protocol and earn rewards when they swap.",
+      "Invite friends to Fast Protocol and earn bonus rewards. Share your referral link for sub-second swaps on Ethereum.",
   },
 }
 
