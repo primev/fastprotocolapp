@@ -2,8 +2,6 @@ import { TransactionReceipt } from "viem"
 
 const RPC_URL = "https://fastrpc.mev-commit.xyz"
 const REQUEST_TIMEOUT_MS = 5000
-const DEFAULT_MAX_ATTEMPTS = 30
-const DEFAULT_INTERVAL_MS = 1000
 
 /**
  * Converts RPC response to viem TransactionReceipt format
@@ -107,83 +105,6 @@ async function fetchTransactionReceipt(
 }
 
 /**
- * Waits for a specified interval, respecting abort signal
- */
-async function waitWithAbort(intervalMs: number, abortSignal?: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    const timeout = setTimeout(resolve, intervalMs)
-    abortSignal?.addEventListener("abort", () => {
-      clearTimeout(timeout)
-      resolve(undefined)
-    })
-  })
-}
-
-/**
- * Polls the database RPC endpoint for transaction receipt
- * Throws an error if receipt exists without block number/hash
- * Returns the receipt when found, or null if aborted/max attempts reached
- */
-export async function pollDatabaseForReceipt(
-  txHash: string,
-  abortSignal?: AbortSignal,
-  maxAttempts: number = DEFAULT_MAX_ATTEMPTS,
-  intervalMs: number = DEFAULT_INTERVAL_MS
-): Promise<TransactionReceipt | null> {
-  console.log(`[pollDatabaseForReceipt] Starting polling for ${txHash}`)
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    if (abortSignal?.aborted) {
-      console.log(`[pollDatabaseForReceipt] Aborted at attempt ${attempt + 1}`)
-      return null
-    }
-
-    try {
-      const result = await fetchTransactionReceipt(txHash, abortSignal)
-      if (result) {
-        console.log(`[pollDatabaseForReceipt] ✅ Found valid receipt on attempt ${attempt + 1}`)
-        return result.receipt
-      }
-      // Only log every 5 attempts to avoid spam
-      if (attempt % 5 === 0 && attempt > 0) {
-        console.log(
-          `[pollDatabaseForReceipt] Still waiting... (attempt ${attempt + 1}/${maxAttempts})`
-        )
-      }
-    } catch (error) {
-      if (abortSignal?.aborted || (error as Error).name === "AbortError") {
-        console.log(`[pollDatabaseForReceipt] Aborted during error handling`)
-        return null
-      }
-
-      const errorMsg = (error as Error).message
-
-      // If the error is about missing block number/hash, throw it immediately
-      // This is a fatal error - the transaction failed to be included in a block
-      if (errorMsg.includes("no block number") || errorMsg.includes("no block hash")) {
-        console.error(`[pollDatabaseForReceipt] ❌ Fatal error - receipt without block:`, error)
-        throw error
-      }
-
-      // For other errors, log and continue trying
-      console.error(`[pollDatabaseForReceipt] Poll attempt ${attempt + 1} failed:`, error)
-    }
-
-    // Wait before next attempt
-    if (attempt < maxAttempts - 1) {
-      await waitWithAbort(intervalMs, abortSignal)
-      if (abortSignal?.aborted) {
-        console.log(`[pollDatabaseForReceipt] Aborted during wait`)
-        return null
-      }
-    }
-  }
-
-  console.warn(`[pollDatabaseForReceipt] ⏱️ Max attempts (${maxAttempts}) reached for ${txHash}`)
-  return null
-}
-
-/**
  * Fetches transaction receipt from DB (single request).
  * Returns receipt + raw RPC result when found, or null if not found/pending.
  * Use this when you need to check receipt.status (e.g. 0x0 = failed).
@@ -193,91 +114,4 @@ export async function fetchTransactionReceiptFromDb(
   abortSignal?: AbortSignal
 ): Promise<TransactionReceiptFromDb | null> {
   return fetchTransactionReceipt(txHash, abortSignal)
-}
-
-/**
- * Checks if transaction receipt exists in database (for status checks)
- * Returns true only if receipt exists with a valid block number/hash
- * Throws an error if receipt exists without block number/hash
- */
-export async function checkTransactionReceiptExists(
-  txHash: string,
-  abortSignal?: AbortSignal
-): Promise<boolean> {
-  try {
-    const result = await fetchTransactionReceipt(txHash, abortSignal)
-    return result !== null
-  } catch (error) {
-    if (abortSignal?.aborted || (error as Error).name === "AbortError") {
-      return false
-    }
-    // Propagate the error (including "no block number/hash" errors)
-    throw error
-  }
-}
-
-/**
- * Polls the database to check if transaction receipt exists
- * Throws an error if receipt exists without block number/hash
- * Returns status object when found, or null if aborted/max attempts reached
- */
-export async function pollDatabaseForStatus(
-  hash: string,
-  abortSignal?: AbortSignal,
-  maxAttempts: number = DEFAULT_MAX_ATTEMPTS,
-  intervalMs: number = DEFAULT_INTERVAL_MS
-): Promise<{ success: boolean; hash: string } | null> {
-  console.log(`[pollDatabaseForStatus] Starting polling for ${hash}`)
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    if (abortSignal?.aborted) {
-      console.log(`[pollDatabaseForStatus] Aborted at attempt ${attempt + 1}`)
-      return null
-    }
-
-    try {
-      const exists = await checkTransactionReceiptExists(hash, abortSignal)
-      if (exists) {
-        console.log(`[pollDatabaseForStatus] ✅ Found valid receipt on attempt ${attempt + 1}`)
-        return { success: true, hash }
-      }
-      // Only log every 5 attempts to avoid spam
-      if (attempt % 5 === 0 && attempt > 0) {
-        console.log(
-          `[pollDatabaseForStatus] Still waiting... (attempt ${attempt + 1}/${maxAttempts})`
-        )
-      }
-    } catch (error) {
-      if (abortSignal?.aborted || (error as Error).name === "AbortError") {
-        console.log(`[pollDatabaseForStatus] Aborted during error handling`)
-        return null
-      }
-
-      const errorMsg = (error as Error).message
-
-      // If the error is about missing block number/hash, throw it immediately
-      // This is a fatal error - the transaction failed to be included in a block
-      if (errorMsg.includes("no block number") || errorMsg.includes("no block hash")) {
-        console.error(`[pollDatabaseForStatus] ❌ Fatal error - receipt without block:`, error)
-        throw error
-      }
-
-      // For other errors, don't log for early attempts, only after a few tries
-      if (attempt >= 3) {
-        console.error(`[pollDatabaseForStatus] Status poll attempt ${attempt + 1} failed:`, error)
-      }
-    }
-
-    // Wait before next attempt
-    if (attempt < maxAttempts - 1) {
-      await waitWithAbort(intervalMs, abortSignal)
-      if (abortSignal?.aborted) {
-        console.log(`[pollDatabaseForStatus] Aborted during wait`)
-        return null
-      }
-    }
-  }
-
-  console.warn(`[pollDatabaseForStatus] ⏱️ Max attempts (${maxAttempts}) reached for ${hash}`)
-  return null
 }

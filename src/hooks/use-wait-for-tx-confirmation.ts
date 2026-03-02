@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import type { TransactionReceipt } from "viem"
 import { fetchTransactionReceiptFromDb } from "@/lib/transaction-receipt-utils"
+import { getTxConfirmationTimeoutMs } from "@/lib/tx-config"
 import { RPCError } from "@/lib/transaction-errors"
 
 const RECEIPT_CHECK_INTERVAL_MS = 500
@@ -120,7 +121,19 @@ export function useWaitForTxConfirmation({
 
     const dbPoll = async () => {
       try {
+        const timeoutMs = await getTxConfirmationTimeoutMs()
+        const startTime = Date.now()
+
         while (!abortController.signal.aborted && !hasConfirmedRef.current) {
+          if (Date.now() - startTime > timeoutMs) {
+            const e = new Error(
+              "Transaction confirmation timed out — your swap may have still succeeded. Check your wallet."
+            )
+            setError(e)
+            onErrorRef.current?.(e)
+            return
+          }
+
           const dbResult = await fetchTransactionReceiptFromDb(hash, abortController.signal)
 
           if (dbResult) {
