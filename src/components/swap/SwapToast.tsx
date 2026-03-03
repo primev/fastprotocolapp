@@ -8,6 +8,7 @@ import { X } from "lucide-react"
 import { useSwapToastStore } from "@/stores/swapToastStore"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
 import { getTransactionShortMessage, RPCError } from "@/lib/transaction-errors"
+import { FAST_PROTOCOL_NETWORK } from "@/lib/network-config"
 import { TokenPairIcon } from "./TokenPairIcon"
 import { cn } from "@/lib/utils"
 
@@ -106,7 +107,9 @@ export function SwapToast({ hash }: { hash: string }) {
   // Pre-confirm brag (icon swap, ring, progress bar): show when store is pre-confirmed and in 6s window.
   // After 6s showPreConfirmView becomes false to dim (label stays).
   const showPreConfirmBrag = isPreConfirmed && showPreConfirmView
-  const explorerUrl = `https://etherscan.io/tx/${hash}`
+  const explorerUrl = effectiveHash
+    ? `${FAST_PROTOCOL_NETWORK.blockExplorerUrls[0]}tx/${effectiveHash}`
+    : null
 
   // Collapsed State: Minimalist bubble
   if ((isPending || toast.status === "pre-confirmed") && toast.collapsed) {
@@ -127,9 +130,10 @@ export function SwapToast({ hash }: { hash: string }) {
       ref={toastRef}
       role="button"
       tabIndex={0}
-      onClick={() => window.open(explorerUrl, "_blank")}
+      onClick={() => explorerUrl && window.open(explorerUrl, "_blank")}
       className={cn(
-        "relative w-[360px] cursor-pointer overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl transition-all duration-300 border border-white/10 hover:border-white/20",
+        "relative w-[360px] overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl transition-all duration-300 border border-white/10 hover:border-white/20",
+        explorerUrl ? "cursor-pointer" : "cursor-default",
         isConfirmed && "border-white/20"
       )}
     >
