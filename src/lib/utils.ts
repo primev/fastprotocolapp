@@ -92,7 +92,6 @@ export const isStablecoin = isStablecoinByAddress
  */
 function toSignificant6(num: number): string {
   if (num === 0) return "0"
-  if (num < 0.000001) return "<0.000001"
   if (num < 0.001) {
     return num
       .toLocaleString("en-US", { maximumSignificantDigits: 6, notation: "standard" })
@@ -166,7 +165,6 @@ export function formatTokenAmount(
   }
 
   // Volatile: toSignificant(6) style
-  if (num < 0.000001) return "<0.000001"
   if (num < 0.001) {
     return num
       .toLocaleString("en-US", { maximumSignificantDigits: 6, notation: "standard" })

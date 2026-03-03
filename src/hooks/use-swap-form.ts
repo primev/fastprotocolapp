@@ -190,6 +190,8 @@ export function useSwapForm(allTokens: Token[]) {
 
   const effectiveSlippage = settings.slippage
 
+  const quoteEnabled = !isSwitching && !!amount && !!fromToken && !!toToken && !isWrapUnwrap
+
   const {
     quote,
     isLoading: isQuoteLoading,
@@ -203,7 +205,7 @@ export function useSwapForm(allTokens: Token[]) {
     slippage: effectiveSlippage,
     tradeType: editingSide === "buy" ? "exactOut" : "exactIn",
     tokenList: allTokens,
-    enabled: !isSwitching && !!amount && !!fromToken && !!toToken && !isWrapUnwrap,
+    enabled: quoteEnabled,
   })
 
   // Keep lastValidQuotePairKeyRef in sync so the activeQuote memo can read it synchronously.
