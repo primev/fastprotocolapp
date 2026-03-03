@@ -19,6 +19,8 @@ export interface TxConfirmationResult {
 export interface UseWaitForTxConfirmationParams {
   hash: string | undefined
   receipt: TransactionReceipt | undefined
+  /** Error from wagmi's useWaitForTransactionReceipt (e.g. tx dropped, replaced, RPC failure). */
+  receiptError?: Error | null
   mode: WaitForTxConfirmationMode
   onConfirmed: (result: TxConfirmationResult) => void
   /** Called when DB finds receipt first (before on-chain). Wagmi continues waiting for on-chain confirmation. */
@@ -39,6 +41,7 @@ export interface UseWaitForTxConfirmationReturn {
 export function useWaitForTxConfirmation({
   hash,
   receipt,
+  receiptError,
   mode,
   onConfirmed,
   onPreConfirmed,
@@ -105,6 +108,18 @@ export function useWaitForTxConfirmation({
       onErrorRef.current?.(e)
     }
   }, [hash, receipt, mode])
+
+  // Effect: Watch for wagmi receipt error (tx dropped, replaced, RPC failure)
+  useEffect(() => {
+    if ( !receiptError ) return
+
+    hasConfirmedRef.current = true
+    if (abortRef.current) abortRef.current.abort()
+
+    const e = receiptError instanceof Error ? receiptError : new Error(String(receiptError))
+    setError(e)
+    onErrorRef.current?.(e)
+  }, [hash, receiptError])
 
   // Effect: Database polling logic (one fetch per iteration to detect status flip 0x1 -> 0x0)
   // Start whenever we have a hash and aren't already polling this hash (don't gate on hasConfirmedRef

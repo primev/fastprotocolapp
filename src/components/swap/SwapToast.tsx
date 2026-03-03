@@ -34,13 +34,14 @@ export function SwapToast({ hash }: { hash: string }) {
   // Controls the "swipe" animation state
   const [showPreConfirmView, setShowPreConfirmView] = useState(false)
 
-  const { data: receipt } = useWaitForTransactionReceipt({
+  const { data: receipt, error: receiptError } = useWaitForTransactionReceipt({
     hash: effectiveHash as `0x${string}` | undefined,
   })
 
   useWaitForTxConfirmation({
     hash: effectiveHash ?? undefined,
     receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
+    receiptError,
     mode: "status",
     onConfirmed: () => {
       if (effectiveHash) setStatus(hash, "confirmed")
