@@ -1,0 +1,79 @@
+---
+title: "MEV Rewards: Tokenized MEV Redistribution"
+description: "How Fast Protocol redistributes mev back to the users who create it — at least 90% of the mev your swap generates is returned, creating a new model for fair value distribution."
+slug: "mev-rewards"
+category: "MEV"
+date: "2026-03-01"
+tags: ["mev rewards", "mev redistribution", "tokenized mev", "order flow auction", "mev"]
+readingTime: "5 min read"
+seoKeywords: ["tokenized mev rewards", "mev redistribution", "mev rewards ethereum", "mev back to users", "order flow auction mev"]
+status: published
+---
+
+Every swap on Ethereum generates mev. When you trade tokens, the price impact of your swap creates arbitrage opportunities. The state change you trigger enables profitable backruns. The timing of your transaction relative to others opens extraction possibilities.
+
+On most platforms, this value is captured by searchers and builders. You generate the opportunity. They keep the profit.
+
+Fast Protocol reverses this. At least 90% of the mev your swap generates flows back to you.
+
+## What mev actually is
+
+MEV — Maximal Extractable Value — is the total value that can be extracted by reordering, including, or excluding transactions within a block. In practice, it shows up as:
+
+- **Arbitrage**: Your swap moves the price on one venue. Someone trades the difference between that venue and another, capturing the spread.
+- **Backrunning**: Your transaction creates a profitable state change. Someone places a transaction immediately after yours to capture value from that change.
+- **Sandwiching**: Someone places transactions both before and after yours, manipulating the price to extract value from the difference.
+
+All of these exist because your transaction creates the underlying opportunity. Without your swap, there's no price impact to arbitrage, no state change to backrun, no spread to sandwich.
+
+## How redistribution works
+
+Fast Protocol uses an **order flow auction** (OFA) to redistribute mev. Here's the mechanism:
+
+1. **Your swap enters the builder auction** through FAST RPC (not the public mempool)
+2. **Multiple builders evaluate your transaction** — how much mev does it generate? What's the optimal execution?
+3. **Builders compete by bidding** on how much value they'll return to you in the form of improved execution
+4. **The auction enforces a 90% minimum** — at least 90% of generated mev must flow back to the user
+5. **Competitive pressure often pushes redistribution higher** — builders bidding against each other frequently return more than the minimum
+
+The result is that your swap executes at a better price than what you'd get on a standard DEX. The "mev rewards" aren't a separate token or claim — they manifest as a better swap rate. You get more tokens out than you would without the auction.
+
+## Where the value comes from
+
+The mev redistribution isn't subsidized and doesn't come from a protocol treasury. It comes directly from the mev your transaction generates:
+
+**Before Fast Protocol**: You swap → searchers extract mev from your transaction → builders capture a share → validators get the rest → you get nothing beyond the raw swap output.
+
+**With Fast Protocol**: You swap → builders compete for your order flow → at least 90% of generated mev improves your execution → the remaining ~10% covers builder margins and protocol fees → you get a measurably better outcome.
+
+The total mev generated is the same. The distribution is radically different.
+
+## mev rewards vs yield
+
+mev rewards are not yield in the traditional DeFi sense. You're not lending, staking, or providing liquidity. You're simply swapping tokens — and keeping the value that your activity creates.
+
+This distinction matters:
+- **No lockup**: Your tokens aren't staked or committed anywhere
+- **No additional risk**: You're executing a standard swap, not taking on protocol risk
+- **Automatic**: The redistribution happens at the execution level, not through a claiming mechanism
+- **Proportional**: The more mev your swap generates, the more you receive back
+
+Volatile pairs and larger trades tend to generate more mev (and therefore more rewards) because they create bigger price impacts and arbitrage opportunities.
+
+## The connection to Miles
+
+mev rewards are the per-swap redistribution — you earn them on every trade, automatically. [Miles](/learn/miles) represent the cumulative loyalty layer built on top of this same activity.
+
+Every swap that generates mev rewards also earns Miles. The mev reward improves your immediate execution. Miles accumulate as a record of your total participation — compounding into value over time.
+
+The two systems are complementary: mev rewards make each individual swap more valuable, while Miles make your ongoing participation in the protocol more valuable.
+
+## Why this model is novel
+
+Traditional DEXes and aggregators don't redistribute mev because they can't. Once a transaction enters the public mempool, the mev extraction happens in an uncontrolled environment where searchers compete to capture value.
+
+Fast Protocol controls the order flow path. By routing transactions through a private auction rather than the public mempool, the protocol can enforce redistribution as a condition of builder participation. Builders who want access to the order flow must return value to users — the auction mechanism makes this a competitive requirement, not a charitable donation.
+
+This model works because the order flow is genuinely valuable. Builders earn healthy margins from the ~10% they retain, and the volume of transactions flowing through the system makes participation profitable even with the redistribution requirement.
+
+<TryItCTA href="/" label="Start earning mev rewards" />

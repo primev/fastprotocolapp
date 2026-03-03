@@ -24,6 +24,7 @@ import {
   PlusCircle,
   Network,
   Zap,
+  BookOpen,
 } from "lucide-react"
 import { ConnectButton, useAccountModal, useConnectModal } from "@rainbow-me/rainbowkit"
 import { toast } from "sonner"
@@ -89,6 +90,13 @@ export const AppHeader = ({
       active: pathname?.startsWith("/leaderboard"),
       icon: Trophy,
       hover: handleLeaderboardHover,
+    },
+    {
+      label: "Learn",
+      href: "/learn",
+      active: pathname?.startsWith("/learn"),
+      icon: BookOpen,
+      hover: undefined,
     },
   ]
 

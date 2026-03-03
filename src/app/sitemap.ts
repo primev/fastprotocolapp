@@ -1,8 +1,25 @@
 import type { MetadataRoute } from "next"
 import { getBaseUrl } from "@/lib/site-config"
+import { getAllArticles } from "@/lib/learn"
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getBaseUrl()
+  const articles = getAllArticles()
+
+  const learnEntries: MetadataRoute.Sitemap = [
+    {
+      url: `${baseUrl}/learn`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    ...articles.map((article) => ({
+      url: `${baseUrl}/learn/${article.frontmatter.slug}`,
+      lastModified: new Date(article.frontmatter.date),
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    })),
+  ]
 
   return [
     { url: baseUrl, lastModified: new Date(), changeFrequency: "weekly", priority: 1 },
@@ -48,5 +65,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.4,
     },
+    ...learnEntries,
   ]
 }

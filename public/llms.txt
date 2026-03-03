@@ -34,3 +34,16 @@ Fast Protocol enables sub-second token swaps on Ethereum L1 powered by mev-commi
 - Permit2 for gasless token approvals
 - Barter for execution routing
 - Settlement contract on Ethereum mainnet
+
+## Learn
+
+Educational articles about Fast Protocol, preconfirmations, and mev rewards.
+
+- What Is Fast Protocol? https://fastprotocol.io/learn/what-is-fast-protocol
+- What Are Fast Swaps? https://fastprotocol.io/learn/what-are-fast-swaps
+- What Is FAST RPC? https://fastprotocol.io/learn/what-is-fast-rpc
+- Why Should Validators Opt In? https://fastprotocol.io/learn/why-should-validators-opt-in
+- What Are Preconfirmations? https://fastprotocol.io/learn/what-are-preconfirmations
+- How Do Preconfirmations Work? https://fastprotocol.io/learn/how-do-preconfirmations-work
+- MEV Rewards: Tokenized MEV Redistribution https://fastprotocol.io/learn/mev-rewards
+- Miles: How to Earn on Fast Protocol https://fastprotocol.io/learn/miles

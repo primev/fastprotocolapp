@@ -1,0 +1,86 @@
+---
+title: "What Are Preconfirmations?"
+description: "Preconfirmations are cryptographic commitments from block builders to include your transaction in a specific position, backed by slashable stake for enforcement."
+slug: "what-are-preconfirmations"
+category: "Preconfirmations"
+date: "2026-03-01"
+tags: ["preconfirmations", "mev-commit", "ethereum", "execution guarantees", "slashing"]
+readingTime: "5 min read"
+seoKeywords: ["what are preconfirmations", "preconfirmations ethereum", "execution preconfirmations", "preconfirmation slashing", "credible commitments ethereum"]
+status: published
+faq:
+  - question: "What are preconfirmations?"
+    answer: "Preconfirmations are cryptographic commitments from Ethereum block builders to include a specific transaction at a specific position in an upcoming block. They provide execution guarantees before the block is produced, backed by slashable stake that enforces the commitment."
+  - question: "How are preconfirmations enforced?"
+    answer: "Preconfirmations are enforced through a slashing mechanism. Builders who issue a preconfirmation must stake collateral on the mev-commit protocol. If they fail to honor the commitment — by not including the transaction or placing it at a different position — their stake is slashed."
+  - question: "How fast are preconfirmations?"
+    answer: "Preconfirmations are issued in approximately 200 milliseconds, compared to Ethereum's standard 12-second block time. This enables near-instant transaction confirmation while still settling on Ethereum L1."
+  - question: "Do preconfirmations change how Ethereum works?"
+    answer: "No. Preconfirmations are an additional commitment layer built on top of Ethereum. The base protocol is unchanged — blocks are still 12 seconds, validators still propose blocks, and transactions still settle on L1. Preconfirmations add speed and certainty by coordinating commitments between users and builders before the block is produced."
+---
+
+A preconfirmation is a **cryptographic commitment** from a block builder to include your transaction in a specific position in an upcoming Ethereum block.
+
+On standard Ethereum, you submit a transaction and hope. You hope it gets included in the next block. You hope it doesn't get sandwiched. You hope the execution price hasn't moved against you by the time a builder picks it up.
+
+A preconfirmation replaces hope with a guarantee.
+
+## How preconfirmations work
+
+When you send a transaction through a preconfirmation-enabled system like [Fast Protocol](/learn/what-is-fast-protocol):
+
+1. **Your transaction reaches a builder** through a private channel (not the public mempool)
+2. **The builder evaluates inclusion** — can they include this transaction profitably in the next block?
+3. **The builder signs a preconfirmation** — a cryptographic commitment specifying: this transaction, at this position, in this block
+4. **You receive the preconfirmation in ~200ms** — before the Ethereum block is produced
+5. **The block is built and proposed** with your transaction exactly as committed
+6. **If the builder breaks the commitment**, their staked collateral is slashed
+
+The ~200ms confirmation isn't an estimate or a soft promise. It's a signed commitment backed by real economic stake.
+
+## The enforcement mechanism
+
+Preconfirmations are only credible if breaking them has consequences. The [mev-commit protocol](https://docs.primev.xyz) provides this enforcement layer.
+
+**Staking**: Builders who want to issue preconfirmations must stake collateral with the mev-commit protocol. The amount staked limits the total value of preconfirmations they can issue — they can't commit more than they're willing to lose.
+
+**Commitment verification**: After each block, the protocol verifies whether builders honored their preconfirmations. Did the transaction appear at the committed position? Did the execution match what was promised?
+
+**Slashing**: If a builder fails to honor a preconfirmation, a portion of their stake is slashed. The slashed amount compensates the user who was harmed by the broken commitment. This creates strong economic incentive for builders to only issue preconfirmations they can deliver.
+
+## Why preconfirmations matter
+
+Ethereum's 12-second block time is a fundamental design parameter. It balances security, decentralization, and performance. Changing it would require modifying the consensus protocol — a risky and contentious process.
+
+Preconfirmations achieve faster confirmations **without changing Ethereum's base layer**. They're a coordination mechanism between users, builders, and validators that adds a commitment layer on top of the existing protocol.
+
+This matters because:
+
+- **Users get speed** without moving to a rollup or sidechain
+- **Transactions settle on L1** — no bridges, no additional trust assumptions
+- **mev is mitigated** because transactions bypass the public mempool and builders compete in an auction
+- **The base protocol stays untouched** — preconfirmations compose with Ethereum, they don't modify it
+
+## Types of preconfirmations
+
+The preconfirmation space distinguishes between two types:
+
+**Inclusion preconfirmations**: The builder commits to including your transaction in a specific block, but doesn't guarantee the exact execution outcome. Your transaction will be included, but the execution price might vary slightly depending on other transactions in the block.
+
+**Execution preconfirmations**: The builder commits to a specific execution outcome — your transaction at a specific position, with a specific state. This is a stronger guarantee that covers not just inclusion but the exact result.
+
+Fast Protocol uses execution preconfirmations, which provide the strongest possible guarantee about what your transaction will do.
+
+## The role of validators
+
+Preconfirmations require validator cooperation. A builder can commit to including your transaction, but if the validator who proposes the next block doesn't use that builder's block, the commitment can't be honored.
+
+This is why mev-commit includes a [validator opt-in mechanism](/learn/why-should-validators-opt-in). Validators who opt in commit to proposing blocks from mev-commit builders. This creates the end-to-end chain of commitments that makes preconfirmations credible:
+
+- The **builder** commits to inclusion and execution
+- The **validator** commits to proposing the builder's block
+- Both commitments are backed by **slashable stake**
+
+The more validators who opt in, the more reliable preconfirmations become across the network.
+
+<FAQSchema faqs={frontmatter.faq} />
