@@ -45,5 +45,5 @@ Educational articles about Fast Protocol, preconfirmations, and mev rewards.
 - Why Should Validators Opt In? https://fastprotocol.io/learn/why-should-validators-opt-in
 - What Are Preconfirmations? https://fastprotocol.io/learn/what-are-preconfirmations
 - How Do Preconfirmations Work? https://fastprotocol.io/learn/how-do-preconfirmations-work
-- MEV Rewards: Tokenized MEV Redistribution https://fastprotocol.io/learn/mev-rewards
+- Mev Rewards: Tokenized Mev Redistribution https://fastprotocol.io/learn/mev-rewards
 - Miles: How to Earn on Fast Protocol https://fastprotocol.io/learn/miles

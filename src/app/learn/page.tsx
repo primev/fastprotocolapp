@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   },
 }
 
-const CATEGORY_ORDER = ["Fast Protocol", "Preconfirmations", "MEV"]
+const CATEGORY_ORDER = ["Fast Protocol", "Preconfirmations", "mev"]
 
 export default function LearnIndexPage() {
   const grouped = getArticlesByCategory()
@@ -48,7 +48,7 @@ export default function LearnIndexPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
       />
 
-      <section className="py-16 sm:py-24 text-center">
+      <section className="py-8 sm:py-12 text-center">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">
             Learn Fast Protocol
