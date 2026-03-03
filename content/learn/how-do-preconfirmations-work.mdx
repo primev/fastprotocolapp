@@ -1,0 +1,100 @@
+---
+title: "How Do Preconfirmations Work?"
+description: "A detailed walkthrough of the preconfirmation lifecycle — from transaction submission through builder commitment, block production, and settlement on Ethereum L1."
+slug: "how-do-preconfirmations-work"
+category: "Preconfirmations"
+date: "2026-03-01"
+tags: ["preconfirmations", "mev-commit", "builders", "searchers", "block production"]
+readingTime: "5 min read"
+seoKeywords: ["how do preconfirmations work", "preconfirmation lifecycle", "mev-commit builders", "preconfirmation workflow", "ethereum preconfirmation process"]
+status: published
+---
+
+Preconfirmations create a commitment layer between you and the Ethereum block production pipeline. Here's exactly how the system works, from the moment you click "swap" to the moment your transaction settles on-chain.
+
+## The participants
+
+Four actors participate in the preconfirmation lifecycle:
+
+- **User**: You. The person submitting a transaction.
+- **Builder**: The entity constructing Ethereum blocks. Builders order transactions, extract mev, and compete in auctions to have their blocks proposed.
+- **Validator (Proposer)**: The entity selected by Ethereum's consensus to propose the next block. Validators choose which builder's block to accept.
+- **mev-commit protocol**: The coordination and enforcement layer that connects all participants and ensures commitments are honored.
+
+## Step by step
+
+### 1. Transaction submission
+
+You submit a swap through Fast Protocol. Instead of broadcasting to the public mempool, your transaction routes through **FAST RPC** — a private channel to the mev-commit network.
+
+At this point, your transaction is invisible to the public mempool. No searchers can see it. No one can frontrun or sandwich it.
+
+### 2. Builder auction
+
+Your transaction enters the mev-commit builder auction. Multiple builders evaluate it simultaneously:
+
+- What mev does this transaction generate?
+- How much value can be returned to the user?
+- Where should this transaction be positioned in the block for optimal execution?
+
+Builders submit sealed bids representing the value they're willing to commit to the user. The auction mechanism ensures competitive price discovery — builders who want to win must offer the best execution.
+
+### 3. Preconfirmation issuance
+
+The winning builder signs a **preconfirmation**: a cryptographic commitment that specifies:
+
+- **Which transaction** will be included
+- **At what position** in the block
+- **With what execution guarantees** (state, output amounts)
+
+This signed commitment reaches the user in approximately **200 milliseconds** from the original submission. The user now has a cryptographic proof that their transaction will be included as specified.
+
+### 4. Block construction
+
+The builder constructs the full Ethereum block, placing the preconfirmed transaction at the committed position. The block is assembled alongside all other transactions the builder wants to include — regular mempool transactions, searcher bundles, and other preconfirmed transactions.
+
+The preconfirmed transaction's position and execution are locked in. The builder arranges everything else around it.
+
+### 5. Block proposal
+
+The Ethereum validator selected for this slot proposes the block. If this validator has [opted in to mev-commit](/learn/why-should-validators-opt-in), they have committed to proposing blocks from mev-commit builders.
+
+The mev-boost auction still operates normally — the mev-commit builder competes alongside other builders. The difference is that opted-in validators have committed to accepting mev-commit blocks, and the preconfirmation fee market gives mev-commit builders a competitive edge in the auction.
+
+### 6. On-chain settlement
+
+The block lands on Ethereum. Your transaction executes at the exact position and with the exact parameters the builder committed to. The swap settles on L1, and any mev redistribution flows back to you.
+
+From submission to on-chain settlement, the entire process takes one Ethereum block (~12 seconds). But from your perspective, you knew the outcome within 200ms.
+
+### 7. Commitment verification
+
+After the block is produced, the mev-commit protocol verifies that all preconfirmations were honored:
+
+- Was the transaction included at the committed position?
+- Did the execution match the committed parameters?
+- Did the validator propose the expected block?
+
+If everything checks out, the cycle completes and the builder's stake remains untouched. If any commitment was broken, the protocol triggers **slashing** — the responsible party loses staked collateral, and the affected user is compensated.
+
+## What happens when things go wrong
+
+Preconfirmations are designed to handle failure gracefully:
+
+**Builder fails to include transaction**: The builder's stake is slashed. The user is compensated from the slashed amount. The transaction can be resubmitted.
+
+**Validator proposes a different block**: If the opted-in validator doesn't propose the mev-commit builder's block, the validator faces slashing conditions under their mev-commit registration. The preconfirmation for that slot wasn't honored, but the user is still protected by the slashing mechanism.
+
+**Network disruption**: If the Ethereum slot is missed entirely (no block proposed), no preconfirmation can be honored. This is an edge case that depends on Ethereum's base layer liveness, not the preconfirmation system.
+
+The key insight is that **every failure mode has an economic consequence**. No one can break a commitment for free.
+
+## The trust model
+
+Preconfirmations don't require trusting any single party:
+
+- You don't trust the builder to be honest — you trust the slashing mechanism to make dishonesty expensive
+- You don't trust the validator to cooperate — you trust their staked commitment to make defection costly
+- You don't trust the protocol to work perfectly — you trust the economic incentives to make correct behavior the rational choice
+
+This is the same trust model that secures Ethereum itself: not trust in specific actors, but trust in economic incentives that make correct behavior profitable and misbehavior expensive.

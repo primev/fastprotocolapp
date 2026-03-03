@@ -319,17 +319,12 @@ const IndexPage = ({ onEarlyAccessClick, isCheckingAccess = false }: IndexPagePr
                 <span className="text-xs xs:text-sm sm:text-sm tablet:text-lg lg:text-sm text-muted-foreground">
                   •
                 </span>
-                <button
-                  onClick={() =>
-                    window.open(
-                      "https://paragraph.com/@0xfa0b0f5d298d28efe4d35641724141ef19c05684/introducing-fast-protocol-a-coordinated-rewards-layer",
-                      "_blank"
-                    )
-                  }
+                <Link
+                  href="/learn"
                   className="text-xs xs:text-sm sm:text-sm tablet:text-lg lg:text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Learn
-                </button>
+                </Link>
               </div>
             </div>
           </section>

@@ -1,0 +1,70 @@
+---
+title: "What Is FAST RPC?"
+description: "FAST RPC is a drop-in Ethereum RPC endpoint that routes transactions through the mev-commit preconfirmation network for sub-second confirmations and mev protection."
+slug: "what-is-fast-rpc"
+category: "Fast Protocol"
+date: "2026-03-01"
+tags: ["fast rpc", "ethereum rpc", "preconfirmations", "mev protection", "transaction routing"]
+readingTime: "4 min read"
+seoKeywords: ["fast rpc", "fast rpc ethereum", "ethereum rpc preconfirmations", "mev protected rpc", "fast protocol rpc"]
+status: published
+faq:
+  - question: "What is FAST RPC?"
+    answer: "FAST RPC is an Ethereum-compatible RPC endpoint that routes your transactions through the mev-commit preconfirmation network instead of the public mempool. It provides sub-second confirmations and mev protection without requiring any changes to your wallet or tools."
+  - question: "Is FAST RPC compatible with my wallet?"
+    answer: "Yes. FAST RPC is a standard Ethereum JSON-RPC endpoint. It works with MetaMask, Rabby, and any other Ethereum wallet that allows adding a custom RPC endpoint. You use your existing wallet — just point it at the FAST RPC URL."
+  - question: "Does FAST RPC protect against mev?"
+    answer: "Yes. Transactions sent through FAST RPC bypass the public mempool entirely. They route through a private channel to the mev-commit builder auction, where builders compete for your order flow. This prevents sandwich attacks and ensures at least 90% of generated mev is returned to you."
+---
+
+FAST RPC is a drop-in Ethereum RPC endpoint. Add it to your wallet, and every transaction you send routes through the mev-commit preconfirmation network instead of the public mempool.
+
+No new wallet. No new interface. No new workflows. The same `eth_sendTransaction` you've always used — with sub-second confirmations and mev protection.
+
+## What an RPC does
+
+Every Ethereum wallet needs an RPC (Remote Procedure Call) endpoint to communicate with the network. When you send a transaction, your wallet sends it to an RPC provider, which broadcasts it to the Ethereum network. Common RPC providers include Infura, Alchemy, and the default endpoints bundled with wallets.
+
+Standard RPCs broadcast your transaction to the **public mempool** — a waiting area where anyone can see pending transactions. Searchers monitor the mempool to extract mev from your transactions before they're included in a block.
+
+## How FAST RPC is different
+
+FAST RPC accepts the same JSON-RPC calls as any standard Ethereum endpoint, but routes transactions through a completely different path:
+
+1. **Your transaction reaches FAST RPC** via standard `eth_sendTransaction`
+2. **FAST RPC routes it to the mev-commit network** — bypassing the public mempool entirely
+3. **Block builders compete** for the right to include your transaction in an open auction
+4. **The winning builder issues a preconfirmation** — a cryptographic commitment to include your transaction at a specific position
+5. **You receive confirmation in ~200ms**
+6. **The transaction settles on-chain** in the next Ethereum block, exactly as committed
+
+Your transaction never enters the public mempool. Searchers can't see it, can't frontrun it, and can't sandwich it.
+
+## Adding FAST RPC to your wallet
+
+FAST RPC works with any Ethereum wallet that supports custom RPC endpoints:
+
+- **MetaMask**: Fast Protocol can add the network automatically — click "Add RPC to Wallet" in the app menu
+- **Rabby and other wallets**: Add the FAST RPC URL as a custom Ethereum network
+
+Once added, you can toggle between standard Ethereum RPC and FAST RPC depending on whether you want preconfirmation-backed execution.
+
+## What you get
+
+**Sub-second confirmations**: Every transaction sent through FAST RPC receives a preconfirmation in ~200ms. You know your transaction will be included before the block is produced.
+
+**mev protection**: Transactions bypass the public mempool, eliminating exposure to sandwich attacks and frontrunning.
+
+**mev redistribution**: The builder auction returns at least 90% of generated mev to you as improved execution.
+
+**Same wallet, same tools**: FAST RPC is a standard JSON-RPC endpoint. No migration, no learning curve, no new keys.
+
+## Beyond swaps
+
+While Fast Protocol's swap interface is the primary way users interact with preconfirmations today, FAST RPC works for any Ethereum transaction. Contract interactions, NFT mints, DeFi operations — any transaction that would benefit from faster confirmation and mev protection can route through FAST RPC.
+
+The RPC endpoint is the infrastructure layer. The swap interface is one application built on top of it.
+
+<TryItCTA href="/" label="Try FAST RPC" />
+
+<FAQSchema faqs={frontmatter.faq} />

@@ -1,0 +1,71 @@
+---
+title: "What Are Fast Swaps?"
+description: "Fast swaps are sub-second token exchanges on Ethereum L1, powered by preconfirmations and Permit2 gasless approvals, where users earn mev rewards on every trade."
+slug: "what-are-fast-swaps"
+category: "Fast Protocol"
+date: "2026-03-01"
+tags: ["fast swaps", "permit2", "mev rewards", "ethereum swaps", "token swap"]
+readingTime: "4 min read"
+seoKeywords: ["fast swaps ethereum", "fast swaps", "sub-second swaps", "permit2 swaps", "gasless token swap"]
+status: published
+faq:
+  - question: "What are fast swaps?"
+    answer: "Fast swaps are sub-second token exchanges on Ethereum L1 powered by the mev-commit preconfirmation protocol. Instead of waiting 12+ seconds for block confirmation, a builder cryptographically commits to including your swap in ~200ms."
+  - question: "Do fast swaps cost extra gas?"
+    answer: "No. Fast swaps use Permit2 for gasless token approvals, so you don't pay for a separate approval transaction. The swap itself costs standard Ethereum gas — there's no additional fee for the preconfirmation."
+  - question: "How do I earn mev rewards from fast swaps?"
+    answer: "Every swap generates mev from arbitrage and ordering opportunities. Fast Protocol's auction mechanism forces builders to compete for your order flow, returning at least 90% of the mev your swap generates directly to you as an improved execution price."
+---
+
+A fast swap is a token exchange on Ethereum that confirms in roughly 200 milliseconds — before the block that includes it has even been produced.
+
+Standard Ethereum swaps work like this: you approve a token, submit a transaction, and wait for a block. That block takes 12 seconds. During that window, your transaction sits in a mempool, visible to searchers who may sandwich it, and you have no guarantee about when or where it will land.
+
+Fast swaps eliminate the wait and the uncertainty.
+
+## How a fast swap works
+
+1. **Connect your wallet** to Fast Protocol — any Ethereum wallet works
+2. **Select your tokens and amount** — the interface shows you the expected output including mev rewards
+3. **Sign a Permit2 approval** — a single signature authorizes the swap with no separate approval transaction and no extra gas
+4. **Your swap routes through FAST RPC** to the mev-commit builder auction
+5. **A builder commits to inclusion** — you receive confirmation in ~200ms
+6. **The swap settles on-chain** in the next Ethereum block
+
+From your perspective, the swap feels instant. You click, you sign, you see confirmation.
+
+## Permit2: no approval transactions
+
+Traditional ERC-20 swaps require two transactions: an approval transaction (which costs gas and takes a full block) followed by the actual swap. Permit2 collapses this into a single off-chain signature.
+
+When you swap on Fast Protocol:
+- You sign a typed message that authorizes the exact token amount for this specific swap
+- No on-chain approval transaction needed
+- No unlimited allowance sitting in a smart contract
+- One signature, one swap
+
+This is both faster and more secure than the traditional approve-then-swap flow.
+
+## Earning on every swap
+
+Every token swap on Ethereum generates mev. When you trade, the price impact creates arbitrage opportunities between your venue and others. Searchers typically capture this value by submitting transactions that profit from the state change you created.
+
+On Fast Protocol, builders compete in an auction for the right to include your swap. This competition forces them to return value to you. At least 90% of the mev your swap generates comes back as an improved execution price.
+
+The earning is automatic. You don't claim anything, stake anything, or interact with any additional contracts. The auction mechanism handles redistribution at the protocol level.
+
+## What tokens can I swap?
+
+Fast Protocol supports swaps between major Ethereum tokens including ETH, WETH, USDC, USDT, DAI, and other liquid ERC-20 tokens. The available token list is displayed in the swap interface.
+
+Swaps route through existing Ethereum liquidity — the protocol doesn't operate its own AMM or liquidity pool. Your trade executes against the deepest available liquidity on mainnet, with the builder optimizing routing as part of the auction.
+
+## Slippage and execution
+
+Because fast swaps confirm before the block, you face less execution uncertainty than standard swaps. The price you see is close to the price you get, since the builder commits to a specific execution within 200ms rather than leaving your transaction exposed to a full block of price movement.
+
+Slippage tolerance still matters for volatile pairs, but the window of exposure is compressed from 12+ seconds to sub-second.
+
+<TryItCTA href="/" label="Try a fast swap" />
+
+<FAQSchema faqs={frontmatter.faq} />
