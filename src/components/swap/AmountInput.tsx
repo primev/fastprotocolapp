@@ -31,14 +31,17 @@ const AmountInputComponent = ({
   inputRef,
 }: AmountInputProps) => {
   // 1. VALUE CALCULATIONS
-  // Sanitizing commas and handling the edge case of "No liquidity" text
-  const isSpecialValue = value === "No liquidity"
-  const cleanValue = value && !isSpecialValue ? value.replace(/,/g, "") : ""
+  // Detect non-numeric display strings that should be rendered as plain text
+  // (e.g. "No liquidity") instead of being fed to NumberFlow.
+  const isTextValue = !!value && isNaN(parseFloat(value.replace(/,/g, "")))
+  const cleanValue = value && !isTextValue ? value.replace(/,/g, "") : ""
 
   // Logic for NumberFlow formatting to match input precision
-  const numericValue = value && !isNaN(parseFloat(cleanValue)) ? parseFloat(cleanValue) : null
+  const numericValue =
+    value && !isTextValue && !isNaN(parseFloat(cleanValue)) ? parseFloat(cleanValue) : null
   const decimalPlaces = cleanValue.includes(".") ? cleanValue.split(".")[1]?.length || 0 : 0
   const minFractionDigits = Math.min(decimalPlaces, 6)
+  const maxFractionDigits = Math.max(6, decimalPlaces)
 
   // Auto-focus the input when this side becomes active (e.g. user clicked the inactive display div)
   useEffect(() => {
@@ -138,12 +141,14 @@ const AmountInputComponent = ({
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {numericValue !== null ? (
+              {isTextValue ? (
+                <span className="text-white/40">{value}</span>
+              ) : numericValue !== null ? (
                 <NumberFlow
                   value={numericValue}
                   format={{
                     minimumFractionDigits: minFractionDigits,
-                    maximumFractionDigits: 6,
+                    maximumFractionDigits: maxFractionDigits,
                   }}
                   style={
                     {

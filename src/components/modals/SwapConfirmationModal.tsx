@@ -151,6 +151,7 @@ function BuyReceiveValue({ value, className }: { value: string; className?: stri
   const numeric = clean && !Number.isNaN(parseFloat(clean)) ? parseFloat(clean) : null
   const decimalPlaces = clean.includes(".") ? (clean.split(".")[1]?.length ?? 0) : 0
   const minFractionDigits = Math.min(decimalPlaces, 6)
+  const maxFractionDigits = Math.max(6, decimalPlaces)
 
   if (numeric === null) {
     return <span className={className}>{value || "0"}</span>
@@ -162,7 +163,7 @@ function BuyReceiveValue({ value, className }: { value: string; className?: stri
         value={numeric}
         format={{
           minimumFractionDigits: minFractionDigits,
-          maximumFractionDigits: 6,
+          maximumFractionDigits: maxFractionDigits,
           useGrouping: true,
         }}
         style={numberFlowStyle}
@@ -822,7 +823,7 @@ function SwapConfirmationModal({
                           1 {tokenIn?.symbol ?? ""} ={" "}
                           {exchangeRate.toLocaleString("en-US", {
                             minimumFractionDigits: rateToStable ? 2 : 0,
-                            maximumFractionDigits: 6,
+                            maximumSignificantDigits: 6,
                             useGrouping: true,
                           })}{" "}
                           {tokenOut?.symbol ?? ""}
@@ -832,22 +833,26 @@ function SwapConfirmationModal({
                     />
                     <InfoRow
                       label={isMaxIn ? "Maximum sold" : "Minimum received"}
-                      value={
-                        <span className="inline-flex items-center gap-1 tabular-nums">
-                          <NumberFlow
-                            value={
-                              parseFloat(slippageLimitFormatted?.replace(/,/g, "") ?? "0") || 0
-                            }
-                            format={{
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 6,
-                              useGrouping: true,
-                            }}
-                            style={numberFlowStyle}
-                          />{" "}
-                          {isMaxIn ? (tokenIn?.symbol ?? "") : (tokenOut?.symbol ?? "")}
-                        </span>
-                      }
+                      value={(() => {
+                        const cleanSlippage = slippageLimitFormatted?.replace(/,/g, "") ?? "0"
+                        const slippageDecimals = cleanSlippage.includes(".")
+                          ? (cleanSlippage.split(".")[1]?.length ?? 0)
+                          : 0
+                        return (
+                          <span className="inline-flex items-center gap-1 tabular-nums">
+                            <NumberFlow
+                              value={parseFloat(cleanSlippage) || 0}
+                              format={{
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: Math.max(6, slippageDecimals),
+                                useGrouping: true,
+                              }}
+                              style={numberFlowStyle}
+                            />{" "}
+                            {isMaxIn ? (tokenIn?.symbol ?? "") : (tokenOut?.symbol ?? "")}
+                          </span>
+                        )
+                      })()}
                       tooltip={
                         isMaxIn
                           ? "The maximum amount you will pay after slippage"

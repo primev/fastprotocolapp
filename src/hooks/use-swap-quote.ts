@@ -426,7 +426,7 @@ export function useQuote({
   const latestTradeTypeRef = useRef<TradeType>(tradeType)
   const latestTokenListRef = useRef<Token[]>(tokenList)
   const latestEnabledRef = useRef<boolean>(enabled)
-  const isFetchingRef = useRef(false)
+  const isFetchingRef = useRef(false) // Only used by dead fetchQuote below
   const quoteRef = useRef<QuoteResult | null>(null)
   const prevQuoteRef = useRef<any>(null)
   const lastInputKeyRef = useRef<string>("")
@@ -446,12 +446,7 @@ export function useQuote({
   // Create a stable refetch function that always works, using latest refs
   const refetch = useCallback(async () => {
     // Respect enabled flag (e.g. disabled for wrap/unwrap pairs)
-    if (!latestEnabledRef.current) {
-      return
-    }
-
-    // Exhaustive debouncing: Ignore if a request is already in flight
-    if (isFetchingRef.current) return
+    if (!latestEnabledRef.current) return
 
     // Use latest values from refs to ensure we always fetch with current state
     const currentTokenIn = latestTokenInRef.current
@@ -531,9 +526,7 @@ export function useQuote({
     }
 
     // Only proceed if this is still the latest request
-    if (currentRequestId !== requestIdRef.current) {
-      return
-    }
+    if (currentRequestId !== requestIdRef.current) return
 
     setIsLoading(true)
     setError(null)
@@ -757,6 +750,9 @@ export function useQuote({
     }
   }, []) // Empty deps - refetch is stable and always uses latest refs
 
+  // NOTE: fetchQuote below is dead code — never called from any effect or
+  // returned from the hook. All fetching goes through refetch() above.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fetchQuote = useCallback(async () => {
     // Increment request ID to track this request
     const currentRequestId = ++requestIdRef.current
@@ -1127,7 +1123,14 @@ export function useQuote({
     prevTradeTypeRef.current = tradeType
 
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+        // Clear the dedup key so the next effect invocation can re-schedule
+        // the debounce timer. Without this, a cancelled timer (e.g. from an
+        // `enabled` dep change) permanently prevents re-fetching because the
+        // inputKey still matches the stale ref.
+        lastInputKeyRef.current = ""
+      }
     }
   }, [tokenIn?.address, tokenOut?.address, amountIn, tradeType, enabled, debounceMs, refetch])
 
@@ -1186,8 +1189,7 @@ export function formatQuoteAmount(amount: string, maxDecimals: number = 6): stri
   if (isNaN(num)) return "0"
 
   if (num === 0) return "0"
-  if (num < 0.000001) return "<0.000001"
-  if (num < 1) return num.toFixed(maxDecimals).replace(/\.?0+$/, "")
+  if (num < 1) return num.toPrecision(maxDecimals).replace(/\.?0+$/, "")
   if (num < 1000) return num.toFixed(4).replace(/\.?0+$/, "")
   if (num < 1000000) return num.toFixed(2).replace(/\.?0+$/, "")
 
