@@ -144,7 +144,7 @@ export const AppHeader = ({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <Badge
+          {/* <Badge
             variant="outline"
             className="h-10 px-3 text-sm border-primary/50 hidden sm:flex items-center"
           >
@@ -154,7 +154,7 @@ export const AppHeader = ({
               format={{ minimumFractionDigits: 0, maximumFractionDigits: 0 }}
             />
             <span className="ml-1">Miles</span>
-          </Badge>
+          </Badge> */}
 
           {/* Wallet Section - Wrapped in ClientOnly to avoid ID mismatch */}
           <ClientOnly fallback={<Skeleton className="h-10 w-10 lg:w-32 rounded-full" />}>
@@ -223,10 +223,10 @@ export const AppHeader = ({
                           <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
                             Balance
                           </p>
-                          <div className="text-lg font-bold flex items-center gap-1">
+                          {/* <div className="text-lg font-bold flex items-center gap-1">
                             <NumberFlow value={points} />
                             <span className="text-sm font-medium text-muted-foreground">Miles</span>
-                          </div>
+                          </div> */}
                         </div>
                       </div>
                     </div>
