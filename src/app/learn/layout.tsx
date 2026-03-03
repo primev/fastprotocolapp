@@ -41,7 +41,7 @@ export default function LearnLayout({ children }: { children: React.ReactNode })
             <h1 className="text-muted-foreground font-bold">Learn</h1>
             <span className="w-px h-6 bg-border mx-1" />
             <Link
-              href="/"
+              href="/dashboard"
               className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 shrink-0"
             >
               Launch App
