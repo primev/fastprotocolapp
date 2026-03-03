@@ -228,6 +228,7 @@ function SwapConfirmationModal({
 
   const addToast = useSwapToastStore((s) => s.addToast)
   const updateToastHash = useSwapToastStore((s) => s.updateToastHash)
+  const removeToast = useSwapToastStore((s) => s.removeToast)
 
   const {
     confirmSwap,
@@ -324,6 +325,7 @@ function SwapConfirmationModal({
 
   const executeSwap = useCallback(async () => {
     setIsConfirming(true)
+    let pendingPlaceholder: string | null = null
     try {
       const onConfirm = () => {
         setClearSwapState(true)
@@ -338,7 +340,6 @@ function SwapConfirmationModal({
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
         onOpenChange(false)
       } else {
-        let pendingPlaceholder: string | null = null
         const hash = await confirmSwap(
           intentPath
             ? {
@@ -353,8 +354,6 @@ function SwapConfirmationModal({
                     onConfirm,
                     onCloseAfterSuccess
                   )
-                  // Brief delay so toast is visible before modal closes; sequences more smoothly
-                  setTimeout(() => onOpenChange(false), 120)
                 },
               }
             : undefined
@@ -363,11 +362,13 @@ function SwapConfirmationModal({
           updateToastHash(pendingPlaceholder, hash)
         } else {
           addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
-          onOpenChange(false)
         }
+        onOpenChange(false)
       }
     } catch {
       // Error is set by hooks (wrapError/swapError); ERROR VIEW shows with "View Error Details" / "Try Again"
+      // Remove zombie toast with pending placeholder hash (relayer failed before returning real hash)
+      if (pendingPlaceholder) removeToast(pendingPlaceholder)
     } finally {
       setIsConfirming(false)
       setIsAutoSwappingAfterApproval(false)
@@ -381,6 +382,7 @@ function SwapConfirmationModal({
     intentPath,
     addToast,
     updateToastHash,
+    removeToast,
     tokenIn,
     tokenOut,
     amountIn,
