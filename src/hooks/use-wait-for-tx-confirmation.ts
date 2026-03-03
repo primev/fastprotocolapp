@@ -111,7 +111,7 @@ export function useWaitForTxConfirmation({
 
   // Effect: Watch for wagmi receipt error (tx dropped, replaced, RPC failure)
   useEffect(() => {
-    if ( !receiptError ) return
+    if (!receiptError) return
 
     hasConfirmedRef.current = true
     if (abortRef.current) abortRef.current.abort()
