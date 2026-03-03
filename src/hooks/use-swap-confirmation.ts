@@ -72,7 +72,7 @@ export function useSwapConfirmation({
   const [error, setError] = useState<Error | null>(null)
 
   // Wagmi receipt hook used as a data source for the race-condition confirmation hook
-  const { data: receipt } = useWaitForTransactionReceipt({
+  const { data: receipt, error: receiptError } = useWaitForTransactionReceipt({
     hash: hash ? (hash as `0x${string}`) : undefined,
   })
 
@@ -94,6 +94,7 @@ export function useSwapConfirmation({
   useWaitForTxConfirmation({
     hash: hash ?? undefined,
     receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
+    receiptError,
     mode: "status",
     onConfirmed,
     onError: onConfirmationError,
