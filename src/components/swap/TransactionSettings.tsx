@@ -14,6 +14,7 @@ interface TransactionSettingsProps {
   internalDeadline: number
   setInternalDeadline: (deadline: number) => void
   isMounted: boolean
+  estimatedMiles?: number | null
 }
 
 const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
@@ -23,12 +24,37 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
   handleSlippageChange,
   internalDeadline,
   setInternalDeadline,
+  estimatedMiles,
 }) => {
   const hasCustomSlippage = slippage !== "0.5"
+  const hasMiles = estimatedMiles != null && estimatedMiles > 0
+  const noMiles = estimatedMiles != null && estimatedMiles <= 0
 
   return (
     <div className="flex items-center justify-between w-full mb-2">
-      <span className="text-xl font-semibold text-white">Swap</span>
+      <div className="flex items-center gap-2">
+        {hasMiles ? (
+          <>
+            <span className="text-sm font-semibold text-[#3898FF]">
+              ~{estimatedMiles.toLocaleString("en-US")} miles
+            </span>
+          </>
+        ) : noMiles ? (
+          <span className="text-sm font-medium text-gray-500">
+            Swap too small to earn miles
+          </span>
+        ) : (
+          <>
+            <div className="relative flex items-center justify-center">
+              <div className="h-2 w-2 rounded-full bg-[#3898FF] animate-pulse" />
+              <div className="absolute h-2 w-2 rounded-full bg-[#3898FF] animate-ping opacity-75" />
+            </div>
+            <span className="text-sm font-semibold text-[#3898FF]">
+              Earning Fast Miles
+            </span>
+          </>
+        )}
+      </div>
 
       <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <PopoverTrigger asChild>

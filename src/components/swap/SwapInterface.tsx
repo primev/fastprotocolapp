@@ -16,10 +16,6 @@ const TransactionSettings = dynamic(
   { ssr: false, loading: () => <div className="h-9 w-full mb-2" /> }
 )
 
-const RewardsBadge = dynamic(
-  () => import("./RewardsBadge").then((m) => ({ default: m.RewardsBadge })),
-  { ssr: false, loading: () => <div className="mt-6 flex justify-center min-h-[40px]" /> }
-)
 
 // Types
 import { Token } from "@/types/swap"
@@ -170,6 +166,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         internalDeadline={internalDeadline}
         setInternalDeadline={setInternalDeadline}
         isMounted={isMounted}
+        estimatedMiles={props.estimatedMiles}
       />
 
       {/* 2. CORE SWAP CARDS
@@ -265,10 +262,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         isNonceLoading={isNonceLoading}
       />
 
-      {/* 4. REWARDS 
-          Persistent badge for user engagement.
-      */}
-      <RewardsBadge estimatedMiles={props.estimatedMiles} />
+      {/* Miles estimate moved to TransactionSettings header */}
     </div>
   )
 }
