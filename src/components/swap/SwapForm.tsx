@@ -114,7 +114,9 @@ export function SwapForm() {
         buyInputRef={buyInputRef}
         // Action Props
         amount={form.amount}
-        outputAmount={form.isWrapUnwrap ? form.amount : form.activeQuote?.amountOutFormatted || "0"}
+        outputAmount={
+          form.isWrapUnwrap ? form.amount : form.displayQuote?.amountOutFormatted || "0"
+        }
         setAmount={form.setAmount}
         editingSide={form.editingSide}
         setEditingSide={form.setEditingSide}

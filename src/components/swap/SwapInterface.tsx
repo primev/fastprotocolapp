@@ -231,20 +231,27 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
           Only show price impact and rate when both tokens are present.
           The ActionButton handles all connection and validation states.
       */}
-      {fromToken && toToken && (isWrapUnwrap || !!amount) && (
-        <ExchangeRate
-          exchangeRateContent={exchangeRateContent}
-          exchangeRateValue={exchangeRateValue}
-          exchangeRateFromSymbol={exchangeRateFromSymbol}
-          exchangeRateToSymbol={exchangeRateToSymbol}
-          exchangeRateToStable={exchangeRateToStable}
-          isQuoteLoading={effectiveQuoteLoading}
-          activeQuote={displayQuote}
-          isWrapUnwrap={isWrapUnwrap}
-          isManualInversion={isManualInversion}
-          timeLeft={timeLeft}
-        />
-      )}
+      <div
+        className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+        style={{
+          gridTemplateRows: fromToken && toToken && (isWrapUnwrap || !!amount) ? "1fr" : "0fr",
+        }}
+      >
+        <div className="overflow-hidden">
+          <ExchangeRate
+            exchangeRateContent={exchangeRateContent}
+            exchangeRateValue={exchangeRateValue}
+            exchangeRateFromSymbol={exchangeRateFromSymbol}
+            exchangeRateToSymbol={exchangeRateToSymbol}
+            exchangeRateToStable={exchangeRateToStable}
+            isQuoteLoading={effectiveQuoteLoading}
+            activeQuote={displayQuote}
+            isWrapUnwrap={isWrapUnwrap}
+            isManualInversion={isManualInversion}
+            timeLeft={timeLeft}
+          />
+        </div>
+      </div>
 
       <ActionButton
         isConnected={isConnected}
