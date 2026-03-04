@@ -235,7 +235,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
           gridTemplateRows: fromToken && toToken && (isWrapUnwrap || !!amount) ? "1fr" : "0fr",
         }}
       >
-        <div className="overflow-hidden">
+        {/* <div className="overflow-hidden">
           <ExchangeRate
             exchangeRateContent={exchangeRateContent}
             exchangeRateValue={exchangeRateValue}
@@ -248,7 +248,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
             isManualInversion={isManualInversion}
             timeLeft={timeLeft}
           />
-        </div>
+        </div> */}
       </div>
 
       <ActionButton
