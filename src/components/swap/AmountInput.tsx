@@ -91,7 +91,7 @@ const AmountInputComponent = ({
     adjustSize()
 
     return () => observer.disconnect()
-  }, [value, isActive])
+  }, [value])
 
   // 3. RENDER LOGIC
   return (
