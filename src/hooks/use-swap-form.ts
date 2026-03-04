@@ -228,19 +228,18 @@ export function useSwapForm(allTokens: Token[]) {
   // Don't use cached quotes for wrap/unwrap pairs - they don't have quotes
   // Also ensure we only use cache if it matches the current pair (defensive check)
   const displayQuote =
-    activeQuote || (!isWrapUnwrap && editingSide === "sell" ? quoteCache[pairKey] : null)
+    activeQuote || (!isWrapUnwrap ? quoteCache[pairKey] : null)
 
   useEffect(() => {
     if (
       quote &&
       fromToken?.symbol &&
       toToken?.symbol &&
-      !isManualInversion &&
-      editingSide === "sell"
+      !isManualInversion
     ) {
       setQuoteCache((prev) => ({ ...prev, [pairKey]: quote }))
     }
-  }, [quote, fromToken?.symbol, toToken?.symbol, isManualInversion, pairKey, editingSide])
+  }, [quote, fromToken?.symbol, toToken?.symbol, isManualInversion, pairKey])
 
   const hasNoLiquidity = useMemo(() => {
     if (isManualInversion && swappedQuote) return false

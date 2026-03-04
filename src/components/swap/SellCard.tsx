@@ -99,7 +99,12 @@ const SellCardComponent: React.FC<SellCardProps> = ({
           <AmountInput
             value={sellDisplayValue}
             onChange={handleAmountChange}
-            onFocus={() => setEditingSide("sell")}
+            onFocus={() => {
+              if (editingSide !== "sell") {
+                setAmount(sellDisplayValue?.replace(/,/g, "") || "")
+              }
+              setEditingSide("sell")
+            }}
             onBlur={() => {}}
             isActive={editingSide === "sell"}
             isDisabled={false}

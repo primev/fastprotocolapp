@@ -108,7 +108,15 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
           <AmountInput
             value={toToken ? buyDisplayValue : ""}
             onChange={handleAmountChange}
-            onFocus={() => setEditingSide("buy")}
+            onFocus={() => {
+              if (editingSide !== "buy") {
+                const cleanValue = buyDisplayValue?.replace(/,/g, "") || ""
+                if (cleanValue && !isNaN(parseFloat(cleanValue))) {
+                  setAmount(cleanValue)
+                }
+              }
+              setEditingSide("buy")
+            }}
             onBlur={() => {}}
             isActive={editingSide === "buy"}
             isDisabled={!toToken}
