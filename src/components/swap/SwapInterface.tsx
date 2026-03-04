@@ -95,6 +95,7 @@ interface SwapInterfaceProps {
   isWrap: boolean
   isUnwrap: boolean
   hasNoLiquidity: boolean
+  estimatedMiles?: number | null
 }
 
 export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
@@ -267,7 +268,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
       {/* 4. REWARDS 
           Persistent badge for user engagement.
       */}
-      <RewardsBadge />
+      <RewardsBadge estimatedMiles={props.estimatedMiles} />
     </div>
   )
 }

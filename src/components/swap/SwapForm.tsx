@@ -9,6 +9,9 @@ import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import { getTokenLists } from "@/lib/swap-logic/token-list"
 import { useSwapForm } from "@/hooks/use-swap-form"
+import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
+import { useEstimatedMiles } from "@/hooks/use-estimated-miles"
+import { FEATURE_FLAGS } from "@/lib/feature-flags"
 
 import { SwapInterface } from "./SwapInterface"
 
@@ -31,6 +34,32 @@ export function SwapForm() {
     form.fromToken &&
     form.toToken &&
     !(form.fromToken.address === ZERO_ADDRESS && form.toToken.address !== WETH_ADDRESS)
+
+  const { rawPrice: baseFeePerGas } = useBroadcastGasPrice()
+
+  const isEthOutput =
+    form.toToken?.address?.toLowerCase() === ZERO_ADDRESS.toLowerCase() ||
+    form.toToken?.address?.toLowerCase() === WETH_ADDRESS.toLowerCase()
+
+  const milesAmountOut = form.isWrapUnwrap
+    ? form.amount
+    : form.displayQuote?.amountOutFormatted || form.amount
+
+  const { estimatedMiles } = useEstimatedMiles({
+    amountOut: milesAmountOut,
+    slippage: form.slippage,
+    toTokenPrice: form.toPrice,
+    ethPrice: form.ethPrice,
+    isEthOutput,
+    baseFeePerGas,
+    isPermitPath: !!isPermitPath && !form.isWrapUnwrap,
+    enabled:
+      FEATURE_FLAGS.show_miles_estimate &&
+      !form.isWrapUnwrap &&
+      !!form.displayQuote &&
+      !!form.fromToken &&
+      !!form.toToken,
+  })
 
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
   const lastTxError = useSwapToastStore((s) => s.lastTxError)
@@ -148,6 +177,7 @@ export function SwapForm() {
         isWrap={form.isWrap || false}
         isUnwrap={form.isUnwrap || false}
         hasNoLiquidity={form.hasNoLiquidity}
+        estimatedMiles={estimatedMiles}
       />
 
       {/* From Token Selector Modal */}
@@ -227,6 +257,7 @@ export function SwapForm() {
           approvalTxHash={form.approvalTxHash}
           onApprove={form.approvePermit2}
           approveTokenSymbol={form.approveTokenSymbol}
+          estimatedMiles={estimatedMiles}
           externalError={lastTxError}
           onRetryWithSlippage={(newSlippage) => {
             form.updateSlippage(newSlippage)
