@@ -16,7 +16,6 @@ const TransactionSettings = dynamic(
   { ssr: false, loading: () => <div className="h-9 w-full mb-2" /> }
 )
 
-
 // Types
 import { Token } from "@/types/swap"
 import { QuoteResult } from "@/hooks/use-swap-quote"
