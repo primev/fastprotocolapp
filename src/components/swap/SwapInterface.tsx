@@ -9,6 +9,7 @@ import { SwitchButton } from "./SwitchButton"
 import { BuyCard } from "./BuyCard"
 import { ExchangeRate } from "./ExchangeRate"
 import { ActionButton } from "./ActionButton"
+import { RewardsBadge } from "./RewardsBadge"
 
 // Lazy-loaded below-the-fold components
 const TransactionSettings = dynamic(
@@ -165,7 +166,6 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         internalDeadline={internalDeadline}
         setInternalDeadline={setInternalDeadline}
         isMounted={isMounted}
-        estimatedMiles={props.estimatedMiles}
       />
 
       {/* 2. CORE SWAP CARDS
@@ -234,7 +234,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
           gridTemplateRows: fromToken && toToken && (isWrapUnwrap || !!amount) ? "1fr" : "0fr",
         }}
       >
-        {/* <div className="overflow-hidden">
+        <div className="overflow-hidden">
           <ExchangeRate
             exchangeRateContent={exchangeRateContent}
             exchangeRateValue={exchangeRateValue}
@@ -246,8 +246,9 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
             isWrapUnwrap={isWrapUnwrap}
             isManualInversion={isManualInversion}
             timeLeft={timeLeft}
+            estimatedMiles={props.estimatedMiles}
           />
-        </div> */}
+        </div>
       </div>
 
       <ActionButton
@@ -261,7 +262,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         isNonceLoading={isNonceLoading}
       />
 
-      {/* Miles estimate moved to TransactionSettings header */}
+      <RewardsBadge />
     </div>
   )
 }
