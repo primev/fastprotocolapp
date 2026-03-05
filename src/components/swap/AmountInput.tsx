@@ -31,14 +31,11 @@ const AmountInputComponent = ({
   inputRef,
 }: AmountInputProps) => {
   // 1. VALUE CALCULATIONS
-  // Detect non-numeric display strings that should be rendered as plain text
-  // (e.g. "No liquidity") instead of being fed to NumberFlow.
-  const isTextValue = !!value && isNaN(parseFloat(value.replace(/,/g, "")))
-  const cleanValue = value && !isTextValue ? value.replace(/,/g, "") : ""
+  const cleanValue = value ? value.replace(/,/g, "") : ""
 
   // Logic for NumberFlow formatting to match input precision
   const numericValue =
-    value && !isTextValue && !isNaN(parseFloat(cleanValue)) ? parseFloat(cleanValue) : null
+    value && !isNaN(parseFloat(cleanValue)) ? parseFloat(cleanValue) : null
   const decimalPlaces = cleanValue.includes(".") ? cleanValue.split(".")[1]?.length || 0 : 0
   const minFractionDigits = Math.min(decimalPlaces, 6)
   const maxFractionDigits = Math.max(6, decimalPlaces)
@@ -106,7 +103,7 @@ const AmountInputComponent = ({
         */}
         <span
           ref={mirrorRef}
-          className="absolute invisible whitespace-nowrap pointer-events-none font-bold tracking-tighter tabular-nums"
+          className="absolute invisible whitespace-nowrap pointer-events-none font-semibold tracking-tight tabular-nums leading-none"
           aria-hidden="true"
         >
           {value || "0"}
@@ -124,7 +121,7 @@ const AmountInputComponent = ({
               placeholder="0"
               disabled={isDisabled}
               className={cn(
-                "bg-transparent font-bold outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white tracking-tighter tabular-nums pr-1",
+                "bg-transparent font-semibold outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white tracking-tight tabular-nums pr-1",
                 showError ? "text-red-500" : "text-white"
               )}
               style={{ fontSize: `${fontPx}px` }}
@@ -133,7 +130,7 @@ const AmountInputComponent = ({
             <div
               onClick={onFocus}
               className={cn(
-                "font-bold leading-none tracking-tighter whitespace-nowrap pr-1 cursor-text",
+                "font-semibold leading-none tracking-tight whitespace-nowrap pr-1 cursor-text",
                 showError ? "text-red-500" : "text-white"
               )}
               style={{
@@ -141,9 +138,7 @@ const AmountInputComponent = ({
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {isTextValue ? (
-                <span className="text-white/40">{value}</span>
-              ) : numericValue !== null && numericValue !== 0 ? (
+              {numericValue !== null && numericValue !== 0 ? (
                 <NumberFlow
                   value={numericValue}
                   format={{
