@@ -34,8 +34,7 @@ const AmountInputComponent = ({
   const cleanValue = value ? value.replace(/,/g, "") : ""
 
   // Logic for NumberFlow formatting to match input precision
-  const numericValue =
-    value && !isNaN(parseFloat(cleanValue)) ? parseFloat(cleanValue) : null
+  const numericValue = value && !isNaN(parseFloat(cleanValue)) ? parseFloat(cleanValue) : null
   const decimalPlaces = cleanValue.includes(".") ? cleanValue.split(".")[1]?.length || 0 : 0
   const minFractionDigits = Math.min(decimalPlaces, 6)
   const maxFractionDigits = Math.max(6, decimalPlaces)

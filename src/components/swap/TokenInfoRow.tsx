@@ -83,7 +83,7 @@ export default React.memo(function TokenInfoRow({
   }
 
   return (
-    <div className="flex justify-between items-center text-sm font-medium text-white/30 tracking-tight min-h-[20px]">
+    <div className="flex justify-between items-center text-sm font-medium text-gray-500 tracking-tight min-h-[20px]">
       <span className="font-medium">{renderUsdContent()}</span>
     </div>
   )
