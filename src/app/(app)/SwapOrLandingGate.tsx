@@ -16,22 +16,10 @@ import { ApprovedExperience } from "@/components/landing/ApprovedExperience"
 type GateView = "landing" | "approved" | "waitlist" | "swap"
 
 function SwapContent() {
-  const { isConnected } = useAccount()
-
   return (
     <div className="relative flex flex-col items-center justify-start px-4 xs:pt-6 pb-4">
       <AnimatedBackgroundOrbs />
-      <div
-        className="grid transition-[grid-template-rows,opacity] duration-500 ease-in-out"
-        style={{
-          gridTemplateRows: isConnected ? "0fr" : "1fr",
-          opacity: isConnected ? 0 : 1,
-        }}
-      >
-        <div className="overflow-hidden">
-          <Hero />
-        </div>
-      </div>
+      <Hero />
       <SwapForm />
     </div>
   )
