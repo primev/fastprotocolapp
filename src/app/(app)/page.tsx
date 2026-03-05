@@ -3,14 +3,14 @@ import { SITE_URL } from "@/lib/site-config"
 import { SwapOrLandingGate } from "./SwapOrLandingGate"
 
 export const metadata: Metadata = {
-  title: "Swap",
+  title: "Sub-second Ethereum Swaps with Preconfirmations",
   description:
-    "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Faster than any DEX, settled on L1.",
+    "Swap tokens on Ethereum with sub-second preconfirmations. Faster than any DEX, settled on L1.",
   alternates: { canonical: SITE_URL },
   openGraph: {
-    title: "Swap | Fast Protocol",
+    title: "Fast Protocol — Sub-second Ethereum Swaps with Preconfirmations",
     description:
-      "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Faster than any DEX, settled on L1.",
+      "Swap tokens on Ethereum with sub-second preconfirmations. Faster than any DEX, settled on L1.",
   },
 }
 
