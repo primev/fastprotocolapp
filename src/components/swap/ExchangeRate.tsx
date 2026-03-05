@@ -171,9 +171,7 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
               </div>
             )}
 
-            {activeQuote && (
-              <span className="text-gray-400 font-medium">({formattedImpact})</span>
-            )}
+            {activeQuote && <span className="text-gray-400 font-medium">({formattedImpact})</span>}
           </div>
         )}
       </div>
