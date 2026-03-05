@@ -124,7 +124,7 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
                   value={exchangeRateValue}
                   format={{
                     minimumFractionDigits: exchangeRateToStable ? 2 : 0,
-                    maximumFractionDigits: exchangeRateToStable ? 2 : 6,
+                    maximumFractionDigits: exchangeRateToStable ? 2 : 3,
                   }}
                   style={
                     {
