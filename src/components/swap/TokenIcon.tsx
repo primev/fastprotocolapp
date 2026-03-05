@@ -9,16 +9,33 @@ export function TokenIcon({
   className,
   size = 40,
   hidden = false,
+  bare = false,
 }: {
   token: Token | undefined
   className?: string
   size?: number
   hidden?: boolean
+  bare?: boolean
 }) {
   const [hasImageError, setHasImageError] = useState(false)
   useEffect(() => {
     if (token) setHasImageError(false)
   }, [token?.address])
+
+  if (bare) {
+    return token?.logoURI && !hasImageError ? (
+      <img
+        src={token.logoURI}
+        alt={token.symbol}
+        className={cn("rounded-full object-contain", className)}
+        onError={() => setHasImageError(true)}
+      />
+    ) : (
+      <div className={cn("rounded-full bg-white/10 flex items-center justify-center", className)}>
+        <span className="text-xs font-bold text-white uppercase">{token?.symbol?.charAt(0)}</span>
+      </div>
+    )
+  }
 
   return (
     <div

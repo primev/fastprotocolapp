@@ -670,7 +670,7 @@ function SwapConfirmationModal({
                       )}
                     </p>
                   </div>
-                  <TokenIcon token={tokenIn} className="h-11 w-11 sm:h-12 sm:w-12" />
+                  <TokenIcon token={tokenIn} bare className="h-11 w-11 sm:h-12 sm:w-12" />
                 </div>
 
                 {/* Arrow Indicator */}
@@ -706,7 +706,7 @@ function SwapConfirmationModal({
                       )}
                     </p>
                   </div>
-                  <TokenIcon token={tokenOut} className="h-11 w-11 sm:h-12 sm:w-12" />
+                  <TokenIcon token={tokenOut} bare className="h-11 w-11 sm:h-12 sm:w-12" />
                 </div>
               </div>
 
