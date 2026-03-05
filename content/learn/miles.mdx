@@ -1,6 +1,6 @@
 ---
 title: "Miles: How to Earn on Fast Protocol"
-description: "Miles are Fast Protocol's loyalty system — earned on every swap, proportional to your activity, building toward future rewards."
+description: "Miles are Fast Protocol's loyalty system — earned when your swaps generate mev, proportional to value created, building toward future rewards."
 slug: "miles"
 category: "mev"
 date: "2026-03-01"
@@ -10,24 +10,26 @@ seoKeywords: ["fast protocol miles", "how to earn miles fast protocol", "fast pr
 status: published
 ---
 
-Miles are Fast Protocol's loyalty system. Every swap earns Miles — a cumulative record of your participation in the protocol.
+Miles are Fast Protocol's loyalty system — a cumulative record of the mev value your swaps generate for the protocol.
 
-Think of Miles like frequent flyer points for Ethereum. Airlines reward passengers who show up consistently. Fast Protocol rewards users who swap consistently. The more you participate, the more Miles you accumulate, and the more your ongoing relationship with the protocol is worth.
+Think of Miles like frequent flyer points for Ethereum. Airlines reward passengers based on the routes they fly and the fares they pay — not every trip earns the same. Similarly, Fast Protocol rewards users based on the mev their swaps produce. The more mev value you generate, the more Miles you accumulate.
 
 ## How earning works
 
-Every swap you execute through Fast Protocol earns Miles. The earning is:
+Miles are earned when your swaps generate extractable mev. Not every swap produces mev — it depends on the factors below. When mev is generated, earning is:
 
 - **Automatic**: No staking, claiming, or additional transactions required
-- **Proportional**: Larger swaps and swaps that generate more mev earn more Miles
-- **Cumulative**: Miles accumulate over time, building a record of your total activity
+- **Proportional**: Swaps that generate more mev earn more Miles
+- **Cumulative**: Miles accumulate over time, building a record of your total mev contribution
 - **Instant**: Miles are credited immediately after your swap confirms
+
+**Important**: If a swap generates no mev (for example, a stablecoin-to-stablecoin swap in deep liquidity during calm markets), it earns zero Miles — regardless of swap size. Volume alone does not guarantee Miles.
 
 You can track your Miles balance in the [My Miles dashboard](/dashboard).
 
 ## What affects earning rate
 
-Not all swaps earn Miles equally. Several factors influence how many Miles a swap generates:
+Whether a swap earns Miles — and how many — depends on how much mev it generates. Several factors determine this:
 
 ### Swap size
 
@@ -45,13 +47,13 @@ Swaps in less liquid pairs create bigger price impacts, generating more mev and 
 
 During volatile market periods, mev generation increases across the board. Swaps executed during high-activity periods tend to earn more Miles.
 
-The common thread: Miles reward the economic value your swaps bring to the network. Activity that generates more mev for the protocol earns more Miles.
+The common thread: **Miles are a direct function of mev generated**. If a swap doesn't create extractable mev — because the pair is stable, liquidity is deep, and markets are calm — it won't earn Miles, regardless of the dollar amount swapped. Conversely, a smaller swap in a volatile, thin market can earn significant Miles because it generates real mev.
 
 ## Miles and mev rewards
 
 Miles work alongside [mev rewards](/learn/mev-rewards) — they're complementary systems, not alternatives.
 
-**mev rewards** improve your immediate swap execution. At least 90% of the mev your swap generates is returned to you as a better price. This is per-swap value — you earn it automatically on every trade.
+**mev rewards** improve your immediate swap execution. At least 90% of the mev your swap generates is returned to you as a better price. This is per-swap value — you earn it automatically on every trade that generates mev.
 
 **Miles** represent cumulative participation. They don't affect your current swap execution, but they accumulate into a record of your total contribution to the protocol. This cumulative record is where future utility builds.
 
@@ -85,7 +87,7 @@ The leaderboard creates visibility into who is contributing the most to the prot
 
 DeFi protocols typically acquire users through token emissions — liquidity mining, airdrops, and yield farming programs that attract mercenary capital and collapse when incentives end.
 
-Miles take the opposite approach. Instead of paying users to participate with dilutive token emissions, Miles **record** participation and attach future value to it. The earning comes from real activity (swapping tokens) that generates real revenue (mev fees). Miles tokenize that relationship.
+Miles take the opposite approach. Instead of paying users to participate with dilutive token emissions, Miles **record** participation and attach future value to it. The earning comes from real activity — swaps that generate extractable mev — which produces real revenue (mev fees). Miles tokenize that relationship.
 
 This means Miles are backed by genuine protocol revenue, not inflationary emissions. The more users swap on Fast Protocol, the more mev the protocol generates, and the more valuable the Miles ecosystem becomes.
 

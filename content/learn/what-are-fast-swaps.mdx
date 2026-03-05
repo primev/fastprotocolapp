@@ -14,7 +14,7 @@ faq:
   - question: "Do fast swaps cost extra gas?"
     answer: "No. Fast swaps use Permit2 for gasless token approvals, so you don't pay for a separate approval transaction. The swap itself costs standard Ethereum gas — there's no additional fee for the preconfirmation."
   - question: "How do I earn mev rewards from fast swaps?"
-    answer: "Every swap generates mev from arbitrage and ordering opportunities. Fast Protocol's auction mechanism forces builders to compete for your order flow, returning at least 90% of the mev your swap generates directly to you as an improved execution price."
+    answer: "When your swap generates mev — from arbitrage and ordering opportunities — Fast Protocol's auction mechanism forces builders to compete for your order flow, returning at least 90% of the generated mev directly to you as an improved execution price. Not every swap generates mev; it depends on pair volatility, liquidity depth, and market conditions."
 ---
 
 A fast swap is a token exchange on Ethereum that confirms in roughly 200 milliseconds — before the block that includes it has even been produced.
@@ -47,13 +47,15 @@ Traditional ERC-20 swaps require two transactions: an approval transaction (whic
 
 This is both faster and more secure than the traditional approve-then-swap flow.
 
-## Earning on every swap
+## mev rewards and Miles
 
-Every token swap on Ethereum generates mev. When you trade, the price impact creates arbitrage opportunities between your venue and others. Searchers typically capture this value by submitting transactions that profit from the state change you created.
+Many token swaps on Ethereum generate mev — the arbitrage and ordering opportunities created by your trade's price impact. On most platforms, searchers capture this value entirely.
 
-On Fast Protocol, builders compete in an auction for the right to include your swap. This competition forces them to return value to you. At least 90% of the mev your swap generates comes back as an improved execution price.
+On Fast Protocol, builders compete in an auction for the right to include your swap. This competition forces them to return value to you. At least 90% of the mev your swap generates comes back as an improved execution price. Swaps that generate mev also earn [Miles](/learn/miles).
 
-The earning is automatic. You don't claim anything, stake anything, or interact with any additional contracts. The auction mechanism handles redistribution at the protocol level.
+Not every swap generates mev. Factors like pair volatility, liquidity depth, swap size, and market conditions determine whether extractable mev exists. A stablecoin swap in deep liquidity during calm markets may generate no mev — and therefore no mev rewards or Miles.
+
+The earning is automatic when it occurs. You don't claim anything, stake anything, or interact with any additional contracts. The auction mechanism handles redistribution at the protocol level.
 
 ## What tokens can I swap?
 
