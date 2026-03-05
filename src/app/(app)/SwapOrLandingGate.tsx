@@ -135,6 +135,7 @@ export function SwapOrLandingGate() {
     <LandingPage
       onEarlyAccessClick={handleEarlyAccessClick}
       isCheckingAccess={isCheckingAccess || (earlyAccessIntended && isConnected)}
+      hasAccess={isConnected && isPreApproved}
     />
   )
 }
