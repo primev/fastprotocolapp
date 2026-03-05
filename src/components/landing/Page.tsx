@@ -77,9 +77,14 @@ const footerLogos = [
 interface IndexPageProps {
   onEarlyAccessClick?: () => void
   isCheckingAccess?: boolean
+  hasAccess?: boolean
 }
 
-const IndexPage = ({ onEarlyAccessClick, isCheckingAccess = false }: IndexPageProps) => {
+const IndexPage = ({
+  onEarlyAccessClick,
+  isCheckingAccess = false,
+  hasAccess = false,
+}: IndexPageProps) => {
   const router = useRouter()
   const { isConnected, address } = useAccount()
   const { openConnectModal } = useConnectModal()
@@ -221,13 +226,15 @@ const IndexPage = ({ onEarlyAccessClick, isCheckingAccess = false }: IndexPagePr
                   // pending resets if we stay on the page (e.g. connect modal opened)
                   setTimeout(() => setIsPending(false), 2000)
                 }}
-                className="h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-11 px-6 xs:px-7 sm:px-8 tablet:px-10 lg:px-7 whitespace-nowrap text-sm xs:text-base sm:text-base tablet:text-lg lg:text-sm w-full"
+                className={`h-10 xs:h-11 sm:h-12 tablet:h-14 lg:h-11 px-6 xs:px-7 sm:px-8 tablet:px-10 lg:px-7 whitespace-nowrap text-sm xs:text-base sm:text-base tablet:text-lg lg:text-sm w-full hover:!scale-100 hover:!shadow-none`}
               >
                 {isCheckingAccess || isPending ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                     Checking access…
                   </span>
+                ) : hasAccess ? (
+                  "Access Granted"
                 ) : (
                   "Get Early Access"
                 )}
