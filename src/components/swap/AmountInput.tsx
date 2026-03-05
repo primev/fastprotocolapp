@@ -124,7 +124,7 @@ const AmountInputComponent = ({
               placeholder="0"
               disabled={isDisabled}
               className={cn(
-                "bg-transparent font-bold outline-none w-full placeholder:text-white leading-none cursor-text caret-white tracking-tighter tabular-nums pr-1",
+                "bg-transparent font-bold outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white tracking-tighter tabular-nums pr-1",
                 showError ? "text-red-500" : "text-white"
               )}
               style={{ fontSize: `${fontPx}px` }}
@@ -143,7 +143,7 @@ const AmountInputComponent = ({
             >
               {isTextValue ? (
                 <span className="text-white/40">{value}</span>
-              ) : numericValue !== null ? (
+              ) : numericValue !== null && numericValue !== 0 ? (
                 <NumberFlow
                   value={numericValue}
                   format={{
@@ -163,7 +163,7 @@ const AmountInputComponent = ({
                   }
                 />
               ) : (
-                <span className="text-white/10">0</span>
+                <span className="text-white/20">0</span>
               )}
             </div>
           )}
