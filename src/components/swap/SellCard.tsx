@@ -110,13 +110,15 @@ const SellCardComponent: React.FC<SellCardProps> = ({
             isQuoteLoading={effectiveQuoteLoading}
             inputRef={sellInputRef}
           />
-          <TokenInfoRow
-            displayAmount={amount}
-            tokenPrice={activeFromTokenPrice}
-            isLoadingPrice={isLoadingFromPrice}
-            isQuoteLoading={effectiveQuoteLoading}
-            side="sell"
-          />
+          {fromToken && !!amount && amount !== "0" && (
+            <TokenInfoRow
+              displayAmount={amount}
+              tokenPrice={activeFromTokenPrice}
+              isLoadingPrice={isLoadingFromPrice}
+              isQuoteLoading={effectiveQuoteLoading}
+              side="sell"
+            />
+          )}
         </div>
 
         {/* Token Selector Trigger - min-w prevents CLS when token loads */}

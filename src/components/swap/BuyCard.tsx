@@ -121,13 +121,15 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
             inputRef={buyInputRef}
           />
 
-          <TokenInfoRow
-            displayAmount={outputAmount || "0"}
-            tokenPrice={activeToTokenPrice}
-            isLoadingPrice={isLoadingToPrice}
-            isQuoteLoading={effectiveQuoteLoading}
-            side="buy"
-          />
+          {toToken && !!outputAmount && outputAmount !== "0" && (
+            <TokenInfoRow
+              displayAmount={outputAmount}
+              tokenPrice={activeToTokenPrice}
+              isLoadingPrice={isLoadingToPrice}
+              isQuoteLoading={effectiveQuoteLoading}
+              side="buy"
+            />
+          )}
         </div>
 
         {/* Token Selector Button - min-w prevents CLS when token loads */}
