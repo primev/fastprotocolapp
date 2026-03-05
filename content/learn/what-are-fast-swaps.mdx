@@ -1,6 +1,6 @@
 ---
 title: "What Are Fast Swaps?"
-description: "Fast swaps are sub-second token exchanges on Ethereum L1, powered by preconfirmations and Permit2 gasless approvals, where users earn mev rewards on every trade."
+description: "Fast swaps are sub-second token exchanges on Ethereum L1 powered by preconfirmations, Permit2 gasless approvals, and mev rewards."
 slug: "what-are-fast-swaps"
 category: "Fast Protocol"
 date: "2026-03-01"
@@ -38,7 +38,8 @@ From your perspective, the swap feels instant. You click, you sign, you see conf
 
 Traditional ERC-20 swaps require two transactions: an approval transaction (which costs gas and takes a full block) followed by the actual swap. Permit2 collapses this into a single off-chain signature.
 
-When you swap on Fast Protocol:
+### How Permit2 works for swaps
+
 - You sign a typed message that authorizes the exact token amount for this specific swap
 - No on-chain approval transaction needed
 - No unlimited allowance sitting in a smart contract

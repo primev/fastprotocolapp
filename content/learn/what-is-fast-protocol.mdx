@@ -1,6 +1,6 @@
 ---
 title: "What Is Fast Protocol?"
-description: "Fast Protocol is an order flow auction system that delivers sub-second Ethereum swaps powered by preconfirmations, with at least 90% of mev returned to users."
+description: "Fast Protocol delivers sub-second Ethereum swaps via preconfirmations, with at least 90% of mev returned to users."
 slug: "what-is-fast-protocol"
 category: "Fast Protocol"
 date: "2026-03-01"
@@ -52,9 +52,17 @@ The preconfirmation isn't a promise. It's a cryptographic commitment backed by t
 
 Three technical components work together:
 
-- **mev-commit protocol**: The credible commitment layer that enables preconfirmations. Builders stake collateral and make cryptographic commitments to include specific transactions. Breaking a commitment triggers slashing.
-- **FAST RPC**: A drop-in Ethereum RPC endpoint that routes your transactions through the mev-commit auction instead of the public mempool. You don't need to change wallets or learn new tools.
-- **Permit2**: A gasless approval standard that lets you authorize swaps without a separate approval transaction. One signature, one swap, zero extra gas.
+### mev-commit protocol
+
+The credible commitment layer that enables preconfirmations. Builders stake collateral and make cryptographic commitments to include specific transactions. Breaking a commitment triggers slashing.
+
+### FAST RPC
+
+A drop-in Ethereum RPC endpoint that routes your transactions through the mev-commit auction instead of the public mempool. You don't need to change wallets or learn new tools.
+
+### Permit2
+
+A gasless approval standard that lets you authorize swaps without a separate approval transaction. One signature, one swap, zero extra gas.
 
 ## mev redistribution
 

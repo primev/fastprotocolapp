@@ -1,6 +1,6 @@
 ---
 title: "What Are Preconfirmations?"
-description: "Preconfirmations are cryptographic commitments from block builders to include your transaction in a specific position, backed by slashable stake for enforcement."
+description: "Preconfirmations are cryptographic commitments from block builders to include your transaction, backed by slashable stake."
 slug: "what-are-preconfirmations"
 category: "Preconfirmations"
 date: "2026-03-01"
@@ -42,11 +42,17 @@ The ~200ms confirmation isn't an estimate or a soft promise. It's a signed commi
 
 Preconfirmations are only credible if breaking them has consequences. The [mev-commit protocol](https://docs.primev.xyz) provides this enforcement layer.
 
-**Staking**: Builders who want to issue preconfirmations must stake collateral with the mev-commit protocol. The amount staked limits the total value of preconfirmations they can issue — they can't commit more than they're willing to lose.
+### Staking
 
-**Commitment verification**: After each block, the protocol verifies whether builders honored their preconfirmations. Did the transaction appear at the committed position? Did the execution match what was promised?
+Builders who want to issue preconfirmations must stake collateral with the mev-commit protocol. The amount staked limits the total value of preconfirmations they can issue — they can't commit more than they're willing to lose.
 
-**Slashing**: If a builder fails to honor a preconfirmation, a portion of their stake is slashed. The slashed amount compensates the user who was harmed by the broken commitment. This creates strong economic incentive for builders to only issue preconfirmations they can deliver.
+### Commitment verification
+
+After each block, the protocol verifies whether builders honored their preconfirmations. Did the transaction appear at the committed position? Did the execution match what was promised?
+
+### Slashing
+
+If a builder fails to honor a preconfirmation, a portion of their stake is slashed. The slashed amount compensates the user who was harmed by the broken commitment. This creates strong economic incentive for builders to only issue preconfirmations they can deliver.
 
 ## Why preconfirmations matter
 
