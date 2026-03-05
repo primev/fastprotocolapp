@@ -131,8 +131,7 @@ export function SwapForm() {
             ? form.amount
             : form.editingSide === "buy"
               ? form.amount
-              : form.displayQuote?.amountOutFormatted ||
-                (form.hasNoLiquidity ? "No liquidity" : "0")
+              : form.displayQuote?.amountOutFormatted || ""
         }
         toBalance={form.toBalance}
         toBalanceValue={form.toBalanceValue}
