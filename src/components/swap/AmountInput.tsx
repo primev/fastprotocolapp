@@ -47,7 +47,9 @@ const AmountInputComponent = ({
   }, [isActive, inputRef])
 
   // 2. DYNAMIC FONT SCALING STATE & REFS
-  const [fontPx, setFontPx] = useState(36)
+  const isSm = typeof window !== "undefined" && window.innerWidth >= 640
+  const maxFontSize = isSm ? 36 : 28
+  const [fontPx, setFontPx] = useState(maxFontSize)
   const containerRef = useRef<HTMLDivElement>(null)
   const mirrorRef = useRef<HTMLSpanElement>(null)
 
@@ -61,7 +63,7 @@ const AmountInputComponent = ({
     const mirror = mirrorRef.current
     if (!container || !mirror) return
 
-    const MAX_FONT_SIZE = 36
+    const MAX_FONT_SIZE = maxFontSize
     const MIN_FONT_SIZE = 14
     const RIGHT_GUTTER = 4 // Safety buffer to prevent character clipping at the edge
 
@@ -87,14 +89,14 @@ const AmountInputComponent = ({
     adjustSize()
 
     return () => observer.disconnect()
-  }, [value])
+  }, [value, maxFontSize])
 
   // 3. RENDER LOGIC
   return (
     <div className="flex-1 relative">
       <div
         ref={containerRef}
-        className="relative w-full h-[60px] flex items-center overflow-hidden"
+        className="relative w-full h-[34px] sm:h-[42px] flex items-center overflow-hidden"
       >
         {/* HIDDEN MIRROR: 
             Used solely for measuring text width. Must share the exact 
@@ -108,7 +110,7 @@ const AmountInputComponent = ({
           {value || "0"}
         </span>
 
-        <div className="w-full flex items-center transition-[font-size] duration-200 ease-out h-[60px]">
+        <div className="w-full flex items-center transition-[font-size] duration-200 ease-out h-[34px] sm:h-[42px]">
           {isActive ? (
             <input
               ref={inputRef}
