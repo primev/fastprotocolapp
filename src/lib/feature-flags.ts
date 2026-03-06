@@ -7,7 +7,7 @@ export const FEATURE_FLAGS = {
   /** When true, users not on the whitelist see the landing page on the app route instead of the swap UI. */
   swapPrivateMode: true,
   /** When true, show estimated Fast Miles earned on the swap form and confirmation modal. */
-  show_miles_estimate: true,
+  show_miles_estimate: false,
 }
 
 /** Placeholder data for SwapToast test mode (ETH → USDC) */
