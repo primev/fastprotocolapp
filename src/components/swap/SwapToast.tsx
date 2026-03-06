@@ -117,7 +117,7 @@ export function SwapToast({ hash }: { hash: string }) {
       <button
         type="button"
         onClick={() => expand(hash)}
-        className="flex items-center gap-2 rounded-full bg-neutral-900 px-3 py-2 shadow"
+        className="flex items-center justify-center gap-2 rounded-full bg-neutral-900 px-3 py-2 shadow"
       >
         <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
         <span className="text-sm text-white">Pending</span>
