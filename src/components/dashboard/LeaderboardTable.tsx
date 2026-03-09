@@ -264,7 +264,7 @@ export const LeaderboardTable = ({
   )
 
   return (
-    <div className="w-full max-w-7xl mx-auto pt-2 pb-4 md:py-8 px-3 sm:px-4 md:px-6 space-y-4 md:space-y-6 overflow-x-hidden">
+    <div className="w-full max-w-7xl mx-auto py-4 md:py-8 px-3 sm:px-4 md:px-6 space-y-4 md:space-y-6 overflow-x-hidden">
       {/* Header Section: Title & Global Stats */}
       <div className="flex flex-col gap-5 border-b border-white/5 pb-6">
         {/* Branding & Global Metrics */}
@@ -903,6 +903,10 @@ const StatsCard = ({
           ))}
         </div>
       </div>
+
+      <button className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer">
+        All Leaders →
+      </button>
     </Card>
   )
 }
