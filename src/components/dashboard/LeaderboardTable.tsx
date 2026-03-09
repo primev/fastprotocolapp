@@ -1,11 +1,19 @@
 "use client"
 
-import React, { useState, useMemo } from "react"
+import React, { useState, useMemo, useEffect, useCallback } from "react"
 import { useAccount } from "wagmi"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { TrendingUp, Target, Zap, Users, Flame } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { TrendingUp, Target, Zap, Users, Flame, HelpCircle } from "lucide-react"
 import { formatCurrency, formatNumber } from "@/lib/utils"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import {
@@ -575,14 +583,7 @@ export const LeaderboardTable = ({
         <TabsContent value="stats" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             {/* Volume Leaders */}
-            <StatsCard
-              title="Volume Leaders"
-              icon={<TrendingUp size={18} className="text-primary" />}
-              tabs={["Volume", "Avg Size", "Largest"]}
-              entries={statsByVolume}
-              formatStat={(e) => formatVolumeDisplay(e.swapVolume24h)}
-              statLabel="VOLUME"
-            />
+            <VolumeLeadersCard initialData={statsByVolume} />
 
             {/* Efficiency Leaders */}
             <StatsCard
@@ -592,6 +593,7 @@ export const LeaderboardTable = ({
               entries={statsByTxCount}
               formatStat={(e) => (e.swapCount ?? 0).toLocaleString()}
               statLabel="TX COUNT"
+              tooltip={<><strong>Tx Count</strong> — most total swaps.<br /><strong>Tx/Day</strong> — highest daily swap frequency.<br /><strong>Streak</strong> — longest consecutive active days.</>}
             />
 
             {/* Referral Leaders */}
@@ -602,6 +604,7 @@ export const LeaderboardTable = ({
               entries={statsByVolume}
               formatStat={(e) => formatVolumeDisplay(e.swapVolume24h)}
               statLabel="REFERRALS"
+              tooltip={<><strong>Total Refs</strong> — most referrals made.<br /><strong>Ref Volume</strong> — highest volume from referred users.<br /><strong>Active</strong> — most currently active referrals.</>}
             />
 
             {/* Rising Stars */}
@@ -614,6 +617,7 @@ export const LeaderboardTable = ({
               formatStat={(e) => (e.swapCount ?? 0).toLocaleString()}
               statLabel="GROWTH"
               highlightColor="text-green-500"
+              tooltip={<><strong>Climbers</strong> — biggest rank improvements.<br /><strong>New Users</strong> — top performers who joined recently.<br /><strong>WoW Growth</strong> — highest week-over-week volume increase.</>}
             />
           </div>
         </TabsContent>
@@ -781,6 +785,7 @@ interface StatsCardProps {
   formatStat: (entry: LeaderboardEntry) => string
   statLabel: string
   highlightColor?: string
+  tooltip?: React.ReactNode
 }
 
 const StatsCard = ({
@@ -792,6 +797,7 @@ const StatsCard = ({
   formatStat,
   statLabel,
   highlightColor = "text-foreground",
+  tooltip,
 }: StatsCardProps) => {
   const [activeTab, setActiveTab] = useState(tabs[0])
   const leader = entries[0]
@@ -804,6 +810,16 @@ const StatsCard = ({
         <h3 className="font-bold text-sm">{title}</h3>
         {subtitle && (
           <span className="text-[10px] text-muted-foreground/40">({subtitle})</span>
+        )}
+        {tooltip && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <HelpCircle size={14} className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[240px] text-xs leading-relaxed">
+              {tooltip}
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
 
@@ -875,5 +891,275 @@ const StatsCard = ({
         All Leaders →
       </button>
     </Card>
+  )
+}
+
+// Volume Leaders entry from API
+interface VolumeLeaderEntry {
+  rank: number
+  wallet: string
+  volume: number
+  volumeEth: number
+  swapCount: number
+  avgSize: number
+  largestSwap?: number
+  largestSwapEth?: number
+}
+
+const VOLUME_TABS = ["Volume", "Avg Size", "Largest"] as const
+type VolumeTab = (typeof VOLUME_TABS)[number]
+
+const TAB_TO_SORT: Record<VolumeTab, string> = {
+  Volume: "volume",
+  "Avg Size": "avg_size",
+  Largest: "largest",
+}
+
+const TAB_TO_LABEL: Record<VolumeTab, string> = {
+  Volume: "VOLUME",
+  "Avg Size": "AVG SIZE",
+  Largest: "LARGEST",
+}
+
+function formatVol(v: number): string {
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`
+  if (v >= 1e3) return `$${(v / 1e3).toFixed(0)}K`
+  if (v >= 1) return `$${v.toFixed(0)}`
+  return `$${v.toFixed(2)}`
+}
+
+function getStatForTab(entry: VolumeLeaderEntry, tab: VolumeTab): string {
+  switch (tab) {
+    case "Volume":
+      return formatVol(entry.volume)
+    case "Avg Size":
+      return formatVol(entry.avgSize)
+    case "Largest":
+      return formatVol(entry.largestSwap ?? 0)
+  }
+}
+
+const VolumeLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] }) => {
+  const [activeTab, setActiveTab] = useState<VolumeTab>("Volume")
+  const [largestData, setLargestData] = useState<VolumeLeaderEntry[] | null>(null)
+  const [isLargestLoading, setIsLargestLoading] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalEntries, setModalEntries] = useState<VolumeLeaderEntry[]>([])
+  const [isModalLoading, setIsModalLoading] = useState(false)
+
+  // Derive Volume and Avg Size entries from already-loaded leaderboard data
+  const derivedEntries = useMemo((): VolumeLeaderEntry[] => {
+    const mapped = initialData.map((e, i) => ({
+      rank: i + 1,
+      wallet: e.wallet,
+      volume: e.swapVolume24h,
+      volumeEth: e.ethValue ?? 0,
+      swapCount: e.swapCount ?? 0,
+      avgSize: (e.swapCount ?? 0) > 0 ? e.swapVolume24h / (e.swapCount ?? 1) : 0,
+    }))
+    if (activeTab === "Avg Size") {
+      mapped.sort((a, b) => b.avgSize - a.avgSize)
+      return mapped.map((e, i) => ({ ...e, rank: i + 1 }))
+    }
+    return mapped
+  }, [initialData, activeTab])
+
+  const fetchFromApi = useCallback(async (sort: string, limit: number) => {
+    const res = await fetch(`/api/analytics/leaderboard/volume-leaders?sort=${sort}&limit=${limit}`)
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.entries || []) as VolumeLeaderEntry[]
+  }, [])
+
+  // Only fetch when Largest tab is selected (needs separate query)
+  useEffect(() => {
+    if (activeTab !== "Largest") return
+    if (largestData) return // Already fetched
+    let cancelled = false
+    setIsLargestLoading(true)
+    fetchFromApi("largest", 10).then((data) => {
+      if (!cancelled) {
+        setLargestData(data)
+        setIsLargestLoading(false)
+      }
+    })
+    return () => { cancelled = true }
+  }, [activeTab, largestData, fetchFromApi])
+
+  const handleAllLeaders = useCallback(async () => {
+    setModalOpen(true)
+    setIsModalLoading(true)
+    const data = await fetchFromApi(TAB_TO_SORT[activeTab], 100)
+    setModalEntries(data)
+    setIsModalLoading(false)
+  }, [activeTab, fetchFromApi])
+
+  // Pick the right entries for the active tab
+  const entries = activeTab === "Largest" ? (largestData ?? []) : derivedEntries
+  const isLoading = activeTab === "Largest" && isLargestLoading
+  const leader = entries[0]
+  const statLabel = TAB_TO_LABEL[activeTab]
+
+  return (
+    <>
+      <Card className="p-4 md:p-6 bg-white/[0.01] border-white/5">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp size={18} className="text-primary" />
+          <h3 className="font-bold text-sm">Volume Leaders</h3>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <HelpCircle size={14} className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[240px] text-xs leading-relaxed">
+              <p><span className="font-bold text-foreground">Volume</span> — Total swap volume</p>
+              <p><span className="font-bold text-foreground">Avg Size</span> — Average swap size</p>
+              <p><span className="font-bold text-foreground">Largest</span> — Biggest single swap</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* Internal tabs */}
+        <div className="flex gap-1 mb-4 border-b border-white/5 pb-2">
+          {VOLUME_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                activeTab === tab
+                  ? "bg-primary/10 text-primary font-bold"
+                  : "text-muted-foreground/50 hover:text-foreground"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-4">
+          {/* Leader highlight */}
+          <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
+            {leader ? (
+              <>
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                  <span className="text-sm font-black uppercase tracking-widest text-primary">
+                    #1
+                  </span>
+                </div>
+                <p className="font-mono text-xs text-center truncate max-w-[110px]">
+                  {leader.wallet}
+                </p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-1">
+                  {statLabel}
+                </p>
+                <p className="text-lg font-black tabular-nums">
+                  {getStatForTab(leader, activeTab)}
+                </p>
+              </>
+            ) : (
+              <div className="text-[10px] text-muted-foreground/30 font-bold uppercase">
+                {isLoading ? "Loading..." : "No data"}
+              </div>
+            )}
+          </div>
+
+          {/* Ranked list */}
+          <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
+            {isLoading && entries.length === 0 ? (
+              <div className="p-4 text-center text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
+                Loading...
+              </div>
+            ) : (
+              entries.map((entry, idx) => (
+                <div
+                  key={entry.wallet}
+                  className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                    idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground/40 w-6 text-xs font-mono">
+                      {idx + 1}.
+                    </span>
+                    <span className="font-mono text-xs truncate max-w-[100px]">
+                      {entry.wallet}
+                    </span>
+                  </div>
+                  <span
+                    className={`font-mono text-xs font-bold ${
+                      idx === 0
+                        ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
+                        : ""
+                    }`}
+                  >
+                    {getStatForTab(entry, activeTab)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={handleAllLeaders}
+          className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer"
+        >
+          All Leaders →
+        </button>
+      </Card>
+
+      {/* All Leaders Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] bg-background border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black">
+              Volume Leaders — {activeTab}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground/60">
+              Top 100 wallets sorted by {activeTab.toLowerCase()}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-1 max-h-[60vh] overflow-y-auto scrollbar-hide">
+            {isModalLoading ? (
+              <div className="p-8 text-center text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
+                Loading top 100...
+              </div>
+            ) : (
+              modalEntries.map((entry, idx) => (
+                <div
+                  key={entry.wallet}
+                  className={`flex items-center justify-between py-2 px-3 rounded text-sm ${
+                    idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground/40 w-8 text-xs font-mono text-right">
+                      {entry.rank}.
+                    </span>
+                    <span className="font-mono text-sm truncate max-w-[200px]">
+                      {entry.wallet}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-[10px] text-muted-foreground/40 font-mono">
+                      {entry.swapCount} swaps
+                    </span>
+                    <span
+                      className={`font-mono text-sm font-bold tabular-nums ${
+                        idx === 0
+                          ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
+                          : ""
+                      }`}
+                    >
+                      {getStatForTab(entry, activeTab)}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

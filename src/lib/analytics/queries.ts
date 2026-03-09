@@ -298,6 +298,23 @@ ORDER BY recent_swap_count DESC
 LIMIT :limit
 `.trim()
 
+// Volume leaders: by largest single swap
+export const LEADERBOARD_BY_LARGEST_SWAP = `
+SELECT
+  lower(from_address) AS wallet,
+  MAX(COALESCE(swap_vol_usd, 0)) AS largest_swap_usd,
+  MAX(COALESCE(swap_vol_eth, 0)) AS largest_swap_eth,
+  COUNT(*) AS swap_count,
+  SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
+  SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
+FROM mevcommit_57173.processed_l1_txns_v2
+WHERE is_swap = TRUE
+GROUP BY lower(from_address)
+HAVING MAX(COALESCE(swap_vol_usd, 0)) > 0
+ORDER BY largest_swap_usd DESC
+LIMIT :limit
+`.trim()
+
 // Users domain
 export const GET_USER_SWAP_VOLUME = `
 SELECT
@@ -324,6 +341,9 @@ export const QUERIES = {
   "leaderboard/user-data": LEADERBOARD_USER_DATA,
   "leaderboard/user-rank": LEADERBOARD_USER_RANK,
   "leaderboard/next-rank-threshold": LEADERBOARD_NEXT_RANK_THRESHOLD,
+
+  // Volume leaders
+  "leaderboard/by-largest-swap": LEADERBOARD_BY_LARGEST_SWAP,
 
   // Users domain
   "users/get-user-swap-volume": GET_USER_SWAP_VOLUME,
