@@ -358,16 +358,14 @@ grouped AS (
   SELECT
     wallet,
     active_day,
-    DATE_ADD('day', -CAST(rn AS INTEGER), active_day) AS grp
+    CAST(active_day AS TIMESTAMP) - rn * INTERVAL '1' DAY AS grp
   FROM with_row
 ),
 streaks AS (
   SELECT
     wallet,
     grp,
-    COUNT(*) AS streak_len,
-    MIN(active_day) AS streak_start,
-    MAX(active_day) AS streak_end
+    COUNT(*) AS streak_len
   FROM grouped
   GROUP BY wallet, grp
 ),
