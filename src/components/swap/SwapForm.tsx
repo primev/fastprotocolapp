@@ -45,7 +45,7 @@ export function SwapForm() {
     ? form.amount
     : form.displayQuote?.amountOutFormatted || form.amount
 
-  const { estimatedMiles } = useEstimatedMiles({
+  const { estimatedMiles: rawEstimatedMiles } = useEstimatedMiles({
     amountOut: milesAmountOut,
     slippage: form.slippage,
     toTokenPrice: form.toPrice,
@@ -53,13 +53,11 @@ export function SwapForm() {
     isEthOutput,
     baseFeePerGas,
     isPermitPath: !!isPermitPath && !form.isWrapUnwrap,
-    enabled:
-      FEATURE_FLAGS.show_miles_estimate &&
-      !form.isWrapUnwrap &&
-      !!form.displayQuote &&
-      !!form.fromToken &&
-      !!form.toToken,
+    enabled: !form.isWrapUnwrap && !!form.displayQuote && !!form.fromToken && !!form.toToken,
   })
+
+  // Keep estimation behind the feature flag for UI, but always log to console
+  const estimatedMiles = FEATURE_FLAGS.show_miles_estimate ? rawEstimatedMiles : null
 
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
   const lastTxError = useSwapToastStore((s) => s.lastTxError)
