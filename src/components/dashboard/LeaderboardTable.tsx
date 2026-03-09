@@ -13,7 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import { TrendingUp, Target, Zap, Users, Flame, HelpCircle } from "lucide-react"
+import { TrendingUp, Target, Zap, Users, Flame, HelpCircle, BarChart3 } from "lucide-react"
 import { formatCurrency, formatNumber } from "@/lib/utils"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import {
@@ -586,15 +586,7 @@ export const LeaderboardTable = ({
             <VolumeLeadersCard initialData={statsByVolume} />
 
             {/* Efficiency Leaders */}
-            <StatsCard
-              title="Efficiency Leaders"
-              icon={<Zap size={18} className="text-primary" />}
-              tabs={["Tx Count", "Tx/Day", "Streak"]}
-              entries={statsByTxCount}
-              formatStat={(e) => (e.swapCount ?? 0).toLocaleString()}
-              statLabel="TX COUNT"
-              tooltip={<><strong>Tx Count</strong> — most total swaps.<br /><strong>Tx/Day</strong> — highest daily swap frequency.<br /><strong>Streak</strong> — longest consecutive active days.</>}
-            />
+            <EfficiencyLeadersCard initialData={statsByTxCount} />
 
             {/* Referral Leaders */}
             <StatsCard
@@ -840,56 +832,65 @@ const StatsCard = ({
         ))}
       </div>
 
-      <div className="flex gap-4">
-        {/* Leader highlight */}
-        <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-            <span className="text-sm font-black uppercase tracking-widest text-primary">
-              #1
-            </span>
-          </div>
-          <p className="font-mono text-xs text-center truncate max-w-[110px]">{leader.wallet}</p>
-          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-1">
-            {statLabel}
-          </p>
-          <p className={`text-lg font-black tabular-nums ${highlightColor}`}>
-            {formatStat(leader)}
-          </p>
+      {!leader ? (
+        <div className="flex flex-col items-center justify-center py-12 gap-3">
+          <BarChart3 size={32} className="text-muted-foreground/15" />
+          <p className="text-xs text-muted-foreground/30 font-medium">No data available yet</p>
         </div>
-
-        {/* Ranked list - scrollbar hidden */}
-        <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
-          {entries.map((entry, idx) => (
-            <div
-              key={entry.wallet}
-              className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
-                idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground/40 w-6 text-xs font-mono">{idx + 1}.</span>
-                <span className="font-mono text-xs truncate max-w-[100px]">
-                  {entry.wallet}
-                  {entry.isCurrentUser && <span className="text-primary ml-1">•</span>}
+      ) : (
+        <>
+          <div className="flex gap-4">
+            {/* Leader highlight */}
+            <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                <span className="text-sm font-black uppercase tracking-widest text-primary">
+                  #1
                 </span>
               </div>
-              <span
-                className={`font-mono text-xs font-bold ${
-                  idx === 0
-                    ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
-                    : highlightColor
-                }`}
-              >
-                {formatStat(entry)}
-              </span>
+              <p className="font-mono text-xs text-center truncate max-w-[110px]">{leader.wallet}</p>
+              <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-1">
+                {statLabel}
+              </p>
+              <p className={`text-lg font-black tabular-nums ${highlightColor}`}>
+                {formatStat(leader)}
+              </p>
             </div>
-          ))}
-        </div>
-      </div>
 
-      <button className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer">
-        All Leaders →
-      </button>
+            {/* Ranked list - scrollbar hidden */}
+            <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
+              {entries.map((entry, idx) => (
+                <div
+                  key={entry.wallet}
+                  className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                    idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground/40 w-6 text-xs font-mono">{idx + 1}.</span>
+                    <span className="font-mono text-xs truncate max-w-[100px]">
+                      {entry.wallet}
+                      {entry.isCurrentUser && <span className="text-primary ml-1">•</span>}
+                    </span>
+                  </div>
+                  <span
+                    className={`font-mono text-xs font-bold ${
+                      idx === 0
+                        ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
+                        : highlightColor
+                    }`}
+                  >
+                    {formatStat(entry)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer">
+            All Leaders →
+          </button>
+        </>
+      )}
     </Card>
   )
 }
@@ -1035,11 +1036,20 @@ const VolumeLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] })
           ))}
         </div>
 
-        <div className="flex gap-4">
-          {/* Leader highlight */}
-          <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
-            {leader ? (
-              <>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">Loading...</p>
+          </div>
+        ) : !leader ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <BarChart3 size={32} className="text-muted-foreground/15" />
+            <p className="text-xs text-muted-foreground/30 font-medium">No data available yet</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex gap-4">
+              {/* Leader highlight */}
+              <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
                   <span className="text-sm font-black uppercase tracking-widest text-primary">
                     #1
@@ -1054,57 +1064,47 @@ const VolumeLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] })
                 <p className="text-lg font-black tabular-nums">
                   {getStatForTab(leader, activeTab)}
                 </p>
-              </>
-            ) : (
-              <div className="text-[10px] text-muted-foreground/30 font-bold uppercase">
-                {isLoading ? "Loading..." : "No data"}
               </div>
-            )}
-          </div>
 
-          {/* Ranked list */}
-          <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
-            {isLoading && entries.length === 0 ? (
-              <div className="p-4 text-center text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
-                Loading...
-              </div>
-            ) : (
-              entries.map((entry, idx) => (
-                <div
-                  key={entry.wallet}
-                  className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
-                    idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground/40 w-6 text-xs font-mono">
-                      {idx + 1}.
-                    </span>
-                    <span className="font-mono text-xs truncate max-w-[100px]">
-                      {entry.wallet}
-                    </span>
-                  </div>
-                  <span
-                    className={`font-mono text-xs font-bold ${
-                      idx === 0
-                        ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
-                        : ""
+              {/* Ranked list */}
+              <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
+                {entries.map((entry, idx) => (
+                  <div
+                    key={entry.wallet}
+                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                      idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
                     }`}
                   >
-                    {getStatForTab(entry, activeTab)}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground/40 w-6 text-xs font-mono">
+                        {idx + 1}.
+                      </span>
+                      <span className="font-mono text-xs truncate max-w-[100px]">
+                        {entry.wallet}
+                      </span>
+                    </div>
+                    <span
+                      className={`font-mono text-xs font-bold ${
+                        idx === 0
+                          ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
+                          : ""
+                      }`}
+                    >
+                      {getStatForTab(entry, activeTab)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        <button
-          onClick={handleAllLeaders}
-          className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer"
-        >
-          All Leaders →
-        </button>
+            <button
+              onClick={handleAllLeaders}
+              className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer"
+            >
+              All Leaders →
+            </button>
+          </>
+        )}
       </Card>
 
       {/* All Leaders Modal */}
@@ -1152,6 +1152,283 @@ const VolumeLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] })
                       }`}
                     >
                       {getStatForTab(entry, activeTab)}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+// Efficiency Leaders types and component
+interface EfficiencyLeaderEntry {
+  rank: number
+  wallet: string
+  swapCount: number
+  activeDays?: number
+  txsPerDay?: number
+  streak?: number
+  volume: number
+  volumeEth: number
+}
+
+const EFFICIENCY_TABS = ["Tx Count", "Tx/Day", "Streak"] as const
+type EfficiencyTab = (typeof EFFICIENCY_TABS)[number]
+
+const EFFICIENCY_TAB_TO_SORT: Record<EfficiencyTab, string> = {
+  "Tx Count": "tx_count",
+  "Tx/Day": "txs_per_day",
+  Streak: "streak",
+}
+
+const EFFICIENCY_TAB_TO_LABEL: Record<EfficiencyTab, string> = {
+  "Tx Count": "TX COUNT",
+  "Tx/Day": "TX/DAY",
+  Streak: "STREAK",
+}
+
+function getEfficiencyStat(entry: EfficiencyLeaderEntry, tab: EfficiencyTab): string {
+  switch (tab) {
+    case "Tx Count":
+      return entry.swapCount.toLocaleString()
+    case "Tx/Day":
+      return (entry.txsPerDay ?? 0).toFixed(1)
+    case "Streak":
+      return `${entry.streak ?? 0}d`
+  }
+}
+
+function getEfficiencySubtext(entry: EfficiencyLeaderEntry, tab: EfficiencyTab): string {
+  switch (tab) {
+    case "Tx Count":
+      return `${entry.swapCount} swaps`
+    case "Tx/Day":
+      return `${entry.activeDays ?? 0} active days`
+    case "Streak":
+      return `${entry.swapCount} swaps`
+  }
+}
+
+const EfficiencyLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] }) => {
+  const [activeTab, setActiveTab] = useState<EfficiencyTab>("Tx Count")
+  const [txsPerDayData, setTxsPerDayData] = useState<EfficiencyLeaderEntry[] | null>(null)
+  const [streakData, setStreakData] = useState<EfficiencyLeaderEntry[] | null>(null)
+  const [isFetchLoading, setIsFetchLoading] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalEntries, setModalEntries] = useState<EfficiencyLeaderEntry[]>([])
+  const [isModalLoading, setIsModalLoading] = useState(false)
+
+  // Derive Tx Count entries from already-loaded leaderboard data
+  const derivedEntries = useMemo((): EfficiencyLeaderEntry[] => {
+    const mapped = initialData.map((e, i) => ({
+      rank: i + 1,
+      wallet: e.wallet,
+      swapCount: e.swapCount ?? 0,
+      volume: e.swapVolume24h,
+      volumeEth: e.ethValue ?? 0,
+    }))
+    return mapped
+  }, [initialData])
+
+  const fetchFromApi = useCallback(async (sort: string, limit: number) => {
+    const res = await fetch(`/api/analytics/leaderboard/efficiency-leaders?sort=${sort}&limit=${limit}`)
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.entries || []) as EfficiencyLeaderEntry[]
+  }, [])
+
+  // Fetch Tx/Day or Streak data on demand
+  useEffect(() => {
+    if (activeTab === "Tx Count") return
+    if (activeTab === "Tx/Day" && txsPerDayData) return
+    if (activeTab === "Streak" && streakData) return
+
+    let cancelled = false
+    setIsFetchLoading(true)
+    fetchFromApi(EFFICIENCY_TAB_TO_SORT[activeTab], 10).then((data) => {
+      if (!cancelled) {
+        if (activeTab === "Tx/Day") setTxsPerDayData(data)
+        else setStreakData(data)
+        setIsFetchLoading(false)
+      }
+    })
+    return () => { cancelled = true }
+  }, [activeTab, txsPerDayData, streakData, fetchFromApi])
+
+  const handleAllLeaders = useCallback(async () => {
+    setModalOpen(true)
+    setIsModalLoading(true)
+    const data = await fetchFromApi(EFFICIENCY_TAB_TO_SORT[activeTab], 100)
+    setModalEntries(data)
+    setIsModalLoading(false)
+  }, [activeTab, fetchFromApi])
+
+  // Pick entries for active tab
+  const entries =
+    activeTab === "Tx/Day"
+      ? (txsPerDayData ?? [])
+      : activeTab === "Streak"
+        ? (streakData ?? [])
+        : derivedEntries
+  const isLoading = activeTab !== "Tx Count" && isFetchLoading && entries.length === 0
+  const leader = entries[0]
+  const statLabel = EFFICIENCY_TAB_TO_LABEL[activeTab]
+
+  return (
+    <>
+      <Card className="p-4 md:p-6 bg-white/[0.01] border-white/5">
+        <div className="flex items-center gap-2 mb-4">
+          <Zap size={18} className="text-primary" />
+          <h3 className="font-bold text-sm">Efficiency Leaders</h3>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <HelpCircle size={14} className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[240px] text-xs leading-relaxed">
+              <p><span className="font-bold text-foreground">Tx Count</span> — Most total swaps</p>
+              <p><span className="font-bold text-foreground">Tx/Day</span> — Highest daily swap frequency</p>
+              <p><span className="font-bold text-foreground">Streak</span> — Longest consecutive active days</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* Internal tabs */}
+        <div className="flex gap-1 mb-4 border-b border-white/5 pb-2">
+          {EFFICIENCY_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                activeTab === tab
+                  ? "bg-primary/10 text-primary font-bold"
+                  : "text-muted-foreground/50 hover:text-foreground"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">Loading...</p>
+          </div>
+        ) : !leader ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <BarChart3 size={32} className="text-muted-foreground/15" />
+            <p className="text-xs text-muted-foreground/30 font-medium">No data available yet</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex gap-4">
+              {/* Leader highlight */}
+              <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                  <span className="text-sm font-black uppercase tracking-widest text-primary">
+                    #1
+                  </span>
+                </div>
+                <p className="font-mono text-xs text-center truncate max-w-[110px]">
+                  {leader.wallet}
+                </p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-1">
+                  {statLabel}
+                </p>
+                <p className="text-lg font-black tabular-nums">
+                  {getEfficiencyStat(leader, activeTab)}
+                </p>
+              </div>
+
+              {/* Ranked list */}
+              <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
+                {entries.map((entry, idx) => (
+                  <div
+                    key={entry.wallet}
+                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                      idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground/40 w-6 text-xs font-mono">
+                        {idx + 1}.
+                      </span>
+                      <span className="font-mono text-xs truncate max-w-[100px]">
+                        {entry.wallet}
+                      </span>
+                    </div>
+                    <span
+                      className={`font-mono text-xs font-bold ${
+                        idx === 0
+                          ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
+                          : ""
+                      }`}
+                    >
+                      {getEfficiencyStat(entry, activeTab)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={handleAllLeaders}
+              className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer"
+            >
+              All Leaders →
+            </button>
+          </>
+        )}
+      </Card>
+
+      {/* All Leaders Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] bg-background border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black">
+              Efficiency Leaders — {activeTab}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground/60">
+              Top 100 wallets sorted by {activeTab.toLowerCase()}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-1 max-h-[60vh] overflow-y-auto scrollbar-hide">
+            {isModalLoading ? (
+              <div className="p-8 text-center text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
+                Loading top 100...
+              </div>
+            ) : (
+              modalEntries.map((entry, idx) => (
+                <div
+                  key={entry.wallet}
+                  className={`flex items-center justify-between py-2 px-3 rounded text-sm ${
+                    idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground/40 w-8 text-xs font-mono text-right">
+                      {entry.rank}.
+                    </span>
+                    <span className="font-mono text-sm truncate max-w-[200px]">
+                      {entry.wallet}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-[10px] text-muted-foreground/40 font-mono">
+                      {getEfficiencySubtext(entry, activeTab)}
+                    </span>
+                    <span
+                      className={`font-mono text-sm font-bold tabular-nums ${
+                        idx === 0
+                          ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
+                          : ""
+                      }`}
+                    >
+                      {getEfficiencyStat(entry, activeTab)}
                     </span>
                   </div>
                 </div>

@@ -42,6 +42,29 @@ export type NextRankThresholdResult = [
 ]
 
 /**
+ * Efficiency row: transactions per day
+ */
+export type TxsPerDayRow = [
+  wallet: string,
+  swap_count: number,
+  active_days: number,
+  txs_per_day: number,
+  total_swap_vol_usd: number,
+  total_swap_vol_eth: number,
+]
+
+/**
+ * Efficiency row: longest consecutive active streak
+ */
+export type StreakRow = [
+  wallet: string,
+  longest_streak: number,
+  swap_count: number,
+  total_swap_vol_usd: number,
+  total_swap_vol_eth: number,
+]
+
+/**
  * Leaderboard row sorted by largest single swap
  */
 export type LargestSwapRow = [
@@ -153,4 +176,30 @@ export async function getLeaderboardByLargestSwap(
   const safeLimit = Math.max(1, Math.min(Math.floor(limit), 100))
   const rows = await client.execute("leaderboard/by-largest-swap", { limit: safeLimit }, options)
   return rows as LargestSwapRow[]
+}
+
+/**
+ * Get efficiency leaderboard by transactions per day
+ * @param limit Number of top users to return (default: 15, max: 100)
+ */
+export async function getEfficiencyByTxsPerDay(
+  limit: number = 15,
+  options?: QueryOptions
+): Promise<TxsPerDayRow[]> {
+  const safeLimit = Math.max(1, Math.min(Math.floor(limit), 100))
+  const rows = await client.execute("leaderboard/by-txs-per-day", { limit: safeLimit }, options)
+  return rows as TxsPerDayRow[]
+}
+
+/**
+ * Get efficiency leaderboard by longest consecutive active streak
+ * @param limit Number of top users to return (default: 15, max: 100)
+ */
+export async function getEfficiencyByStreak(
+  limit: number = 15,
+  options?: QueryOptions
+): Promise<StreakRow[]> {
+  const safeLimit = Math.max(1, Math.min(Math.floor(limit), 100))
+  const rows = await client.execute("leaderboard/by-streak", { limit: safeLimit }, options)
+  return rows as StreakRow[]
 }

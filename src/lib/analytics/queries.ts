@@ -298,6 +298,109 @@ ORDER BY recent_swap_count DESC
 LIMIT :limit
 `.trim()
 
+// Efficiency leaders: by average transactions per day
+export const EFFICIENCY_BY_TXS_PER_DAY = `
+WITH daily_activity AS (
+  SELECT
+    lower(from_address) AS wallet,
+    CAST(date_trunc('day', l1_timestamp) AS DATE) AS active_day
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address), CAST(date_trunc('day', l1_timestamp) AS DATE)
+),
+wallet_stats AS (
+  SELECT
+    lower(from_address) AS wallet,
+    COUNT(*) AS swap_count,
+    SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
+    SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address)
+),
+days_active AS (
+  SELECT wallet, COUNT(*) AS active_days
+  FROM daily_activity
+  GROUP BY wallet
+)
+SELECT
+  w.wallet,
+  w.swap_count,
+  d.active_days,
+  CAST(w.swap_count AS DOUBLE) / d.active_days AS txs_per_day,
+  w.total_swap_vol_usd,
+  w.total_swap_vol_eth
+FROM wallet_stats w
+JOIN days_active d ON w.wallet = d.wallet
+WHERE w.swap_count > 0
+ORDER BY txs_per_day DESC
+LIMIT :limit
+`.trim()
+
+// Efficiency leaders: by longest consecutive active days (streak)
+export const EFFICIENCY_BY_STREAK = `
+WITH daily_activity AS (
+  SELECT
+    lower(from_address) AS wallet,
+    CAST(date_trunc('day', l1_timestamp) AS DATE) AS active_day
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address), CAST(date_trunc('day', l1_timestamp) AS DATE)
+),
+with_row AS (
+  SELECT
+    wallet,
+    active_day,
+    ROW_NUMBER() OVER (PARTITION BY wallet ORDER BY active_day) AS rn
+  FROM daily_activity
+),
+grouped AS (
+  SELECT
+    wallet,
+    active_day,
+    DATE_ADD('day', -CAST(rn AS INTEGER), active_day) AS grp
+  FROM with_row
+),
+streaks AS (
+  SELECT
+    wallet,
+    grp,
+    COUNT(*) AS streak_len,
+    MIN(active_day) AS streak_start,
+    MAX(active_day) AS streak_end
+  FROM grouped
+  GROUP BY wallet, grp
+),
+best_streak AS (
+  SELECT
+    wallet,
+    MAX(streak_len) AS longest_streak
+  FROM streaks
+  GROUP BY wallet
+),
+wallet_stats AS (
+  SELECT
+    lower(from_address) AS wallet,
+    COUNT(*) AS swap_count,
+    SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
+    SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address)
+)
+SELECT
+  b.wallet,
+  b.longest_streak,
+  w.swap_count,
+  w.total_swap_vol_usd,
+  w.total_swap_vol_eth
+FROM best_streak b
+JOIN wallet_stats w ON b.wallet = w.wallet
+WHERE b.longest_streak > 0
+ORDER BY b.longest_streak DESC, w.swap_count DESC
+LIMIT :limit
+`.trim()
+
 // Volume leaders: by largest single swap
 export const LEADERBOARD_BY_LARGEST_SWAP = `
 SELECT
@@ -344,6 +447,10 @@ export const QUERIES = {
 
   // Volume leaders
   "leaderboard/by-largest-swap": LEADERBOARD_BY_LARGEST_SWAP,
+
+  // Efficiency leaders
+  "leaderboard/by-txs-per-day": EFFICIENCY_BY_TXS_PER_DAY,
+  "leaderboard/by-streak": EFFICIENCY_BY_STREAK,
 
   // Users domain
   "users/get-user-swap-volume": GET_USER_SWAP_VOLUME,
