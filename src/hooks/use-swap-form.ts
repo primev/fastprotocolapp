@@ -261,15 +261,17 @@ export function useSwapForm(allTokens: Token[]) {
   const exchangeRateContent = useMemo(() => {
     if (isWrapUnwrap) return `1 ${fromToken?.symbol} = 1 ${toToken?.symbol}`
     if (!displayQuote && fromToken && toToken) return null
-    if (hasNoLiquidity) return "No liquidity"
     if (displayQuote && fromToken && toToken) {
       const isToStable = isStablecoin(toToken.address ?? "", toToken.symbol)
       // Rate is "toToken per 1 fromToken", so format using toToken's type (avoid 0.00 for small rates like 1 USDT = 0.000356 ETH)
-      const rateFormatted = formatAmountByTokenType(displayQuote.exchangeRate, isToStable)
+      const rate = displayQuote.exchangeRate
+      const rateFormatted = isToStable
+        ? rate.toFixed(2)
+        : rate.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 3 })
       return `1 ${fromToken.symbol} = ${rateFormatted} ${toToken.symbol}`
     }
-    return lastValidRate || "Select tokens"
-  }, [isWrapUnwrap, fromToken, toToken, displayQuote, hasNoLiquidity, lastValidRate])
+    return lastValidRate || "-"
+  }, [isWrapUnwrap, fromToken, toToken, displayQuote, lastValidRate])
 
   // Numeric rate for NumberFlow (subtle animation on refetch; no "Fetching rate..." text)
   const exchangeRateValue = displayQuote && fromToken && toToken ? displayQuote.exchangeRate : null

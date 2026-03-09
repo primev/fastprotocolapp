@@ -24,6 +24,7 @@ interface ActionButtonProps {
   toToken: Token | null
   amount: string
   insufficientBalance: boolean
+  hasNoLiquidity: boolean
   isWrap: boolean
   isUnwrap: boolean
   handleSwapClick: () => void
@@ -35,6 +36,7 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
   toToken,
   amount,
   insufficientBalance,
+  hasNoLiquidity,
   isWrap,
   isUnwrap,
   handleSwapClick,
@@ -128,31 +130,39 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
         // Case: No destination token selected
         <Button
           disabled
-          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-white/40 cursor-not-allowed"
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-white/10 text-gray-500 cursor-not-allowed"
         >
-          SELECT A TOKEN
+          Select a token
         </Button>
       ) : !amount || amount === "0" ? (
         // Case: Token is selected but no amount has been entered
         <Button
           disabled
-          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-white/40 cursor-not-allowed"
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-white/10 text-gray-500 cursor-not-allowed"
         >
-          ENTER AN AMOUNT
+          Enter an amount
         </Button>
       ) : insufficientBalance ? (
         // Case: Amount exceeds user's current balance
         <Button
           disabled
-          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl bg-white/10 text-white/40 cursor-not-allowed"
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-white/10 text-gray-500 cursor-not-allowed"
         >
-          INSUFFICIENT BALANCE
+          Insufficient balance
+        </Button>
+      ) : hasNoLiquidity ? (
+        // Case: No Uniswap pool / route exists for this pair
+        <Button
+          disabled
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-white/10 text-gray-500 cursor-not-allowed"
+        >
+          This trade cannot be completed right now
         </Button>
       ) : isNonceLoading ? (
         // Case: Permit path - waiting for nonce bitmap to load
         <Button
           disabled
-          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-white/10 text-gray-400 cursor-wait"
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-white/10 text-gray-500 cursor-wait"
         >
           <span className="flex items-center justify-center gap-2">
             <span className="h-4 w-4 border-2 border-gray-400/50 border-t-gray-400 rounded-full animate-spin" />

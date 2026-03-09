@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react"
 import Image from "next/image"
 // UI Components & Icons
-import { ChevronDown, Wallet } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 // Local Components
@@ -84,12 +84,10 @@ const SellCardComponent: React.FC<SellCardProps> = ({
   return (
     <div className="rounded-[14px] sm:rounded-[16px] bg-[#161b22] border border-white/5 px-3 py-2.5 sm:px-5 sm:py-4">
       {/* Header: Label and Balance Information */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Sell</span>
         {fromToken && (
-          <span className="flex items-center gap-1 text-sm font-medium text-white/40">
-            <Wallet size={14} /> {formattedFromBalance}
-          </span>
+          <span className="text-xs text-gray-500">Balance: {formattedFromBalance}</span>
         )}
       </div>
 
@@ -112,13 +110,15 @@ const SellCardComponent: React.FC<SellCardProps> = ({
             isQuoteLoading={effectiveQuoteLoading}
             inputRef={sellInputRef}
           />
-          <TokenInfoRow
-            displayAmount={amount}
-            tokenPrice={activeFromTokenPrice}
-            isLoadingPrice={isLoadingFromPrice}
-            isQuoteLoading={effectiveQuoteLoading}
-            side="sell"
-          />
+          {fromToken && !!amount && amount !== "0" && (
+            <TokenInfoRow
+              displayAmount={amount}
+              tokenPrice={activeFromTokenPrice}
+              isLoadingPrice={isLoadingFromPrice}
+              isQuoteLoading={effectiveQuoteLoading}
+              side="sell"
+            />
+          )}
         </div>
 
         {/* Token Selector Trigger - min-w prevents CLS when token loads */}

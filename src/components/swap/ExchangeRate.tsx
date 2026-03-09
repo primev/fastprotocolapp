@@ -2,10 +2,6 @@
 
 import React, { useMemo } from "react"
 import NumberFlow from "@number-flow/react"
-// UI Components & Icons
-import { AlertTriangle } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@radix-ui/react-tooltip"
-
 // Utils & Hooks
 import { cn } from "@/lib/utils"
 import { QuoteResult, getPriceImpactSeverity, formatPriceImpact } from "@/hooks/use-swap-quote"
@@ -61,6 +57,9 @@ interface ExchangeRateProps {
 
   // The countdown until the current quote expires
   timeLeft: number
+
+  // Estimated miles from this swap
+  estimatedMiles?: number | null
 }
 
 const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
@@ -74,6 +73,7 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
   isWrapUnwrap,
   isManualInversion,
   timeLeft,
+  estimatedMiles,
 }) => {
   /**
    * 1. DERIVED LOCAL STATE
@@ -124,7 +124,7 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
                   value={exchangeRateValue}
                   format={{
                     minimumFractionDigits: exchangeRateToStable ? 2 : 0,
-                    maximumFractionDigits: exchangeRateToStable ? 2 : 6,
+                    maximumFractionDigits: exchangeRateToStable ? 2 : 3,
                   }}
                   style={
                     {
@@ -150,58 +150,29 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
           />
         </div>
 
-        {/* RIGHT SECTION: PRICE IMPACT */}
+        {/* RIGHT SECTION: MILES ESTIMATE / PRICE IMPACT */}
         {!isWrapUnwrap && (
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500">Impact:</span>
-            <span
-              className={cn(
-                "font-semibold transition-colors",
-                severity === "low" && "text-emerald-400",
-                severity === "medium" && "text-amber-400",
-                severity === "high" && "text-red-400"
-              )}
-            >
-              {formattedImpact}
-            </span>
-
-            {severity === "medium" && (
-              <TooltipProvider delayDuration={100}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="flex items-center focus:outline-none" type="button">
-                      <AlertTriangle className="h-3 w-3 text-amber-400 ml-0.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    className="z-[60] bg-[#1c2128] border border-white/10 px-3 py-2 text-xs text-white rounded-lg shadow-xl max-w-[200px]"
-                  >
-                    <p className="font-semibold text-amber-400 mb-1">Medium Price Impact</p>
-                    This trade may move the market price. Consider a smaller amount.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+          <div className="flex items-center gap-2">
+            {estimatedMiles != null && (
+              <div className="flex items-center gap-1.5">
+                {estimatedMiles > 0 ? (
+                  <>
+                    <div className="relative flex items-center justify-center">
+                      <div className="h-1.5 w-1.5 rounded-full bg-[#3898FF] animate-pulse" />
+                      <div className="absolute h-1.5 w-1.5 rounded-full bg-[#3898FF] animate-ping opacity-75" />
+                    </div>
+                    <span className="font-semibold text-[#3898FF]">
+                      ~{estimatedMiles.toLocaleString("en-US")} miles
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-gray-500">No miles</span>
+                )}
+              </div>
             )}
 
-            {severity === "high" && (
-              <TooltipProvider delayDuration={100}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="flex items-center focus:outline-none" type="button">
-                      <AlertTriangle className="h-3 w-3 text-red-400 ml-0.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    className="z-[60] bg-[#1c2128] border border-white/10 px-3 py-2 text-xs text-white rounded-lg shadow-xl max-w-[200px]"
-                  >
-                    <p className="font-semibold text-red-400 mb-1">High Price Impact</p>
-                    This trade will significantly move the market price. You may receive less than
-                    expected.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            {activeQuote && (
+              <span className="text-gray-400 font-medium">(Impact: {formattedImpact})</span>
             )}
           </div>
         )}

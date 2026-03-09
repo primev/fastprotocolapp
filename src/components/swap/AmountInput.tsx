@@ -31,14 +31,10 @@ const AmountInputComponent = ({
   inputRef,
 }: AmountInputProps) => {
   // 1. VALUE CALCULATIONS
-  // Detect non-numeric display strings that should be rendered as plain text
-  // (e.g. "No liquidity") instead of being fed to NumberFlow.
-  const isTextValue = !!value && isNaN(parseFloat(value.replace(/,/g, "")))
-  const cleanValue = value && !isTextValue ? value.replace(/,/g, "") : ""
+  const cleanValue = value ? value.replace(/,/g, "") : ""
 
   // Logic for NumberFlow formatting to match input precision
-  const numericValue =
-    value && !isTextValue && !isNaN(parseFloat(cleanValue)) ? parseFloat(cleanValue) : null
+  const numericValue = value && !isNaN(parseFloat(cleanValue)) ? parseFloat(cleanValue) : null
   const decimalPlaces = cleanValue.includes(".") ? cleanValue.split(".")[1]?.length || 0 : 0
   const minFractionDigits = Math.min(decimalPlaces, 6)
   const maxFractionDigits = Math.max(6, decimalPlaces)
@@ -51,7 +47,9 @@ const AmountInputComponent = ({
   }, [isActive, inputRef])
 
   // 2. DYNAMIC FONT SCALING STATE & REFS
-  const [fontPx, setFontPx] = useState(36)
+  const isSm = typeof window !== "undefined" && window.innerWidth >= 640
+  const maxFontSize = isSm ? 36 : 28
+  const [fontPx, setFontPx] = useState(maxFontSize)
   const containerRef = useRef<HTMLDivElement>(null)
   const mirrorRef = useRef<HTMLSpanElement>(null)
 
@@ -65,7 +63,7 @@ const AmountInputComponent = ({
     const mirror = mirrorRef.current
     if (!container || !mirror) return
 
-    const MAX_FONT_SIZE = 36
+    const MAX_FONT_SIZE = maxFontSize
     const MIN_FONT_SIZE = 14
     const RIGHT_GUTTER = 4 // Safety buffer to prevent character clipping at the edge
 
@@ -91,14 +89,14 @@ const AmountInputComponent = ({
     adjustSize()
 
     return () => observer.disconnect()
-  }, [value])
+  }, [value, maxFontSize])
 
   // 3. RENDER LOGIC
   return (
     <div className="flex-1 relative">
       <div
         ref={containerRef}
-        className="relative w-full h-[60px] flex items-center overflow-hidden"
+        className="relative w-full h-[34px] sm:h-[42px] flex items-center overflow-hidden"
       >
         {/* HIDDEN MIRROR: 
             Used solely for measuring text width. Must share the exact 
@@ -106,13 +104,13 @@ const AmountInputComponent = ({
         */}
         <span
           ref={mirrorRef}
-          className="absolute invisible whitespace-nowrap pointer-events-none font-bold tracking-tighter tabular-nums"
+          className="absolute invisible whitespace-nowrap pointer-events-none font-semibold tracking-tight tabular-nums leading-none"
           aria-hidden="true"
         >
           {value || "0"}
         </span>
 
-        <div className="w-full flex items-center transition-[font-size] duration-200 ease-out h-[60px]">
+        <div className="w-full flex items-center transition-[font-size] duration-200 ease-out h-[34px] sm:h-[42px]">
           {isActive ? (
             <input
               ref={inputRef}
@@ -124,7 +122,7 @@ const AmountInputComponent = ({
               placeholder="0"
               disabled={isDisabled}
               className={cn(
-                "bg-transparent font-bold outline-none w-full placeholder:text-white leading-none cursor-text caret-white tracking-tighter tabular-nums pr-1",
+                "bg-transparent font-semibold outline-none w-full placeholder:text-white/20 leading-none cursor-text caret-white tracking-tight tabular-nums pr-1",
                 showError ? "text-red-500" : "text-white"
               )}
               style={{ fontSize: `${fontPx}px` }}
@@ -133,7 +131,7 @@ const AmountInputComponent = ({
             <div
               onClick={onFocus}
               className={cn(
-                "font-bold leading-none tracking-tighter whitespace-nowrap pr-1 cursor-text",
+                "font-semibold leading-none tracking-tight whitespace-nowrap pr-1 cursor-text",
                 showError ? "text-red-500" : "text-white"
               )}
               style={{
@@ -141,9 +139,7 @@ const AmountInputComponent = ({
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {isTextValue ? (
-                <span className="text-white/40">{value}</span>
-              ) : numericValue !== null ? (
+              {numericValue !== null && numericValue !== 0 ? (
                 <NumberFlow
                   value={numericValue}
                   format={{
@@ -163,7 +159,7 @@ const AmountInputComponent = ({
                   }
                 />
               ) : (
-                <span className="text-white/10">0</span>
+                <span className="text-white/20">0</span>
               )}
             </div>
           )}

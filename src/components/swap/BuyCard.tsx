@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react"
 import Image from "next/image"
 // UI Components & Icons
-import { ChevronDown, Wallet } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 // Local Components
@@ -94,13 +94,9 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
   return (
     <div className="rounded-[14px] sm:rounded-[16px] bg-[#161b22] border border-white/5 px-3 py-2.5 sm:px-5 sm:py-4">
       {/* Header Section */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Buy</span>
-        {toToken && (
-          <span className="flex items-center gap-1 text-sm font-medium text-white/40">
-            <Wallet size={14} /> {formattedToBalance}
-          </span>
-        )}
+        {toToken && <span className="text-xs text-gray-500">Balance: {formattedToBalance}</span>}
       </div>
 
       <div className="flex items-center justify-between gap-3">
@@ -125,13 +121,15 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
             inputRef={buyInputRef}
           />
 
-          <TokenInfoRow
-            displayAmount={outputAmount || "0"}
-            tokenPrice={activeToTokenPrice}
-            isLoadingPrice={isLoadingToPrice}
-            isQuoteLoading={effectiveQuoteLoading}
-            side="buy"
-          />
+          {toToken && !!outputAmount && outputAmount !== "0" && (
+            <TokenInfoRow
+              displayAmount={outputAmount}
+              tokenPrice={activeToTokenPrice}
+              isLoadingPrice={isLoadingToPrice}
+              isQuoteLoading={effectiveQuoteLoading}
+              side="buy"
+            />
+          )}
         </div>
 
         {/* Token Selector Button - min-w prevents CLS when token loads */}

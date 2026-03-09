@@ -93,6 +93,8 @@ interface SwapConfirmationModalProps {
   approvalTxHash?: string
   onApprove?: () => void
   approveTokenSymbol?: string
+  /** Estimated Fast Miles earned from this swap */
+  estimatedMiles?: number | null
   /** Called with the recommended slippage when a barter slippage error is detected. */
   onRetryWithSlippage?: (slippage: string) => void
   /** Error from a failed tx after submit (e.g. status 0x0). Shows error modal. */
@@ -201,6 +203,7 @@ function SwapConfirmationModal({
   approvalTxHash,
   onApprove,
   approveTokenSymbol,
+  estimatedMiles,
   onRetryWithSlippage,
   externalError,
 }: SwapConfirmationModalProps) {
@@ -794,6 +797,31 @@ function SwapConfirmationModal({
                         : "Estimated gas fee for this transaction"
                     }
                   />
+                  {!isWrap && !isUnwrap && estimatedMiles != null && (
+                    <InfoRow
+                      label="Est. miles earned"
+                      value={
+                        estimatedMiles > 0 ? (
+                          <span className="tabular-nums">
+                            ~
+                            <NumberFlow
+                              value={estimatedMiles}
+                              format={{ useGrouping: true, maximumFractionDigits: 0 }}
+                              style={numberFlowStyle}
+                            />
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">Swap too small</span>
+                        )
+                      }
+                      tooltip={
+                        estimatedMiles > 0
+                          ? "Estimated Fast Miles earned from MEV redistribution on this swap"
+                          : "This swap's slippage value doesn't cover transaction costs, so no miles are earned. Try a larger amount."
+                      }
+                      valueClassName={estimatedMiles > 0 ? "text-[#3898FF]" : "text-gray-500"}
+                    />
+                  )}
                 </div>
 
                 <button

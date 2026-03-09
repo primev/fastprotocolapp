@@ -9,16 +9,12 @@ import { SwitchButton } from "./SwitchButton"
 import { BuyCard } from "./BuyCard"
 import { ExchangeRate } from "./ExchangeRate"
 import { ActionButton } from "./ActionButton"
+import { RewardsBadge } from "./RewardsBadge"
 
 // Lazy-loaded below-the-fold components
 const TransactionSettings = dynamic(
   () => import("./TransactionSettings").then((m) => ({ default: m.TransactionSettings })),
   { ssr: false, loading: () => <div className="h-9 w-full mb-2" /> }
-)
-
-const RewardsBadge = dynamic(
-  () => import("./RewardsBadge").then((m) => ({ default: m.RewardsBadge })),
-  { ssr: false, loading: () => <div className="mt-6 flex justify-center min-h-[40px]" /> }
 )
 
 // Types
@@ -95,6 +91,7 @@ interface SwapInterfaceProps {
   isWrap: boolean
   isUnwrap: boolean
   hasNoLiquidity: boolean
+  estimatedMiles?: number | null
 }
 
 export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
@@ -234,7 +231,8 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
       <div
         className="grid transition-[grid-template-rows] duration-300 ease-in-out"
         style={{
-          gridTemplateRows: fromToken && toToken && (isWrapUnwrap || !!amount) ? "1fr" : "0fr",
+          gridTemplateRows:
+            fromToken && toToken && (isWrapUnwrap || (!!amount && displayQuote)) ? "1fr" : "0fr",
         }}
       >
         <div className="overflow-hidden">
@@ -249,6 +247,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
             isWrapUnwrap={isWrapUnwrap}
             isManualInversion={isManualInversion}
             timeLeft={timeLeft}
+            estimatedMiles={props.estimatedMiles}
           />
         </div>
       </div>
@@ -258,15 +257,13 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         toToken={toToken}
         amount={amount}
         insufficientBalance={insufficientBalance}
+        hasNoLiquidity={hasNoLiquidity}
         isWrap={isWrap}
         isUnwrap={isUnwrap}
         handleSwapClick={handleSwapClick}
         isNonceLoading={isNonceLoading}
       />
 
-      {/* 4. REWARDS 
-          Persistent badge for user engagement.
-      */}
       <RewardsBadge />
     </div>
   )
