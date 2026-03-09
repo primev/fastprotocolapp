@@ -142,7 +142,11 @@ export async function GET(request: NextRequest) {
     // Cache the response
     setCachedData(cacheKey, responseData)
 
-    return NextResponse.json(responseData)
+    return NextResponse.json(responseData, {
+      headers: {
+        "Cache-Control": "public, s-maxage=10, stale-while-revalidate=5",
+      },
+    })
   } catch (error) {
     console.error("Error fetching leaderboard:", error)
 

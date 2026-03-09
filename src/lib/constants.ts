@@ -87,10 +87,16 @@ export const TESTING_VOLUME_MULTIPLIER = 1
 
 /**
  * React Query cache settings for leaderboard data
- * These match the API cache TTL (2 minutes) to ensure consistent caching behavior
+ * These match the API cache TTL to ensure consistent caching behavior
  */
-export const LEADERBOARD_CACHE_STALE_TIME = 1 * 60 * 1000 // 2 minutes in milliseconds. Controls freshness (when to refetch)
+export const LEADERBOARD_CACHE_STALE_TIME = 1 * 60 * 1000 // 1 minute in milliseconds. Controls freshness (when to refetch)
 export const LEADERBOARD_CACHE_GC_TIME = 5 * 60 * 1000 // 5 minutes in milliseconds. Controls how long to keep cached data (when to delete)
+
+/**
+ * Default leaderboard polling interval (ms).
+ * Runtime value is read from Vercel Edge Config (leaderboard_poll_interval_ms).
+ */
+export const DEFAULT_LEADERBOARD_POLL_INTERVAL = 15_000
 
 /**
  * React Query cache settings for dashboard data

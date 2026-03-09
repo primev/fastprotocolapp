@@ -1,7 +1,12 @@
 "use client"
 
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { LEADERBOARD_CACHE_STALE_TIME, LEADERBOARD_CACHE_GC_TIME } from "@/lib/constants"
+import {
+  LEADERBOARD_CACHE_STALE_TIME,
+  LEADERBOARD_CACHE_GC_TIME,
+  DEFAULT_LEADERBOARD_POLL_INTERVAL,
+} from "@/lib/constants"
+import { getLeaderboardPollIntervalMs } from "@/lib/leaderboard-config"
 
 interface LeaderboardEntry {
   rank: number
@@ -62,6 +67,23 @@ async function fetchLeaderboardStats(): Promise<LeaderboardStats> {
 }
 
 /**
+ * Hook to read the leaderboard poll interval from Vercel Edge Config.
+ * Fetches once, caches indefinitely (Edge Config changes require page reload).
+ */
+function useLeaderboardPollInterval(): number {
+  const { data } = useQuery({
+    queryKey: ["leaderboardPollInterval"],
+    queryFn: getLeaderboardPollIntervalMs,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  })
+  return data ?? DEFAULT_LEADERBOARD_POLL_INTERVAL
+}
+
+/**
  * Hook to fetch leaderboard data with React Query
  * @param currentUserAddress - Optional wallet address for user-specific data
  * @param initialData - SSR preloaded data to hydrate the cache
@@ -70,6 +92,8 @@ export function useLeaderboardData(
   currentUserAddress?: string | null,
   initialData?: LeaderboardData
 ) {
+  const pollInterval = useLeaderboardPollInterval()
+
   // Strategy: Prioritize user-specific data when address is available
   // Use general leaderboard as placeholder for instant page render
   const isUserSpecificQuery = !!currentUserAddress
@@ -104,8 +128,9 @@ export function useLeaderboardData(
       return previousData
     },
     enabled: true,
-    // With staleTime set to 0 for user queries, React Query will always refetch
-    // This ensures fresh data when switching wallets
+    // Poll for real-time updates (interval from Vercel Edge Config)
+    refetchInterval: pollInterval,
+    refetchIntervalInBackground: false,
   })
 }
 
@@ -114,6 +139,8 @@ export function useLeaderboardData(
  * @param initialData - SSR preloaded stats to hydrate the cache
  */
 export function useLeaderboardStats(initialData?: LeaderboardStats) {
+  const pollInterval = useLeaderboardPollInterval()
+
   return useQuery<LeaderboardStats>({
     queryKey: ["leaderboardStats"],
     queryFn: fetchLeaderboardStats,
@@ -128,8 +155,9 @@ export function useLeaderboardStats(initialData?: LeaderboardStats) {
     refetchOnMount: false,
     // Keep previous data visible during background refetch to prevent jumps
     placeholderData: (previousData) => previousData,
-    // With staleTime set, React Query will use cached data immediately if fresh
-    // and only refetch in background if stale - this prevents black screen
+    // Poll for real-time updates (interval from Vercel Edge Config)
+    refetchInterval: pollInterval,
+    refetchIntervalInBackground: false,
   })
 }
 

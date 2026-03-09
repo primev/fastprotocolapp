@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useMemo } from "react"
+import React, { useState, useMemo } from "react"
 import { useAccount } from "wagmi"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -68,8 +68,6 @@ export const LeaderboardTable = ({
   const userPos = leaderboardData?.userPosition ?? null
   const nextRankVol = leaderboardData?.nextRankVolume ?? null
 
-  const [userSwapTxs, setUserSwapTxs] = useState<number | null>(null)
-
   const totalVol = useMemo(() => swapVolumeUsd ?? null, [swapVolumeUsd])
 
   // Apply testing multiplier to user volume
@@ -90,13 +88,6 @@ export const LeaderboardTable = ({
         return {
           ...entry,
           swapVolume24h: adjustedUserVol,
-          // Use userSwapTxs if swapCount is not available from API
-          swapCount:
-            entry.swapCount !== undefined
-              ? entry.swapCount
-              : userSwapTxs !== null
-                ? userSwapTxs
-                : undefined,
         }
       }
       return entry
@@ -109,7 +100,7 @@ export const LeaderboardTable = ({
         wallet: trimWalletAddress(userAddr.toLowerCase()),
         rank: 0, // Will be recalculated
         swapVolume24h: adjustedUserVol,
-        swapCount: userSwapTxs !== null ? userSwapTxs : undefined,
+        swapCount: undefined,
         change24h: 0,
         isCurrentUser: true,
         ethValue: undefined,
@@ -157,7 +148,7 @@ export const LeaderboardTable = ({
           wallet: trimWalletAddress(userAddr.toLowerCase()),
           rank: userPos, // Use actual API position
           swapVolume24h: adjustedUserVol,
-          swapCount: userSwapTxs !== null ? userSwapTxs : undefined,
+          swapCount: fromLb?.swapCount,
           change24h: 0,
           isCurrentUser: true,
           ethValue: fromLb?.ethValue,
@@ -170,37 +161,13 @@ export const LeaderboardTable = ({
       adjustedUserPos: newPos,
       adjustedNextRankVol: newNextRankVol,
     }
-  }, [lbData, adjustedUserVol, userPos, nextRankVol, userAddr, userSwapTxs])
+  }, [lbData, adjustedUserVol, userPos, nextRankVol, userAddr])
 
-  // Data fetching removed - all data comes from React Query via props
-  // Only fetch userSwapTxs separately since it's not part of leaderboardData
-
-  // Fetch user swap transactions (only when wallet is connected)
-  useEffect(() => {
-    if (!userAddr) {
-      setUserSwapTxs(null)
-      return
-    }
-
-    const fetchSwapTxs = async () => {
-      try {
-        const userResponse = await fetch(`/api/analytics/user/${userAddr}`)
-        if (userResponse.ok) {
-          const userData = await userResponse.json()
-          if (userData.swapTxs !== null && userData.swapTxs !== undefined) {
-            setUserSwapTxs(Number(userData.swapTxs))
-          } else {
-            setUserSwapTxs(null)
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching user swap transactions:", error)
-        setUserSwapTxs(null)
-      }
-    }
-
-    fetchSwapTxs()
-  }, [userAddr])
+  // Derive user swap count from leaderboard data (already includes swapCount)
+  const userSwapCount = useMemo(() => {
+    const userEntry = lbData.find((e) => e.isCurrentUser)
+    return userEntry?.swapCount ?? null
+  }, [lbData])
 
   // Tier Calculations (using adjusted volume)
   const currentTier = useMemo(() => getTierFromVolume(adjustedUserVol), [adjustedUserVol])
@@ -356,8 +323,8 @@ export const LeaderboardTable = ({
                   Swaps
                 </span>
                 <p className="text-[10px] font-bold leading-none">
-                  {userSwapTxs !== null && userSwapTxs !== undefined
-                    ? userSwapTxs.toLocaleString()
+                  {userSwapCount !== null
+                    ? userSwapCount.toLocaleString()
                     : "---"}
                 </p>
               </div>
@@ -592,7 +559,7 @@ export const LeaderboardTable = ({
                   wallet: trimWalletAddress(userAddr.toLowerCase()),
                   rank: adjustedUserPos || 0,
                   swapVolume24h: adjustedUserVol,
-                  swapCount: userSwapTxs ?? undefined,
+                  swapCount: userSwapCount ?? undefined,
                   change24h: 0,
                   isCurrentUser: true,
                   ethValue: undefined,
