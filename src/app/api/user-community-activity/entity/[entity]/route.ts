@@ -4,8 +4,8 @@ import { pool } from "@/lib/fast-db"
 
 /**
  * GET /api/user-community-activity/entity/[entity]
- * Returns users who have verified activity for the given entity.
- * Query params: limit (default 50, max 200), chainId (optional)
+ * Returns all users who have verified activity for the given entity.
+ * Query params: chainId (optional)
  */
 export async function GET(
   request: NextRequest,
@@ -20,10 +20,6 @@ export async function GET(
     }
 
     const { searchParams } = new URL(request.url)
-    const limitParam = searchParams.get("limit")
-    const limitRaw = limitParam ? parseInt(limitParam, 10) : 50
-    const limit = Math.min(Math.max(limitRaw, 1), 200)
-
     const chainIdParam = searchParams.get("chainId")
     const chainId = chainIdParam !== null && chainIdParam !== "" ? parseInt(chainIdParam, 10) : null
 
@@ -35,7 +31,6 @@ export async function GET(
     if (chainId !== null && !Number.isNaN(chainId)) {
       values.push(chainId)
     }
-    values.push(limit)
 
     const { rows } = await pool.query(
       `SELECT user_address, activity, chainid, created_at
@@ -46,8 +41,7 @@ export async function GET(
          WHERE entity = $1 ${chainFilter}
        ) sub
        WHERE rn = 1
-       ORDER BY created_at DESC
-       LIMIT $${paramIndex}`,
+       ORDER BY created_at DESC`,
       values
     )
 
@@ -58,7 +52,7 @@ export async function GET(
       createdAt: row.created_at,
     }))
 
-    return NextResponse.json({ users })
+    return NextResponse.json({ users, total: users.length })
   } catch (err) {
     console.error("Error fetching users by entity:", err)
     return NextResponse.json({ error: "Database query failed" }, { status: 500 })
