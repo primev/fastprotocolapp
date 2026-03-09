@@ -4,7 +4,8 @@ import React, { useState, useEffect, useMemo } from "react"
 import { useAccount } from "wagmi"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, Target, Zap } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { TrendingUp, Target, Zap, Users, Flame } from "lucide-react"
 import { formatCurrency, formatNumber } from "@/lib/utils"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import {
@@ -217,6 +218,9 @@ export const LeaderboardTable = ({
   }, [adjustedUserVol])
   const nextTierMeta = useMemo(() => getTierMetadata(nextTierName.toLowerCase()), [nextTierName])
 
+  const [activeTab, setActiveTab] = useState("standings")
+  const [tierFilter, setTierFilter] = useState<string>("all")
+
   // Formatting Helpers
   const formatVolumeDisplay = (v: number) => {
     if (v >= 1e6) return formatCurrency(v, { maximumFractionDigits: 1 })
@@ -238,6 +242,26 @@ export const LeaderboardTable = ({
     if (currentTierMeta.color === "text-amber-600") return "bg-amber-600/[0.03]"
     return "bg-muted-foreground/[0.03]"
   }, [currentTierMeta.color])
+
+  // Filter leaderboard data by tier
+  const filteredLbData = useMemo(() => {
+    if (tierFilter === "all") return adjustedLbData
+    return adjustedLbData.filter((entry) => {
+      if (entry.isCurrentUser) return false
+      const entryTier = getTierFromVolume(entry.swapVolume24h)
+      return entryTier === tierFilter
+    })
+  }, [adjustedLbData, tierFilter])
+
+  // Stats: sorted variants for stats tab
+  const statsByTxCount = useMemo(
+    () => [...adjustedLbData].filter((e) => !e.isCurrentUser).sort((a, b) => (b.swapCount ?? 0) - (a.swapCount ?? 0)).slice(0, 10),
+    [adjustedLbData]
+  )
+  const statsByVolume = useMemo(
+    () => [...adjustedLbData].filter((e) => !e.isCurrentUser).sort((a, b) => b.swapVolume24h - a.swapVolume24h).slice(0, 10),
+    [adjustedLbData]
+  )
 
   return (
     <div className="w-full max-w-7xl mx-auto pt-2 pb-4 md:py-8 px-3 sm:px-4 md:px-6 space-y-4 md:space-y-6 overflow-x-hidden">
@@ -455,210 +479,430 @@ export const LeaderboardTable = ({
         </Card>
       </div>
 
-      {/* Leaderboard Table Section */}
-      <div className="space-y-2 w-full overflow-x-auto">
-        {/* Table Rows */}
-        <div className="space-y-1.5 w-full">
-          {isLoadingProp && lbData.length === 0 ? (
-            // Only show loading state if we truly have no data and are loading
-            <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20 animate-pulse">
-              Loading leaderboard...
+      {/* Leaderboard Table Section with Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <TabsList className="grid w-full max-w-[200px] grid-cols-2">
+            <TabsTrigger value="standings">Standings</TabsTrigger>
+            <TabsTrigger value="stats">Stats</TabsTrigger>
+          </TabsList>
+
+          {/* Tier Filter - only show on standings tab */}
+          {activeTab === "standings" && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setTierFilter("all")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+                  tierFilter === "all"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-white/[0.03] text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setTierFilter("gold")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
+                  tierFilter === "gold"
+                    ? "bg-yellow-500/20 text-yellow-500 border border-yellow-500/50"
+                    : "bg-white/[0.03] text-muted-foreground hover:text-yellow-500"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                Gold
+              </button>
+              <button
+                onClick={() => setTierFilter("silver")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
+                  tierFilter === "silver"
+                    ? "bg-slate-400/20 text-slate-300 border border-slate-400/50"
+                    : "bg-white/[0.03] text-muted-foreground hover:text-slate-300"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                Silver
+              </button>
+              <button
+                onClick={() => setTierFilter("bronze")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
+                  tierFilter === "bronze"
+                    ? "bg-amber-600/20 text-amber-600 border border-amber-600/50"
+                    : "bg-white/[0.03] text-muted-foreground hover:text-amber-600"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                Bronze
+              </button>
             </div>
-          ) : lbData.length === 0 ? (
-            <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20">
-              No leaderboard data available
+          )}
+        </div>
+
+        {/* STANDINGS TAB */}
+        <TabsContent value="standings" className="space-y-2">
+          <div className="space-y-1.5 w-full">
+            {isLoadingProp && lbData.length === 0 ? (
+              <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20 animate-pulse">
+                Loading leaderboard...
+              </div>
+            ) : lbData.length === 0 ? (
+              <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20">
+                No leaderboard data available
+              </div>
+            ) : filteredLbData.length === 0 ? (
+              <Card className="p-8 text-center text-muted-foreground bg-card/20 border-white/5">
+                No traders in this tier yet
+              </Card>
+            ) : (
+              filteredLbData.map((entry, index) => {
+                const shouldShowDivider =
+                  tierFilter === "all" && adjustedUserPos && adjustedUserPos > 15 && entry.isCurrentUser && index === 15
+                return (
+                  <React.Fragment key={entry.wallet}>
+                    {shouldShowDivider && (
+                      <div className="flex items-center gap-4 py-4">
+                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40">
+                          Your Position
+                        </span>
+                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                      </div>
+                    )}
+                    <LeaderboardRow
+                      entry={entry}
+                      formatVolumeDisplay={formatVolumeDisplay}
+                    />
+                  </React.Fragment>
+                )
+              })
+            )}
+          </div>
+
+          {/* Your Position - show when filtering by tier and user is not visible */}
+          {tierFilter !== "all" && userAddr && adjustedUserVol !== null && (
+            <div className="mt-6">
+              <div className="flex items-center gap-4 py-2">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40">
+                  Your Position
+                </span>
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+              </div>
+              <LeaderboardRow
+                entry={{
+                  wallet: trimWalletAddress(userAddr.toLowerCase()),
+                  rank: adjustedUserPos || 0,
+                  swapVolume24h: adjustedUserVol,
+                  swapCount: userSwapTxs ?? undefined,
+                  change24h: 0,
+                  isCurrentUser: true,
+                  ethValue: undefined,
+                }}
+                formatVolumeDisplay={formatVolumeDisplay}
+                showYouBadge
+              />
             </div>
-          ) : (
-            adjustedLbData.map((entry, index) => {
-              // Show divider before user entry when they're outside top 15
-              const shouldShowDivider =
-                adjustedUserPos && adjustedUserPos > 15 && entry.isCurrentUser && index === 15
-              return (
-                <React.Fragment key={entry.wallet}>
-                  {/* User Position Divider */}
-                  {shouldShowDivider && (
-                    <div className="flex items-center gap-4 py-4">
-                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-                      <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40">
-                        Your Position
-                      </span>
-                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-                    </div>
-                  )}
-                  {/* Leaderboard Row */}
-                  <div
-                    className={`relative grid grid-cols-12 items-center px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-xl border transition-all min-w-0 overflow-hidden ${
-                      entry.isCurrentUser
-                        ? "bg-primary/[0.05] border-primary/30"
-                        : "bg-card/20 border-white/5"
-                    }`}
-                  >
-                    <div className="col-span-4 sm:col-span-3 min-w-0 flex items-center gap-4 relative group/rank">
-                      {entry.rank <= 3 &&
-                        (() => {
-                          const entryTier = getTierFromVolume(entry.swapVolume24h)
-                          const tierMeta = getTierMetadata(entryTier)
-                          const tierColorClasses = {
-                            gold: {
-                              accent: "bg-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.4)]",
-                              text: "text-yellow-500/80",
-                              bloom: "from-yellow-500/30",
-                            },
-                            silver: {
-                              accent: "bg-slate-300 shadow-[0_0_15px_rgba(203,213,225,0.3)]",
-                              text: "text-slate-400/80",
-                              bloom: "from-slate-400/20",
-                            },
-                            bronze: {
-                              accent: "bg-amber-700 shadow-[0_0_15px_rgba(180,83,9,0.2)]",
-                              text: "text-amber-600/80",
-                              bloom: "from-amber-800/20",
-                            },
-                            standard: {
-                              accent: "",
-                              text: "",
-                              bloom: "",
-                            },
-                          }
-                          const tierColors =
-                            tierColorClasses[entryTier as keyof typeof tierColorClasses] ||
-                            tierColorClasses.standard
+          )}
+        </TabsContent>
 
-                          return (
-                            <>
-                              {/* The "Podium Light" - A very thin, elegant vertical accent */}
-                              <div
-                                className={`absolute left-[-1.5rem] top-1/2 -translate-y-1/2 w-[3px] h-10 rounded-full blur-[1px] transition-all duration-500 group-hover/rank:h-12 ${tierColors.accent}`}
-                              />
+        {/* STATS TAB */}
+        <TabsContent value="stats" className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Volume Leaders */}
+            <StatsCard
+              title="Volume Leaders"
+              icon={<TrendingUp size={18} className="text-primary" />}
+              tabs={["Volume", "Avg Size", "Largest"]}
+              entries={statsByVolume}
+              formatStat={(e) => formatVolumeDisplay(e.swapVolume24h)}
+              statLabel="VOLUME"
+            />
 
-                              {/* Background Bloom - Only for top 3, very soft */}
-                              <div
-                                className={`absolute inset-0 -left-6 w-24 h-full bg-gradient-to-r to-transparent -z-10 opacity-20 pointer-events-none transition-opacity duration-700 group-hover/rank:opacity-40 ${tierColors.bloom}`}
-                              />
-                            </>
-                          )
-                        })()}
+            {/* Efficiency Leaders */}
+            <StatsCard
+              title="Efficiency Leaders"
+              icon={<Zap size={18} className="text-primary" />}
+              tabs={["Tx Count", "Tx/Day", "Streak"]}
+              entries={statsByTxCount}
+              formatStat={(e) => (e.swapCount ?? 0).toLocaleString()}
+              statLabel="TX COUNT"
+            />
 
-                      {/* Rank Number with "Engraved" look */}
-                      <div className="relative flex flex-col justify-center items-center">
-                        <span
-                          className={`text-3xl sm:text-4xl md:text-5xl font-black tracking-[calc(-0.05em)] leading-none tabular-nums transition-all duration-500 ${
-                            entry.rank === 1
-                              ? "text-white scale-110 origin-left"
-                              : entry.rank === 2
-                                ? "text-white/80"
-                                : entry.rank === 3
-                                  ? "text-white/60"
-                                  : "text-muted-foreground/10"
-                          }`}
-                        >
-                          {entry.rank.toString().padStart(2, "0")}
-                        </span>
+            {/* Referral Leaders */}
+            <StatsCard
+              title="Referral Leaders"
+              icon={<Users size={18} className="text-primary" />}
+              tabs={["Total Refs", "Ref Volume", "Active"]}
+              entries={statsByVolume}
+              formatStat={(e) => formatVolumeDisplay(e.swapVolume24h)}
+              statLabel="REFERRALS"
+            />
 
-                        {/* Tier Label for top 3 */}
-                        {entry.rank <= 3 &&
-                          (() => {
-                            const entryTier = getTierFromVolume(entry.swapVolume24h)
-                            const tierMeta = getTierMetadata(entryTier)
-                            const tierColorClasses = {
-                              gold: "text-yellow-500/80",
-                              silver: "text-slate-400/80",
-                              bronze: "text-amber-600/80",
-                              standard: "",
-                            }
-                            const textColor =
-                              tierColorClasses[entryTier as keyof typeof tierColorClasses] ||
-                              tierColorClasses.standard
+            {/* Rising Stars */}
+            <StatsCard
+              title="Rising Stars"
+              subtitle="joined last 30d"
+              icon={<Flame size={18} className="text-orange-500" />}
+              tabs={["Climbers", "New Users", "WoW Growth"]}
+              entries={statsByTxCount}
+              formatStat={(e) => (e.swapCount ?? 0).toLocaleString()}
+              statLabel="GROWTH"
+              highlightColor="text-green-500"
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
 
-                            return (
-                              <span
-                                className={`text-[8px] font-bold uppercase tracking-[0.3em] mt-1 transition-colors ${textColor}`}
-                              >
-                                {tierMeta.label}
-                              </span>
-                            )
-                          })()}
-                      </div>
-                    </div>
-                    <div className="col-span-5 sm:col-span-4 flex items-center gap-1.5 sm:gap-2 min-w-0">
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-mono text-sm sm:text-base md:text-lg truncate">
-                          {entry.wallet}
-                        </span>
-                        <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
-                          {entry.swapCount !== undefined && entry.swapCount !== null
-                            ? `${entry.swapCount.toLocaleString()} swap${entry.swapCount !== 1 ? "s" : ""}`
-                            : "N/A"}
-                        </span>
-                      </div>
-                      {entry.isCurrentUser && (
-                        <Badge className="bg-primary text-[9px] sm:text-[10px] h-4 sm:h-5 px-1.5 sm:px-2 font-black shrink-0">
-                          YOU
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="hidden sm:flex col-span-2 justify-end items-center min-w-0 group/miles">
-                      {/* The Container: Uses a very subtle glassmorphism effect to house the status */}
-                      <div className="flex items-center gap-3 px-3 py-1.5 rounded-full bg-white/[0.01] border border-white/[0.03]">
-                        {/* Text Stack: Uses high-end spacing for a "technical" look */}
-                        <div className="flex flex-col items-end">
-                          <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/30">
-                            Miles
-                          </span>
-                          <span className="text-[7px] font-black uppercase tracking-[0.2em] text-primary/50 italic">
-                            Pending
-                          </span>
-                        </div>
+// Individual Leaderboard Row Component
+interface LeaderboardRowProps {
+  entry: LeaderboardEntry
+  formatVolumeDisplay: (v: number) => string
+  showYouBadge?: boolean
+}
 
-                        {/* The Bolt: Styled as a neon filament */}
-                        <div className="relative flex items-center justify-center">
-                          {/* Background Bloom: Creates a soft 'light' behind the icon so it doesn't look flat */}
-                          <div className="absolute inset-0 bg-primary/10 blur-[6px] rounded-full" />
+const LeaderboardRow = ({ entry, formatVolumeDisplay, showYouBadge }: LeaderboardRowProps) => {
+  const entryTier = getTierFromVolume(entry.swapVolume24h)
+  const tierMeta = getTierMetadata(entryTier)
 
-                          {/* The Icon: High stroke width with a hollow center for elegance */}
-                          <Zap
-                            size={13}
-                            strokeWidth={2.5}
-                            className="text-primary/70 drop-shadow-[0_0_2px_rgba(59,130,246,0.5)] relative z-10"
-                            fill="none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col-span-3 sm:col-span-3 text-right min-w-0">
-                      {/* Combined Value Column (ETH + USD) */}
-                      <div className="col-span-4 flex flex-col items-end justify-center min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <div
-                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-white/5 ${
-                              entry.change24h >= 0 ? "text-emerald-500/80" : "text-rose-500/80"
-                            }`}
-                          >
-                            {entry.change24h >= 0 ? "↑" : "↓"}{" "}
-                            {Math.abs(entry.change24h).toFixed(1)}%
-                          </div>
-                        </div>
+  return (
+    <div
+      className={`relative grid grid-cols-12 items-center px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-xl border transition-all min-w-0 overflow-hidden ${
+        entry.isCurrentUser
+          ? "bg-primary/[0.05] border-primary/30"
+          : "bg-card/20 border-white/5"
+      }`}
+    >
+      <div className="col-span-4 sm:col-span-3 min-w-0 flex items-center gap-4 relative group/rank">
+        {entry.rank <= 3 &&
+          (() => {
+            const tierColorClasses = {
+              gold: {
+                accent: "bg-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.4)]",
+                bloom: "from-yellow-500/30",
+              },
+              silver: {
+                accent: "bg-slate-300 shadow-[0_0_15px_rgba(203,213,225,0.3)]",
+                bloom: "from-slate-400/20",
+              },
+              bronze: {
+                accent: "bg-amber-700 shadow-[0_0_15px_rgba(180,83,9,0.2)]",
+                bloom: "from-amber-800/20",
+              },
+              standard: { accent: "", bloom: "" },
+            }
+            const tierColors =
+              tierColorClasses[entryTier as keyof typeof tierColorClasses] ||
+              tierColorClasses.standard
 
-                        {/* The Hero Metric: USD Volume */}
-                        <span className="text-xl md:text-3xl font-black tracking-tighter tabular-nums leading-none">
-                          {formatVolumeDisplay(entry.swapVolume24h)}
-                        </span>
+            return (
+              <>
+                <div
+                  className={`absolute left-[-1.5rem] top-1/2 -translate-y-1/2 w-[3px] h-10 rounded-full blur-[1px] transition-all duration-500 group-hover/rank:h-12 ${tierColors.accent}`}
+                />
+                <div
+                  className={`absolute inset-0 -left-6 w-24 h-full bg-gradient-to-r to-transparent -z-10 opacity-20 pointer-events-none transition-opacity duration-700 group-hover/rank:opacity-40 ${tierColors.bloom}`}
+                />
+              </>
+            )
+          })()}
 
-                        {/* The Sub Metric: ETH Value + Price Reference */}
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className="text-xs font-bold text-primary tabular-nums">
-                            {formatNumber(entry.ethValue)} ETH
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </React.Fragment>
-              )
-            })
+        <div className="relative flex flex-col justify-center items-center">
+          <span
+            className={`text-3xl sm:text-4xl md:text-5xl font-black tracking-[calc(-0.05em)] leading-none tabular-nums transition-all duration-500 ${
+              entry.rank === 1
+                ? "text-white scale-110 origin-left"
+                : entry.rank === 2
+                  ? "text-white/80"
+                  : entry.rank === 3
+                    ? "text-white/60"
+                    : "text-muted-foreground/10"
+            }`}
+          >
+            {entry.rank.toString().padStart(2, "0")}
+          </span>
+
+          {entry.rank <= 3 && (
+            <span
+              className={`text-[8px] font-bold uppercase tracking-[0.3em] mt-1 transition-colors ${
+                entryTier === "gold"
+                  ? "text-yellow-500/80"
+                  : entryTier === "silver"
+                    ? "text-slate-400/80"
+                    : entryTier === "bronze"
+                      ? "text-amber-600/80"
+                      : ""
+              }`}
+            >
+              {tierMeta.label}
+            </span>
           )}
         </div>
       </div>
+      <div className="col-span-5 sm:col-span-4 flex items-center gap-1.5 sm:gap-2 min-w-0">
+        <div className="flex flex-col min-w-0">
+          <span className="font-mono text-sm sm:text-base md:text-lg truncate">
+            {entry.wallet}
+          </span>
+          <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
+            {entry.swapCount !== undefined && entry.swapCount !== null
+              ? `${entry.swapCount.toLocaleString()} swap${entry.swapCount !== 1 ? "s" : ""}`
+              : "N/A"}
+          </span>
+        </div>
+        {(entry.isCurrentUser || showYouBadge) && (
+          <Badge className="bg-primary text-[9px] sm:text-[10px] h-4 sm:h-5 px-1.5 sm:px-2 font-black shrink-0">
+            YOU
+          </Badge>
+        )}
+      </div>
+      <div className="hidden sm:flex col-span-2 justify-end items-center min-w-0 group/miles">
+        <div className="flex items-center gap-3 px-3 py-1.5 rounded-full bg-white/[0.01] border border-white/[0.03]">
+          <div className="flex flex-col items-end">
+            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/30">
+              Miles
+            </span>
+            <span className="text-[7px] font-black uppercase tracking-[0.2em] text-primary/50 italic">
+              Pending
+            </span>
+          </div>
+          <div className="relative flex items-center justify-center">
+            <div className="absolute inset-0 bg-primary/10 blur-[6px] rounded-full" />
+            <Zap
+              size={13}
+              strokeWidth={2.5}
+              className="text-primary/70 drop-shadow-[0_0_2px_rgba(59,130,246,0.5)] relative z-10"
+              fill="none"
+            />
+          </div>
+        </div>
+      </div>
+      <div className="col-span-3 sm:col-span-3 text-right min-w-0">
+        <div className="col-span-4 flex flex-col items-end justify-center min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <div
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-white/5 ${
+                entry.change24h >= 0 ? "text-emerald-500/80" : "text-rose-500/80"
+              }`}
+            >
+              {entry.change24h >= 0 ? "↑" : "↓"}{" "}
+              {Math.abs(entry.change24h).toFixed(1)}%
+            </div>
+          </div>
+          <span className="text-xl md:text-3xl font-black tracking-tighter tabular-nums leading-none">
+            {formatVolumeDisplay(entry.swapVolume24h)}
+          </span>
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-xs font-bold text-primary tabular-nums">
+              {formatNumber(entry.ethValue)} ETH
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
+  )
+}
+
+// Stats Card Component
+interface StatsCardProps {
+  title: string
+  subtitle?: string
+  icon: React.ReactNode
+  tabs: string[]
+  entries: LeaderboardEntry[]
+  formatStat: (entry: LeaderboardEntry) => string
+  statLabel: string
+  highlightColor?: string
+}
+
+const StatsCard = ({
+  title,
+  subtitle,
+  icon,
+  tabs,
+  entries,
+  formatStat,
+  statLabel,
+  highlightColor = "text-foreground",
+}: StatsCardProps) => {
+  const [activeTab, setActiveTab] = useState(tabs[0])
+  const leader = entries[0]
+  if (!leader) return null
+
+  return (
+    <Card className="p-4 md:p-6 bg-white/[0.01] border-white/5">
+      <div className="flex items-center gap-2 mb-4">
+        {icon}
+        <h3 className="font-bold text-sm">{title}</h3>
+        {subtitle && (
+          <span className="text-[10px] text-muted-foreground/40">({subtitle})</span>
+        )}
+      </div>
+
+      {/* Internal tabs */}
+      <div className="flex gap-1 mb-4 border-b border-white/5 pb-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-3 py-1 text-xs rounded-md transition-colors ${
+              activeTab === tab
+                ? "bg-primary/10 text-primary font-bold"
+                : "text-muted-foreground/50 hover:text-foreground"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-4">
+        {/* Leader highlight */}
+        <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+            <span className="text-sm font-black uppercase tracking-widest text-primary">
+              #1
+            </span>
+          </div>
+          <p className="font-mono text-xs text-center truncate max-w-[110px]">{leader.wallet}</p>
+          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-1">
+            {statLabel}
+          </p>
+          <p className={`text-lg font-black tabular-nums ${highlightColor}`}>
+            {formatStat(leader)}
+          </p>
+        </div>
+
+        {/* Ranked list - scrollbar hidden */}
+        <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
+          {entries.map((entry, idx) => (
+            <div
+              key={entry.wallet}
+              className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground/40 w-6 text-xs font-mono">{idx + 1}.</span>
+                <span className="font-mono text-xs truncate max-w-[100px]">
+                  {entry.wallet}
+                  {entry.isCurrentUser && <span className="text-primary ml-1">•</span>}
+                </span>
+              </div>
+              <span
+                className={`font-mono text-xs font-bold ${
+                  idx === 0
+                    ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
+                    : highlightColor
+                }`}
+              >
+                {formatStat(entry)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
   )
 }
