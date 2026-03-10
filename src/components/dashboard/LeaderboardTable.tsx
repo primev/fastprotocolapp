@@ -687,8 +687,8 @@ export const LeaderboardTable = ({
             )}
           </div>
 
-          {/* User position if not in top 15 */}
-          {userMilesEntry && userMilesEntry.rank > 15 && (
+          {/* User position if not in top 15 (or not in data at all) */}
+          {userAddr && (!userMilesEntry || userMilesEntry.rank > 15) && (
             <div className="mt-6">
               <div className="flex items-center gap-4 py-2">
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
@@ -700,13 +700,18 @@ export const LeaderboardTable = ({
               <div className="relative grid grid-cols-12 items-center px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-xl border bg-primary/[0.05] border-primary/30 min-w-0 overflow-hidden">
                 <div className="col-span-3 sm:col-span-2 min-w-0">
                   <span className="text-3xl sm:text-4xl md:text-5xl font-black tracking-[calc(-0.05em)] leading-none tabular-nums text-muted-foreground/10">
-                    {userMilesEntry.rank.toString().padStart(2, "0")}
+                    {userMilesEntry ? userMilesEntry.rank.toString().padStart(2, "0") : "--"}
                   </span>
                 </div>
                 <div className="col-span-5 sm:col-span-5 flex items-center gap-1.5 sm:gap-2 min-w-0">
-                  <span className="font-mono text-sm sm:text-base md:text-lg truncate">
-                    {userMilesEntry.wallet}
-                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-mono text-sm sm:text-base md:text-lg truncate">
+                      {userMilesEntry?.wallet ?? trimWalletAddress(userAddr.toLowerCase())}
+                    </span>
+                    <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
+                      {userMilesEntry ? `${userMilesEntry.referrals.toLocaleString()} referral${userMilesEntry.referrals !== 1 ? "s" : ""}` : "0 referrals"}
+                    </span>
+                  </div>
                   <Badge className="bg-primary text-[9px] sm:text-[10px] h-4 sm:h-5 px-1.5 sm:px-2 font-black shrink-0">
                     YOU
                   </Badge>
@@ -717,7 +722,7 @@ export const LeaderboardTable = ({
                       Miles
                     </span>
                     <span className="text-xl md:text-3xl font-black tracking-tighter tabular-nums leading-none">
-                      {userMilesEntry.points.toLocaleString()}
+                      {userMilesEntry?.points.toLocaleString() ?? "0"}
                     </span>
                   </div>
                 </div>
