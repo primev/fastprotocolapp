@@ -206,6 +206,7 @@ export const LeaderboardTable = ({
 
   const [activeTab, setActiveTab] = useState("standings")
   const [tierFilter, setTierFilter] = useState<string>("all")
+  const [leaderboardMode, setLeaderboardMode] = useState<"volume" | "miles">("miles")
 
   // Formatting Helpers
   const formatVolumeDisplay = (v: number) => {
@@ -257,10 +258,28 @@ export const LeaderboardTable = ({
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div className="flex flex-col shrink-0">
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/70">
-                Swap Volume
-              </span>
+              <div className="flex items-center bg-white/[0.04] border border-white/10 rounded-full p-0.5">
+                <button
+                  onClick={() => setLeaderboardMode("miles")}
+                  className={`px-3.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full transition-all ${
+                    leaderboardMode === "miles"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground/50 hover:text-muted-foreground/80"
+                  }`}
+                >
+                  Miles
+                </button>
+                <button
+                  onClick={() => setLeaderboardMode("volume")}
+                  className={`px-3.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full transition-all ${
+                    leaderboardMode === "volume"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground/50 hover:text-muted-foreground/80"
+                  }`}
+                >
+                  Volume
+                </button>
+              </div>
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter italic leading-none whitespace-nowrap">
               LEADERBOARD
