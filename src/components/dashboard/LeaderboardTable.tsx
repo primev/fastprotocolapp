@@ -78,6 +78,17 @@ export const LeaderboardTable = ({
 
   const totalVol = useMemo(() => swapVolumeUsd ?? null, [swapVolumeUsd])
 
+  // Prefetch referral leaderboard on mount (not gated by Stats tab)
+  const [referralData, setReferralData] = useState<{ byPoints: ReferralLeaderEntry[]; byRefs: ReferralLeaderEntry[] } | null>(null)
+  useEffect(() => {
+    fetch("/api/fuul/leaderboard?limit=10")
+      .then((res) => res.ok ? res.json() : null)
+      .then((json) => {
+        if (json) setReferralData({ byPoints: json.byPoints || [], byRefs: json.byRefs || [] })
+      })
+      .catch(() => {})
+  }, [])
+
   // Apply testing multiplier to user volume
   const adjustedUserVol = useMemo(
     () => (userVol ? userVol * TESTING_VOLUME_MULTIPLIER : null),
@@ -589,15 +600,7 @@ export const LeaderboardTable = ({
             <EfficiencyLeadersCard initialData={statsByTxCount} />
 
             {/* Referral Leaders */}
-            <StatsCard
-              title="Referral Leaders"
-              icon={<Users size={18} className="text-primary" />}
-              tabs={["Total Refs", "Ref Volume", "Active"]}
-              entries={statsByVolume}
-              formatStat={(e) => formatVolumeDisplay(e.swapVolume24h)}
-              statLabel="REFERRALS"
-              tooltip={<><strong>Total Refs</strong> — most referrals made.<br /><strong>Ref Volume</strong> — highest volume from referred users.<br /><strong>Active</strong> — most currently active referrals.</>}
-            />
+            <ReferralLeadersCard prefetchedData={referralData} />
 
             {/* Rising Stars */}
             <StatsCard
@@ -1429,6 +1432,228 @@ const EfficiencyLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[
                       }`}
                     >
                       {getEfficiencyStat(entry, activeTab)}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+// Referral Leaders types and component
+interface ReferralLeaderEntry {
+  rank: number
+  wallet: string
+  points: number
+  referrals: number
+}
+
+const REFERRAL_TABS = ["Total Refs", "Miles"] as const
+type ReferralTab = (typeof REFERRAL_TABS)[number]
+
+const REFERRAL_TAB_TO_LABEL: Record<ReferralTab, string> = {
+  "Total Refs": "REFERRALS",
+  Miles: "MILES",
+}
+
+function getReferralStat(entry: ReferralLeaderEntry, tab: ReferralTab): string {
+  switch (tab) {
+    case "Total Refs":
+      return entry.referrals.toLocaleString()
+    case "Miles":
+      return entry.points.toLocaleString()
+  }
+}
+
+function getReferralSubtext(entry: ReferralLeaderEntry, tab: ReferralTab): string {
+  switch (tab) {
+    case "Total Refs":
+      return `${entry.points.toLocaleString()} miles`
+    case "Miles":
+      return `${entry.referrals} refs`
+  }
+}
+
+const ReferralLeadersCard = ({ prefetchedData }: { prefetchedData: { byPoints: ReferralLeaderEntry[]; byRefs: ReferralLeaderEntry[] } | null }) => {
+  const [activeTab, setActiveTab] = useState<ReferralTab>("Total Refs")
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalEntries, setModalEntries] = useState<ReferralLeaderEntry[]>([])
+  const [isModalLoading, setIsModalLoading] = useState(false)
+
+  const byPoints = prefetchedData?.byPoints ?? []
+  const byRefs = prefetchedData?.byRefs ?? []
+  const isLoading = !prefetchedData
+
+  const handleAllLeaders = useCallback(async () => {
+    setModalOpen(true)
+    setIsModalLoading(true)
+    const res = await fetch("/api/fuul/leaderboard?limit=100")
+    const json = res.ok ? await res.json() : null
+    const entries = json ? (activeTab === "Total Refs" ? json.byRefs : json.byPoints) : []
+    setModalEntries(entries)
+    setIsModalLoading(false)
+  }, [activeTab])
+
+  const entries = activeTab === "Total Refs" ? byRefs : byPoints
+
+  const leader = entries[0]
+  const statLabel = REFERRAL_TAB_TO_LABEL[activeTab]
+  const showLoading = isLoading && entries.length === 0
+
+  return (
+    <>
+      <Card className="p-4 md:p-6 bg-white/[0.01] border-white/5">
+        <div className="flex items-center gap-2 mb-4">
+          <Users size={18} className="text-primary" />
+          <h3 className="font-bold text-sm">Referral Leaders</h3>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <HelpCircle size={14} className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[240px] text-xs leading-relaxed">
+              <p><span className="font-bold text-foreground">Total Refs</span> — Most referrals made</p>
+              <p><span className="font-bold text-foreground">Miles</span> — Most miles earned from referrals</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* Internal tabs */}
+        <div className="flex gap-1 mb-4 border-b border-white/5 pb-2">
+          {REFERRAL_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                activeTab === tab
+                  ? "bg-primary/10 text-primary font-bold"
+                  : "text-muted-foreground/50 hover:text-foreground"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {showLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">Loading...</p>
+          </div>
+        ) : !leader ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <BarChart3 size={32} className="text-muted-foreground/15" />
+            <p className="text-xs text-muted-foreground/30 font-medium">No data available yet</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex gap-4">
+              {/* Leader highlight */}
+              <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                  <span className="text-sm font-black uppercase tracking-widest text-primary">
+                    #1
+                  </span>
+                </div>
+                <p className="font-mono text-xs text-center truncate max-w-[110px]">
+                  {leader.wallet}
+                </p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-1">
+                  {statLabel}
+                </p>
+                <p className="text-lg font-black tabular-nums">
+                  {getReferralStat(leader, activeTab)}
+                </p>
+              </div>
+
+              {/* Ranked list */}
+              <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
+                {entries.map((entry, idx) => (
+                  <div
+                    key={entry.wallet}
+                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                      idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground/40 w-6 text-xs font-mono">
+                        {idx + 1}.
+                      </span>
+                      <span className="font-mono text-xs truncate max-w-[100px]">
+                        {entry.wallet}
+                      </span>
+                    </div>
+                    <span
+                      className={`font-mono text-xs font-bold ${
+                        idx === 0
+                          ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
+                          : ""
+                      }`}
+                    >
+                      {getReferralStat(entry, activeTab)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={handleAllLeaders}
+              className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer"
+            >
+              All Leaders →
+            </button>
+          </>
+        )}
+      </Card>
+
+      {/* All Leaders Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] bg-background border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black">
+              Referral Leaders — {activeTab}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground/60">
+              Top 100 wallets sorted by {activeTab.toLowerCase()}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-1 max-h-[60vh] overflow-y-auto scrollbar-hide">
+            {isModalLoading ? (
+              <div className="p-8 text-center text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
+                Loading top 100...
+              </div>
+            ) : (
+              modalEntries.map((entry, idx) => (
+                <div
+                  key={entry.wallet}
+                  className={`flex items-center justify-between py-2 px-3 rounded text-sm ${
+                    idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground/40 w-8 text-xs font-mono text-right">
+                      {entry.rank}.
+                    </span>
+                    <span className="font-mono text-sm truncate max-w-[200px]">
+                      {entry.wallet}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-[10px] text-muted-foreground/40 font-mono">
+                      {getReferralSubtext(entry, activeTab)}
+                    </span>
+                    <span
+                      className={`font-mono text-sm font-bold tabular-nums ${
+                        idx === 0
+                          ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
+                          : ""
+                      }`}
+                    >
+                      {getReferralStat(entry, activeTab)}
                     </span>
                   </div>
                 </div>
