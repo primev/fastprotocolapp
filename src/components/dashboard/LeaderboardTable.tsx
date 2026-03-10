@@ -13,7 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import { TrendingUp, Target, Zap, Users, Flame, HelpCircle, BarChart3 } from "lucide-react"
+import { TrendingUp, Target, Zap, Users, Flame, HelpCircle, BarChart3, Compass, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { formatCurrency, formatNumber } from "@/lib/utils"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import {
@@ -594,16 +594,16 @@ export const LeaderboardTable = ({
         <TabsContent value="stats" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             {/* Volume Leaders */}
-            <VolumeLeadersCard initialData={statsByVolume} tierFilter={tierFilter} />
+            <VolumeLeadersCard initialData={statsByVolume} tierFilter={tierFilter} userWallet={userAddr} userVolume={adjustedUserVol} />
 
             {/* Efficiency Leaders */}
-            <EfficiencyLeadersCard initialData={statsByTxCount} tierFilter={tierFilter} />
+            <EfficiencyLeadersCard initialData={statsByTxCount} tierFilter={tierFilter} userWallet={userAddr} userVolume={adjustedUserVol} />
 
             {/* Referral Leaders */}
-            <ReferralLeadersCard prefetchedData={referralData} />
+            <ReferralLeadersCard prefetchedData={referralData} userWallet={userAddr} />
 
             {/* Rising Stars */}
-            <RisingStarsCard />
+            <RisingStarsCard userWallet={userAddr} userVolume={adjustedUserVol} />
           </div>
         </TabsContent>
       </Tabs>
@@ -760,6 +760,290 @@ const LeaderboardRow = ({ entry, formatVolumeDisplay, showYouBadge }: Leaderboar
   )
 }
 
+// ─── Paginated All Leaders Modal ─────────────────────────────────────────────
+
+const PAGE_SIZE = 25
+
+interface PaginatedModalEntry {
+  rank: number
+  wallet: string
+  [key: string]: unknown
+}
+
+/** Build page number array with ellipsis: [1, '...', 4, 5, 6, '...', 20] */
+function buildPageNumbers(current: number, total: number): (number | "...")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | "...")[] = []
+  // Always show first page
+  pages.push(1)
+  // Left ellipsis
+  if (current > 3) pages.push("...")
+  // Window around current
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+  for (let i = start; i <= end; i++) pages.push(i)
+  // Right ellipsis
+  if (current < total - 2) pages.push("...")
+  // Always show last page
+  pages.push(total)
+  return pages
+}
+
+interface PaginatedLeaderboardModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  description: string
+  fetchUrl: string // Base URL for API calls
+  buildParams: (page: number, limit: number) => Record<string, string> // Query params builder
+  renderStat: (entry: PaginatedModalEntry) => React.ReactNode
+  renderSubtext?: (entry: PaginatedModalEntry) => React.ReactNode
+  userWallet?: string
+  findMeParams?: Record<string, string> // Extra params for find-me API
+}
+
+const PaginatedLeaderboardModal = ({
+  open,
+  onOpenChange,
+  title,
+  description,
+  fetchUrl,
+  buildParams,
+  renderStat,
+  renderSubtext,
+  userWallet,
+  findMeParams,
+}: PaginatedLeaderboardModalProps) => {
+  const [page, setPage] = useState(1)
+  const [entries, setEntries] = useState<PaginatedModalEntry[]>([])
+  const [totalPages, setTotalPages] = useState(0)
+  const [total, setTotal] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
+  const [highlightWallet, setHighlightWallet] = useState<string | null>(null)
+  const [findMeLoading, setFindMeLoading] = useState(false)
+  const highlightRef = React.useRef<HTMLDivElement>(null)
+
+  const fetchPage = useCallback(async (p: number) => {
+    setIsLoading(true)
+    try {
+      const params = buildParams(p, PAGE_SIZE)
+      const qs = new URLSearchParams(params).toString()
+      const res = await fetch(`${fetchUrl}?${qs}`)
+      if (!res.ok) return
+      const json = await res.json()
+      setEntries(json.entries || [])
+      if (json.pagination) {
+        setTotalPages(json.pagination.totalPages || 0)
+        setTotal(json.pagination.total || 0)
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setIsLoading(false)
+    }
+  }, [fetchUrl, buildParams])
+
+  // Track whether the page change was triggered by Find Me
+  const findMeTriggeredRef = React.useRef(false)
+
+  // Fetch when page changes or modal opens
+  useEffect(() => {
+    if (open) {
+      fetchPage(page)
+      // Clear highlight only when navigating pages manually (not from Find Me)
+      if (!findMeTriggeredRef.current) {
+        setHighlightWallet(null)
+      }
+      findMeTriggeredRef.current = false
+    }
+  }, [open, page, fetchPage])
+
+  // Scroll highlighted row into view after entries load
+  useEffect(() => {
+    if (highlightWallet && entries.length > 0 && highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }, [highlightWallet, entries])
+
+  // Reset page when modal closes
+  useEffect(() => {
+    if (!open) {
+      setPage(1)
+      setEntries([])
+      setHighlightWallet(null)
+    }
+  }, [open])
+
+  const handleFindMe = useCallback(async () => {
+    if (!userWallet || !findMeParams) return
+    setFindMeLoading(true)
+    try {
+      const params = new URLSearchParams({
+        wallet: userWallet,
+        pageSize: String(PAGE_SIZE),
+        ...findMeParams,
+      })
+      const res = await fetch(`/api/analytics/leaderboard/find-me?${params}`)
+      if (!res.ok) return
+      const json = await res.json()
+      if (json.found) {
+        findMeTriggeredRef.current = true
+        setHighlightWallet(trimWalletAddress(userWallet.toLowerCase()))
+        setPage(json.page)
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setFindMeLoading(false)
+    }
+  }, [userWallet, findMeParams])
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] bg-background border-white/10 flex flex-col">
+        <DialogHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-lg font-black">{title}</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground/60">
+                {description} {total > 0 && `· ${total.toLocaleString()} total`}
+              </DialogDescription>
+            </div>
+            {userWallet && findMeParams && (
+              <button
+                onClick={handleFindMe}
+                disabled={findMeLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+              >
+                <Compass size={14} className={findMeLoading ? "animate-spin" : ""} />
+                Find Me
+              </button>
+            )}
+          </div>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto scrollbar-hide space-y-1 min-h-[60vh]">
+          {entries.length === 0 && isLoading ? (
+            <div className="p-8 text-center text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
+              Loading...
+            </div>
+          ) : entries.length === 0 ? (
+            <div className="p-8 text-center text-xs text-muted-foreground/30">
+              No results found
+            </div>
+          ) : (
+            <div className={`transition-opacity duration-150 ${isLoading ? "opacity-40 pointer-events-none" : ""}`}>
+            {entries.map((entry, idx) => {
+              const isHighlighted = highlightWallet && entry.wallet === highlightWallet
+              return (
+                <div
+                  key={entry.wallet}
+                  ref={isHighlighted ? highlightRef : undefined}
+                  className={`flex items-center justify-between py-2 px-3 rounded text-sm transition-all ${
+                    isHighlighted
+                      ? "bg-primary/10 ring-1 ring-primary/40"
+                      : idx === 0 && page === 1
+                        ? "bg-primary/[0.05]"
+                        : "hover:bg-white/[0.02]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground/40 w-8 text-xs font-mono text-right">
+                      {entry.rank}.
+                    </span>
+                    <span className="font-mono text-sm truncate max-w-[200px]">
+                      {entry.wallet}
+                    </span>
+                    {isHighlighted && (
+                      <Badge className="bg-primary text-[9px] h-4 px-1.5 font-black">YOU</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    {renderSubtext && (
+                      <span className="text-[10px] text-muted-foreground/40 font-mono">
+                        {renderSubtext(entry)}
+                      </span>
+                    )}
+                    <span
+                      className={`font-mono text-sm font-bold tabular-nums ${
+                        isHighlighted
+                          ? "text-primary"
+                          : idx === 0 && page === 1
+                            ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
+                            : ""
+                      }`}
+                    >
+                      {renderStat(entry)}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+            </div>
+          )}
+        </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-1 pt-3 border-t border-white/5">
+            {/* First */}
+            <button
+              onClick={() => setPage(1)}
+              disabled={page <= 1 || isLoading}
+              className="px-2 py-1.5 text-xs font-bold rounded-md bg-white/[0.03] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronsLeft size={14} />
+            </button>
+            {/* Prev */}
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || isLoading}
+              className="px-2 py-1.5 text-xs font-bold rounded-md bg-white/[0.03] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            {/* Page numbers */}
+            {buildPageNumbers(page, totalPages).map((p, i) =>
+              p === "..." ? (
+                <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground/30 select-none">…</span>
+              ) : (
+                <button
+                  key={p}
+                  onClick={() => setPage(p as number)}
+                  disabled={isLoading}
+                  className={`min-w-[28px] px-1.5 py-1.5 text-xs font-bold rounded-md transition-colors ${
+                    p === page
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-white/[0.03] text-muted-foreground hover:text-foreground"
+                  } disabled:cursor-not-allowed`}
+                >
+                  {p}
+                </button>
+              )
+            )}
+            {/* Next */}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || isLoading}
+              className="px-2 py-1.5 text-xs font-bold rounded-md bg-white/[0.03] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight size={14} />
+            </button>
+            {/* Last */}
+            <button
+              onClick={() => setPage(totalPages)}
+              disabled={page >= totalPages || isLoading}
+              className="px-2 py-1.5 text-xs font-bold rounded-md bg-white/[0.03] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronsRight size={14} />
+            </button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // Volume Leaders entry from API
 interface VolumeLeaderEntry {
   rank: number
@@ -805,15 +1089,13 @@ function getStatForTab(entry: VolumeLeaderEntry, tab: VolumeTab): string {
   }
 }
 
-const VolumeLeadersCard = ({ initialData, tierFilter }: { initialData: LeaderboardEntry[]; tierFilter: string }) => {
+const VolumeLeadersCard = ({ initialData, tierFilter, userWallet, userVolume }: { initialData: LeaderboardEntry[]; tierFilter: string; userWallet?: string; userVolume?: number | null }) => {
   const [activeTab, setActiveTab] = useState<VolumeTab>("Volume")
-  const [largestData, setLargestData] = useState<VolumeLeaderEntry[] | null>(null)
-  const [isLargestLoading, setIsLargestLoading] = useState(false)
+  const [apiData, setApiData] = useState<VolumeLeaderEntry[] | null>(null)
+  const [isApiLoading, setIsApiLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
-  const [modalEntries, setModalEntries] = useState<VolumeLeaderEntry[]>([])
-  const [isModalLoading, setIsModalLoading] = useState(false)
 
-  // Derive Volume and Avg Size entries from already-loaded leaderboard data
+  // Derive Volume and Avg Size entries from already-loaded leaderboard data (all tier only)
   const derivedEntries = useMemo((): VolumeLeaderEntry[] => {
     const mapped = initialData.map((e, i) => ({
       rank: i + 1,
@@ -830,43 +1112,56 @@ const VolumeLeadersCard = ({ initialData, tierFilter }: { initialData: Leaderboa
     return mapped
   }, [initialData, activeTab])
 
-  const fetchFromApi = useCallback(async (sort: string, limit: number) => {
-    const res = await fetch(`/api/analytics/leaderboard/volume-leaders?sort=${sort}&limit=${limit}`)
-    if (!res.ok) return []
-    const data = await res.json()
-    return (data.entries || []) as VolumeLeaderEntry[]
-  }, [])
-
-  // Only fetch when Largest tab is selected (needs separate query)
+  // Fetch from API when tier is not "all" or tab is "Largest" (needs server-side query)
   useEffect(() => {
-    if (activeTab !== "Largest") return
-    if (largestData) return // Already fetched
+    const needsApiFetch = tierFilter !== "all" || activeTab === "Largest"
+    if (!needsApiFetch) {
+      setApiData(null)
+      return
+    }
     let cancelled = false
-    setIsLargestLoading(true)
-    fetchFromApi("largest", 10).then((data) => {
-      if (!cancelled) {
-        setLargestData(data)
-        setIsLargestLoading(false)
-      }
+    setIsApiLoading(true)
+    const sort = TAB_TO_SORT[activeTab]
+    const params = new URLSearchParams({
+      sort,
+      tier: tierFilter,
+      page: "1",
+      limit: "15",
     })
+    fetch(`/api/analytics/leaderboard/volume-leaders?${params}`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (!cancelled) {
+          setApiData((data?.entries || []) as VolumeLeaderEntry[])
+          setIsApiLoading(false)
+        }
+      })
+      .catch(() => { if (!cancelled) setIsApiLoading(false) })
     return () => { cancelled = true }
-  }, [activeTab, largestData, fetchFromApi])
+  }, [activeTab, tierFilter])
 
-  const handleAllLeaders = useCallback(async () => {
-    setModalOpen(true)
-    setIsModalLoading(true)
-    const data = await fetchFromApi(TAB_TO_SORT[activeTab], 100)
-    setModalEntries(data)
-    setIsModalLoading(false)
-  }, [activeTab, fetchFromApi])
+  const modalBuildParams = useCallback((p: number, l: number) => ({
+    sort: TAB_TO_SORT[activeTab],
+    tier: tierFilter,
+    page: String(p),
+    limit: String(l),
+  }), [activeTab, tierFilter])
 
-  // Pick the right entries for the active tab, then filter by tier
-  const rawEntries = activeTab === "Largest" ? (largestData ?? []) : derivedEntries
-  const entries = useMemo(() => {
-    if (tierFilter === "all") return rawEntries
-    return rawEntries.filter((e) => getTierFromVolume(e.volume) === tierFilter)
-  }, [rawEntries, tierFilter])
-  const isLoading = activeTab === "Largest" && isLargestLoading
+  // Only show Find Me if user's tier matches the filter (or filter is "all")
+  const userTier = useMemo(() => getTierFromVolume(userVolume), [userVolume])
+  const canFindMe = tierFilter === "all" || userTier === tierFilter
+  const modalFindMeParams = useMemo(() => {
+    if (!canFindMe) return undefined
+    return {
+      category: "volume",
+      sort: TAB_TO_SORT[activeTab],
+      tier: tierFilter,
+    }
+  }, [activeTab, tierFilter, canFindMe])
+
+  // Use API data when fetched (tier filter or Largest), otherwise use derived from initialData
+  const entries = apiData !== null ? apiData : derivedEntries
+  const isLoading = isApiLoading
   const leader = entries[0]
   const statLabel = TAB_TO_LABEL[activeTab]
 
@@ -978,7 +1273,7 @@ const VolumeLeadersCard = ({ initialData, tierFilter }: { initialData: Leaderboa
             </div>
 
             <button
-              onClick={handleAllLeaders}
+              onClick={() => setModalOpen(true)}
               className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer"
             >
               All Leaders →
@@ -987,59 +1282,18 @@ const VolumeLeadersCard = ({ initialData, tierFilter }: { initialData: Leaderboa
         )}
       </Card>
 
-      {/* All Leaders Modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] bg-background border-white/10">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black">
-              Volume Leaders — {activeTab}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground/60">
-              Top 100 wallets sorted by {activeTab.toLowerCase()}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-1 max-h-[60vh] overflow-y-auto scrollbar-hide">
-            {isModalLoading ? (
-              <div className="p-8 text-center text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
-                Loading top 100...
-              </div>
-            ) : (
-              modalEntries.map((entry, idx) => (
-                <div
-                  key={entry.wallet}
-                  className={`flex items-center justify-between py-2 px-3 rounded text-sm ${
-                    idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground/40 w-8 text-xs font-mono text-right">
-                      {entry.rank}.
-                    </span>
-                    <span className="font-mono text-sm truncate max-w-[200px]">
-                      {entry.wallet}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-[10px] text-muted-foreground/40 font-mono">
-                      {entry.swapCount} swaps
-                    </span>
-                    <span
-                      className={`font-mono text-sm font-bold tabular-nums ${
-                        idx === 0
-                          ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
-                          : ""
-                      }`}
-                    >
-                      {getStatForTab(entry, activeTab)}
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PaginatedLeaderboardModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        title={`Volume Leaders — ${activeTab}`}
+        description={`All wallets sorted by ${activeTab.toLowerCase()}`}
+        fetchUrl="/api/analytics/leaderboard/volume-leaders"
+        buildParams={modalBuildParams}
+        renderStat={(e) => getStatForTab(e as unknown as VolumeLeaderEntry, activeTab)}
+        renderSubtext={(e) => `${(e as unknown as VolumeLeaderEntry).swapCount ?? 0} swaps`}
+        userWallet={userWallet}
+        findMeParams={modalFindMeParams}
+      />
     </>
   )
 }
@@ -1093,16 +1347,13 @@ function getEfficiencySubtext(entry: EfficiencyLeaderEntry, tab: EfficiencyTab):
   }
 }
 
-const EfficiencyLeadersCard = ({ initialData, tierFilter }: { initialData: LeaderboardEntry[]; tierFilter: string }) => {
+const EfficiencyLeadersCard = ({ initialData, tierFilter, userWallet, userVolume }: { initialData: LeaderboardEntry[]; tierFilter: string; userWallet?: string; userVolume?: number | null }) => {
   const [activeTab, setActiveTab] = useState<EfficiencyTab>("Tx Count")
-  const [txsPerDayData, setTxsPerDayData] = useState<EfficiencyLeaderEntry[] | null>(null)
-  const [streakData, setStreakData] = useState<EfficiencyLeaderEntry[] | null>(null)
-  const [isFetchLoading, setIsFetchLoading] = useState(false)
+  const [apiData, setApiData] = useState<EfficiencyLeaderEntry[] | null>(null)
+  const [isApiLoading, setIsApiLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
-  const [modalEntries, setModalEntries] = useState<EfficiencyLeaderEntry[]>([])
-  const [isModalLoading, setIsModalLoading] = useState(false)
 
-  // Derive Tx Count entries from already-loaded leaderboard data
+  // Derive Tx Count entries from already-loaded leaderboard data (all tier only)
   const derivedEntries = useMemo((): EfficiencyLeaderEntry[] => {
     const mapped = initialData.map((e, i) => ({
       rank: i + 1,
@@ -1114,51 +1365,56 @@ const EfficiencyLeadersCard = ({ initialData, tierFilter }: { initialData: Leade
     return mapped
   }, [initialData])
 
-  const fetchFromApi = useCallback(async (sort: string, limit: number) => {
-    const res = await fetch(`/api/analytics/leaderboard/efficiency-leaders?sort=${sort}&limit=${limit}`)
-    if (!res.ok) return []
-    const data = await res.json()
-    return (data.entries || []) as EfficiencyLeaderEntry[]
-  }, [])
-
-  // Fetch Tx/Day or Streak data on demand
+  // Fetch from API when tier is not "all" or tab needs server-side query
   useEffect(() => {
-    if (activeTab === "Tx Count") return
-    if (activeTab === "Tx/Day" && txsPerDayData) return
-    if (activeTab === "Streak" && streakData) return
-
+    const needsApiFetch = tierFilter !== "all" || activeTab !== "Tx Count"
+    if (!needsApiFetch) {
+      setApiData(null)
+      return
+    }
     let cancelled = false
-    setIsFetchLoading(true)
-    fetchFromApi(EFFICIENCY_TAB_TO_SORT[activeTab], 10).then((data) => {
-      if (!cancelled) {
-        if (activeTab === "Tx/Day") setTxsPerDayData(data)
-        else setStreakData(data)
-        setIsFetchLoading(false)
-      }
+    setIsApiLoading(true)
+    const sort = EFFICIENCY_TAB_TO_SORT[activeTab]
+    const params = new URLSearchParams({
+      sort,
+      tier: tierFilter,
+      page: "1",
+      limit: "15",
     })
+    fetch(`/api/analytics/leaderboard/efficiency-leaders?${params}`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (!cancelled) {
+          setApiData((data?.entries || []) as EfficiencyLeaderEntry[])
+          setIsApiLoading(false)
+        }
+      })
+      .catch(() => { if (!cancelled) setIsApiLoading(false) })
     return () => { cancelled = true }
-  }, [activeTab, txsPerDayData, streakData, fetchFromApi])
+  }, [activeTab, tierFilter])
 
-  const handleAllLeaders = useCallback(async () => {
-    setModalOpen(true)
-    setIsModalLoading(true)
-    const data = await fetchFromApi(EFFICIENCY_TAB_TO_SORT[activeTab], 100)
-    setModalEntries(data)
-    setIsModalLoading(false)
-  }, [activeTab, fetchFromApi])
+  const modalBuildParams = useCallback((p: number, l: number) => ({
+    sort: EFFICIENCY_TAB_TO_SORT[activeTab],
+    tier: tierFilter,
+    page: String(p),
+    limit: String(l),
+  }), [activeTab, tierFilter])
 
-  // Pick entries for active tab, then filter by tier
-  const rawEntries =
-    activeTab === "Tx/Day"
-      ? (txsPerDayData ?? [])
-      : activeTab === "Streak"
-        ? (streakData ?? [])
-        : derivedEntries
-  const entries = useMemo(() => {
-    if (tierFilter === "all") return rawEntries
-    return rawEntries.filter((e) => getTierFromVolume(e.volume) === tierFilter)
-  }, [rawEntries, tierFilter])
-  const isLoading = activeTab !== "Tx Count" && isFetchLoading && rawEntries.length === 0
+  // Only show Find Me if user's tier matches the filter (or filter is "all")
+  const userTier = useMemo(() => getTierFromVolume(userVolume), [userVolume])
+  const canFindMe = tierFilter === "all" || userTier === tierFilter
+  const modalFindMeParams = useMemo(() => {
+    if (!canFindMe) return undefined
+    return {
+      category: "efficiency",
+      sort: EFFICIENCY_TAB_TO_SORT[activeTab],
+      tier: tierFilter,
+    }
+  }, [activeTab, tierFilter, canFindMe])
+
+  // Use API data when fetched, otherwise use derived from initialData
+  const entries = apiData !== null ? apiData : derivedEntries
+  const isLoading = isApiLoading
   const leader = entries[0]
   const statLabel = EFFICIENCY_TAB_TO_LABEL[activeTab]
 
@@ -1270,7 +1526,7 @@ const EfficiencyLeadersCard = ({ initialData, tierFilter }: { initialData: Leade
             </div>
 
             <button
-              onClick={handleAllLeaders}
+              onClick={() => setModalOpen(true)}
               className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer"
             >
               All Leaders →
@@ -1279,59 +1535,18 @@ const EfficiencyLeadersCard = ({ initialData, tierFilter }: { initialData: Leade
         )}
       </Card>
 
-      {/* All Leaders Modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] bg-background border-white/10">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black">
-              Efficiency Leaders — {activeTab}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground/60">
-              Top 100 wallets sorted by {activeTab.toLowerCase()}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-1 max-h-[60vh] overflow-y-auto scrollbar-hide">
-            {isModalLoading ? (
-              <div className="p-8 text-center text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
-                Loading top 100...
-              </div>
-            ) : (
-              modalEntries.map((entry, idx) => (
-                <div
-                  key={entry.wallet}
-                  className={`flex items-center justify-between py-2 px-3 rounded text-sm ${
-                    idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground/40 w-8 text-xs font-mono text-right">
-                      {entry.rank}.
-                    </span>
-                    <span className="font-mono text-sm truncate max-w-[200px]">
-                      {entry.wallet}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-[10px] text-muted-foreground/40 font-mono">
-                      {getEfficiencySubtext(entry, activeTab)}
-                    </span>
-                    <span
-                      className={`font-mono text-sm font-bold tabular-nums ${
-                        idx === 0
-                          ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
-                          : ""
-                      }`}
-                    >
-                      {getEfficiencyStat(entry, activeTab)}
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PaginatedLeaderboardModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        title={`Efficiency Leaders — ${activeTab}`}
+        description={`All wallets sorted by ${activeTab.toLowerCase()}`}
+        fetchUrl="/api/analytics/leaderboard/efficiency-leaders"
+        buildParams={modalBuildParams}
+        renderStat={(e) => getEfficiencyStat(e as unknown as EfficiencyLeaderEntry, activeTab)}
+        renderSubtext={(e) => getEfficiencySubtext(e as unknown as EfficiencyLeaderEntry, activeTab)}
+        userWallet={userWallet}
+        findMeParams={modalFindMeParams}
+      />
     </>
   )
 }
@@ -1370,25 +1585,19 @@ function getReferralSubtext(entry: ReferralLeaderEntry, tab: ReferralTab): strin
   }
 }
 
-const ReferralLeadersCard = ({ prefetchedData }: { prefetchedData: { byPoints: ReferralLeaderEntry[]; byRefs: ReferralLeaderEntry[] } | null }) => {
+const ReferralLeadersCard = ({ prefetchedData, userWallet }: { prefetchedData: { byPoints: ReferralLeaderEntry[]; byRefs: ReferralLeaderEntry[] } | null; userWallet?: string }) => {
   const [activeTab, setActiveTab] = useState<ReferralTab>("Total Refs")
   const [modalOpen, setModalOpen] = useState(false)
-  const [modalEntries, setModalEntries] = useState<ReferralLeaderEntry[]>([])
-  const [isModalLoading, setIsModalLoading] = useState(false)
 
   const byPoints = prefetchedData?.byPoints ?? []
   const byRefs = prefetchedData?.byRefs ?? []
   const isLoading = !prefetchedData
 
-  const handleAllLeaders = useCallback(async () => {
-    setModalOpen(true)
-    setIsModalLoading(true)
-    const res = await fetch("/api/fuul/leaderboard?limit=100")
-    const json = res.ok ? await res.json() : null
-    const entries = json ? (activeTab === "Total Refs" ? json.byRefs : json.byPoints) : []
-    setModalEntries(entries)
-    setIsModalLoading(false)
-  }, [activeTab])
+  const modalBuildParams = useCallback((p: number, l: number) => ({
+    sort: activeTab === "Total Refs" ? "refs" : "miles",
+    page: String(p),
+    limit: String(l),
+  }), [activeTab])
 
   const entries = activeTab === "Total Refs" ? byRefs : byPoints
 
@@ -1497,7 +1706,7 @@ const ReferralLeadersCard = ({ prefetchedData }: { prefetchedData: { byPoints: R
             </div>
 
             <button
-              onClick={handleAllLeaders}
+              onClick={() => setModalOpen(true)}
               className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer"
             >
               All Leaders →
@@ -1506,59 +1715,17 @@ const ReferralLeadersCard = ({ prefetchedData }: { prefetchedData: { byPoints: R
         )}
       </Card>
 
-      {/* All Leaders Modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] bg-background border-white/10">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black">
-              Referral Leaders — {activeTab}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground/60">
-              Top 100 wallets sorted by {activeTab.toLowerCase()}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-1 max-h-[60vh] overflow-y-auto scrollbar-hide">
-            {isModalLoading ? (
-              <div className="p-8 text-center text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
-                Loading top 100...
-              </div>
-            ) : (
-              modalEntries.map((entry, idx) => (
-                <div
-                  key={entry.wallet}
-                  className={`flex items-center justify-between py-2 px-3 rounded text-sm ${
-                    idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground/40 w-8 text-xs font-mono text-right">
-                      {entry.rank}.
-                    </span>
-                    <span className="font-mono text-sm truncate max-w-[200px]">
-                      {entry.wallet}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-[10px] text-muted-foreground/40 font-mono">
-                      {getReferralSubtext(entry, activeTab)}
-                    </span>
-                    <span
-                      className={`font-mono text-sm font-bold tabular-nums ${
-                        idx === 0
-                          ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
-                          : ""
-                      }`}
-                    >
-                      {getReferralStat(entry, activeTab)}
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PaginatedLeaderboardModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        title={`Referral Leaders — ${activeTab}`}
+        description={`All wallets sorted by ${activeTab.toLowerCase()}`}
+        fetchUrl="/api/fuul/leaderboard"
+        buildParams={modalBuildParams}
+        renderStat={(e) => getReferralStat(e as unknown as ReferralLeaderEntry, activeTab)}
+        renderSubtext={(e) => getReferralSubtext(e as unknown as ReferralLeaderEntry, activeTab)}
+        userWallet={userWallet}
+      />
     </>
   )
 }
@@ -1617,13 +1784,11 @@ function formatRisingVol(v: number): string {
   return `$${v.toFixed(2)}`
 }
 
-const RisingStarsCard = () => {
+const RisingStarsCard = ({ userWallet, userVolume }: { userWallet?: string; userVolume?: number | null }) => {
   const [activeTab, setActiveTab] = useState<RisingTab>("Climbers")
   const [data, setData] = useState<Record<string, RisingStarEntry[]>>({})
   const [isLoading, setIsLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
-  const [modalEntries, setModalEntries] = useState<RisingStarEntry[]>([])
-  const [isModalLoading, setIsModalLoading] = useState(false)
 
   const fetchFromApi = useCallback(async (sort: string, limit: number) => {
     const res = await fetch(`/api/analytics/leaderboard/rising-stars?sort=${sort}&limit=${limit}`)
@@ -1648,13 +1813,22 @@ const RisingStarsCard = () => {
     return () => { cancelled = true }
   }, [activeTab, data, fetchFromApi])
 
-  const handleAllLeaders = useCallback(async () => {
-    setModalOpen(true)
-    setIsModalLoading(true)
-    const entries = await fetchFromApi(RISING_TAB_TO_SORT[activeTab], 100)
-    setModalEntries(entries)
-    setIsModalLoading(false)
-  }, [activeTab, fetchFromApi])
+  const modalBuildParams = useCallback((p: number, l: number) => ({
+    sort: RISING_TAB_TO_SORT[activeTab],
+    page: String(p),
+    limit: String(l),
+  }), [activeTab])
+
+  // Only show Find Me if user is standard tier (below Bronze — Rising Stars only includes standard)
+  const isStandardTier = useMemo(() => getTierFromVolume(userVolume) === "standard", [userVolume])
+  const modalFindMeParams = useMemo(() => {
+    if (!isStandardTier) return undefined
+    return {
+      category: "rising",
+      sort: RISING_TAB_TO_SORT[activeTab],
+      tier: "all",
+    }
+  }, [activeTab, isStandardTier])
 
   const entries = data[RISING_TAB_TO_SORT[activeTab]] ?? []
   const leader = entries[0]
@@ -1763,7 +1937,7 @@ const RisingStarsCard = () => {
             </div>
 
             <button
-              onClick={handleAllLeaders}
+              onClick={() => setModalOpen(true)}
               className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer"
             >
               All Leaders →
@@ -1772,59 +1946,18 @@ const RisingStarsCard = () => {
         )}
       </Card>
 
-      {/* All Leaders Modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] bg-background border-white/10">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black">
-              Rising Stars — {activeTab}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground/60">
-              Top 100 wallets sorted by {activeTab.toLowerCase()}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-1 max-h-[60vh] overflow-y-auto scrollbar-hide">
-            {isModalLoading ? (
-              <div className="p-8 text-center text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
-                Loading top 100...
-              </div>
-            ) : (
-              modalEntries.map((entry, idx) => (
-                <div
-                  key={entry.wallet}
-                  className={`flex items-center justify-between py-2 px-3 rounded text-sm ${
-                    idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground/40 w-8 text-xs font-mono text-right">
-                      {entry.rank}.
-                    </span>
-                    <span className="font-mono text-sm truncate max-w-[200px]">
-                      {entry.wallet}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-[10px] text-muted-foreground/40 font-mono">
-                      {getRisingSubtext(entry, activeTab)}
-                    </span>
-                    <span
-                      className={`font-mono text-sm font-bold tabular-nums text-green-500 ${
-                        idx === 0
-                          ? "bg-green-500/20 text-green-400 px-2 py-0.5 rounded"
-                          : ""
-                      }`}
-                    >
-                      {getRisingStat(entry, activeTab)}
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PaginatedLeaderboardModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        title={`Rising Stars — ${activeTab}`}
+        description={`All wallets sorted by ${activeTab.toLowerCase()}`}
+        fetchUrl="/api/analytics/leaderboard/rising-stars"
+        buildParams={modalBuildParams}
+        renderStat={(e) => getRisingStat(e as unknown as RisingStarEntry, activeTab)}
+        renderSubtext={(e) => getRisingSubtext(e as unknown as RisingStarEntry, activeTab)}
+        userWallet={userWallet}
+        findMeParams={modalFindMeParams}
+      />
     </>
   )
 }
