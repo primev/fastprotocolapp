@@ -89,6 +89,42 @@ export const LeaderboardTable = ({
       .catch(() => {})
   }, [])
 
+  const [leaderboardMode, setLeaderboardMode] = useState<"volume" | "miles">("miles")
+
+  // Miles leaderboard data (Fuul points for main table in miles mode)
+  const [milesLeaderboard, setMilesLeaderboard] = useState<{ wallet: string; points: number; referrals: number; rank: number }[]>([])
+  const [isMilesLoading, setIsMilesLoading] = useState(false)
+  useEffect(() => {
+    if (leaderboardMode !== "miles") return
+    setIsMilesLoading(true)
+    fetch("/api/fuul/leaderboard?limit=100&page=1&sort=miles")
+      .then((res) => res.ok ? res.json() : null)
+      .then((json) => {
+        if (json?.entries) setMilesLeaderboard(json.entries)
+        else if (json?.byPoints) setMilesLeaderboard(json.byPoints.map((e: ReferralLeaderEntry, i: number) => ({ ...e, rank: i + 1 })))
+      })
+      .catch(() => {})
+      .finally(() => setIsMilesLoading(false))
+  }, [leaderboardMode])
+
+  // Find user in miles leaderboard
+  const userMilesEntry = useMemo(() => {
+    if (!userAddr || !milesLeaderboard.length) return null
+    const trimmed = trimWalletAddress(userAddr.toLowerCase())
+    return milesLeaderboard.find((e) => e.wallet === trimmed) ?? null
+  }, [userAddr, milesLeaderboard])
+
+  // Total miles across all participants
+  const totalMiles = useMemo(() => {
+    return milesLeaderboard.reduce((sum, e) => sum + e.points, 0)
+  }, [milesLeaderboard])
+
+  // Next rank miles (person above user)
+  const nextMilesRankEntry = useMemo(() => {
+    if (!userMilesEntry || userMilesEntry.rank <= 1) return null
+    return milesLeaderboard.find((e) => e.rank === userMilesEntry.rank - 1) ?? null
+  }, [userMilesEntry, milesLeaderboard])
+
   // Apply testing multiplier to user volume
   const adjustedUserVol = useMemo(
     () => (userVol ? userVol * TESTING_VOLUME_MULTIPLIER : null),
@@ -206,7 +242,6 @@ export const LeaderboardTable = ({
 
   const [activeTab, setActiveTab] = useState("standings")
   const [tierFilter, setTierFilter] = useState<string>("all")
-  const [leaderboardMode, setLeaderboardMode] = useState<"volume" | "miles">("miles")
 
   // Formatting Helpers
   const formatVolumeDisplay = (v: number) => {
@@ -286,36 +321,119 @@ export const LeaderboardTable = ({
             </h1>
           </div>
 
-          <div className="flex items-center gap-4 sm:gap-6 md:gap-10">
-            <div className="flex flex-col items-start md:items-end">
-              <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
-                Traders
-              </span>
-              <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
-                {activeTraders?.toLocaleString() || "---"}
-              </span>
+          {leaderboardMode === "volume" ? (
+            <div className="flex items-center gap-4 sm:gap-6 md:gap-10">
+              <div className="flex flex-col items-start md:items-end">
+                <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
+                  Traders
+                </span>
+                <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
+                  {activeTraders?.toLocaleString() || "---"}
+                </span>
+              </div>
+              <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
+                <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
+                  Vol (ETH)
+                </span>
+                <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
+                  {swapVolumeEth != null ? `${formatNumber(swapVolumeEth)} ETH` : "---"}
+                </span>
+              </div>
+              <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
+                <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
+                  Vol (USD)
+                </span>
+                <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
+                  {totalVol ? formatVolumeDisplay(totalVol) : "---"}
+                </span>
+              </div>
             </div>
-            <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
-              <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
-                Vol (ETH)
-              </span>
-              <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
-                {swapVolumeEth != null ? `${formatNumber(swapVolumeEth)} ETH` : "---"}
-              </span>
+          ) : (
+            <div className="flex items-center gap-4 sm:gap-6 md:gap-10">
+              <div className="flex flex-col items-start md:items-end">
+                <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
+                  Participants
+                </span>
+                <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
+                  {milesLeaderboard.length > 0 ? milesLeaderboard.length.toLocaleString() : "---"}
+                </span>
+              </div>
+              <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
+                <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
+                  Total Miles
+                </span>
+                <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
+                  {totalMiles > 0 ? totalMiles.toLocaleString() : "---"}
+                </span>
+              </div>
             </div>
-            <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
-              <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
-                Vol (USD)
-              </span>
-              <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
-                {totalVol ? formatVolumeDisplay(totalVol) : "---"}
-              </span>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* User Performance Metrics */}
-        {userAddr && (
+        {/* User Performance Metrics — Miles mode */}
+        {leaderboardMode === "miles" && userAddr && (
+          <div className="flex flex-col sm:flex-row items-stretch gap-3">
+            {/* Rank Card */}
+            <div className="flex-1 flex items-center justify-between px-5 py-3 rounded-2xl bg-primary/[0.03] border border-primary/20 backdrop-blur-sm group hover:bg-primary/[0.05] transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-primary/10 rounded-lg text-primary shadow-inner">
+                  <TrendingUp size={18} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[8px] font-black text-primary/60 uppercase tracking-widest">
+                    Miles Rank
+                  </span>
+                  <span className="text-2xl font-black tabular-nums leading-none text-primary">
+                    #{userMilesEntry?.rank || "--"}
+                  </span>
+                </div>
+              </div>
+              <div className="hidden md:block text-right">
+                <p className="text-[9px] font-bold text-muted-foreground/40 leading-tight">
+                  {userMilesEntry && userMilesEntry.rank === 1 ? (
+                    <span className="text-primary/80">You're leading the pack!</span>
+                  ) : nextMilesRankEntry ? (
+                    <>
+                      Overtake <span className="text-primary/80">#{(userMilesEntry?.rank ?? 0) - 1}</span> with{" "}
+                      <span className="text-primary/80">{(nextMilesRankEntry.points - (userMilesEntry?.points ?? 0)).toLocaleString()} miles</span>
+                    </>
+                  ) : (
+                    <span className="text-primary/80">Earn more miles to climb.</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Miles Card */}
+            <div className="flex-1 flex items-center justify-between px-5 py-3 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-sm group hover:bg-white/[0.04] transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-white/5 rounded-lg text-muted-foreground shrink-0">
+                  <Zap size={18} className="group-hover:text-primary transition-colors" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[8px] font-black text-muted-foreground/40 uppercase tracking-widest">
+                    Your Miles
+                  </span>
+                  <span className="text-2xl font-black tabular-nums leading-none">
+                    {userMilesEntry?.points.toLocaleString() ?? "0"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center sm:border-l sm:border-white/5 sm:pl-5 text-center">
+                <span className="text-[8px] font-black uppercase text-muted-foreground/30 block mb-0.5">
+                  Referrals
+                </span>
+                <p className="text-[10px] font-bold leading-none">
+                  {userMilesEntry?.referrals.toLocaleString() ?? "---"}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* User Performance Metrics (volume mode only) */}
+        {leaderboardMode === "volume" && userAddr && (
           <div className="flex flex-col sm:flex-row items-stretch gap-3">
             {/* Rank Card */}
             <div className="flex-1 flex items-center justify-between px-5 py-3 rounded-2xl bg-primary/[0.03] border border-primary/20 backdrop-blur-sm group hover:bg-primary/[0.05] transition-colors">
@@ -371,8 +489,8 @@ export const LeaderboardTable = ({
         )}
       </div>
 
-      {/* Progress & Analysis Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch">
+      {/* Progress & Analysis Section (volume mode only) */}
+      {leaderboardMode === "volume" && <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch">
         {/* Progress Tracker Card */}
         <Card className="p-3 sm:p-4 bg-white/[0.01] border-white/5 flex flex-col justify-center space-y-2 sm:space-y-3 min-w-0 w-full h-full">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-muted-foreground/40 min-w-0">
@@ -496,9 +614,119 @@ export const LeaderboardTable = ({
             </div>
           </div>
         </Card>
-      </div>
+      </div>}
 
-      {/* Leaderboard Table Section with Tabs */}
+      {/* Leaderboard Table Section */}
+      {leaderboardMode === "miles" ? (
+        /* ─── Miles Mode: Simple ranked list ─── */
+        <div className="space-y-2">
+          <div className="space-y-1.5 w-full">
+            {isMilesLoading && milesLeaderboard.length === 0 ? (
+              <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20 animate-pulse">
+                Loading miles leaderboard...
+              </div>
+            ) : milesLeaderboard.length === 0 ? (
+              <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20">
+                No miles data available
+              </div>
+            ) : (
+              milesLeaderboard.slice(0, 15).map((entry) => {
+                const isCurrentUser = userMilesEntry?.wallet === entry.wallet
+                return (
+                  <div
+                    key={entry.wallet}
+                    className={`relative grid grid-cols-12 items-center px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-xl border transition-all min-w-0 overflow-hidden ${
+                      isCurrentUser
+                        ? "bg-primary/[0.05] border-primary/30"
+                        : "bg-card/20 border-white/5"
+                    }`}
+                  >
+                    <div className="col-span-3 sm:col-span-2 min-w-0 flex items-center gap-4">
+                      <span
+                        className={`text-3xl sm:text-4xl md:text-5xl font-black tracking-[calc(-0.05em)] leading-none tabular-nums ${
+                          entry.rank === 1
+                            ? "text-white scale-110 origin-left"
+                            : entry.rank === 2
+                              ? "text-white/80"
+                              : entry.rank === 3
+                                ? "text-white/60"
+                                : "text-muted-foreground/10"
+                        }`}
+                      >
+                        {entry.rank.toString().padStart(2, "0")}
+                      </span>
+                    </div>
+                    <div className="col-span-5 sm:col-span-5 flex items-center gap-1.5 sm:gap-2 min-w-0">
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-mono text-sm sm:text-base md:text-lg truncate">
+                          {entry.wallet}
+                        </span>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
+                          {entry.referrals.toLocaleString()} referral{entry.referrals !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      {isCurrentUser && (
+                        <Badge className="bg-primary text-[9px] sm:text-[10px] h-4 sm:h-5 px-1.5 sm:px-2 font-black shrink-0">
+                          YOU
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="col-span-4 sm:col-span-5 text-right min-w-0">
+                      <div className="flex flex-col items-end justify-center">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/30 mb-0.5">
+                          Miles
+                        </span>
+                        <span className="text-xl md:text-3xl font-black tracking-tighter tabular-nums leading-none">
+                          {entry.points.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          {/* User position if not in top 15 */}
+          {userMilesEntry && userMilesEntry.rank > 15 && (
+            <div className="mt-6">
+              <div className="flex items-center gap-4 py-2">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40">
+                  Your Position
+                </span>
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+              </div>
+              <div className="relative grid grid-cols-12 items-center px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-xl border bg-primary/[0.05] border-primary/30 min-w-0 overflow-hidden">
+                <div className="col-span-3 sm:col-span-2 min-w-0">
+                  <span className="text-3xl sm:text-4xl md:text-5xl font-black tracking-[calc(-0.05em)] leading-none tabular-nums text-muted-foreground/10">
+                    {userMilesEntry.rank.toString().padStart(2, "0")}
+                  </span>
+                </div>
+                <div className="col-span-5 sm:col-span-5 flex items-center gap-1.5 sm:gap-2 min-w-0">
+                  <span className="font-mono text-sm sm:text-base md:text-lg truncate">
+                    {userMilesEntry.wallet}
+                  </span>
+                  <Badge className="bg-primary text-[9px] sm:text-[10px] h-4 sm:h-5 px-1.5 sm:px-2 font-black shrink-0">
+                    YOU
+                  </Badge>
+                </div>
+                <div className="col-span-4 sm:col-span-5 text-right min-w-0">
+                  <div className="flex flex-col items-end justify-center">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/30 mb-0.5">
+                      Miles
+                    </span>
+                    <span className="text-xl md:text-3xl font-black tracking-tighter tabular-nums leading-none">
+                      {userMilesEntry.points.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+      /* ─── Volume Mode: Tabs + Tier Filter ─── */
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <TabsList className="grid w-full max-w-[200px] grid-cols-2">
@@ -507,53 +735,51 @@ export const LeaderboardTable = ({
           </TabsList>
 
           {/* Tier Filter */}
-          {(
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => setTierFilter("all")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-                  tierFilter === "all"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-white/[0.03] text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setTierFilter("gold")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
-                  tierFilter === "gold"
-                    ? "bg-yellow-500/20 text-yellow-500 border border-yellow-500/50"
-                    : "bg-white/[0.03] text-muted-foreground hover:text-yellow-500"
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                Gold
-              </button>
-              <button
-                onClick={() => setTierFilter("silver")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
-                  tierFilter === "silver"
-                    ? "bg-slate-400/20 text-slate-300 border border-slate-400/50"
-                    : "bg-white/[0.03] text-muted-foreground hover:text-slate-300"
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                Silver
-              </button>
-              <button
-                onClick={() => setTierFilter("bronze")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
-                  tierFilter === "bronze"
-                    ? "bg-amber-600/20 text-amber-600 border border-amber-600/50"
-                    : "bg-white/[0.03] text-muted-foreground hover:text-amber-600"
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-                Bronze
-              </button>
-            </div>
-          )}
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setTierFilter("all")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+                tierFilter === "all"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-white/[0.03] text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setTierFilter("gold")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
+                tierFilter === "gold"
+                  ? "bg-yellow-500/20 text-yellow-500 border border-yellow-500/50"
+                  : "bg-white/[0.03] text-muted-foreground hover:text-yellow-500"
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+              Gold
+            </button>
+            <button
+              onClick={() => setTierFilter("silver")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
+                tierFilter === "silver"
+                  ? "bg-slate-400/20 text-slate-300 border border-slate-400/50"
+                  : "bg-white/[0.03] text-muted-foreground hover:text-slate-300"
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+              Silver
+            </button>
+            <button
+              onClick={() => setTierFilter("bronze")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
+                tierFilter === "bronze"
+                  ? "bg-amber-600/20 text-amber-600 border border-amber-600/50"
+                  : "bg-white/[0.03] text-muted-foreground hover:text-amber-600"
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+              Bronze
+            </button>
+          </div>
         </div>
 
         {/* STANDINGS TAB */}
@@ -640,6 +866,7 @@ export const LeaderboardTable = ({
           </div>
         </TabsContent>
       </Tabs>
+      )}
     </div>
   )
 }
