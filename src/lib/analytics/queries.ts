@@ -400,6 +400,7 @@ LIMIT :limit
 `.trim()
 
 // Rising Stars: new users (first swap in last 30 days) ranked by volume
+// Only includes "standard" tier wallets (total volume below Bronze threshold)
 export const RISING_STARS_NEW_USERS = `
 WITH first_swap AS (
   SELECT
@@ -419,6 +420,7 @@ wallet_stats AS (
   FROM mevcommit_57173.processed_l1_txns_v2
   WHERE is_swap = TRUE
   GROUP BY lower(from_address)
+  HAVING SUM(COALESCE(swap_vol_usd, 0)) < 10000
 )
 SELECT
   f.wallet,
@@ -433,8 +435,18 @@ LIMIT :limit
 `.trim()
 
 // Rising Stars: week-over-week volume growth percentage
+// Only includes "standard" tier wallets (total volume below Bronze threshold)
 export const RISING_STARS_WOW_GROWTH = `
-WITH this_week AS (
+WITH total_volume AS (
+  SELECT
+    lower(from_address) AS wallet,
+    SUM(COALESCE(swap_vol_usd, 0)) AS total_vol
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address)
+  HAVING SUM(COALESCE(swap_vol_usd, 0)) < 10000
+),
+this_week AS (
   SELECT
     lower(from_address) AS wallet,
     SUM(COALESCE(swap_vol_usd, 0)) AS vol_this_week
@@ -463,6 +475,7 @@ SELECT
     ELSE 100
   END AS wow_growth_pct
 FROM this_week t
+JOIN total_volume tv ON t.wallet = tv.wallet
 LEFT JOIN last_week l ON t.wallet = l.wallet
 WHERE t.vol_this_week > 0
 ORDER BY wow_growth_pct DESC
@@ -470,8 +483,18 @@ LIMIT :limit
 `.trim()
 
 // Rising Stars: climbers (biggest absolute volume increase this week vs last)
+// Only includes "standard" tier wallets (total volume below Bronze threshold)
 export const RISING_STARS_CLIMBERS = `
-WITH this_week AS (
+WITH total_volume AS (
+  SELECT
+    lower(from_address) AS wallet,
+    SUM(COALESCE(swap_vol_usd, 0)) AS total_vol
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address)
+  HAVING SUM(COALESCE(swap_vol_usd, 0)) < 10000
+),
+this_week AS (
   SELECT
     lower(from_address) AS wallet,
     SUM(COALESCE(swap_vol_usd, 0)) AS vol_this_week
@@ -496,6 +519,7 @@ SELECT
   COALESCE(l.vol_last_week, 0) AS vol_last_week,
   t.vol_this_week - COALESCE(l.vol_last_week, 0) AS vol_increase
 FROM this_week t
+JOIN total_volume tv ON t.wallet = tv.wallet
 LEFT JOIN last_week l ON t.wallet = l.wallet
 WHERE t.vol_this_week > 0
 ORDER BY vol_increase DESC

@@ -473,8 +473,8 @@ export const LeaderboardTable = ({
             <TabsTrigger value="stats">Stats</TabsTrigger>
           </TabsList>
 
-          {/* Tier Filter - only show on standings tab */}
-          {activeTab === "standings" && (
+          {/* Tier Filter */}
+          {(
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => setTierFilter("all")}
@@ -594,10 +594,10 @@ export const LeaderboardTable = ({
         <TabsContent value="stats" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             {/* Volume Leaders */}
-            <VolumeLeadersCard initialData={statsByVolume} />
+            <VolumeLeadersCard initialData={statsByVolume} tierFilter={tierFilter} />
 
             {/* Efficiency Leaders */}
-            <EfficiencyLeadersCard initialData={statsByTxCount} />
+            <EfficiencyLeadersCard initialData={statsByTxCount} tierFilter={tierFilter} />
 
             {/* Referral Leaders */}
             <ReferralLeadersCard prefetchedData={referralData} />
@@ -805,7 +805,7 @@ function getStatForTab(entry: VolumeLeaderEntry, tab: VolumeTab): string {
   }
 }
 
-const VolumeLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] }) => {
+const VolumeLeadersCard = ({ initialData, tierFilter }: { initialData: LeaderboardEntry[]; tierFilter: string }) => {
   const [activeTab, setActiveTab] = useState<VolumeTab>("Volume")
   const [largestData, setLargestData] = useState<VolumeLeaderEntry[] | null>(null)
   const [isLargestLoading, setIsLargestLoading] = useState(false)
@@ -860,8 +860,12 @@ const VolumeLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] })
     setIsModalLoading(false)
   }, [activeTab, fetchFromApi])
 
-  // Pick the right entries for the active tab
-  const entries = activeTab === "Largest" ? (largestData ?? []) : derivedEntries
+  // Pick the right entries for the active tab, then filter by tier
+  const rawEntries = activeTab === "Largest" ? (largestData ?? []) : derivedEntries
+  const entries = useMemo(() => {
+    if (tierFilter === "all") return rawEntries
+    return rawEntries.filter((e) => getTierFromVolume(e.volume) === tierFilter)
+  }, [rawEntries, tierFilter])
   const isLoading = activeTab === "Largest" && isLargestLoading
   const leader = entries[0]
   const statLabel = TAB_TO_LABEL[activeTab]
@@ -941,7 +945,7 @@ const VolumeLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] })
               {/* Ranked list */}
               <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
                 {entries.map((entry, idx) => {
-                  const entryTm = idx < 3 ? getTierMetadata(getTierFromVolume(entry.volume)) : null
+                  const entryTm = tierFilter === "all" && idx < 3 ? getTierMetadata(getTierFromVolume(entry.volume)) : null
                   return (
                   <div
                     key={entry.wallet}
@@ -951,7 +955,7 @@ const VolumeLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] })
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground/40 w-6 text-xs font-mono flex items-center gap-1">
-                        {idx < 3 && entryTm && <span className={`inline-block w-1.5 h-1.5 rounded-full ${entryTm.dot}`} />}
+                        {entryTm && <span className={`inline-block w-1.5 h-1.5 rounded-full ${entryTm.dot}`} />}
                         {idx + 1}.
                       </span>
                       <span className="font-mono text-xs truncate max-w-[100px]">
@@ -1089,7 +1093,7 @@ function getEfficiencySubtext(entry: EfficiencyLeaderEntry, tab: EfficiencyTab):
   }
 }
 
-const EfficiencyLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] }) => {
+const EfficiencyLeadersCard = ({ initialData, tierFilter }: { initialData: LeaderboardEntry[]; tierFilter: string }) => {
   const [activeTab, setActiveTab] = useState<EfficiencyTab>("Tx Count")
   const [txsPerDayData, setTxsPerDayData] = useState<EfficiencyLeaderEntry[] | null>(null)
   const [streakData, setStreakData] = useState<EfficiencyLeaderEntry[] | null>(null)
@@ -1143,14 +1147,18 @@ const EfficiencyLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[
     setIsModalLoading(false)
   }, [activeTab, fetchFromApi])
 
-  // Pick entries for active tab
-  const entries =
+  // Pick entries for active tab, then filter by tier
+  const rawEntries =
     activeTab === "Tx/Day"
       ? (txsPerDayData ?? [])
       : activeTab === "Streak"
         ? (streakData ?? [])
         : derivedEntries
-  const isLoading = activeTab !== "Tx Count" && isFetchLoading && entries.length === 0
+  const entries = useMemo(() => {
+    if (tierFilter === "all") return rawEntries
+    return rawEntries.filter((e) => getTierFromVolume(e.volume) === tierFilter)
+  }, [rawEntries, tierFilter])
+  const isLoading = activeTab !== "Tx Count" && isFetchLoading && rawEntries.length === 0
   const leader = entries[0]
   const statLabel = EFFICIENCY_TAB_TO_LABEL[activeTab]
 
@@ -1229,7 +1237,7 @@ const EfficiencyLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[
               {/* Ranked list */}
               <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
                 {entries.map((entry, idx) => {
-                  const entryTm = idx < 3 ? getTierMetadata(getTierFromVolume(entry.volume)) : null
+                  const entryTm = tierFilter === "all" && idx < 3 ? getTierMetadata(getTierFromVolume(entry.volume)) : null
                   return (
                   <div
                     key={entry.wallet}
@@ -1239,7 +1247,7 @@ const EfficiencyLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground/40 w-6 text-xs font-mono flex items-center gap-1">
-                        {idx < 3 && entryTm && <span className={`inline-block w-1.5 h-1.5 rounded-full ${entryTm.dot}`} />}
+                        {entryTm && <span className={`inline-block w-1.5 h-1.5 rounded-full ${entryTm.dot}`} />}
                         {idx + 1}.
                       </span>
                       <span className="font-mono text-xs truncate max-w-[100px]">
@@ -1656,10 +1664,10 @@ const RisingStarsCard = () => {
   return (
     <>
       <Card className="group/card relative p-4 md:p-6 bg-white/[0.01] border-white/5 hover:border-white/10 transition-all duration-300 overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-orange-500/50 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
         <div className="flex items-center gap-2 mb-4">
-          <div className="p-1.5 rounded-lg bg-orange-500/10">
-            <Flame size={14} className="text-orange-500" />
+          <div className="p-1.5 rounded-lg bg-primary/10">
+            <Flame size={14} className="text-primary" />
           </div>
           <h3 className="font-bold text-sm">Rising Stars</h3>
           <Tooltip>
@@ -1682,7 +1690,7 @@ const RisingStarsCard = () => {
               onClick={() => setActiveTab(tab)}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 activeTab === tab
-                  ? "bg-orange-500/10 text-orange-500 font-bold"
+                  ? "bg-primary/10 text-primary font-bold"
                   : "text-muted-foreground/50 hover:text-foreground"
               }`}
             >
@@ -1705,13 +1713,11 @@ const RisingStarsCard = () => {
             <div className="flex gap-4">
               {/* Leader highlight */}
               <div className="flex flex-col items-center p-4 bg-gradient-to-b from-white/[0.03] to-transparent rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
-                {(() => { const tm = getTierMetadata(getTierFromVolume(leader.volume)); return (
-                <div className={`relative w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-4 ring-2 ring-offset-2 ring-offset-background ${tm.color.replace('text-', 'ring-')}/20`}>
-                  <span className={`text-sm font-black uppercase tracking-widest ${tm.color}`}>
+                <div className="relative w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 ring-2 ring-offset-2 ring-offset-background ring-primary/20">
+                  <span className="text-sm font-black uppercase tracking-widest text-primary">
                     #1
                   </span>
                 </div>
-                ) })()}
                 <p className="font-mono text-xs text-center truncate max-w-[110px]">
                   {leader.wallet}
                 </p>
@@ -1727,18 +1733,15 @@ const RisingStarsCard = () => {
 
               {/* Ranked list */}
               <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
-                {entries.map((entry, idx) => {
-                  const entryTm = idx < 3 ? getTierMetadata(getTierFromVolume(entry.volume)) : null
-                  return (
+                {entries.map((entry, idx) => (
                   <div
                     key={entry.wallet}
                     className={`flex items-center justify-between py-1.5 px-2 rounded text-sm transition-colors ${
-                      idx === 0 ? "bg-orange-500/[0.05]" : "hover:bg-white/[0.02]"
+                      idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground/40 w-6 text-xs font-mono flex items-center gap-1">
-                        {idx < 3 && entryTm && <span className={`inline-block w-1.5 h-1.5 rounded-full ${entryTm.dot}`} />}
+                      <span className="text-muted-foreground/40 w-6 text-xs font-mono">
                         {idx + 1}.
                       </span>
                       <span className="font-mono text-xs truncate max-w-[100px]">
@@ -1755,8 +1758,7 @@ const RisingStarsCard = () => {
                       {getRisingStat(entry, activeTab)}
                     </span>
                   </div>
-                  )
-                })}
+                ))}
               </div>
             </div>
 
@@ -1792,7 +1794,7 @@ const RisingStarsCard = () => {
                 <div
                   key={entry.wallet}
                   className={`flex items-center justify-between py-2 px-3 rounded text-sm ${
-                    idx === 0 ? "bg-orange-500/[0.05]" : "hover:bg-white/[0.02]"
+                    idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
                   }`}
                 >
                   <div className="flex items-center gap-3">
