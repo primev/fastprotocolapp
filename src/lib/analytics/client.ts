@@ -231,6 +231,80 @@ export class AnalyticsClient {
   }
 
   /**
+   * Executes a raw SQL string directly (bypasses registry lookup)
+   * Use for dynamically-built queries (e.g., paginated + tier-filtered)
+   */
+  async executeRaw(
+    sql: string,
+    params?: Record<string, unknown>,
+    options: QueryOptions = {}
+  ): Promise<unknown[][]> {
+    const startTime = Date.now()
+    const formatted = params ? SqlString.format(sql, params) : sql.trim()
+
+    const catalogKey = options.catalog || "default"
+    const config = CATALOG_CONFIGS[catalogKey]
+    if (!config) {
+      throw new AnalyticsClientError(
+        `Unknown catalog: ${catalogKey}. Available catalogs: ${Object.keys(CATALOG_CONFIGS).join(", ")}`
+      )
+    }
+
+    const finalConfig: CatalogConfig = {
+      ...config,
+      database: options.database || config.database,
+    }
+
+    const apiUrl = this.buildApiUrl(finalConfig)
+    const controller = new AbortController()
+    const timeout = options.timeout || 30000
+
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${this.authToken}`,
+        },
+        body: JSON.stringify({ query: formatted }),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Analytics API error (${response.status}):`, errorText)
+        console.error("Failed SQL query:", formatted)
+        throw new AnalyticsClientError(
+          `Analytics API returned status ${response.status}: ${errorText}`,
+          response.status,
+          "raw"
+        )
+      }
+
+      const responseText = await response.text()
+      return this.parseNDJSONResponse(responseText)
+    } catch (error) {
+      clearTimeout(timeoutId)
+      if (error instanceof AnalyticsClientError) throw error
+
+      const duration = Date.now() - startTime
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new AnalyticsClientError(`Query timeout after ${timeout}ms`, undefined, "raw", error)
+      }
+      throw new AnalyticsClientError(
+        `Failed to execute analytics query after ${duration}ms: ${error instanceof Error ? error.message : String(error)}`,
+        undefined,
+        "raw",
+        error
+      )
+    }
+  }
+
+  /**
    * Executes a query and returns the first row, or null if no rows
    */
   async executeOne(

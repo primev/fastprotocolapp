@@ -3,6 +3,7 @@ import {
   getLeaderboard,
   getEfficiencyByTxsPerDay,
   getEfficiencyByStreak,
+  getEfficiencyLeadersPaginated,
 } from "@/lib/analytics/services/leaderboard.service"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import { AnalyticsClientError } from "@/lib/analytics/client"
@@ -33,16 +34,68 @@ interface EfficiencyLeaderEntry {
 }
 
 /**
- * GET /api/analytics/leaderboard/efficiency-leaders?sort=tx_count|txs_per_day|streak&limit=15
- *
- * Returns efficiency leader data. Sort determines ordering.
+ * GET /api/analytics/leaderboard/efficiency-leaders?sort=tx_count|txs_per_day|streak&limit=15&tier=all&page=1
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const sort = searchParams.get("sort") || "tx_count"
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "15", 10), 1), 100)
+    const tier = searchParams.get("tier") || "all"
+    const page = parseInt(searchParams.get("page") || "0", 10)
 
+    // Paginated mode
+    if (page > 0) {
+      const cacheKey = `efficiency-leaders:${sort}:${tier}:p${page}:l${limit}`
+      const cached = getCached(cacheKey)
+      if (cached) {
+        return NextResponse.json(cached, {
+          headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=5" },
+        })
+      }
+
+      const result = await getEfficiencyLeadersPaginated({ sort, tier, page, limit })
+
+      const entries: EfficiencyLeaderEntry[] = result.entries.map((row, i) => {
+        if (sort === "txs_per_day") {
+          return {
+            rank: (page - 1) * limit + i + 1,
+            wallet: trimWalletAddress(String(row[0])),
+            swapCount: Number(row[1]) || 0,
+            activeDays: Number(row[2]) || 0,
+            txsPerDay: Number(row[3]) || 0,
+            volume: Number(row[4]) || 0,
+            volumeEth: Number(row[5]) || 0,
+          }
+        }
+        if (sort === "streak") {
+          return {
+            rank: (page - 1) * limit + i + 1,
+            wallet: trimWalletAddress(String(row[0])),
+            streak: Number(row[1]) || 0,
+            swapCount: Number(row[2]) || 0,
+            volume: Number(row[3]) || 0,
+            volumeEth: Number(row[4]) || 0,
+          }
+        }
+        // tx_count
+        return {
+          rank: (page - 1) * limit + i + 1,
+          wallet: trimWalletAddress(String(row[0])),
+          swapCount: Number(row[3]) || 0,
+          volume: Number(row[2]) || 0,
+          volumeEth: Number(row[1]) || 0,
+        }
+      })
+
+      const responseData = { success: true, entries, pagination: result.pagination }
+      cache.set(cacheKey, { data: responseData, timestamp: Date.now() })
+      return NextResponse.json(responseData, {
+        headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=5" },
+      })
+    }
+
+    // Non-paginated mode (card preview)
     const cacheKey = `efficiency-leaders:${sort}:${limit}`
     const cached = getCached(cacheKey)
     if (cached) {
@@ -75,7 +128,6 @@ export async function GET(request: NextRequest) {
         volumeEth: Number(row[4]) || 0,
       }))
     } else {
-      // "tx_count" — use main leaderboard sorted by swap_count
       const rows = await getLeaderboard(limit)
       const mapped = rows.map((row, i) => ({
         rank: i + 1,
@@ -84,7 +136,6 @@ export async function GET(request: NextRequest) {
         volume: Number(row[2]) || 0,
         volumeEth: Number(row[1]) || 0,
       }))
-      // Re-sort by swap count (main leaderboard is sorted by volume)
       mapped.sort((a, b) => b.swapCount - a.swapCount)
       entries = mapped.map((e, i) => ({ ...e, rank: i + 1 }))
     }
