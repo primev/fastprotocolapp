@@ -338,9 +338,10 @@ export async function getVolumeLeadersPaginated(params: {
   }
 
   // volume or avg_size — both use same base query, different ORDER BY
-  const orderBy = sort === "avg_size"
-    ? "SUM(COALESCE(swap_vol_usd, 0)) / NULLIF(COUNT(*), 0) DESC"
-    : "total_swap_vol_usd DESC"
+  const orderBy =
+    sort === "avg_size"
+      ? "SUM(COALESCE(swap_vol_usd, 0)) / NULLIF(COUNT(*), 0) DESC"
+      : "total_swap_vol_usd DESC"
 
   const baseHaving = having
     ? having + " AND SUM(COALESCE(swap_vol_eth, 0)) > 0"
@@ -475,15 +476,16 @@ export async function getEfficiencyLeadersPaginated(params: {
 
   if (sort === "streak") {
     // The streak query is complex — use the same CTE but add tier filtering via a join
-    const tierJoin = tier !== "all"
-      ? `JOIN (
+    const tierJoin =
+      tier !== "all"
+        ? `JOIN (
           SELECT lower(from_address) AS wallet
           FROM ${TABLE}
           WHERE is_swap = TRUE
           GROUP BY lower(from_address)
           ${tierHaving}
         ) tier_filter ON ws.wallet = tier_filter.wallet`
-      : ""
+        : ""
 
     const countSql = `
       WITH wallet_days AS (
@@ -807,11 +809,12 @@ export async function findUserInLeaderboard(params: {
       ? tierHaving + " AND SUM(COALESCE(swap_vol_eth, 0)) > 0"
       : "HAVING SUM(COALESCE(swap_vol_eth, 0)) > 0"
 
-    const orderBy = sort === "avg_size"
-      ? "SUM(COALESCE(swap_vol_usd, 0)) / NULLIF(COUNT(*), 0) DESC"
-      : sort === "largest"
-        ? "MAX(COALESCE(swap_vol_usd, 0)) DESC"
-        : "SUM(COALESCE(swap_vol_usd, 0)) DESC"
+    const orderBy =
+      sort === "avg_size"
+        ? "SUM(COALESCE(swap_vol_usd, 0)) / NULLIF(COUNT(*), 0) DESC"
+        : sort === "largest"
+          ? "MAX(COALESCE(swap_vol_usd, 0)) DESC"
+          : "SUM(COALESCE(swap_vol_usd, 0)) DESC"
 
     rankSql = `
       WITH ranked AS (
@@ -829,11 +832,12 @@ export async function findUserInLeaderboard(params: {
       ? tierHaving + " AND SUM(COALESCE(swap_vol_eth, 0)) > 0"
       : "HAVING SUM(COALESCE(swap_vol_eth, 0)) > 0"
 
-    const orderBy = sort === "txs_per_day"
-      ? "CAST(COUNT(*) AS DOUBLE) / COUNT(DISTINCT CAST(l1_timestamp AS DATE)) DESC"
-      : sort === "streak"
-        ? "COUNT(*) DESC" // Simplified — streak rank is complex, use tx_count as fallback
-        : "COUNT(*) DESC"
+    const orderBy =
+      sort === "txs_per_day"
+        ? "CAST(COUNT(*) AS DOUBLE) / COUNT(DISTINCT CAST(l1_timestamp AS DATE)) DESC"
+        : sort === "streak"
+          ? "COUNT(*) DESC" // Simplified — streak rank is complex, use tx_count as fallback
+          : "COUNT(*) DESC"
 
     rankSql = `
       WITH ranked AS (

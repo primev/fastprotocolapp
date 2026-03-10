@@ -56,11 +56,26 @@ export function getTierFromVolume(volume: number | null | undefined): Tier {
 export function getTierMetadata(tier: string): TierMetadata {
   switch (tier.toLowerCase()) {
     case "gold":
-      return { label: "Gold", color: "text-yellow-500", dot: "bg-yellow-500", circleBg: "bg-yellow-500/10" }
+      return {
+        label: "Gold",
+        color: "text-yellow-500",
+        dot: "bg-yellow-500",
+        circleBg: "bg-yellow-500/10",
+      }
     case "silver":
-      return { label: "Silver", color: "text-slate-400", dot: "bg-slate-400", circleBg: "bg-slate-400/10" }
+      return {
+        label: "Silver",
+        color: "text-slate-400",
+        dot: "bg-slate-400",
+        circleBg: "bg-slate-400/10",
+      }
     case "bronze":
-      return { label: "Bronze", color: "text-amber-600", dot: "bg-amber-600", circleBg: "bg-amber-600/10" }
+      return {
+        label: "Bronze",
+        color: "text-amber-600",
+        dot: "bg-amber-600",
+        circleBg: "bg-amber-600/10",
+      }
     default:
       return {
         label: "Standard",

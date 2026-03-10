@@ -13,7 +13,20 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import { TrendingUp, Target, Zap, Users, Flame, HelpCircle, BarChart3, Compass, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
+import {
+  TrendingUp,
+  Target,
+  Zap,
+  Users,
+  Flame,
+  HelpCircle,
+  BarChart3,
+  Compass,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react"
 import { formatCurrency, formatNumber } from "@/lib/utils"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import {
@@ -79,10 +92,13 @@ export const LeaderboardTable = ({
   const totalVol = useMemo(() => swapVolumeUsd ?? null, [swapVolumeUsd])
 
   // Prefetch referral leaderboard on mount (not gated by Stats tab)
-  const [referralData, setReferralData] = useState<{ byPoints: ReferralLeaderEntry[]; byRefs: ReferralLeaderEntry[] } | null>(null)
+  const [referralData, setReferralData] = useState<{
+    byPoints: ReferralLeaderEntry[]
+    byRefs: ReferralLeaderEntry[]
+  } | null>(null)
   useEffect(() => {
     fetch("/api/fuul/leaderboard?limit=10")
-      .then((res) => res.ok ? res.json() : null)
+      .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (json) setReferralData({ byPoints: json.byPoints || [], byRefs: json.byRefs || [] })
       })
@@ -92,16 +108,21 @@ export const LeaderboardTable = ({
   const [leaderboardMode, setLeaderboardMode] = useState<"volume" | "miles">("miles")
 
   // Miles leaderboard data (Fuul points for main table in miles mode)
-  const [milesLeaderboard, setMilesLeaderboard] = useState<{ wallet: string; points: number; referrals: number; rank: number }[]>([])
+  const [milesLeaderboard, setMilesLeaderboard] = useState<
+    { wallet: string; points: number; referrals: number; rank: number }[]
+  >([])
   const [isMilesLoading, setIsMilesLoading] = useState(false)
   useEffect(() => {
     if (leaderboardMode !== "miles") return
     setIsMilesLoading(true)
     fetch("/api/fuul/leaderboard?limit=100&page=1&sort=miles")
-      .then((res) => res.ok ? res.json() : null)
+      .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (json?.entries) setMilesLeaderboard(json.entries)
-        else if (json?.byPoints) setMilesLeaderboard(json.byPoints.map((e: ReferralLeaderEntry, i: number) => ({ ...e, rank: i + 1 })))
+        else if (json?.byPoints)
+          setMilesLeaderboard(
+            json.byPoints.map((e: ReferralLeaderEntry, i: number) => ({ ...e, rank: i + 1 }))
+          )
       })
       .catch(() => {})
       .finally(() => setIsMilesLoading(false))
@@ -277,11 +298,19 @@ export const LeaderboardTable = ({
 
   // Stats: sorted variants for stats tab
   const statsByTxCount = useMemo(
-    () => [...adjustedLbData].filter((e) => !e.isCurrentUser).sort((a, b) => (b.swapCount ?? 0) - (a.swapCount ?? 0)).slice(0, 10),
+    () =>
+      [...adjustedLbData]
+        .filter((e) => !e.isCurrentUser)
+        .sort((a, b) => (b.swapCount ?? 0) - (a.swapCount ?? 0))
+        .slice(0, 10),
     [adjustedLbData]
   )
   const statsByVolume = useMemo(
-    () => [...adjustedLbData].filter((e) => !e.isCurrentUser).sort((a, b) => b.swapVolume24h - a.swapVolume24h).slice(0, 10),
+    () =>
+      [...adjustedLbData]
+        .filter((e) => !e.isCurrentUser)
+        .sort((a, b) => b.swapVolume24h - a.swapVolume24h)
+        .slice(0, 10),
     [adjustedLbData]
   )
 
@@ -394,8 +423,15 @@ export const LeaderboardTable = ({
                     <span className="text-primary/80">You're leading the pack!</span>
                   ) : nextMilesRankEntry ? (
                     <>
-                      Overtake <span className="text-primary/80">#{(userMilesEntry?.rank ?? 0) - 1}</span> with{" "}
-                      <span className="text-primary/80">{(nextMilesRankEntry.points - (userMilesEntry?.points ?? 0)).toLocaleString()} miles</span>
+                      Overtake{" "}
+                      <span className="text-primary/80">#{(userMilesEntry?.rank ?? 0) - 1}</span>{" "}
+                      with{" "}
+                      <span className="text-primary/80">
+                        {(
+                          nextMilesRankEntry.points - (userMilesEntry?.points ?? 0)
+                        ).toLocaleString()}{" "}
+                        miles
+                      </span>
                     </>
                   ) : (
                     <span className="text-primary/80">Earn more miles to climb.</span>
@@ -479,9 +515,7 @@ export const LeaderboardTable = ({
                   Swaps
                 </span>
                 <p className="text-[10px] font-bold leading-none">
-                  {userSwapCount !== null
-                    ? userSwapCount.toLocaleString()
-                    : "---"}
+                  {userSwapCount !== null ? userSwapCount.toLocaleString() : "---"}
                 </p>
               </div>
             </div>
@@ -490,131 +524,136 @@ export const LeaderboardTable = ({
       </div>
 
       {/* Progress & Analysis Section (volume mode only) */}
-      {leaderboardMode === "volume" && <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch">
-        {/* Progress Tracker Card */}
-        <Card className="p-3 sm:p-4 bg-white/[0.01] border-white/5 flex flex-col justify-center space-y-2 sm:space-y-3 min-w-0 w-full h-full">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-muted-foreground/40 min-w-0">
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-              <Target size={10} className="sm:w-3 sm:h-3 shrink-0" />{" "}
-              <span className="whitespace-nowrap">Progress Tracker</span>
-            </div>
-            <span className="text-primary font-mono text-[10px] sm:text-xs whitespace-nowrap shrink-0">
-              {progress.toFixed(1)}% to {formatVolumeDisplay(nextTierVal)}
-            </span>
-          </div>
-          <div className="relative h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-            <div
-              className="absolute h-full bg-primary transition-all duration-1000"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <div className="flex justify-between gap-1 sm:gap-2 min-w-0">
-            {[
-              { n: "Bronze", v: TIER_THRESHOLDS.BRONZE, c: "text-amber-600" },
-              { n: "Silver", v: TIER_THRESHOLDS.SILVER, c: "text-slate-400" },
-              { n: "Gold", v: TIER_THRESHOLDS.GOLD, c: "text-yellow-500" },
-            ].map((t) => (
-              <div key={t.n} className="flex flex-col min-w-0">
-                <span className={`text-sm sm:text-base font-black ${t.c} whitespace-nowrap`}>
-                  {t.n}
-                </span>
-                <span className="text-[10px] sm:text-xs font-mono font-bold opacity-60 whitespace-nowrap truncate">
-                  {formatVolumeDisplay(t.v)}
-                </span>
+      {leaderboardMode === "volume" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch">
+          {/* Progress Tracker Card */}
+          <Card className="p-3 sm:p-4 bg-white/[0.01] border-white/5 flex flex-col justify-center space-y-2 sm:space-y-3 min-w-0 w-full h-full">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-muted-foreground/40 min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                <Target size={10} className="sm:w-3 sm:h-3 shrink-0" />{" "}
+                <span className="whitespace-nowrap">Progress Tracker</span>
               </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Performance Analysis Card */}
-        <Card className="overflow-hidden border-white/5 bg-white/[0.01] transition-all duration-300 hover:border-primary/20 shadow-2xl h-full flex">
-          <div className="flex flex-col sm:flex-row items-stretch w-full h-full">
-            {/* Analysis Content */}
-            <div className="sm:w-2/3 p-4 sm:p-5 flex flex-col justify-center bg-primary/[0.01]">
-              <div className="flex flex-col space-y-2">
-                <div className="flex items-center gap-2.5">
-                  <TrendingUp size={15} className="text-primary/40" />
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.22em] text-primary/60">
-                    Performance Analysis
-                  </h4>
-                </div>
-
-                <p className="text-sm sm:text-base font-bold leading-snug tracking-tight text-foreground/90">
-                  {!userAddr ? (
-                    <span className="text-[10px] sm:text-sm text-muted-foreground/40 font-black uppercase tracking-widest italic">
-                      Connect wallet to unlock rank
-                    </span>
-                  ) : adjustedUserPos ? (
-                    adjustedUserPos === 1 ? (
-                      <>
-                        <span className="text-primary font-black">Congratulations!</span> You're in{" "}
-                        <span className="italic font-bold text-primary">#1</span> position.
-                        <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-primary/80 uppercase tracking-widest">
-                          Hold that lead
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        {(() => {
-                          const diff = (adjustedNextRankVol ?? 0) - (adjustedUserVol ?? 0)
-                          if (adjustedNextRankVol && adjustedUserVol && diff > 0) {
-                            return (
-                              <>
-                                Surpass <span className="italic font-bold">#{adjustedUserPos - 1}</span>{" "}
-                                with{" "}
-                                <span className="text-primary font-black decoration-primary/20 tabular-nums">
-                                  {formatVolDiffDisplay(diff)}
-                                </span>
-                              </>
-                            )
-                          }
-                          return (
-                            <>
-                              You're closing in on{" "}
-                              <span className="italic font-bold text-primary">#{adjustedUserPos - 1}</span>
-                              {" — keep trading!"}
-                            </>
-                          )
-                        })()}
-                        {currentTier !== "gold" && (
-                          <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-muted-foreground/40 uppercase tracking-widest">
-                            Reach <span className={nextTierMeta.color}>{nextTierName}</span> in{" "}
-                            {adjustedUserVol
-                              ? formatVolDiffDisplay(nextTierVal - adjustedUserVol)
-                              : "--"}
-                          </span>
-                        )}
-                      </>
-                    )
-                  ) : (
-                    <span className="text-[10px] sm:text-sm text-muted-foreground/30 font-black uppercase tracking-widest italic">
-                      Network sync in progress...
-                    </span>
-                  )}
-                </p>
-              </div>
+              <span className="text-primary font-mono text-[10px] sm:text-xs whitespace-nowrap shrink-0">
+                {progress.toFixed(1)}% to {formatVolumeDisplay(nextTierVal)}
+              </span>
             </div>
-
-            {/* Tier Display */}
-            <div
-              className={`sm:w-1/3 p-4 flex flex-col justify-center border-t sm:border-t-0 sm:border-l border-white/5 ${tierBackgroundClass}`}
-            >
-              <div className="flex flex-col justify-center items-center">
-                <span className="text-[8px] font-black uppercase tracking-[0.3em] text-muted-foreground/30 mb-1.5">
-                  Current Tier
-                </span>
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className={`text-sm sm:text-base font-black uppercase tracking-widest sm:order-1 ${currentTierMeta.color}`}
-                  >
-                    {currentTier === "standard" ? "Standard" : currentTierMeta.label}
+            <div className="relative h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+              <div
+                className="absolute h-full bg-primary transition-all duration-1000"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="flex justify-between gap-1 sm:gap-2 min-w-0">
+              {[
+                { n: "Bronze", v: TIER_THRESHOLDS.BRONZE, c: "text-amber-600" },
+                { n: "Silver", v: TIER_THRESHOLDS.SILVER, c: "text-slate-400" },
+                { n: "Gold", v: TIER_THRESHOLDS.GOLD, c: "text-yellow-500" },
+              ].map((t) => (
+                <div key={t.n} className="flex flex-col min-w-0">
+                  <span className={`text-sm sm:text-base font-black ${t.c} whitespace-nowrap`}>
+                    {t.n}
+                  </span>
+                  <span className="text-[10px] sm:text-xs font-mono font-bold opacity-60 whitespace-nowrap truncate">
+                    {formatVolumeDisplay(t.v)}
                   </span>
                 </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Performance Analysis Card */}
+          <Card className="overflow-hidden border-white/5 bg-white/[0.01] transition-all duration-300 hover:border-primary/20 shadow-2xl h-full flex">
+            <div className="flex flex-col sm:flex-row items-stretch w-full h-full">
+              {/* Analysis Content */}
+              <div className="sm:w-2/3 p-4 sm:p-5 flex flex-col justify-center bg-primary/[0.01]">
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center gap-2.5">
+                    <TrendingUp size={15} className="text-primary/40" />
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.22em] text-primary/60">
+                      Performance Analysis
+                    </h4>
+                  </div>
+
+                  <p className="text-sm sm:text-base font-bold leading-snug tracking-tight text-foreground/90">
+                    {!userAddr ? (
+                      <span className="text-[10px] sm:text-sm text-muted-foreground/40 font-black uppercase tracking-widest italic">
+                        Connect wallet to unlock rank
+                      </span>
+                    ) : adjustedUserPos ? (
+                      adjustedUserPos === 1 ? (
+                        <>
+                          <span className="text-primary font-black">Congratulations!</span> You're
+                          in <span className="italic font-bold text-primary">#1</span> position.
+                          <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-primary/80 uppercase tracking-widest">
+                            Hold that lead
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          {(() => {
+                            const diff = (adjustedNextRankVol ?? 0) - (adjustedUserVol ?? 0)
+                            if (adjustedNextRankVol && adjustedUserVol && diff > 0) {
+                              return (
+                                <>
+                                  Surpass{" "}
+                                  <span className="italic font-bold">#{adjustedUserPos - 1}</span>{" "}
+                                  with{" "}
+                                  <span className="text-primary font-black decoration-primary/20 tabular-nums">
+                                    {formatVolDiffDisplay(diff)}
+                                  </span>
+                                </>
+                              )
+                            }
+                            return (
+                              <>
+                                You're closing in on{" "}
+                                <span className="italic font-bold text-primary">
+                                  #{adjustedUserPos - 1}
+                                </span>
+                                {" — keep trading!"}
+                              </>
+                            )
+                          })()}
+                          {currentTier !== "gold" && (
+                            <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-muted-foreground/40 uppercase tracking-widest">
+                              Reach <span className={nextTierMeta.color}>{nextTierName}</span> in{" "}
+                              {adjustedUserVol
+                                ? formatVolDiffDisplay(nextTierVal - adjustedUserVol)
+                                : "--"}
+                            </span>
+                          )}
+                        </>
+                      )
+                    ) : (
+                      <span className="text-[10px] sm:text-sm text-muted-foreground/30 font-black uppercase tracking-widest italic">
+                        Network sync in progress...
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Tier Display */}
+              <div
+                className={`sm:w-1/3 p-4 flex flex-col justify-center border-t sm:border-t-0 sm:border-l border-white/5 ${tierBackgroundClass}`}
+              >
+                <div className="flex flex-col justify-center items-center">
+                  <span className="text-[8px] font-black uppercase tracking-[0.3em] text-muted-foreground/30 mb-1.5">
+                    Current Tier
+                  </span>
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={`text-sm sm:text-base font-black uppercase tracking-widest sm:order-1 ${currentTierMeta.color}`}
+                    >
+                      {currentTier === "standard" ? "Standard" : currentTierMeta.label}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
-      </div>}
+          </Card>
+        </div>
+      )}
 
       {/* Leaderboard Table Section */}
       {leaderboardMode === "miles" ? (
@@ -662,7 +701,8 @@ export const LeaderboardTable = ({
                           {entry.wallet}
                         </span>
                         <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
-                          {entry.referrals.toLocaleString()} referral{entry.referrals !== 1 ? "s" : ""}
+                          {entry.referrals.toLocaleString()} referral
+                          {entry.referrals !== 1 ? "s" : ""}
                         </span>
                       </div>
                       {isCurrentUser && (
@@ -709,7 +749,9 @@ export const LeaderboardTable = ({
                       {userMilesEntry?.wallet ?? trimWalletAddress(userAddr.toLowerCase())}
                     </span>
                     <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
-                      {userMilesEntry ? `${userMilesEntry.referrals.toLocaleString()} referral${userMilesEntry.referrals !== 1 ? "s" : ""}` : "0 referrals"}
+                      {userMilesEntry
+                        ? `${userMilesEntry.referrals.toLocaleString()} referral${userMilesEntry.referrals !== 1 ? "s" : ""}`
+                        : "0 referrals"}
                     </span>
                   </div>
                   <Badge className="bg-primary text-[9px] sm:text-[10px] h-4 sm:h-5 px-1.5 sm:px-2 font-black shrink-0">
@@ -731,146 +773,157 @@ export const LeaderboardTable = ({
           )}
         </div>
       ) : (
-      /* ─── Volume Mode: Tabs + Tier Filter ─── */
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <TabsList className="grid w-full max-w-[200px] grid-cols-2">
-            <TabsTrigger value="standings">Standings</TabsTrigger>
-            <TabsTrigger value="stats">Stats</TabsTrigger>
-          </TabsList>
+        /* ─── Volume Mode: Tabs + Tier Filter ─── */
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <TabsList className="grid w-full max-w-[200px] grid-cols-2">
+              <TabsTrigger value="standings">Standings</TabsTrigger>
+              <TabsTrigger value="stats">Stats</TabsTrigger>
+            </TabsList>
 
-          {/* Tier Filter */}
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setTierFilter("all")}
-              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-                tierFilter === "all"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-white/[0.03] text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setTierFilter("gold")}
-              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
-                tierFilter === "gold"
-                  ? "bg-yellow-500/20 text-yellow-500 border border-yellow-500/50"
-                  : "bg-white/[0.03] text-muted-foreground hover:text-yellow-500"
-              }`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-              Gold
-            </button>
-            <button
-              onClick={() => setTierFilter("silver")}
-              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
-                tierFilter === "silver"
-                  ? "bg-slate-400/20 text-slate-300 border border-slate-400/50"
-                  : "bg-white/[0.03] text-muted-foreground hover:text-slate-300"
-              }`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-              Silver
-            </button>
-            <button
-              onClick={() => setTierFilter("bronze")}
-              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
-                tierFilter === "bronze"
-                  ? "bg-amber-600/20 text-amber-600 border border-amber-600/50"
-                  : "bg-white/[0.03] text-muted-foreground hover:text-amber-600"
-              }`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-              Bronze
-            </button>
-          </div>
-        </div>
-
-        {/* STANDINGS TAB */}
-        <TabsContent value="standings" className="space-y-2">
-          <div className="space-y-1.5 w-full">
-            {isLoadingProp && lbData.length === 0 ? (
-              <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20 animate-pulse">
-                Loading leaderboard...
-              </div>
-            ) : lbData.length === 0 ? (
-              <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20">
-                No leaderboard data available
-              </div>
-            ) : filteredLbData.length === 0 ? (
-              <Card className="p-8 text-center text-muted-foreground bg-card/20 border-white/5">
-                No traders in this tier yet
-              </Card>
-            ) : (
-              filteredLbData.map((entry, index) => {
-                const shouldShowDivider =
-                  tierFilter === "all" && adjustedUserPos && adjustedUserPos > 15 && entry.isCurrentUser && index === 15
-                return (
-                  <React.Fragment key={entry.wallet}>
-                    {shouldShowDivider && (
-                      <div className="flex items-center gap-4 py-4">
-                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-                        <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40">
-                          Your Position
-                        </span>
-                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-                      </div>
-                    )}
-                    <LeaderboardRow
-                      entry={entry}
-                      formatVolumeDisplay={formatVolumeDisplay}
-                    />
-                  </React.Fragment>
-                )
-              })
-            )}
-          </div>
-
-          {/* Your Position - show when filtering by tier and user is not visible */}
-          {tierFilter !== "all" && userAddr && adjustedUserVol !== null && (
-            <div className="mt-6">
-              <div className="flex items-center gap-4 py-2">
-                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-                <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40">
-                  Your Position
-                </span>
-                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-              </div>
-              <LeaderboardRow
-                entry={{
-                  wallet: trimWalletAddress(userAddr.toLowerCase()),
-                  rank: adjustedUserPos || 0,
-                  swapVolume24h: adjustedUserVol,
-                  swapCount: userSwapCount ?? undefined,
-                  change24h: 0,
-                  isCurrentUser: true,
-                  ethValue: undefined,
-                }}
-                formatVolumeDisplay={formatVolumeDisplay}
-                showYouBadge
-              />
+            {/* Tier Filter */}
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setTierFilter("all")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+                  tierFilter === "all"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-white/[0.03] text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setTierFilter("gold")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
+                  tierFilter === "gold"
+                    ? "bg-yellow-500/20 text-yellow-500 border border-yellow-500/50"
+                    : "bg-white/[0.03] text-muted-foreground hover:text-yellow-500"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                Gold
+              </button>
+              <button
+                onClick={() => setTierFilter("silver")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
+                  tierFilter === "silver"
+                    ? "bg-slate-400/20 text-slate-300 border border-slate-400/50"
+                    : "bg-white/[0.03] text-muted-foreground hover:text-slate-300"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                Silver
+              </button>
+              <button
+                onClick={() => setTierFilter("bronze")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
+                  tierFilter === "bronze"
+                    ? "bg-amber-600/20 text-amber-600 border border-amber-600/50"
+                    : "bg-white/[0.03] text-muted-foreground hover:text-amber-600"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                Bronze
+              </button>
             </div>
-          )}
-        </TabsContent>
-
-        {/* STATS TAB */}
-        <TabsContent value="stats" className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Volume Leaders */}
-            <VolumeLeadersCard initialData={statsByVolume} tierFilter={tierFilter} userWallet={userAddr} userVolume={adjustedUserVol} />
-
-            {/* Efficiency Leaders */}
-            <EfficiencyLeadersCard initialData={statsByTxCount} tierFilter={tierFilter} userWallet={userAddr} userVolume={adjustedUserVol} />
-
-            {/* Referral Leaders */}
-            <ReferralLeadersCard prefetchedData={referralData} userWallet={userAddr} />
-
-            {/* Rising Stars */}
-            <RisingStarsCard userWallet={userAddr} userVolume={adjustedUserVol} />
           </div>
-        </TabsContent>
-      </Tabs>
+
+          {/* STANDINGS TAB */}
+          <TabsContent value="standings" className="space-y-2">
+            <div className="space-y-1.5 w-full">
+              {isLoadingProp && lbData.length === 0 ? (
+                <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20 animate-pulse">
+                  Loading leaderboard...
+                </div>
+              ) : lbData.length === 0 ? (
+                <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20">
+                  No leaderboard data available
+                </div>
+              ) : filteredLbData.length === 0 ? (
+                <Card className="p-8 text-center text-muted-foreground bg-card/20 border-white/5">
+                  No traders in this tier yet
+                </Card>
+              ) : (
+                filteredLbData.map((entry, index) => {
+                  const shouldShowDivider =
+                    tierFilter === "all" &&
+                    adjustedUserPos &&
+                    adjustedUserPos > 15 &&
+                    entry.isCurrentUser &&
+                    index === 15
+                  return (
+                    <React.Fragment key={entry.wallet}>
+                      {shouldShowDivider && (
+                        <div className="flex items-center gap-4 py-4">
+                          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                          <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40">
+                            Your Position
+                          </span>
+                          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                        </div>
+                      )}
+                      <LeaderboardRow entry={entry} formatVolumeDisplay={formatVolumeDisplay} />
+                    </React.Fragment>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Your Position - show when filtering by tier and user is not visible */}
+            {tierFilter !== "all" && userAddr && adjustedUserVol !== null && (
+              <div className="mt-6">
+                <div className="flex items-center gap-4 py-2">
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                  <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40">
+                    Your Position
+                  </span>
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                </div>
+                <LeaderboardRow
+                  entry={{
+                    wallet: trimWalletAddress(userAddr.toLowerCase()),
+                    rank: adjustedUserPos || 0,
+                    swapVolume24h: adjustedUserVol,
+                    swapCount: userSwapCount ?? undefined,
+                    change24h: 0,
+                    isCurrentUser: true,
+                    ethValue: undefined,
+                  }}
+                  formatVolumeDisplay={formatVolumeDisplay}
+                  showYouBadge
+                />
+              </div>
+            )}
+          </TabsContent>
+
+          {/* STATS TAB */}
+          <TabsContent value="stats" className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Volume Leaders */}
+              <VolumeLeadersCard
+                initialData={statsByVolume}
+                tierFilter={tierFilter}
+                userWallet={userAddr}
+                userVolume={adjustedUserVol}
+              />
+
+              {/* Efficiency Leaders */}
+              <EfficiencyLeadersCard
+                initialData={statsByTxCount}
+                tierFilter={tierFilter}
+                userWallet={userAddr}
+                userVolume={adjustedUserVol}
+              />
+
+              {/* Referral Leaders */}
+              <ReferralLeadersCard prefetchedData={referralData} userWallet={userAddr} />
+
+              {/* Rising Stars */}
+              <RisingStarsCard userWallet={userAddr} userVolume={adjustedUserVol} />
+            </div>
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   )
@@ -890,9 +943,7 @@ const LeaderboardRow = ({ entry, formatVolumeDisplay, showYouBadge }: Leaderboar
   return (
     <div
       className={`relative grid grid-cols-12 items-center px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-xl border transition-all min-w-0 overflow-hidden ${
-        entry.isCurrentUser
-          ? "bg-primary/[0.05] border-primary/30"
-          : "bg-card/20 border-white/5"
+        entry.isCurrentUser ? "bg-primary/[0.05] border-primary/30" : "bg-card/20 border-white/5"
       }`}
     >
       <div className="col-span-4 sm:col-span-3 min-w-0 flex items-center gap-4 relative group/rank">
@@ -963,9 +1014,7 @@ const LeaderboardRow = ({ entry, formatVolumeDisplay, showYouBadge }: Leaderboar
       </div>
       <div className="col-span-5 sm:col-span-4 flex items-center gap-1.5 sm:gap-2 min-w-0">
         <div className="flex flex-col min-w-0">
-          <span className="font-mono text-sm sm:text-base md:text-lg truncate">
-            {entry.wallet}
-          </span>
+          <span className="font-mono text-sm sm:text-base md:text-lg truncate">{entry.wallet}</span>
           <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
             {entry.swapCount !== undefined && entry.swapCount !== null
               ? `${entry.swapCount.toLocaleString()} swap${entry.swapCount !== 1 ? "s" : ""}`
@@ -1007,8 +1056,7 @@ const LeaderboardRow = ({ entry, formatVolumeDisplay, showYouBadge }: Leaderboar
                 entry.change24h >= 0 ? "text-emerald-500/80" : "text-rose-500/80"
               }`}
             >
-              {entry.change24h >= 0 ? "↑" : "↓"}{" "}
-              {Math.abs(entry.change24h).toFixed(1)}%
+              {entry.change24h >= 0 ? "↑" : "↓"} {Math.abs(entry.change24h).toFixed(1)}%
             </div>
           </div>
           <span className="text-xl md:text-3xl font-black tracking-tighter tabular-nums leading-none">
@@ -1088,25 +1136,28 @@ const PaginatedLeaderboardModal = ({
   const [findMeLoading, setFindMeLoading] = useState(false)
   const highlightRef = React.useRef<HTMLDivElement>(null)
 
-  const fetchPage = useCallback(async (p: number) => {
-    setIsLoading(true)
-    try {
-      const params = buildParams(p, PAGE_SIZE)
-      const qs = new URLSearchParams(params).toString()
-      const res = await fetch(`${fetchUrl}?${qs}`)
-      if (!res.ok) return
-      const json = await res.json()
-      setEntries(json.entries || [])
-      if (json.pagination) {
-        setTotalPages(json.pagination.totalPages || 0)
-        setTotal(json.pagination.total || 0)
+  const fetchPage = useCallback(
+    async (p: number) => {
+      setIsLoading(true)
+      try {
+        const params = buildParams(p, PAGE_SIZE)
+        const qs = new URLSearchParams(params).toString()
+        const res = await fetch(`${fetchUrl}?${qs}`)
+        if (!res.ok) return
+        const json = await res.json()
+        setEntries(json.entries || [])
+        if (json.pagination) {
+          setTotalPages(json.pagination.totalPages || 0)
+          setTotal(json.pagination.total || 0)
+        }
+      } catch {
+        // silently fail
+      } finally {
+        setIsLoading(false)
       }
-    } catch {
-      // silently fail
-    } finally {
-      setIsLoading(false)
-    }
-  }, [fetchUrl, buildParams])
+    },
+    [fetchUrl, buildParams]
+  )
 
   // Track whether the page change was triggered by Find Me
   const findMeTriggeredRef = React.useRef(false)
@@ -1193,57 +1244,57 @@ const PaginatedLeaderboardModal = ({
               Loading...
             </div>
           ) : entries.length === 0 ? (
-            <div className="p-8 text-center text-xs text-muted-foreground/30">
-              No results found
-            </div>
+            <div className="p-8 text-center text-xs text-muted-foreground/30">No results found</div>
           ) : (
-            <div className={`transition-opacity duration-150 ${isLoading ? "opacity-40 pointer-events-none" : ""}`}>
-            {entries.map((entry, idx) => {
-              const isHighlighted = highlightWallet && entry.wallet === highlightWallet
-              return (
-                <div
-                  key={entry.wallet}
-                  ref={isHighlighted ? highlightRef : undefined}
-                  className={`flex items-center justify-between py-2 px-3 rounded text-sm transition-all ${
-                    isHighlighted
-                      ? "bg-primary/10 ring-1 ring-primary/40"
-                      : idx === 0 && page === 1
-                        ? "bg-primary/[0.05]"
-                        : "hover:bg-white/[0.02]"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground/40 w-8 text-xs font-mono text-right">
-                      {entry.rank}.
-                    </span>
-                    <span className="font-mono text-sm truncate max-w-[200px]">
-                      {entry.wallet}
-                    </span>
-                    {isHighlighted && (
-                      <Badge className="bg-primary text-[9px] h-4 px-1.5 font-black">YOU</Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4">
-                    {renderSubtext && (
-                      <span className="text-[10px] text-muted-foreground/40 font-mono">
-                        {renderSubtext(entry)}
+            <div
+              className={`transition-opacity duration-150 ${isLoading ? "opacity-40 pointer-events-none" : ""}`}
+            >
+              {entries.map((entry, idx) => {
+                const isHighlighted = highlightWallet && entry.wallet === highlightWallet
+                return (
+                  <div
+                    key={entry.wallet}
+                    ref={isHighlighted ? highlightRef : undefined}
+                    className={`flex items-center justify-between py-2 px-3 rounded text-sm transition-all ${
+                      isHighlighted
+                        ? "bg-primary/10 ring-1 ring-primary/40"
+                        : idx === 0 && page === 1
+                          ? "bg-primary/[0.05]"
+                          : "hover:bg-white/[0.02]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-muted-foreground/40 w-8 text-xs font-mono text-right">
+                        {entry.rank}.
                       </span>
-                    )}
-                    <span
-                      className={`font-mono text-sm font-bold tabular-nums ${
-                        isHighlighted
-                          ? "text-primary"
-                          : idx === 0 && page === 1
-                            ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
-                            : ""
-                      }`}
-                    >
-                      {renderStat(entry)}
-                    </span>
+                      <span className="font-mono text-sm truncate max-w-[200px]">
+                        {entry.wallet}
+                      </span>
+                      {isHighlighted && (
+                        <Badge className="bg-primary text-[9px] h-4 px-1.5 font-black">YOU</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {renderSubtext && (
+                        <span className="text-[10px] text-muted-foreground/40 font-mono">
+                          {renderSubtext(entry)}
+                        </span>
+                      )}
+                      <span
+                        className={`font-mono text-sm font-bold tabular-nums ${
+                          isHighlighted
+                            ? "text-primary"
+                            : idx === 0 && page === 1
+                              ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
+                              : ""
+                        }`}
+                      >
+                        {renderStat(entry)}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
             </div>
           )}
         </div>
@@ -1270,7 +1321,12 @@ const PaginatedLeaderboardModal = ({
             {/* Page numbers */}
             {buildPageNumbers(page, totalPages).map((p, i) =>
               p === "..." ? (
-                <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground/30 select-none">…</span>
+                <span
+                  key={`ellipsis-${i}`}
+                  className="px-1 text-xs text-muted-foreground/30 select-none"
+                >
+                  …
+                </span>
               ) : (
                 <button
                   key={p}
@@ -1354,7 +1410,17 @@ function getStatForTab(entry: VolumeLeaderEntry, tab: VolumeTab): string {
   }
 }
 
-const VolumeLeadersCard = ({ initialData, tierFilter, userWallet, userVolume }: { initialData: LeaderboardEntry[]; tierFilter: string; userWallet?: string; userVolume?: number | null }) => {
+const VolumeLeadersCard = ({
+  initialData,
+  tierFilter,
+  userWallet,
+  userVolume,
+}: {
+  initialData: LeaderboardEntry[]
+  tierFilter: string
+  userWallet?: string
+  userVolume?: number | null
+}) => {
   const [activeTab, setActiveTab] = useState<VolumeTab>("Volume")
   const [apiData, setApiData] = useState<VolumeLeaderEntry[] | null>(null)
   const [isApiLoading, setIsApiLoading] = useState(false)
@@ -1394,23 +1460,30 @@ const VolumeLeadersCard = ({ initialData, tierFilter, userWallet, userVolume }: 
       limit: "15",
     })
     fetch(`/api/analytics/leaderboard/volume-leaders?${params}`)
-      .then((res) => res.ok ? res.json() : null)
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!cancelled) {
           setApiData((data?.entries || []) as VolumeLeaderEntry[])
           setIsApiLoading(false)
         }
       })
-      .catch(() => { if (!cancelled) setIsApiLoading(false) })
-    return () => { cancelled = true }
+      .catch(() => {
+        if (!cancelled) setIsApiLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [activeTab, tierFilter])
 
-  const modalBuildParams = useCallback((p: number, l: number) => ({
-    sort: TAB_TO_SORT[activeTab],
-    tier: tierFilter,
-    page: String(p),
-    limit: String(l),
-  }), [activeTab, tierFilter])
+  const modalBuildParams = useCallback(
+    (p: number, l: number) => ({
+      sort: TAB_TO_SORT[activeTab],
+      tier: tierFilter,
+      page: String(p),
+      limit: String(l),
+    }),
+    [activeTab, tierFilter]
+  )
 
   // Only show Find Me if user's tier matches the filter (or filter is "all")
   const userTier = useMemo(() => getTierFromVolume(userVolume), [userVolume])
@@ -1441,12 +1514,21 @@ const VolumeLeadersCard = ({ initialData, tierFilter, userWallet, userVolume }: 
           <h3 className="font-bold text-sm">Volume Leaders</h3>
           <Tooltip>
             <TooltipTrigger asChild>
-              <HelpCircle size={14} className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help" />
+              <HelpCircle
+                size={14}
+                className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help"
+              />
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[240px] text-xs leading-relaxed">
-              <p><span className="font-bold text-foreground">Volume</span> — Total swap volume</p>
-              <p><span className="font-bold text-foreground">Avg Size</span> — Average swap size</p>
-              <p><span className="font-bold text-foreground">Largest</span> — Biggest single swap</p>
+              <p>
+                <span className="font-bold text-foreground">Volume</span> — Total swap volume
+              </p>
+              <p>
+                <span className="font-bold text-foreground">Avg Size</span> — Average swap size
+              </p>
+              <p>
+                <span className="font-bold text-foreground">Largest</span> — Biggest single swap
+              </p>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -1470,7 +1552,9 @@ const VolumeLeadersCard = ({ initialData, tierFilter, userWallet, userVolume }: 
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <p className="text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">Loading...</p>
+            <p className="text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
+              Loading...
+            </p>
           </div>
         ) : !leader ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -1482,13 +1566,18 @@ const VolumeLeadersCard = ({ initialData, tierFilter, userWallet, userVolume }: 
             <div className="flex gap-4">
               {/* Leader highlight */}
               <div className="flex flex-col items-center p-4 bg-gradient-to-b from-white/[0.03] to-transparent rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
-                {(() => { const tm = getTierMetadata(getTierFromVolume(leader.volume)); return (
-                <div className={`relative w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-4 ring-2 ring-offset-2 ring-offset-background ${tm.color.replace('text-', 'ring-')}/20`}>
-                  <span className={`text-sm font-black uppercase tracking-widest ${tm.color}`}>
-                    #1
-                  </span>
-                </div>
-                ) })()}
+                {(() => {
+                  const tm = getTierMetadata(getTierFromVolume(leader.volume))
+                  return (
+                    <div
+                      className={`relative w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-4 ring-2 ring-offset-2 ring-offset-background ${tm.color.replace("text-", "ring-")}/20`}
+                    >
+                      <span className={`text-sm font-black uppercase tracking-widest ${tm.color}`}>
+                        #1
+                      </span>
+                    </div>
+                  )
+                })()}
                 <p className="font-mono text-xs text-center truncate max-w-[110px]">
                   {leader.wallet}
                 </p>
@@ -1505,33 +1594,38 @@ const VolumeLeadersCard = ({ initialData, tierFilter, userWallet, userVolume }: 
               {/* Ranked list */}
               <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
                 {entries.map((entry, idx) => {
-                  const entryTm = tierFilter === "all" && idx < 3 ? getTierMetadata(getTierFromVolume(entry.volume)) : null
+                  const entryTm =
+                    tierFilter === "all" && idx < 3
+                      ? getTierMetadata(getTierFromVolume(entry.volume))
+                      : null
                   return (
-                  <div
-                    key={entry.wallet}
-                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm transition-colors ${
-                      idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground/40 w-6 text-xs font-mono flex items-center gap-1">
-                        {entryTm && <span className={`inline-block w-1.5 h-1.5 rounded-full ${entryTm.dot}`} />}
-                        {idx + 1}.
-                      </span>
-                      <span className="font-mono text-xs truncate max-w-[100px]">
-                        {entry.wallet}
-                      </span>
-                    </div>
-                    <span
-                      className={`font-mono text-xs font-bold ${
-                        idx === 0
-                          ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
-                          : ""
+                    <div
+                      key={entry.wallet}
+                      className={`flex items-center justify-between py-1.5 px-2 rounded text-sm transition-colors ${
+                        idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
                       }`}
                     >
-                      {getStatForTab(entry, activeTab)}
-                    </span>
-                  </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground/40 w-6 text-xs font-mono flex items-center gap-1">
+                          {entryTm && (
+                            <span
+                              className={`inline-block w-1.5 h-1.5 rounded-full ${entryTm.dot}`}
+                            />
+                          )}
+                          {idx + 1}.
+                        </span>
+                        <span className="font-mono text-xs truncate max-w-[100px]">
+                          {entry.wallet}
+                        </span>
+                      </div>
+                      <span
+                        className={`font-mono text-xs font-bold ${
+                          idx === 0 ? "bg-primary text-primary-foreground px-2 py-0.5 rounded" : ""
+                        }`}
+                      >
+                        {getStatForTab(entry, activeTab)}
+                      </span>
+                    </div>
                   )
                 })}
               </div>
@@ -1612,7 +1706,17 @@ function getEfficiencySubtext(entry: EfficiencyLeaderEntry, tab: EfficiencyTab):
   }
 }
 
-const EfficiencyLeadersCard = ({ initialData, tierFilter, userWallet, userVolume }: { initialData: LeaderboardEntry[]; tierFilter: string; userWallet?: string; userVolume?: number | null }) => {
+const EfficiencyLeadersCard = ({
+  initialData,
+  tierFilter,
+  userWallet,
+  userVolume,
+}: {
+  initialData: LeaderboardEntry[]
+  tierFilter: string
+  userWallet?: string
+  userVolume?: number | null
+}) => {
   const [activeTab, setActiveTab] = useState<EfficiencyTab>("Tx Count")
   const [apiData, setApiData] = useState<EfficiencyLeaderEntry[] | null>(null)
   const [isApiLoading, setIsApiLoading] = useState(false)
@@ -1647,23 +1751,30 @@ const EfficiencyLeadersCard = ({ initialData, tierFilter, userWallet, userVolume
       limit: "15",
     })
     fetch(`/api/analytics/leaderboard/efficiency-leaders?${params}`)
-      .then((res) => res.ok ? res.json() : null)
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!cancelled) {
           setApiData((data?.entries || []) as EfficiencyLeaderEntry[])
           setIsApiLoading(false)
         }
       })
-      .catch(() => { if (!cancelled) setIsApiLoading(false) })
-    return () => { cancelled = true }
+      .catch(() => {
+        if (!cancelled) setIsApiLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [activeTab, tierFilter])
 
-  const modalBuildParams = useCallback((p: number, l: number) => ({
-    sort: EFFICIENCY_TAB_TO_SORT[activeTab],
-    tier: tierFilter,
-    page: String(p),
-    limit: String(l),
-  }), [activeTab, tierFilter])
+  const modalBuildParams = useCallback(
+    (p: number, l: number) => ({
+      sort: EFFICIENCY_TAB_TO_SORT[activeTab],
+      tier: tierFilter,
+      page: String(p),
+      limit: String(l),
+    }),
+    [activeTab, tierFilter]
+  )
 
   // Only show Find Me if user's tier matches the filter (or filter is "all")
   const userTier = useMemo(() => getTierFromVolume(userVolume), [userVolume])
@@ -1694,12 +1805,23 @@ const EfficiencyLeadersCard = ({ initialData, tierFilter, userWallet, userVolume
           <h3 className="font-bold text-sm">Efficiency Leaders</h3>
           <Tooltip>
             <TooltipTrigger asChild>
-              <HelpCircle size={14} className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help" />
+              <HelpCircle
+                size={14}
+                className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help"
+              />
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[240px] text-xs leading-relaxed">
-              <p><span className="font-bold text-foreground">Tx Count</span> — Most total swaps</p>
-              <p><span className="font-bold text-foreground">Tx/Day</span> — Highest daily swap frequency</p>
-              <p><span className="font-bold text-foreground">Streak</span> — Longest consecutive active days</p>
+              <p>
+                <span className="font-bold text-foreground">Tx Count</span> — Most total swaps
+              </p>
+              <p>
+                <span className="font-bold text-foreground">Tx/Day</span> — Highest daily swap
+                frequency
+              </p>
+              <p>
+                <span className="font-bold text-foreground">Streak</span> — Longest consecutive
+                active days
+              </p>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -1723,7 +1845,9 @@ const EfficiencyLeadersCard = ({ initialData, tierFilter, userWallet, userVolume
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <p className="text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">Loading...</p>
+            <p className="text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
+              Loading...
+            </p>
           </div>
         ) : !leader ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -1735,13 +1859,18 @@ const EfficiencyLeadersCard = ({ initialData, tierFilter, userWallet, userVolume
             <div className="flex gap-4">
               {/* Leader highlight */}
               <div className="flex flex-col items-center p-4 bg-gradient-to-b from-white/[0.03] to-transparent rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
-                {(() => { const tm = getTierMetadata(getTierFromVolume(leader.volume)); return (
-                <div className={`relative w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-4 ring-2 ring-offset-2 ring-offset-background ${tm.color.replace('text-', 'ring-')}/20`}>
-                  <span className={`text-sm font-black uppercase tracking-widest ${tm.color}`}>
-                    #1
-                  </span>
-                </div>
-                ) })()}
+                {(() => {
+                  const tm = getTierMetadata(getTierFromVolume(leader.volume))
+                  return (
+                    <div
+                      className={`relative w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-4 ring-2 ring-offset-2 ring-offset-background ${tm.color.replace("text-", "ring-")}/20`}
+                    >
+                      <span className={`text-sm font-black uppercase tracking-widest ${tm.color}`}>
+                        #1
+                      </span>
+                    </div>
+                  )
+                })()}
                 <p className="font-mono text-xs text-center truncate max-w-[110px]">
                   {leader.wallet}
                 </p>
@@ -1758,33 +1887,38 @@ const EfficiencyLeadersCard = ({ initialData, tierFilter, userWallet, userVolume
               {/* Ranked list */}
               <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
                 {entries.map((entry, idx) => {
-                  const entryTm = tierFilter === "all" && idx < 3 ? getTierMetadata(getTierFromVolume(entry.volume)) : null
+                  const entryTm =
+                    tierFilter === "all" && idx < 3
+                      ? getTierMetadata(getTierFromVolume(entry.volume))
+                      : null
                   return (
-                  <div
-                    key={entry.wallet}
-                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm transition-colors ${
-                      idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground/40 w-6 text-xs font-mono flex items-center gap-1">
-                        {entryTm && <span className={`inline-block w-1.5 h-1.5 rounded-full ${entryTm.dot}`} />}
-                        {idx + 1}.
-                      </span>
-                      <span className="font-mono text-xs truncate max-w-[100px]">
-                        {entry.wallet}
-                      </span>
-                    </div>
-                    <span
-                      className={`font-mono text-xs font-bold ${
-                        idx === 0
-                          ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
-                          : ""
+                    <div
+                      key={entry.wallet}
+                      className={`flex items-center justify-between py-1.5 px-2 rounded text-sm transition-colors ${
+                        idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
                       }`}
                     >
-                      {getEfficiencyStat(entry, activeTab)}
-                    </span>
-                  </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground/40 w-6 text-xs font-mono flex items-center gap-1">
+                          {entryTm && (
+                            <span
+                              className={`inline-block w-1.5 h-1.5 rounded-full ${entryTm.dot}`}
+                            />
+                          )}
+                          {idx + 1}.
+                        </span>
+                        <span className="font-mono text-xs truncate max-w-[100px]">
+                          {entry.wallet}
+                        </span>
+                      </div>
+                      <span
+                        className={`font-mono text-xs font-bold ${
+                          idx === 0 ? "bg-primary text-primary-foreground px-2 py-0.5 rounded" : ""
+                        }`}
+                      >
+                        {getEfficiencyStat(entry, activeTab)}
+                      </span>
+                    </div>
                   )
                 })}
               </div>
@@ -1808,7 +1942,9 @@ const EfficiencyLeadersCard = ({ initialData, tierFilter, userWallet, userVolume
         fetchUrl="/api/analytics/leaderboard/efficiency-leaders"
         buildParams={modalBuildParams}
         renderStat={(e) => getEfficiencyStat(e as unknown as EfficiencyLeaderEntry, activeTab)}
-        renderSubtext={(e) => getEfficiencySubtext(e as unknown as EfficiencyLeaderEntry, activeTab)}
+        renderSubtext={(e) =>
+          getEfficiencySubtext(e as unknown as EfficiencyLeaderEntry, activeTab)
+        }
         userWallet={userWallet}
         findMeParams={modalFindMeParams}
       />
@@ -1850,7 +1986,13 @@ function getReferralSubtext(entry: ReferralLeaderEntry, tab: ReferralTab): strin
   }
 }
 
-const ReferralLeadersCard = ({ prefetchedData, userWallet }: { prefetchedData: { byPoints: ReferralLeaderEntry[]; byRefs: ReferralLeaderEntry[] } | null; userWallet?: string }) => {
+const ReferralLeadersCard = ({
+  prefetchedData,
+  userWallet,
+}: {
+  prefetchedData: { byPoints: ReferralLeaderEntry[]; byRefs: ReferralLeaderEntry[] } | null
+  userWallet?: string
+}) => {
   const [activeTab, setActiveTab] = useState<ReferralTab>("Total Refs")
   const [modalOpen, setModalOpen] = useState(false)
 
@@ -1858,11 +2000,14 @@ const ReferralLeadersCard = ({ prefetchedData, userWallet }: { prefetchedData: {
   const byRefs = prefetchedData?.byRefs ?? []
   const isLoading = !prefetchedData
 
-  const modalBuildParams = useCallback((p: number, l: number) => ({
-    sort: activeTab === "Total Refs" ? "refs" : "miles",
-    page: String(p),
-    limit: String(l),
-  }), [activeTab])
+  const modalBuildParams = useCallback(
+    (p: number, l: number) => ({
+      sort: activeTab === "Total Refs" ? "refs" : "miles",
+      page: String(p),
+      limit: String(l),
+    }),
+    [activeTab]
+  )
 
   const entries = activeTab === "Total Refs" ? byRefs : byPoints
 
@@ -1881,11 +2026,19 @@ const ReferralLeadersCard = ({ prefetchedData, userWallet }: { prefetchedData: {
           <h3 className="font-bold text-sm">Referral Leaders</h3>
           <Tooltip>
             <TooltipTrigger asChild>
-              <HelpCircle size={14} className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help" />
+              <HelpCircle
+                size={14}
+                className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help"
+              />
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[240px] text-xs leading-relaxed">
-              <p><span className="font-bold text-foreground">Total Refs</span> — Most referrals made</p>
-              <p><span className="font-bold text-foreground">Miles</span> — Most miles earned from referrals</p>
+              <p>
+                <span className="font-bold text-foreground">Total Refs</span> — Most referrals made
+              </p>
+              <p>
+                <span className="font-bold text-foreground">Miles</span> — Most miles earned from
+                referrals
+              </p>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -1909,7 +2062,9 @@ const ReferralLeadersCard = ({ prefetchedData, userWallet }: { prefetchedData: {
 
         {showLoading ? (
           <div className="flex items-center justify-center py-12">
-            <p className="text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">Loading...</p>
+            <p className="text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
+              Loading...
+            </p>
           </div>
         ) : !leader ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -1958,9 +2113,7 @@ const ReferralLeadersCard = ({ prefetchedData, userWallet }: { prefetchedData: {
                     </div>
                     <span
                       className={`font-mono text-xs font-bold ${
-                        idx === 0
-                          ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
-                          : ""
+                        idx === 0 ? "bg-primary text-primary-foreground px-2 py-0.5 rounded" : ""
                       }`}
                     >
                       {getReferralStat(entry, activeTab)}
@@ -2049,7 +2202,13 @@ function formatRisingVol(v: number): string {
   return `$${v.toFixed(2)}`
 }
 
-const RisingStarsCard = ({ userWallet, userVolume }: { userWallet?: string; userVolume?: number | null }) => {
+const RisingStarsCard = ({
+  userWallet,
+  userVolume,
+}: {
+  userWallet?: string
+  userVolume?: number | null
+}) => {
   const [activeTab, setActiveTab] = useState<RisingTab>("Climbers")
   const [data, setData] = useState<Record<string, RisingStarEntry[]>>({})
   const [isLoading, setIsLoading] = useState(false)
@@ -2075,14 +2234,19 @@ const RisingStarsCard = ({ userWallet, userVolume }: { userWallet?: string; user
         setIsLoading(false)
       }
     })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [activeTab, data, fetchFromApi])
 
-  const modalBuildParams = useCallback((p: number, l: number) => ({
-    sort: RISING_TAB_TO_SORT[activeTab],
-    page: String(p),
-    limit: String(l),
-  }), [activeTab])
+  const modalBuildParams = useCallback(
+    (p: number, l: number) => ({
+      sort: RISING_TAB_TO_SORT[activeTab],
+      page: String(p),
+      limit: String(l),
+    }),
+    [activeTab]
+  )
 
   // Only show Find Me if user is standard tier (below Bronze — Rising Stars only includes standard)
   const isStandardTier = useMemo(() => getTierFromVolume(userVolume) === "standard", [userVolume])
@@ -2111,12 +2275,24 @@ const RisingStarsCard = ({ userWallet, userVolume }: { userWallet?: string; user
           <h3 className="font-bold text-sm">Rising Stars</h3>
           <Tooltip>
             <TooltipTrigger asChild>
-              <HelpCircle size={14} className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help" />
+              <HelpCircle
+                size={14}
+                className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help"
+              />
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[240px] text-xs leading-relaxed">
-              <p><span className="font-bold text-foreground">Climbers</span> — Biggest volume increase this week</p>
-              <p><span className="font-bold text-foreground">New Users</span> — Top performers who joined in the last 30 days</p>
-              <p><span className="font-bold text-foreground">WoW Growth</span> — Highest week-over-week volume growth %</p>
+              <p>
+                <span className="font-bold text-foreground">Climbers</span> — Biggest volume
+                increase this week
+              </p>
+              <p>
+                <span className="font-bold text-foreground">New Users</span> — Top performers who
+                joined in the last 30 days
+              </p>
+              <p>
+                <span className="font-bold text-foreground">WoW Growth</span> — Highest
+                week-over-week volume growth %
+              </p>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -2140,7 +2316,9 @@ const RisingStarsCard = ({ userWallet, userVolume }: { userWallet?: string; user
 
         {showLoading ? (
           <div className="flex items-center justify-center py-12">
-            <p className="text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">Loading...</p>
+            <p className="text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
+              Loading...
+            </p>
           </div>
         ) : !leader ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -2189,9 +2367,7 @@ const RisingStarsCard = ({ userWallet, userVolume }: { userWallet?: string; user
                     </div>
                     <span
                       className={`font-mono text-xs font-bold text-green-500 ${
-                        idx === 0
-                          ? "bg-green-500/20 text-green-400 px-2 py-0.5 rounded"
-                          : ""
+                        idx === 0 ? "bg-green-500/20 text-green-400 px-2 py-0.5 rounded" : ""
                       }`}
                     >
                       {getRisingStat(entry, activeTab)}

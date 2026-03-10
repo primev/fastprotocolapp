@@ -81,9 +81,10 @@ export async function GET(request: NextRequest) {
 
     // Paginated mode
     if (page > 0) {
-      const sorted = sort === "miles"
-        ? [...allEntries].sort((a, b) => b.points - a.points)
-        : [...allEntries].sort((a, b) => b.referrals - a.referrals)
+      const sorted =
+        sort === "miles"
+          ? [...allEntries].sort((a, b) => b.points - a.points)
+          : [...allEntries].sort((a, b) => b.referrals - a.referrals)
 
       const total = sorted.length
       const totalPages = Math.ceil(total / limit)
@@ -93,13 +94,16 @@ export async function GET(request: NextRequest) {
         rank: offset + i + 1,
       }))
 
-      return NextResponse.json({
-        success: true,
-        entries: pageEntries,
-        pagination: { page, limit, total, totalPages },
-      }, {
-        headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=15" },
-      })
+      return NextResponse.json(
+        {
+          success: true,
+          entries: pageEntries,
+          pagination: { page, limit, total, totalPages },
+        },
+        {
+          headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=15" },
+        }
+      )
     }
 
     // Non-paginated mode (card preview) — returns both sorts

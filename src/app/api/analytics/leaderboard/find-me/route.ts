@@ -23,19 +23,25 @@ export async function GET(request: NextRequest) {
     const result = await findUserInLeaderboard({ wallet, category, sort, tier, pageSize })
 
     if (!result) {
-      return NextResponse.json({ success: true, found: false }, {
-        headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=5" },
-      })
+      return NextResponse.json(
+        { success: true, found: false },
+        {
+          headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=5" },
+        }
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      found: true,
-      rank: result.rank,
-      page: result.page,
-    }, {
-      headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=5" },
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        found: true,
+        rank: result.rank,
+        page: result.page,
+      },
+      {
+        headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=5" },
+      }
+    )
   } catch (error) {
     console.error("Error in find-me:", error)
     if (error instanceof AnalyticsClientError) {
