@@ -399,6 +399,109 @@ ORDER BY b.longest_streak DESC, w.swap_count DESC
 LIMIT :limit
 `.trim()
 
+// Rising Stars: new users (first swap in last 30 days) ranked by volume
+export const RISING_STARS_NEW_USERS = `
+WITH first_swap AS (
+  SELECT
+    lower(from_address) AS wallet,
+    MIN(l1_timestamp) AS first_swap_time
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address)
+  HAVING MIN(l1_timestamp) >= CURRENT_TIMESTAMP - INTERVAL '30' DAY
+),
+wallet_stats AS (
+  SELECT
+    lower(from_address) AS wallet,
+    COUNT(*) AS swap_count,
+    SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
+    SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address)
+)
+SELECT
+  f.wallet,
+  w.total_swap_vol_usd,
+  w.total_swap_vol_eth,
+  w.swap_count,
+  f.first_swap_time
+FROM first_swap f
+JOIN wallet_stats w ON f.wallet = w.wallet
+ORDER BY w.total_swap_vol_usd DESC
+LIMIT :limit
+`.trim()
+
+// Rising Stars: week-over-week volume growth percentage
+export const RISING_STARS_WOW_GROWTH = `
+WITH this_week AS (
+  SELECT
+    lower(from_address) AS wallet,
+    SUM(COALESCE(swap_vol_usd, 0)) AS vol_this_week
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+    AND l1_timestamp >= CURRENT_TIMESTAMP - INTERVAL '7' DAY
+  GROUP BY lower(from_address)
+),
+last_week AS (
+  SELECT
+    lower(from_address) AS wallet,
+    SUM(COALESCE(swap_vol_usd, 0)) AS vol_last_week
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+    AND l1_timestamp >= CURRENT_TIMESTAMP - INTERVAL '14' DAY
+    AND l1_timestamp < CURRENT_TIMESTAMP - INTERVAL '7' DAY
+  GROUP BY lower(from_address)
+)
+SELECT
+  t.wallet,
+  t.vol_this_week,
+  COALESCE(l.vol_last_week, 0) AS vol_last_week,
+  CASE
+    WHEN COALESCE(l.vol_last_week, 0) > 0
+    THEN ((t.vol_this_week - l.vol_last_week) / l.vol_last_week * 100)
+    ELSE 100
+  END AS wow_growth_pct
+FROM this_week t
+LEFT JOIN last_week l ON t.wallet = l.wallet
+WHERE t.vol_this_week > 0
+ORDER BY wow_growth_pct DESC
+LIMIT :limit
+`.trim()
+
+// Rising Stars: climbers (biggest absolute volume increase this week vs last)
+export const RISING_STARS_CLIMBERS = `
+WITH this_week AS (
+  SELECT
+    lower(from_address) AS wallet,
+    SUM(COALESCE(swap_vol_usd, 0)) AS vol_this_week
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+    AND l1_timestamp >= CURRENT_TIMESTAMP - INTERVAL '7' DAY
+  GROUP BY lower(from_address)
+),
+last_week AS (
+  SELECT
+    lower(from_address) AS wallet,
+    SUM(COALESCE(swap_vol_usd, 0)) AS vol_last_week
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+    AND l1_timestamp >= CURRENT_TIMESTAMP - INTERVAL '14' DAY
+    AND l1_timestamp < CURRENT_TIMESTAMP - INTERVAL '7' DAY
+  GROUP BY lower(from_address)
+)
+SELECT
+  t.wallet,
+  t.vol_this_week,
+  COALESCE(l.vol_last_week, 0) AS vol_last_week,
+  t.vol_this_week - COALESCE(l.vol_last_week, 0) AS vol_increase
+FROM this_week t
+LEFT JOIN last_week l ON t.wallet = l.wallet
+WHERE t.vol_this_week > 0
+ORDER BY vol_increase DESC
+LIMIT :limit
+`.trim()
+
 // Volume leaders: by largest single swap
 export const LEADERBOARD_BY_LARGEST_SWAP = `
 SELECT
@@ -449,6 +552,11 @@ export const QUERIES = {
   // Efficiency leaders
   "leaderboard/by-txs-per-day": EFFICIENCY_BY_TXS_PER_DAY,
   "leaderboard/by-streak": EFFICIENCY_BY_STREAK,
+
+  // Rising stars
+  "leaderboard/rising-new-users": RISING_STARS_NEW_USERS,
+  "leaderboard/rising-wow-growth": RISING_STARS_WOW_GROWTH,
+  "leaderboard/rising-climbers": RISING_STARS_CLIMBERS,
 
   // Users domain
   "users/get-user-swap-volume": GET_USER_SWAP_VOLUME,

@@ -65,6 +65,37 @@ export type StreakRow = [
 ]
 
 /**
+ * Rising Stars: new user row
+ */
+export type NewUserRow = [
+  wallet: string,
+  total_swap_vol_usd: number,
+  total_swap_vol_eth: number,
+  swap_count: number,
+  first_swap_time: string,
+]
+
+/**
+ * Rising Stars: week-over-week growth row
+ */
+export type WoWGrowthRow = [
+  wallet: string,
+  vol_this_week: number,
+  vol_last_week: number,
+  wow_growth_pct: number,
+]
+
+/**
+ * Rising Stars: climber row (absolute volume increase)
+ */
+export type ClimberRow = [
+  wallet: string,
+  vol_this_week: number,
+  vol_last_week: number,
+  vol_increase: number,
+]
+
+/**
  * Leaderboard row sorted by largest single swap
  */
 export type LargestSwapRow = [
@@ -202,4 +233,40 @@ export async function getEfficiencyByStreak(
   const safeLimit = Math.max(1, Math.min(Math.floor(limit), 100))
   const rows = await client.execute("leaderboard/by-streak", { limit: safeLimit }, options)
   return rows as StreakRow[]
+}
+
+/**
+ * Get rising stars: new users (first swap in last 30 days) ranked by volume
+ */
+export async function getRisingStarsNewUsers(
+  limit: number = 15,
+  options?: QueryOptions
+): Promise<NewUserRow[]> {
+  const safeLimit = Math.max(1, Math.min(Math.floor(limit), 100))
+  const rows = await client.execute("leaderboard/rising-new-users", { limit: safeLimit }, options)
+  return rows as NewUserRow[]
+}
+
+/**
+ * Get rising stars: week-over-week volume growth
+ */
+export async function getRisingStarsWoWGrowth(
+  limit: number = 15,
+  options?: QueryOptions
+): Promise<WoWGrowthRow[]> {
+  const safeLimit = Math.max(1, Math.min(Math.floor(limit), 100))
+  const rows = await client.execute("leaderboard/rising-wow-growth", { limit: safeLimit }, options)
+  return rows as WoWGrowthRow[]
+}
+
+/**
+ * Get rising stars: climbers (biggest absolute volume increase week over week)
+ */
+export async function getRisingStarsClimbers(
+  limit: number = 15,
+  options?: QueryOptions
+): Promise<ClimberRow[]> {
+  const safeLimit = Math.max(1, Math.min(Math.floor(limit), 100))
+  const rows = await client.execute("leaderboard/rising-climbers", { limit: safeLimit }, options)
+  return rows as ClimberRow[]
 }

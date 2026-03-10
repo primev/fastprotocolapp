@@ -603,17 +603,7 @@ export const LeaderboardTable = ({
             <ReferralLeadersCard prefetchedData={referralData} />
 
             {/* Rising Stars */}
-            <StatsCard
-              title="Rising Stars"
-              subtitle="joined last 30d"
-              icon={<Flame size={18} className="text-orange-500" />}
-              tabs={["Climbers", "New Users", "WoW Growth"]}
-              entries={statsByTxCount}
-              formatStat={(e) => (e.swapCount ?? 0).toLocaleString()}
-              statLabel="GROWTH"
-              highlightColor="text-green-500"
-              tooltip={<><strong>Climbers</strong> — biggest rank improvements.<br /><strong>New Users</strong> — top performers who joined recently.<br /><strong>WoW Growth</strong> — highest week-over-week volume increase.</>}
-            />
+            <RisingStarsCard />
           </div>
         </TabsContent>
       </Tabs>
@@ -771,133 +761,6 @@ const LeaderboardRow = ({ entry, formatVolumeDisplay, showYouBadge }: Leaderboar
 }
 
 // Stats Card Component
-interface StatsCardProps {
-  title: string
-  subtitle?: string
-  icon: React.ReactNode
-  tabs: string[]
-  entries: LeaderboardEntry[]
-  formatStat: (entry: LeaderboardEntry) => string
-  statLabel: string
-  highlightColor?: string
-  tooltip?: React.ReactNode
-}
-
-const StatsCard = ({
-  title,
-  subtitle,
-  icon,
-  tabs,
-  entries,
-  formatStat,
-  statLabel,
-  highlightColor = "text-foreground",
-  tooltip,
-}: StatsCardProps) => {
-  const [activeTab, setActiveTab] = useState(tabs[0])
-  const leader = entries[0]
-  if (!leader) return null
-
-  return (
-    <Card className="p-4 md:p-6 bg-white/[0.01] border-white/5">
-      <div className="flex items-center gap-2 mb-4">
-        {icon}
-        <h3 className="font-bold text-sm">{title}</h3>
-        {subtitle && (
-          <span className="text-[10px] text-muted-foreground/40">({subtitle})</span>
-        )}
-        {tooltip && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <HelpCircle size={14} className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help" />
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[240px] text-xs leading-relaxed">
-              {tooltip}
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </div>
-
-      {/* Internal tabs */}
-      <div className="flex gap-1 mb-4 border-b border-white/5 pb-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-3 py-1 text-xs rounded-md transition-colors ${
-              activeTab === tab
-                ? "bg-primary/10 text-primary font-bold"
-                : "text-muted-foreground/50 hover:text-foreground"
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {!leader ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-3">
-          <BarChart3 size={32} className="text-muted-foreground/15" />
-          <p className="text-xs text-muted-foreground/30 font-medium">No data available yet</p>
-        </div>
-      ) : (
-        <>
-          <div className="flex gap-4">
-            {/* Leader highlight */}
-            <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                <span className="text-sm font-black uppercase tracking-widest text-primary">
-                  #1
-                </span>
-              </div>
-              <p className="font-mono text-xs text-center truncate max-w-[110px]">{leader.wallet}</p>
-              <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-1">
-                {statLabel}
-              </p>
-              <p className={`text-lg font-black tabular-nums ${highlightColor}`}>
-                {formatStat(leader)}
-              </p>
-            </div>
-
-            {/* Ranked list - scrollbar hidden */}
-            <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
-              {entries.map((entry, idx) => (
-                <div
-                  key={entry.wallet}
-                  className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
-                    idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground/40 w-6 text-xs font-mono">{idx + 1}.</span>
-                    <span className="font-mono text-xs truncate max-w-[100px]">
-                      {entry.wallet}
-                      {entry.isCurrentUser && <span className="text-primary ml-1">•</span>}
-                    </span>
-                  </div>
-                  <span
-                    className={`font-mono text-xs font-bold ${
-                      idx === 0
-                        ? "bg-primary text-primary-foreground px-2 py-0.5 rounded"
-                        : highlightColor
-                    }`}
-                  >
-                    {formatStat(entry)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <button className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer">
-            All Leaders →
-          </button>
-        </>
-      )}
-    </Card>
-  )
-}
-
 // Volume Leaders entry from API
 interface VolumeLeaderEntry {
   rank: number
@@ -1654,6 +1517,267 @@ const ReferralLeadersCard = ({ prefetchedData }: { prefetchedData: { byPoints: R
                       }`}
                     >
                       {getReferralStat(entry, activeTab)}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+// Rising Stars types and component
+interface RisingStarEntry {
+  rank: number
+  wallet: string
+  stat: number
+  statLabel: string
+  swapCount?: number
+  volume?: number
+}
+
+const RISING_TABS = ["Climbers", "New Users", "WoW Growth"] as const
+type RisingTab = (typeof RISING_TABS)[number]
+
+const RISING_TAB_TO_SORT: Record<RisingTab, string> = {
+  Climbers: "climbers",
+  "New Users": "new_users",
+  "WoW Growth": "wow_growth",
+}
+
+const RISING_TAB_TO_LABEL: Record<RisingTab, string> = {
+  Climbers: "INCREASE",
+  "New Users": "VOLUME",
+  "WoW Growth": "GROWTH",
+}
+
+function getRisingStat(entry: RisingStarEntry, tab: RisingTab): string {
+  switch (tab) {
+    case "Climbers":
+      return `+${formatRisingVol(entry.stat)}`
+    case "New Users":
+      return formatRisingVol(entry.stat)
+    case "WoW Growth":
+      return `${entry.stat >= 0 ? "+" : ""}${entry.stat.toFixed(0)}%`
+  }
+}
+
+function getRisingSubtext(entry: RisingStarEntry, tab: RisingTab): string {
+  switch (tab) {
+    case "Climbers":
+      return formatRisingVol(entry.volume ?? 0)
+    case "New Users":
+      return `${entry.swapCount ?? 0} swaps`
+    case "WoW Growth":
+      return formatRisingVol(entry.volume ?? 0)
+  }
+}
+
+function formatRisingVol(v: number): string {
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`
+  if (v >= 1e3) return `$${(v / 1e3).toFixed(0)}K`
+  if (v >= 1) return `$${v.toFixed(0)}`
+  return `$${v.toFixed(2)}`
+}
+
+const RisingStarsCard = () => {
+  const [activeTab, setActiveTab] = useState<RisingTab>("Climbers")
+  const [data, setData] = useState<Record<string, RisingStarEntry[]>>({})
+  const [isLoading, setIsLoading] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalEntries, setModalEntries] = useState<RisingStarEntry[]>([])
+  const [isModalLoading, setIsModalLoading] = useState(false)
+
+  const fetchFromApi = useCallback(async (sort: string, limit: number) => {
+    const res = await fetch(`/api/analytics/leaderboard/rising-stars?sort=${sort}&limit=${limit}`)
+    if (!res.ok) return []
+    const json = await res.json()
+    return (json.entries || []) as RisingStarEntry[]
+  }, [])
+
+  // Fetch data for the active tab
+  useEffect(() => {
+    const sort = RISING_TAB_TO_SORT[activeTab]
+    if (data[sort]) return
+
+    let cancelled = false
+    setIsLoading(true)
+    fetchFromApi(sort, 10).then((entries) => {
+      if (!cancelled) {
+        setData((prev) => ({ ...prev, [sort]: entries }))
+        setIsLoading(false)
+      }
+    })
+    return () => { cancelled = true }
+  }, [activeTab, data, fetchFromApi])
+
+  const handleAllLeaders = useCallback(async () => {
+    setModalOpen(true)
+    setIsModalLoading(true)
+    const entries = await fetchFromApi(RISING_TAB_TO_SORT[activeTab], 100)
+    setModalEntries(entries)
+    setIsModalLoading(false)
+  }, [activeTab, fetchFromApi])
+
+  const entries = data[RISING_TAB_TO_SORT[activeTab]] ?? []
+  const leader = entries[0]
+  const statLabel = RISING_TAB_TO_LABEL[activeTab]
+  const showLoading = isLoading && entries.length === 0
+
+  return (
+    <>
+      <Card className="p-4 md:p-6 bg-white/[0.01] border-white/5">
+        <div className="flex items-center gap-2 mb-4">
+          <Flame size={18} className="text-orange-500" />
+          <h3 className="font-bold text-sm">Rising Stars</h3>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <HelpCircle size={14} className="hidden sm:block text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[240px] text-xs leading-relaxed">
+              <p><span className="font-bold text-foreground">Climbers</span> — Biggest volume increase this week</p>
+              <p><span className="font-bold text-foreground">New Users</span> — Top performers who joined in the last 30 days</p>
+              <p><span className="font-bold text-foreground">WoW Growth</span> — Highest week-over-week volume growth %</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* Internal tabs */}
+        <div className="flex gap-1 mb-4 border-b border-white/5 pb-2">
+          {RISING_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                activeTab === tab
+                  ? "bg-primary/10 text-primary font-bold"
+                  : "text-muted-foreground/50 hover:text-foreground"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {showLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">Loading...</p>
+          </div>
+        ) : !leader ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <BarChart3 size={32} className="text-muted-foreground/15" />
+            <p className="text-xs text-muted-foreground/30 font-medium">No data available yet</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex gap-4">
+              {/* Leader highlight */}
+              <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
+                <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mb-2">
+                  <span className="text-sm font-black uppercase tracking-widest text-orange-500">
+                    #1
+                  </span>
+                </div>
+                <p className="font-mono text-xs text-center truncate max-w-[110px]">
+                  {leader.wallet}
+                </p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-1">
+                  {statLabel}
+                </p>
+                <p className="text-lg font-black tabular-nums text-green-500">
+                  {getRisingStat(leader, activeTab)}
+                </p>
+              </div>
+
+              {/* Ranked list */}
+              <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
+                {entries.map((entry, idx) => (
+                  <div
+                    key={entry.wallet}
+                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                      idx === 0 ? "bg-orange-500/[0.05]" : "hover:bg-white/[0.02]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground/40 w-6 text-xs font-mono">
+                        {idx + 1}.
+                      </span>
+                      <span className="font-mono text-xs truncate max-w-[100px]">
+                        {entry.wallet}
+                      </span>
+                    </div>
+                    <span
+                      className={`font-mono text-xs font-bold text-green-500 ${
+                        idx === 0
+                          ? "bg-green-500/20 text-green-400 px-2 py-0.5 rounded"
+                          : ""
+                      }`}
+                    >
+                      {getRisingStat(entry, activeTab)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={handleAllLeaders}
+              className="w-full mt-6 text-xs text-primary hover:underline cursor-pointer"
+            >
+              All Leaders →
+            </button>
+          </>
+        )}
+      </Card>
+
+      {/* All Leaders Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] bg-background border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black">
+              Rising Stars — {activeTab}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground/60">
+              Top 100 wallets sorted by {activeTab.toLowerCase()}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-1 max-h-[60vh] overflow-y-auto scrollbar-hide">
+            {isModalLoading ? (
+              <div className="p-8 text-center text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
+                Loading top 100...
+              </div>
+            ) : (
+              modalEntries.map((entry, idx) => (
+                <div
+                  key={entry.wallet}
+                  className={`flex items-center justify-between py-2 px-3 rounded text-sm ${
+                    idx === 0 ? "bg-orange-500/[0.05]" : "hover:bg-white/[0.02]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground/40 w-8 text-xs font-mono text-right">
+                      {entry.rank}.
+                    </span>
+                    <span className="font-mono text-sm truncate max-w-[200px]">
+                      {entry.wallet}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-[10px] text-muted-foreground/40 font-mono">
+                      {getRisingSubtext(entry, activeTab)}
+                    </span>
+                    <span
+                      className={`font-mono text-sm font-bold tabular-nums text-green-500 ${
+                        idx === 0
+                          ? "bg-green-500/20 text-green-400 px-2 py-0.5 rounded"
+                          : ""
+                      }`}
+                    >
+                      {getRisingStat(entry, activeTab)}
                     </span>
                   </div>
                 </div>
