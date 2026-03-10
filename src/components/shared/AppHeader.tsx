@@ -137,6 +137,19 @@ export const AppHeader = ({
             >
               Swap
             </Link>
+            <Link
+              href="/leaderboard"
+              prefetch={false}
+              onMouseEnter={handleLeaderboardHover(address)}
+              className={cn(
+                "px-6 py-2 rounded-full text-sm font-medium transition-all cursor-pointer",
+                pathname?.startsWith("/leaderboard")
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Leaderboard
+            </Link>
             <div
               className={cn(
                 "px-6 py-2 rounded-full text-sm font-medium transition-all cursor-pointer",
