@@ -760,7 +760,6 @@ const LeaderboardRow = ({ entry, formatVolumeDisplay, showYouBadge }: Leaderboar
   )
 }
 
-// Stats Card Component
 // Volume Leaders entry from API
 interface VolumeLeaderEntry {
   rank: number
@@ -916,11 +915,13 @@ const VolumeLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] })
             <div className="flex gap-4">
               {/* Leader highlight */}
               <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                  <span className="text-sm font-black uppercase tracking-widest text-primary">
+                {(() => { const tm = getTierMetadata(getTierFromVolume(leader.volume)); return (
+                <div className={`w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-2`}>
+                  <span className={`text-sm font-black uppercase tracking-widest ${tm.color}`}>
                     #1
                   </span>
                 </div>
+                ) })()}
                 <p className="font-mono text-xs text-center truncate max-w-[110px]">
                   {leader.wallet}
                 </p>
@@ -1193,11 +1194,13 @@ const EfficiencyLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[
             <div className="flex gap-4">
               {/* Leader highlight */}
               <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                  <span className="text-sm font-black uppercase tracking-widest text-primary">
+                {(() => { const tm = getTierMetadata(getTierFromVolume(leader.volume)); return (
+                <div className={`w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-2`}>
+                  <span className={`text-sm font-black uppercase tracking-widest ${tm.color}`}>
                     #1
                   </span>
                 </div>
+                ) })()}
                 <p className="font-mono text-xs text-center truncate max-w-[110px]">
                   {leader.wallet}
                 </p>
@@ -1676,11 +1679,13 @@ const RisingStarsCard = () => {
             <div className="flex gap-4">
               {/* Leader highlight */}
               <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
-                <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mb-2">
-                  <span className="text-sm font-black uppercase tracking-widest text-orange-500">
+                {(() => { const tm = getTierMetadata(getTierFromVolume(leader.volume)); return (
+                <div className={`w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-2`}>
+                  <span className={`text-sm font-black uppercase tracking-widest ${tm.color}`}>
                     #1
                   </span>
                 </div>
+                ) })()}
                 <p className="font-mono text-xs text-center truncate max-w-[110px]">
                   {leader.wallet}
                 </p>
