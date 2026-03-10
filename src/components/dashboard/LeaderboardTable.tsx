@@ -868,9 +868,12 @@ const VolumeLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] })
 
   return (
     <>
-      <Card className="p-4 md:p-6 bg-white/[0.01] border-white/5">
+      <Card className="group/card relative p-4 md:p-6 bg-white/[0.01] border-white/5 hover:border-white/10 transition-all duration-300 overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
         <div className="flex items-center gap-2 mb-4">
-          <TrendingUp size={18} className="text-primary" />
+          <div className="p-1.5 rounded-lg bg-primary/10">
+            <TrendingUp size={14} className="text-primary" />
+          </div>
           <h3 className="font-bold text-sm">Volume Leaders</h3>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -914,9 +917,9 @@ const VolumeLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] })
           <>
             <div className="flex gap-4">
               {/* Leader highlight */}
-              <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
+              <div className="flex flex-col items-center p-4 bg-gradient-to-b from-white/[0.03] to-transparent rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
                 {(() => { const tm = getTierMetadata(getTierFromVolume(leader.volume)); return (
-                <div className={`w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-2`}>
+                <div className={`relative w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-4 ring-2 ring-offset-2 ring-offset-background ${tm.color.replace('text-', 'ring-')}/20`}>
                   <span className={`text-sm font-black uppercase tracking-widest ${tm.color}`}>
                     #1
                   </span>
@@ -925,25 +928,30 @@ const VolumeLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] })
                 <p className="font-mono text-xs text-center truncate max-w-[110px]">
                   {leader.wallet}
                 </p>
-                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-1">
-                  {statLabel}
-                </p>
-                <p className="text-lg font-black tabular-nums">
-                  {getStatForTab(leader, activeTab)}
-                </p>
+                <div className="mt-auto pt-3">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 text-center">
+                    {statLabel}
+                  </p>
+                  <p className="text-lg font-black tabular-nums text-center">
+                    {getStatForTab(leader, activeTab)}
+                  </p>
+                </div>
               </div>
 
               {/* Ranked list */}
               <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
-                {entries.map((entry, idx) => (
+                {entries.map((entry, idx) => {
+                  const entryTm = idx < 3 ? getTierMetadata(getTierFromVolume(entry.volume)) : null
+                  return (
                   <div
                     key={entry.wallet}
-                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm transition-colors ${
                       idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground/40 w-6 text-xs font-mono">
+                      <span className="text-muted-foreground/40 w-6 text-xs font-mono flex items-center gap-1">
+                        {idx < 3 && entryTm && <span className={`inline-block w-1.5 h-1.5 rounded-full ${entryTm.dot}`} />}
                         {idx + 1}.
                       </span>
                       <span className="font-mono text-xs truncate max-w-[100px]">
@@ -960,7 +968,8 @@ const VolumeLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[] })
                       {getStatForTab(entry, activeTab)}
                     </span>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
 
@@ -1147,9 +1156,12 @@ const EfficiencyLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[
 
   return (
     <>
-      <Card className="p-4 md:p-6 bg-white/[0.01] border-white/5">
+      <Card className="group/card relative p-4 md:p-6 bg-white/[0.01] border-white/5 hover:border-white/10 transition-all duration-300 overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
         <div className="flex items-center gap-2 mb-4">
-          <Zap size={18} className="text-primary" />
+          <div className="p-1.5 rounded-lg bg-primary/10">
+            <Zap size={14} className="text-primary" />
+          </div>
           <h3 className="font-bold text-sm">Efficiency Leaders</h3>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1193,9 +1205,9 @@ const EfficiencyLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[
           <>
             <div className="flex gap-4">
               {/* Leader highlight */}
-              <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
+              <div className="flex flex-col items-center p-4 bg-gradient-to-b from-white/[0.03] to-transparent rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
                 {(() => { const tm = getTierMetadata(getTierFromVolume(leader.volume)); return (
-                <div className={`w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-2`}>
+                <div className={`relative w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-4 ring-2 ring-offset-2 ring-offset-background ${tm.color.replace('text-', 'ring-')}/20`}>
                   <span className={`text-sm font-black uppercase tracking-widest ${tm.color}`}>
                     #1
                   </span>
@@ -1204,25 +1216,30 @@ const EfficiencyLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[
                 <p className="font-mono text-xs text-center truncate max-w-[110px]">
                   {leader.wallet}
                 </p>
-                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-1">
-                  {statLabel}
-                </p>
-                <p className="text-lg font-black tabular-nums">
-                  {getEfficiencyStat(leader, activeTab)}
-                </p>
+                <div className="mt-auto pt-3">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 text-center">
+                    {statLabel}
+                  </p>
+                  <p className="text-lg font-black tabular-nums text-center">
+                    {getEfficiencyStat(leader, activeTab)}
+                  </p>
+                </div>
               </div>
 
               {/* Ranked list */}
               <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
-                {entries.map((entry, idx) => (
+                {entries.map((entry, idx) => {
+                  const entryTm = idx < 3 ? getTierMetadata(getTierFromVolume(entry.volume)) : null
+                  return (
                   <div
                     key={entry.wallet}
-                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm transition-colors ${
                       idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground/40 w-6 text-xs font-mono">
+                      <span className="text-muted-foreground/40 w-6 text-xs font-mono flex items-center gap-1">
+                        {idx < 3 && entryTm && <span className={`inline-block w-1.5 h-1.5 rounded-full ${entryTm.dot}`} />}
                         {idx + 1}.
                       </span>
                       <span className="font-mono text-xs truncate max-w-[100px]">
@@ -1239,7 +1256,8 @@ const EfficiencyLeadersCard = ({ initialData }: { initialData: LeaderboardEntry[
                       {getEfficiencyStat(entry, activeTab)}
                     </span>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
 
@@ -1372,9 +1390,12 @@ const ReferralLeadersCard = ({ prefetchedData }: { prefetchedData: { byPoints: R
 
   return (
     <>
-      <Card className="p-4 md:p-6 bg-white/[0.01] border-white/5">
+      <Card className="group/card relative p-4 md:p-6 bg-white/[0.01] border-white/5 hover:border-white/10 transition-all duration-300 overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
         <div className="flex items-center gap-2 mb-4">
-          <Users size={18} className="text-primary" />
+          <div className="p-1.5 rounded-lg bg-primary/10">
+            <Users size={14} className="text-primary" />
+          </div>
           <h3 className="font-bold text-sm">Referral Leaders</h3>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1417,8 +1438,8 @@ const ReferralLeadersCard = ({ prefetchedData }: { prefetchedData: { byPoints: R
           <>
             <div className="flex gap-4">
               {/* Leader highlight */}
-              <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+              <div className="flex flex-col items-center p-4 bg-gradient-to-b from-white/[0.03] to-transparent rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
+                <div className="relative w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 ring-2 ring-offset-2 ring-offset-background ring-primary/20">
                   <span className="text-sm font-black uppercase tracking-widest text-primary">
                     #1
                   </span>
@@ -1426,12 +1447,14 @@ const ReferralLeadersCard = ({ prefetchedData }: { prefetchedData: { byPoints: R
                 <p className="font-mono text-xs text-center truncate max-w-[110px]">
                   {leader.wallet}
                 </p>
-                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-1">
-                  {statLabel}
-                </p>
-                <p className="text-lg font-black tabular-nums">
-                  {getReferralStat(leader, activeTab)}
-                </p>
+                <div className="mt-auto pt-3">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 text-center">
+                    {statLabel}
+                  </p>
+                  <p className="text-lg font-black tabular-nums text-center">
+                    {getReferralStat(leader, activeTab)}
+                  </p>
+                </div>
               </div>
 
               {/* Ranked list */}
@@ -1439,7 +1462,7 @@ const ReferralLeadersCard = ({ prefetchedData }: { prefetchedData: { byPoints: R
                 {entries.map((entry, idx) => (
                   <div
                     key={entry.wallet}
-                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm transition-colors ${
                       idx === 0 ? "bg-primary/[0.05]" : "hover:bg-white/[0.02]"
                     }`}
                   >
@@ -1632,9 +1655,12 @@ const RisingStarsCard = () => {
 
   return (
     <>
-      <Card className="p-4 md:p-6 bg-white/[0.01] border-white/5">
+      <Card className="group/card relative p-4 md:p-6 bg-white/[0.01] border-white/5 hover:border-white/10 transition-all duration-300 overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-orange-500/50 to-transparent" />
         <div className="flex items-center gap-2 mb-4">
-          <Flame size={18} className="text-orange-500" />
+          <div className="p-1.5 rounded-lg bg-orange-500/10">
+            <Flame size={14} className="text-orange-500" />
+          </div>
           <h3 className="font-bold text-sm">Rising Stars</h3>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1656,7 +1682,7 @@ const RisingStarsCard = () => {
               onClick={() => setActiveTab(tab)}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 activeTab === tab
-                  ? "bg-primary/10 text-primary font-bold"
+                  ? "bg-orange-500/10 text-orange-500 font-bold"
                   : "text-muted-foreground/50 hover:text-foreground"
               }`}
             >
@@ -1678,9 +1704,9 @@ const RisingStarsCard = () => {
           <>
             <div className="flex gap-4">
               {/* Leader highlight */}
-              <div className="flex flex-col items-center justify-center p-4 bg-white/[0.02] rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
+              <div className="flex flex-col items-center p-4 bg-gradient-to-b from-white/[0.03] to-transparent rounded-xl border border-white/5 min-w-[130px] w-[140px] shrink-0">
                 {(() => { const tm = getTierMetadata(getTierFromVolume(leader.volume)); return (
-                <div className={`w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-2`}>
+                <div className={`relative w-16 h-16 rounded-full ${tm.circleBg} flex items-center justify-center mb-4 ring-2 ring-offset-2 ring-offset-background ${tm.color.replace('text-', 'ring-')}/20`}>
                   <span className={`text-sm font-black uppercase tracking-widest ${tm.color}`}>
                     #1
                   </span>
@@ -1689,25 +1715,30 @@ const RisingStarsCard = () => {
                 <p className="font-mono text-xs text-center truncate max-w-[110px]">
                   {leader.wallet}
                 </p>
-                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-1">
-                  {statLabel}
-                </p>
-                <p className="text-lg font-black tabular-nums text-green-500">
-                  {getRisingStat(leader, activeTab)}
-                </p>
+                <div className="mt-auto pt-3">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 text-center">
+                    {statLabel}
+                  </p>
+                  <p className="text-lg font-black tabular-nums text-green-500 text-center">
+                    {getRisingStat(leader, activeTab)}
+                  </p>
+                </div>
               </div>
 
               {/* Ranked list */}
               <div className="flex-1 space-y-1 max-h-[220px] overflow-y-auto scrollbar-hide">
-                {entries.map((entry, idx) => (
+                {entries.map((entry, idx) => {
+                  const entryTm = idx < 3 ? getTierMetadata(getTierFromVolume(entry.volume)) : null
+                  return (
                   <div
                     key={entry.wallet}
-                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                    className={`flex items-center justify-between py-1.5 px-2 rounded text-sm transition-colors ${
                       idx === 0 ? "bg-orange-500/[0.05]" : "hover:bg-white/[0.02]"
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground/40 w-6 text-xs font-mono">
+                      <span className="text-muted-foreground/40 w-6 text-xs font-mono flex items-center gap-1">
+                        {idx < 3 && entryTm && <span className={`inline-block w-1.5 h-1.5 rounded-full ${entryTm.dot}`} />}
                         {idx + 1}.
                       </span>
                       <span className="font-mono text-xs truncate max-w-[100px]">
@@ -1724,7 +1755,8 @@ const RisingStarsCard = () => {
                       {getRisingStat(entry, activeTab)}
                     </span>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
 
