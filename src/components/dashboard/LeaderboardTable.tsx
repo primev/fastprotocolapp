@@ -418,13 +418,27 @@ export const LeaderboardTable = ({
                       </>
                     ) : (
                       <>
-                        Surpass <span className="italic font-bold">#{adjustedUserPos - 1}</span>{" "}
-                        with{" "}
-                        <span className="text-primary font-black decoration-primary/20 tabular-nums">
-                          {adjustedNextRankVol && adjustedUserVol
-                            ? formatVolDiffDisplay(adjustedNextRankVol - adjustedUserVol)
-                            : "--"}
-                        </span>
+                        {(() => {
+                          const diff = (adjustedNextRankVol ?? 0) - (adjustedUserVol ?? 0)
+                          if (adjustedNextRankVol && adjustedUserVol && diff > 0) {
+                            return (
+                              <>
+                                Surpass <span className="italic font-bold">#{adjustedUserPos - 1}</span>{" "}
+                                with{" "}
+                                <span className="text-primary font-black decoration-primary/20 tabular-nums">
+                                  {formatVolDiffDisplay(diff)}
+                                </span>
+                              </>
+                            )
+                          }
+                          return (
+                            <>
+                              You're closing in on{" "}
+                              <span className="italic font-bold text-primary">#{adjustedUserPos - 1}</span>
+                              {" — keep trading!"}
+                            </>
+                          )
+                        })()}
                         {currentTier !== "gold" && (
                           <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-muted-foreground/40 uppercase tracking-widest">
                             Reach <span className={nextTierMeta.color}>{nextTierName}</span> in{" "}
