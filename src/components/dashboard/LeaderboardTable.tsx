@@ -135,6 +135,13 @@ export const LeaderboardTable = ({
     return milesLeaderboard.find((e) => e.wallet === trimmed) ?? null
   }, [userAddr, milesLeaderboard])
 
+  // Wallet-to-miles lookup for volume leaderboard rows
+  const milesByWallet = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const e of milesLeaderboard) map.set(e.wallet, e.points)
+    return map
+  }, [milesLeaderboard])
+
   // Total miles across all participants
   const totalMiles = useMemo(() => {
     return milesLeaderboard.reduce((sum, e) => sum + e.points, 0)
@@ -863,7 +870,7 @@ export const LeaderboardTable = ({
                           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
                         </div>
                       )}
-                      <LeaderboardRow entry={entry} formatVolumeDisplay={formatVolumeDisplay} />
+                      <LeaderboardRow entry={entry} formatVolumeDisplay={formatVolumeDisplay} miles={milesByWallet.get(entry.wallet) ?? null} />
                     </React.Fragment>
                   )
                 })
@@ -892,6 +899,7 @@ export const LeaderboardTable = ({
                   }}
                   formatVolumeDisplay={formatVolumeDisplay}
                   showYouBadge
+                  miles={userAddr ? milesByWallet.get(trimWalletAddress(userAddr.toLowerCase())) ?? null : null}
                 />
               </div>
             )}
@@ -934,9 +942,10 @@ interface LeaderboardRowProps {
   entry: LeaderboardEntry
   formatVolumeDisplay: (v: number) => string
   showYouBadge?: boolean
+  miles?: number | null
 }
 
-const LeaderboardRow = ({ entry, formatVolumeDisplay, showYouBadge }: LeaderboardRowProps) => {
+const LeaderboardRow = ({ entry, formatVolumeDisplay, showYouBadge, miles }: LeaderboardRowProps) => {
   const entryTier = getTierFromVolume(entry.swapVolume24h)
   const tierMeta = getTierMetadata(entryTier)
 
@@ -1027,25 +1036,15 @@ const LeaderboardRow = ({ entry, formatVolumeDisplay, showYouBadge }: Leaderboar
           </Badge>
         )}
       </div>
-      <div className="hidden sm:flex col-span-2 justify-end items-center min-w-0 group/miles">
-        <div className="flex items-center gap-3 px-3 py-1.5 rounded-full bg-white/[0.01] border border-white/[0.03]">
-          <div className="flex flex-col items-end">
-            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/30">
-              Miles
-            </span>
-            <span className="text-[7px] font-black uppercase tracking-[0.2em] text-primary/50 italic">
-              Pending
-            </span>
-          </div>
-          <div className="relative flex items-center justify-center">
-            <div className="absolute inset-0 bg-primary/10 blur-[6px] rounded-full" />
-            <Zap
-              size={13}
-              strokeWidth={2.5}
-              className="text-primary/70 drop-shadow-[0_0_2px_rgba(59,130,246,0.5)] relative z-10"
-              fill="none"
-            />
-          </div>
+      <div className="hidden sm:flex col-span-2 justify-end items-center min-w-0">
+        <div className="flex items-center gap-1.5">
+          <Zap size={11} strokeWidth={2.5} className="text-primary/60" />
+          <span className="text-sm font-bold tabular-nums text-primary/80">
+            {(miles ?? 0).toLocaleString()}
+          </span>
+          <span className="text-[9px] font-bold uppercase text-muted-foreground/40">
+            Miles
+          </span>
         </div>
       </div>
       <div className="col-span-3 sm:col-span-3 text-right min-w-0">
