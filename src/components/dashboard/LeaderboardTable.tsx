@@ -105,7 +105,7 @@ export const LeaderboardTable = ({
       .catch(() => {})
   }, [])
 
-  const [leaderboardMode, setLeaderboardMode] = useState<"volume" | "miles">("miles")
+  const [leaderboardMode, setLeaderboardMode] = useState<"volume" | "miles" | "stats">("miles")
 
   // Miles leaderboard data (Fuul points for main table in miles mode)
   const [milesLeaderboard, setMilesLeaderboard] = useState<
@@ -350,6 +350,16 @@ export const LeaderboardTable = ({
                 >
                   Volume
                 </button>
+                <button
+                  onClick={() => setLeaderboardMode("stats")}
+                  className={`px-3.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full transition-all ${
+                    leaderboardMode === "stats"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground/50 hover:text-muted-foreground/80"
+                  }`}
+                >
+                  Stats
+                </button>
               </div>
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter italic leading-none whitespace-nowrap">
@@ -357,31 +367,78 @@ export const LeaderboardTable = ({
             </h1>
           </div>
 
-          {leaderboardMode === "volume" ? (
-            <div className="flex items-center gap-4 sm:gap-6 md:gap-10">
-              <div className="flex flex-col items-start md:items-end">
-                <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
-                  Traders
-                </span>
-                <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
-                  {activeTraders?.toLocaleString() || "---"}
-                </span>
+          {leaderboardMode !== "miles" ? (
+            <div className="flex flex-col items-start lg:items-end gap-3">
+              <div className="flex items-center gap-4 sm:gap-6 md:gap-10">
+                <div className="flex flex-col items-start md:items-end">
+                  <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
+                    Traders
+                  </span>
+                  <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
+                    {activeTraders?.toLocaleString() || "---"}
+                  </span>
+                </div>
+                <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
+                  <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
+                    Vol (ETH)
+                  </span>
+                  <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
+                    {swapVolumeEth != null ? `${formatNumber(swapVolumeEth)} ETH` : "---"}
+                  </span>
+                </div>
+                <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
+                  <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
+                    Vol (USD)
+                  </span>
+                  <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
+                    {totalVol ? formatVolumeDisplay(totalVol) : "---"}
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
-                <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
-                  Vol (ETH)
-                </span>
-                <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
-                  {swapVolumeEth != null ? `${formatNumber(swapVolumeEth)} ETH` : "---"}
-                </span>
-              </div>
-              <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
-                <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
-                  Vol (USD)
-                </span>
-                <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
-                  {totalVol ? formatVolumeDisplay(totalVol) : "---"}
-                </span>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setTierFilter("all")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+                    tierFilter === "all"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-white/[0.03] text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setTierFilter("gold")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
+                    tierFilter === "gold"
+                      ? "bg-yellow-500/20 text-yellow-500 border border-yellow-500/50"
+                      : "bg-white/[0.03] text-muted-foreground hover:text-yellow-500"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                  Gold
+                </button>
+                <button
+                  onClick={() => setTierFilter("silver")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
+                    tierFilter === "silver"
+                      ? "bg-slate-400/20 text-slate-300 border border-slate-400/50"
+                      : "bg-white/[0.03] text-muted-foreground hover:text-slate-300"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                  Silver
+                </button>
+                <button
+                  onClick={() => setTierFilter("bronze")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
+                    tierFilter === "bronze"
+                      ? "bg-amber-600/20 text-amber-600 border border-amber-600/50"
+                      : "bg-white/[0.03] text-muted-foreground hover:text-amber-600"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                  Bronze
+                </button>
               </div>
             </div>
           ) : (
@@ -476,7 +533,7 @@ export const LeaderboardTable = ({
         )}
 
         {/* User Performance Metrics (volume mode only) */}
-        {leaderboardMode === "volume" && userAddr && (
+        {leaderboardMode !== "miles" && userAddr && (
           <div className="flex flex-col sm:flex-row items-stretch gap-3">
             {/* Rank Card */}
             <div className="flex-1 flex items-center justify-between px-5 py-3 rounded-2xl bg-primary/[0.03] border border-primary/20 backdrop-blur-sm group hover:bg-primary/[0.05] transition-colors">
@@ -531,7 +588,7 @@ export const LeaderboardTable = ({
       </div>
 
       {/* Progress & Analysis Section (volume mode only) */}
-      {leaderboardMode === "volume" && (
+      {leaderboardMode !== "miles" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch">
           {/* Progress Tracker Card */}
           <Card className="p-3 sm:p-4 bg-white/[0.01] border-white/5 flex flex-col justify-center space-y-2 sm:space-y-3 min-w-0 w-full h-full">
@@ -888,65 +945,11 @@ export const LeaderboardTable = ({
             </div>
           )}
         </div>
-      ) : (
-        /* ─── Volume Mode: Tabs + Tier Filter ─── */
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <TabsList className="grid w-full max-w-[200px] grid-cols-2">
-              <TabsTrigger value="standings">Standings</TabsTrigger>
-              <TabsTrigger value="stats">Stats</TabsTrigger>
-            </TabsList>
-
-            {/* Tier Filter */}
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => setTierFilter("all")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-                  tierFilter === "all"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-white/[0.03] text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setTierFilter("gold")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
-                  tierFilter === "gold"
-                    ? "bg-yellow-500/20 text-yellow-500 border border-yellow-500/50"
-                    : "bg-white/[0.03] text-muted-foreground hover:text-yellow-500"
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                Gold
-              </button>
-              <button
-                onClick={() => setTierFilter("silver")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
-                  tierFilter === "silver"
-                    ? "bg-slate-400/20 text-slate-300 border border-slate-400/50"
-                    : "bg-white/[0.03] text-muted-foreground hover:text-slate-300"
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                Silver
-              </button>
-              <button
-                onClick={() => setTierFilter("bronze")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
-                  tierFilter === "bronze"
-                    ? "bg-amber-600/20 text-amber-600 border border-amber-600/50"
-                    : "bg-white/[0.03] text-muted-foreground hover:text-amber-600"
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-                Bronze
-              </button>
-            </div>
-          </div>
-
-          {/* STANDINGS TAB */}
-          <TabsContent value="standings" className="space-y-2">
+      ) : leaderboardMode === "volume" ? (
+        /* ─── Volume Mode: Standings ─── */
+        <div className="space-y-4">
+          {/* Standings */}
+          <div className="space-y-2">
             <div className="space-y-1.5 w-full">
               {isLoadingProp && lbData.length === 0 ? (
                 <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20 animate-pulse">
@@ -1012,35 +1015,28 @@ export const LeaderboardTable = ({
                 />
               </div>
             )}
-          </TabsContent>
-
-          {/* STATS TAB */}
-          <TabsContent value="stats" className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              {/* Volume Leaders */}
-              <VolumeLeadersCard
-                initialData={statsByVolume}
-                tierFilter={tierFilter}
-                userWallet={userAddr}
-                userVolume={adjustedUserVol}
-              />
-
-              {/* Efficiency Leaders */}
-              <EfficiencyLeadersCard
-                initialData={statsByTxCount}
-                tierFilter={tierFilter}
-                userWallet={userAddr}
-                userVolume={adjustedUserVol}
-              />
-
-              {/* Referral Leaders */}
-              <ReferralLeadersCard prefetchedData={referralData} userWallet={userAddr} />
-
-              {/* Rising Stars */}
-              <RisingStarsCard userWallet={userAddr} userVolume={adjustedUserVol} />
-            </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
+      ) : (
+        /* ─── Stats Mode: Cards Grid ─── */
+        <div className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <VolumeLeadersCard
+              initialData={statsByVolume}
+              tierFilter={tierFilter}
+              userWallet={userAddr}
+              userVolume={adjustedUserVol}
+            />
+            <EfficiencyLeadersCard
+              initialData={statsByTxCount}
+              tierFilter={tierFilter}
+              userWallet={userAddr}
+              userVolume={adjustedUserVol}
+            />
+            <ReferralLeadersCard prefetchedData={referralData} userWallet={userAddr} />
+            <RisingStarsCard userWallet={userAddr} userVolume={adjustedUserVol} />
+          </div>
+        </div>
       )}
     </div>
   )
