@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { useWaitForTransactionReceipt } from "wagmi"
 import type { TransactionReceipt } from "viem"
-import { X } from "lucide-react"
+import { X, RefreshCw } from "lucide-react"
 import { useSwapToastStore } from "@/stores/swapToastStore"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
-import { getTransactionShortMessage, RPCError } from "@/lib/transaction-errors"
+import { getTransactionShortMessage, parseBarterSlippageError, RPCError } from "@/lib/transaction-errors"
 import { FAST_PROTOCOL_NETWORK } from "@/lib/network-config"
 import { TokenPairIcon } from "./TokenPairIcon"
 import { cn } from "@/lib/utils"
@@ -24,6 +24,7 @@ export function SwapToast({ hash }: { hash: string }) {
   const setStatus = useSwapToastStore((s) => s.setStatus)
   const setFailed = useSwapToastStore((s) => s.setFailed)
   const showErrorForToast = useSwapToastStore((s) => s.showErrorForToast)
+  const requestRetryWithSlippage = useSwapToastStore((s) => s.requestRetryWithSlippage)
   const collapse = useSwapToastStore((s) => s.collapse)
   const expand = useSwapToastStore((s) => s.expand)
   const removeToast = useSwapToastStore((s) => s.removeToast)
@@ -126,8 +127,60 @@ export function SwapToast({ hash }: { hash: string }) {
   // Hidden after pre-confirm auto-dismiss; hooks above keep running
   if (isHidden) return null
 
-  // Failed State: Show "Swap Failed" with Details button
+  // Failed State
   if (isFailed) {
+    const barterSlippage = toast.errorMessage ? parseBarterSlippageError(toast.errorMessage) : null
+
+    // Barter slippage: specialized inline retry toast
+    if (barterSlippage) {
+      return (
+        <div
+          ref={toastRef}
+          className="relative w-[360px] overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-amber-500/30 animate-in fade-in slide-in-from-right-5 duration-300"
+        >
+          <div className="relative p-4 flex items-center gap-4">
+            <div className="relative h-11 w-11 shrink-0 flex items-center justify-center">
+              <div className="h-11 w-11 rounded-full bg-amber-500/10 flex items-center justify-center">
+                <RefreshCw className="h-5 w-5 text-amber-400" />
+              </div>
+            </div>
+
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
+              <span className="text-sm font-medium text-amber-400">Slippage too low</span>
+              <div className="mt-0.5 text-xs text-neutral-500">
+                Minimum required: {barterSlippage.recommendedSlippage}%
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  requestRetryWithSlippage(hash, barterSlippage.recommendedSlippage)
+                }}
+                className="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-xs font-semibold transition-colors whitespace-nowrap"
+              >
+                Retry {barterSlippage.recommendedSlippage}%
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  removeToast(hash)
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition-colors shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="h-4 w-4 text-white" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Generic failure: "Swap Failed" with Details button
     return (
       <div
         ref={toastRef}

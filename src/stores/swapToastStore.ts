@@ -38,6 +38,8 @@ type Store = {
   toasts: SwapToast[]
   /** Set when a tx fails after submit; SwapConfirmationModal shows error modal. Cleared when modal closes. */
   lastTxError: SwapTxError | null
+  /** Set when user clicks "Retry with X%" on a barter slippage toast. SwapForm subscribes and reopens modal. */
+  retrySlippage: string | null
   addToast: (
     hash: string,
     tokenIn?: Token,
@@ -58,6 +60,9 @@ type Store = {
   /** Opens the error modal by setting lastTxError from the toast's stored error data. */
   showErrorForToast: (hash: string) => void
   clearLastTxError: () => void
+  /** Removes the failed toast and sets retrySlippage so SwapForm can reopen the modal with updated slippage. */
+  requestRetryWithSlippage: (hash: string, slippage: string) => void
+  clearRetrySlippage: () => void
   collapse: (hash: string) => void
   expand: (hash: string) => void
   removeToast: (hash: string) => void
@@ -68,6 +73,7 @@ type Store = {
 export const useSwapToastStore = create<Store>((set, get) => ({
   toasts: [],
   lastTxError: null,
+  retrySlippage: null,
 
   addToast: (hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onPreConfirm) =>
     set((s) => ({
@@ -128,6 +134,14 @@ export const useSwapToastStore = create<Store>((set, get) => ({
   },
 
   clearLastTxError: () => set({ lastTxError: null }),
+
+  requestRetryWithSlippage: (hash, slippage) =>
+    set((s) => ({
+      toasts: s.toasts.filter((t) => t.hash !== hash),
+      retrySlippage: slippage,
+    })),
+
+  clearRetrySlippage: () => set({ retrySlippage: null }),
 
   collapse: (hash) =>
     set((s) => ({

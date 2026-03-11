@@ -60,12 +60,26 @@ export function SwapForm() {
   const estimatedMiles = FEATURE_FLAGS.show_miles_estimate ? rawEstimatedMiles : null
 
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
+  const [autoExecuteSwap, setAutoExecuteSwap] = useState(false)
   const lastTxError = useSwapToastStore((s) => s.lastTxError)
+  const retrySlippage = useSwapToastStore((s) => s.retrySlippage)
+  const clearRetrySlippage = useSwapToastStore((s) => s.clearRetrySlippage)
 
   // Reopen confirmation modal when a tx fails after submit (e.g. status 0x0)
   useEffect(() => {
     if (lastTxError) setIsConfirmationOpen(true)
   }, [lastTxError])
+
+  // Barter slippage retry from toast: update slippage, open modal, and auto-execute (skip review)
+  useEffect(() => {
+    if (retrySlippage) {
+      form.updateSlippage(retrySlippage)
+      clearRetrySlippage()
+      setAutoExecuteSwap(true)
+      setIsConfirmationOpen(false)
+      requestAnimationFrame(() => setIsConfirmationOpen(true))
+    }
+  }, [retrySlippage, clearRetrySlippage, form])
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isFromSelectorOpen, setIsFromSelectorOpen] = useState(false)
   const [isToSelectorOpen, setIsToSelectorOpen] = useState(false)
@@ -261,6 +275,8 @@ export function SwapForm() {
             setIsConfirmationOpen(false)
             requestAnimationFrame(() => setIsConfirmationOpen(true))
           }}
+          autoExecute={autoExecuteSwap}
+          onAutoExecuteConsumed={() => setAutoExecuteSwap(false)}
         />
       )}
     </div>

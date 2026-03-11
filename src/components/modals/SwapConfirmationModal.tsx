@@ -97,6 +97,10 @@ interface SwapConfirmationModalProps {
   estimatedMiles?: number | null
   /** Called with the recommended slippage when a barter slippage error is detected. */
   onRetryWithSlippage?: (slippage: string) => void
+  /** When true, immediately execute the swap on open (skip review). Used by toast retry flow. */
+  autoExecute?: boolean
+  /** Called after autoExecute is consumed so parent can reset the flag. */
+  onAutoExecuteConsumed?: () => void
   /** Error from a failed tx after submit (e.g. status 0x0). Shows error modal. */
   externalError?: {
     message: string
@@ -205,6 +209,8 @@ function SwapConfirmationModal({
   approveTokenSymbol,
   estimatedMiles,
   onRetryWithSlippage,
+  autoExecute = false,
+  onAutoExecuteConsumed,
   externalError,
 }: SwapConfirmationModalProps) {
   // --- EXTERNAL HOOKS ---
@@ -232,6 +238,7 @@ function SwapConfirmationModal({
   const addToast = useSwapToastStore((s) => s.addToast)
   const updateToastHash = useSwapToastStore((s) => s.updateToastHash)
   const removeToast = useSwapToastStore((s) => s.removeToast)
+  const setFailed = useSwapToastStore((s) => s.setFailed)
 
   const {
     confirmSwap,
@@ -357,6 +364,7 @@ function SwapConfirmationModal({
                     onConfirm,
                     onCloseAfterSuccess
                   )
+                  onOpenChange(false) // Close modal immediately; toast takes over
                 },
               }
             : undefined
@@ -368,10 +376,13 @@ function SwapConfirmationModal({
         }
         onOpenChange(false)
       }
-    } catch {
-      // Error is set by hooks (wrapError/swapError); ERROR VIEW shows with "View Error Details" / "Try Again"
-      // Remove zombie toast with pending placeholder hash (relayer failed before returning real hash)
-      if (pendingPlaceholder) removeToast(pendingPlaceholder)
+    } catch (err) {
+      if (pendingPlaceholder) {
+        // Modal already closed (permit path); show error in the toast instead
+        const message = err instanceof Error ? err.message : "Transaction failed"
+        setFailed(pendingPlaceholder, undefined, message)
+      }
+      // Otherwise error is set by hooks (wrapError/swapError); ERROR VIEW shows with "View Error Details" / "Try Again"
     } finally {
       setIsConfirming(false)
       setIsAutoSwappingAfterApproval(false)
@@ -386,6 +397,7 @@ function SwapConfirmationModal({
     addToast,
     updateToastHash,
     removeToast,
+    setFailed,
     tokenIn,
     tokenOut,
     amountIn,
@@ -395,6 +407,14 @@ function SwapConfirmationModal({
     onCloseAfterSuccess,
     onOpenChange,
   ])
+
+  // Auto-execute on open (toast retry flow): skip review, go straight to wallet
+  useEffect(() => {
+    if (open && autoExecute) {
+      onAutoExecuteConsumed?.()
+      executeSwap()
+    }
+  }, [open, autoExecute, onAutoExecuteConsumed, executeSwap])
 
   const handleConfirm = useCallback(async () => {
     // Approve: modal-only, NO toast (Uniswap pattern — avoids stacked approve + swap toasts)

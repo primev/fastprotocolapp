@@ -300,10 +300,8 @@ export function useSwapConfirmation({
     console.log("[Permit Path] fastswap response:", { status: resp.status, result })
     if (!resp.ok || !result?.txHash) {
       releaseNonce(nonce)
-      let errorMessage = result?.error || "FastSwap API error"
-      if (errorMessage.toLowerCase().includes("api error")) {
-        errorMessage += `\n\nContext:\nInput token: ${fromToken.symbol} (${fromToken.address})\nOutput token: ${toToken.symbol} (${toToken.address})\nSlippage: ${slippage}\nMinimum Output: ${userAmtOutWei}\nDeadline (minutes): ${deadline}`
-      }
+      const rawError = result?.error || "FastSwap API error"
+      const errorMessage = `${rawError}\n\nContext:\nInput token: ${fromToken.symbol} (${fromToken.address})\nOutput token: ${toToken.symbol} (${toToken.address})\nSlippage: ${slippage}\nMinimum Output: ${userAmtOutWei}\nDeadline (minutes): ${deadline}`
       throw new Error(errorMessage)
     }
 
