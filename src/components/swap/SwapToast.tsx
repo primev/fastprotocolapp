@@ -23,6 +23,7 @@ export function SwapToast({ hash }: { hash: string }) {
   const toast = useSwapToastStore((s) => s.toasts.find((t) => t.hash === hash))
   const setStatus = useSwapToastStore((s) => s.setStatus)
   const setFailed = useSwapToastStore((s) => s.setFailed)
+  const showErrorForToast = useSwapToastStore((s) => s.showErrorForToast)
   const collapse = useSwapToastStore((s) => s.collapse)
   const expand = useSwapToastStore((s) => s.expand)
   const removeToast = useSwapToastStore((s) => s.removeToast)
@@ -34,6 +35,8 @@ export function SwapToast({ hash }: { hash: string }) {
 
   // Controls the "swipe" animation state
   const [showPreConfirmView, setShowPreConfirmView] = useState(false)
+  // Hidden after pre-confirm auto-dismiss; hooks keep running. Reappears on confirm/fail.
+  const [isHidden, setIsHidden] = useState(false)
 
   const { data: receipt, error: receiptError } = useWaitForTransactionReceipt({
     hash: effectiveHash as `0x${string}` | undefined,
@@ -47,6 +50,7 @@ export function SwapToast({ hash }: { hash: string }) {
     onConfirmed: () => {
       if (effectiveHash) setStatus(hash, "confirmed")
       setShowPreConfirmView(false) // Immediately exit pre-confirm view on finality
+      setIsHidden(false) // Reappear if hidden after pre-confirm auto-dismiss
       const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
       t?.onConfirm?.()
     },
@@ -66,6 +70,8 @@ export function SwapToast({ hash }: { hash: string }) {
       const message =
         typeof err?.message === "string" ? err.message : getTransactionShortMessage(err)
       setFailed(hash, txReceipt, message, rawDbRecord)
+      setShowPreConfirmView(false)
+      setIsHidden(false) // Reappear to show failed state
     },
   })
 
@@ -80,9 +86,10 @@ export function SwapToast({ hash }: { hash: string }) {
 
     const id = setTimeout(() => {
       const currentStatus = useSwapToastStore.getState().toasts.find((t) => t.hash === hash)?.status
-      // Don't swipe back if we've already reached final confirmation
-      if (currentStatus === "confirmed") return
+      // Don't swipe back if we've already reached final confirmation or failed
+      if (currentStatus === "confirmed" || currentStatus === "failed") return
       setShowPreConfirmView(false)
+      setIsHidden(true) // Hide toast after pre-confirm auto-dismiss; logic keeps running
     }, PRE_CONFIRM_DURATION_MS)
 
     return () => clearTimeout(id)
@@ -92,7 +99,11 @@ export function SwapToast({ hash }: { hash: string }) {
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (!toastRef.current?.contains(e.target as Node) && toast) {
-        toast.status === "confirmed" ? removeToast(hash) : collapse(hash)
+        if (toast.status === "confirmed" || toast.status === "failed") {
+          removeToast(hash)
+        } else {
+          collapse(hash)
+        }
       }
     }
     document.addEventListener("mousedown", handleClickOutside)
@@ -104,12 +115,66 @@ export function SwapToast({ hash }: { hash: string }) {
   const isPending = toast.status === "pending"
   const isConfirmed = toast.status === "confirmed"
   const isPreConfirmed = toast.status === "pre-confirmed"
+  const isFailed = toast.status === "failed"
   // Pre-confirm brag (icon swap, ring, progress bar): show when store is pre-confirmed and in 6s window.
   // After 6s showPreConfirmView becomes false to dim (label stays).
   const showPreConfirmBrag = isPreConfirmed && showPreConfirmView
   const explorerUrl = effectiveHash
     ? `${FAST_PROTOCOL_NETWORK.blockExplorerUrls[0]}tx/${effectiveHash}`
     : null
+
+  // Hidden after pre-confirm auto-dismiss; hooks above keep running
+  if (isHidden) return null
+
+  // Failed State: Show "Swap Failed" with Details button
+  if (isFailed) {
+    return (
+      <div
+        ref={toastRef}
+        className="relative w-[360px] overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-red-500/30 animate-in fade-in slide-in-from-right-5 duration-300"
+      >
+        <div className="relative h-[84px] p-4 flex items-center gap-4">
+          <div className="relative h-11 w-11 shrink-0 flex items-center justify-center">
+            <div className="h-11 w-11 rounded-full bg-red-500/10 flex items-center justify-center">
+              <X className="h-5 w-5 text-red-400" />
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0 flex flex-col justify-center">
+            <span className="text-sm font-medium text-red-400">Swap Failed</span>
+            <div className="mt-0.5 text-xs text-neutral-500 tabular-nums">
+              {toast.amountIn ?? "—"} {toast.tokenIn?.symbol} → {toast.amountOut ?? "—"}{" "}
+              {toast.tokenOut?.symbol}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                showErrorForToast(hash)
+              }}
+              className="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold transition-colors"
+            >
+              Details
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                removeToast(hash)
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+              aria-label="Dismiss"
+            >
+              <X className="h-4 w-4 text-white" />
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Collapsed State: Minimalist bubble
   if ((isPending || toast.status === "pre-confirmed") && toast.collapsed) {
