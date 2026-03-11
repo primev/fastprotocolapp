@@ -7,7 +7,11 @@ import type { TransactionReceipt } from "viem"
 import { X, RefreshCw } from "lucide-react"
 import { useSwapToastStore } from "@/stores/swapToastStore"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
-import { getTransactionShortMessage, parseBarterSlippageError, RPCError } from "@/lib/transaction-errors"
+import {
+  getTransactionShortMessage,
+  parseBarterSlippageError,
+  RPCError,
+} from "@/lib/transaction-errors"
 import { FAST_PROTOCOL_NETWORK } from "@/lib/network-config"
 import { TokenPairIcon } from "./TokenPairIcon"
 import { cn } from "@/lib/utils"

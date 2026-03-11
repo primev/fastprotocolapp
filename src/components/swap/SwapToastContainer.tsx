@@ -29,10 +29,10 @@ export function SwapToastContainer() {
   return (
     <div className="fixed top-[100px] right-4 z-50 flex flex-col items-end">
       {toasts.map((t, i) => (
-          <div key={t.id} style={{ marginTop: i * 12 }}>
-            <SwapToast hash={t.hash} />
-          </div>
-        ))}
+        <div key={t.id} style={{ marginTop: i * 12 }}>
+          <SwapToast hash={t.hash} />
+        </div>
+      ))}
     </div>
   )
 }
