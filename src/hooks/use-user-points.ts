@@ -18,34 +18,31 @@ export function useUserPoints(): UseUserPointsReturn {
   const [points, setPoints] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
 
-  const fetchPoints = useCallback(
-    (addr: string) => {
-      let cancelled = false
-      setIsLoading(true)
+  const fetchPoints = useCallback((addr: string) => {
+    let cancelled = false
+    setIsLoading(true)
 
-      fetch(`/api/fuul/payouts?address=${encodeURIComponent(addr)}`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((json) => {
-          if (cancelled) return
-          if (json?.success && typeof json.totalPoints === "number") {
-            setPoints(json.totalPoints)
-          } else {
-            setPoints(0)
-          }
-        })
-        .catch(() => {
-          if (!cancelled) setPoints(0)
-        })
-        .finally(() => {
-          if (!cancelled) setIsLoading(false)
-        })
+    fetch(`/api/fuul/payouts?address=${encodeURIComponent(addr)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (cancelled) return
+        if (json?.success && typeof json.totalPoints === "number") {
+          setPoints(json.totalPoints)
+        } else {
+          setPoints(0)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPoints(0)
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
 
-      return () => {
-        cancelled = true
-      }
-    },
-    []
-  )
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Initial fetch + refetch on address change
   useEffect(() => {
