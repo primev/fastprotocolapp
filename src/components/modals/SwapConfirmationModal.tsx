@@ -45,6 +45,7 @@ import { GAS_LIMIT_MULTIPLIER, ETH_PATH_DISPLAY_MULTIPLIER } from "@/hooks/use-b
 import { useEthPathGasEstimate } from "@/hooks/use-eth-path-gas-estimate"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import { useSwapToastStore } from "@/stores/swapToastStore"
+import { refetchMiles } from "@/hooks/use-user-points"
 
 const numberFlowStyle = {
   "--number-flow-char-gap": "-0.5px",
@@ -340,6 +341,7 @@ function SwapConfirmationModal({
       const onConfirm = () => {
         setClearSwapState(true)
         if (refreshBalances) setTimeout(() => refreshBalances(), 1000)
+        setTimeout(() => refetchMiles(), 5000)
       }
       if (isWrap) {
         const hash = await wrap()
