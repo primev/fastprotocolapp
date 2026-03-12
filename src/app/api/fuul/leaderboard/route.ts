@@ -3,17 +3,19 @@ import { env } from "@/env/server"
 import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/constants"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 
-const FUUL_LEADERBOARD_URL = "https://api.fuul.xyz/api/v1/payouts/leaderboard/points"
+const FUUL_LEADERBOARD_URL = "https://api.fuul.xyz/api/v1/payouts/leaderboard/payouts"
 
 // In-memory cache for the raw Fuul response
 let rawCache: { data: NormalizedEntry[]; timestamp: number } | null = null
 
 interface FuulLeaderboardEntry {
   address: string
+  user_identifier: string
+  user_identifier_type: string
   total_amount: number
   total_attributions: number
   rank: number
-  affiliate_name: string | null
+  affiliate_code?: string
 }
 
 interface NormalizedEntry {
@@ -43,32 +45,44 @@ export async function GET(request: NextRequest) {
 
     // Ensure we have cached data
     if (!rawCache || Date.now() - rawCache.timestamp >= LEADERBOARD_CACHE_STALE_TIME) {
-      const url = new URL(FUUL_LEADERBOARD_URL)
-      url.searchParams.set("page", "1")
-      url.searchParams.set("page_size", "100")
+      const allResults: FuulLeaderboardEntry[] = []
+      let currentPage = 1
 
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: {
-          accept: "application/json",
-          Authorization: `Bearer ${fuulApiKey}`,
-        },
-      })
+      // Paginate through all results (max page_size is 100)
+      while (true) {
+        const url = new URL(FUUL_LEADERBOARD_URL)
+        url.searchParams.set("page", String(currentPage))
+        url.searchParams.set("page_size", "100")
+        url.searchParams.set("currency_address", "")
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error("Fuul leaderboard API error:", response.status, errorText)
-        return NextResponse.json(
-          { error: "Failed to fetch referral leaderboard" },
-          { status: response.status }
-        )
+        const response = await fetch(url.toString(), {
+          method: "GET",
+          headers: {
+            accept: "application/json",
+            Authorization: `Bearer ${fuulApiKey}`,
+          },
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error("Fuul leaderboard API error:", response.status, errorText)
+          return NextResponse.json(
+            { error: "Failed to fetch referral leaderboard" },
+            { status: response.status }
+          )
+        }
+
+        const data = await response.json()
+        const results: FuulLeaderboardEntry[] = data.results || []
+        allResults.push(...results)
+
+        // Stop if we've fetched all results
+        if (allResults.length >= (data.total_results || 0) || results.length === 0) break
+        currentPage++
       }
 
-      const data = await response.json()
-      const results: FuulLeaderboardEntry[] = data.results || []
-
       rawCache = {
-        data: results.map((r) => ({
+        data: allResults.map((r) => ({
           wallet: trimWalletAddress(r.address),
           points: Number(r.total_amount) || 0,
           referrals: Number(r.total_attributions) || 0,
