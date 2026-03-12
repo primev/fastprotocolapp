@@ -112,13 +112,16 @@ export const LeaderboardTable = ({
       .then((json) => {
         if (!json) return
         const entries: { wallet: string; points: number; referrals: number; rank: number }[] =
-          json.entries || json.byPoints?.map((e: ReferralLeaderEntry, i: number) => ({ ...e, rank: i + 1 })) || []
+          json.entries ||
+          json.byPoints?.map((e: ReferralLeaderEntry, i: number) => ({ ...e, rank: i + 1 })) ||
+          []
         setMilesLeaderboard(entries)
         // Use server-provided totals (computed from full dataset)
         if (json.totalParticipants != null) setTotalParticipants(json.totalParticipants)
         else setTotalParticipants(entries.length)
         if (json.totalMiles != null) setTotalMiles(json.totalMiles)
-        else setTotalMiles(entries.reduce((sum: number, e: { points: number }) => sum + e.points, 0))
+        else
+          setTotalMiles(entries.reduce((sum: number, e: { points: number }) => sum + e.points, 0))
         // Derive referral card data from the same dataset
         const byPoints = [...entries]
           .sort((a, b) => b.points - a.points)
@@ -815,8 +818,9 @@ export const LeaderboardTable = ({
                     ) : userMilesEntry ? (
                       userMilesEntry.rank === 1 ? (
                         <>
-                          <span className="text-primary font-black">Congratulations!</span> You're the{" "}
-                          <span className="italic font-bold text-primary">#1</span> miles leader.
+                          <span className="text-primary font-black">Congratulations!</span> You're
+                          the <span className="italic font-bold text-primary">#1</span> miles
+                          leader.
                           <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-primary/80 uppercase tracking-widest">
                             Hold that lead
                           </span>
@@ -824,12 +828,15 @@ export const LeaderboardTable = ({
                       ) : (
                         <>
                           {(() => {
-                            const diff = (nextMilesRankEntry?.points ?? 0) - (userMilesEntry?.points ?? 0)
+                            const diff =
+                              (nextMilesRankEntry?.points ?? 0) - (userMilesEntry?.points ?? 0)
                             if (nextMilesRankEntry && diff > 0) {
                               return (
                                 <>
                                   Surpass{" "}
-                                  <span className="italic font-bold">#{userMilesEntry.rank - 1}</span>{" "}
+                                  <span className="italic font-bold">
+                                    #{userMilesEntry.rank - 1}
+                                  </span>{" "}
                                   with{" "}
                                   <span className="text-primary font-black tabular-nums">
                                     {diff.toLocaleString()} miles
@@ -848,7 +855,8 @@ export const LeaderboardTable = ({
                             )
                           })()}
                           <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-muted-foreground/40 uppercase tracking-widest">
-                            {userMilesEntry.referrals} referral{userMilesEntry.referrals !== 1 ? "s" : ""} earned
+                            {userMilesEntry.referrals} referral
+                            {userMilesEntry.referrals !== 1 ? "s" : ""} earned
                           </span>
                         </>
                       )
@@ -860,7 +868,6 @@ export const LeaderboardTable = ({
                   </p>
                 </div>
               </div>
-
             </div>
           </Card>
         </div>
@@ -1050,7 +1057,11 @@ export const LeaderboardTable = ({
                           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
                         </div>
                       )}
-                      <LeaderboardRow entry={entry} formatVolumeDisplay={formatVolumeDisplay} miles={milesByWallet.get(entry.wallet) ?? null} />
+                      <LeaderboardRow
+                        entry={entry}
+                        formatVolumeDisplay={formatVolumeDisplay}
+                        miles={milesByWallet.get(entry.wallet) ?? null}
+                      />
                     </React.Fragment>
                   )
                 })
@@ -1079,7 +1090,11 @@ export const LeaderboardTable = ({
                   }}
                   formatVolumeDisplay={formatVolumeDisplay}
                   showYouBadge
-                  miles={userAddr ? milesByWallet.get(trimWalletAddress(userAddr.toLowerCase())) ?? null : null}
+                  miles={
+                    userAddr
+                      ? (milesByWallet.get(trimWalletAddress(userAddr.toLowerCase())) ?? null)
+                      : null
+                  }
                 />
               </div>
             )}
@@ -1131,7 +1146,12 @@ interface LeaderboardRowProps {
   miles?: number | null
 }
 
-const LeaderboardRow = ({ entry, formatVolumeDisplay, showYouBadge, miles }: LeaderboardRowProps) => {
+const LeaderboardRow = ({
+  entry,
+  formatVolumeDisplay,
+  showYouBadge,
+  miles,
+}: LeaderboardRowProps) => {
   const entryTier = getTierFromVolume(entry.swapVolume24h)
   const tierMeta = getTierMetadata(entryTier)
 
@@ -1228,9 +1248,7 @@ const LeaderboardRow = ({ entry, formatVolumeDisplay, showYouBadge, miles }: Lea
           <span className="text-sm font-bold tabular-nums text-primary/80">
             {(miles ?? 0).toLocaleString()}
           </span>
-          <span className="text-[9px] font-bold uppercase text-muted-foreground/40">
-            Miles
-          </span>
+          <span className="text-[9px] font-bold uppercase text-muted-foreground/40">Miles</span>
         </div>
       </div>
       <div className="col-span-3 sm:col-span-3 text-right min-w-0">
@@ -1438,7 +1456,9 @@ const PaginatedLeaderboardModal = ({
                 <Compass size={28} className="text-muted-foreground/20" />
               </div>
               <div className="text-center space-y-1">
-                <p className="text-sm font-bold text-foreground/80">You're not on this leaderboard yet</p>
+                <p className="text-sm font-bold text-foreground/80">
+                  You're not on this leaderboard yet
+                </p>
                 <p className="text-xs text-muted-foreground/40">
                   Keep trading to earn your spot among the leaders.
                 </p>
