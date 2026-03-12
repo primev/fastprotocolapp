@@ -91,42 +91,48 @@ export const LeaderboardTable = ({
 
   const totalVol = useMemo(() => swapVolumeUsd ?? null, [swapVolumeUsd])
 
-  // Prefetch referral leaderboard on mount (not gated by Stats tab)
+  const [leaderboardMode, setLeaderboardMode] = useState<"volume" | "miles" | "stats">("miles")
+
+  // Single fetch for all Fuul leaderboard data (miles + referral cards)
+  const [milesLeaderboard, setMilesLeaderboard] = useState<
+    { wallet: string; points: number; referrals: number; rank: number }[]
+  >([])
   const [referralData, setReferralData] = useState<{
     byPoints: ReferralLeaderEntry[]
     byRefs: ReferralLeaderEntry[]
   } | null>(null)
-  useEffect(() => {
-    fetch("/api/fuul/leaderboard?limit=10")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (json) setReferralData({ byPoints: json.byPoints || [], byRefs: json.byRefs || [] })
-      })
-      .catch(() => {})
-  }, [])
-
-  const [leaderboardMode, setLeaderboardMode] = useState<"volume" | "miles" | "stats">("miles")
-
-  // Miles leaderboard data (Fuul points for main table in miles mode)
-  const [milesLeaderboard, setMilesLeaderboard] = useState<
-    { wallet: string; points: number; referrals: number; rank: number }[]
-  >([])
   const [isMilesLoading, setIsMilesLoading] = useState(false)
+  // Server-provided totals (covers ALL participants, not just page 1)
+  const [totalParticipants, setTotalParticipants] = useState(0)
+  const [totalMiles, setTotalMiles] = useState(0)
   useEffect(() => {
-    if (leaderboardMode !== "miles") return
     setIsMilesLoading(true)
     fetch("/api/fuul/leaderboard?limit=100&page=1&sort=miles")
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
-        if (json?.entries) setMilesLeaderboard(json.entries)
-        else if (json?.byPoints)
-          setMilesLeaderboard(
-            json.byPoints.map((e: ReferralLeaderEntry, i: number) => ({ ...e, rank: i + 1 }))
-          )
+        if (!json) return
+        const entries: { wallet: string; points: number; referrals: number; rank: number }[] =
+          json.entries || json.byPoints?.map((e: ReferralLeaderEntry, i: number) => ({ ...e, rank: i + 1 })) || []
+        setMilesLeaderboard(entries)
+        // Use server-provided totals (computed from full dataset)
+        if (json.totalParticipants != null) setTotalParticipants(json.totalParticipants)
+        else setTotalParticipants(entries.length)
+        if (json.totalMiles != null) setTotalMiles(json.totalMiles)
+        else setTotalMiles(entries.reduce((sum: number, e: { points: number }) => sum + e.points, 0))
+        // Derive referral card data from the same dataset
+        const byPoints = [...entries]
+          .sort((a, b) => b.points - a.points)
+          .slice(0, 10)
+          .map((e, i) => ({ ...e, rank: i + 1 }))
+        const byRefs = [...entries]
+          .sort((a, b) => b.referrals - a.referrals)
+          .slice(0, 10)
+          .map((e, i) => ({ ...e, rank: i + 1 }))
+        setReferralData({ byPoints, byRefs })
       })
       .catch(() => {})
       .finally(() => setIsMilesLoading(false))
-  }, [leaderboardMode])
+  }, [])
 
   // Find user in miles leaderboard
   const userMilesEntry = useMemo(() => {
@@ -140,11 +146,6 @@ export const LeaderboardTable = ({
     const map = new Map<string, number>()
     for (const e of milesLeaderboard) map.set(e.wallet, e.points)
     return map
-  }, [milesLeaderboard])
-
-  // Total miles across all participants
-  const totalMiles = useMemo(() => {
-    return milesLeaderboard.reduce((sum, e) => sum + e.points, 0)
   }, [milesLeaderboard])
 
   // Next rank miles (person above user)
@@ -270,6 +271,43 @@ export const LeaderboardTable = ({
 
   const [activeTab, setActiveTab] = useState("standings")
   const [tierFilter, setTierFilter] = useState<string>("all")
+
+  // "All Leaders" modal state — Miles
+  const [milesModalOpen, setMilesModalOpen] = useState(false)
+  const milesModalBuildParams = useCallback(
+    (p: number, l: number) => ({
+      sort: "miles",
+      page: String(p),
+      limit: String(l),
+    }),
+    []
+  )
+  const milesModalFindMeParams = useMemo(() => {
+    if (!userAddr) return undefined
+    return { sort: "miles" }
+  }, [userAddr])
+
+  // "All Leaders" modal state — Volume
+  const [volumeModalOpen, setVolumeModalOpen] = useState(false)
+  const volumeModalBuildParams = useCallback(
+    (p: number, l: number) => ({
+      sort: "volume",
+      tier: tierFilter,
+      page: String(p),
+      limit: String(l),
+    }),
+    [tierFilter]
+  )
+  const volumeModalFindMeParams = useMemo(() => {
+    if (!userAddr) return undefined
+    const userTier = getTierFromVolume(adjustedUserVol)
+    if (tierFilter !== "all" && userTier !== tierFilter) return undefined
+    return {
+      category: "volume",
+      sort: "volume",
+      tier: tierFilter,
+    }
+  }, [userAddr, tierFilter, adjustedUserVol])
 
   // Formatting Helpers
   const formatVolumeDisplay = (v: number) => {
@@ -448,7 +486,7 @@ export const LeaderboardTable = ({
                   Participants
                 </span>
                 <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums tracking-tighter">
-                  {milesLeaderboard.length > 0 ? milesLeaderboard.length.toLocaleString() : "---"}
+                  {totalParticipants > 0 ? totalParticipants.toLocaleString() : "---"}
                 </span>
               </div>
               <div className="flex flex-col items-start md:items-end md:border-l md:border-white/10 md:pl-6 sm:pl-10">
@@ -832,6 +870,14 @@ export const LeaderboardTable = ({
       {leaderboardMode === "miles" ? (
         /* ─── Miles Mode: Simple ranked list ─── */
         <div className="space-y-2">
+          <div className="flex items-center justify-end mb-1">
+            <button
+              onClick={() => setMilesModalOpen(true)}
+              className="text-xs text-primary hover:underline cursor-pointer font-bold"
+            >
+              All Leaders &rarr;
+            </button>
+          </div>
           <div className="space-y-1.5 w-full">
             {isMilesLoading && milesLeaderboard.length === 0 ? (
               <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20 animate-pulse">
@@ -944,12 +990,34 @@ export const LeaderboardTable = ({
               </div>
             </div>
           )}
+
+          <PaginatedLeaderboardModal
+            open={milesModalOpen}
+            onOpenChange={setMilesModalOpen}
+            title="Miles Leaders"
+            description="All wallets sorted by miles earned"
+            fetchUrl="/api/fuul/leaderboard"
+            buildParams={milesModalBuildParams}
+            renderStat={(e) => `${Number((e as any).points ?? 0).toLocaleString()} miles`}
+            renderSubtext={(e) => `${Number((e as any).referrals ?? 0)} referrals`}
+            userWallet={userAddr}
+            findMeParams={milesModalFindMeParams}
+            findMeUrl="/api/fuul/leaderboard/find-me"
+          />
         </div>
       ) : leaderboardMode === "volume" ? (
         /* ─── Volume Mode: Standings ─── */
         <div className="space-y-4">
           {/* Standings */}
           <div className="space-y-2">
+            <div className="flex items-center justify-end mb-1">
+              <button
+                onClick={() => setVolumeModalOpen(true)}
+                className="text-xs text-primary hover:underline cursor-pointer font-bold"
+              >
+                All Leaders &rarr;
+              </button>
+            </div>
             <div className="space-y-1.5 w-full">
               {isLoadingProp && lbData.length === 0 ? (
                 <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20 animate-pulse">
@@ -1016,6 +1084,19 @@ export const LeaderboardTable = ({
               </div>
             )}
           </div>
+
+          <PaginatedLeaderboardModal
+            open={volumeModalOpen}
+            onOpenChange={setVolumeModalOpen}
+            title="Volume Leaders"
+            description="All wallets sorted by swap volume"
+            fetchUrl="/api/analytics/leaderboard/volume-leaders"
+            buildParams={volumeModalBuildParams}
+            renderStat={(e) => formatVolumeDisplay(Number((e as any).volume ?? 0))}
+            renderSubtext={(e) => `${Number((e as any).swapCount ?? 0)} swaps`}
+            userWallet={userAddr}
+            findMeParams={volumeModalFindMeParams}
+          />
         </div>
       ) : (
         /* ─── Stats Mode: Cards Grid ─── */
@@ -1217,6 +1298,7 @@ interface PaginatedLeaderboardModalProps {
   renderSubtext?: (entry: PaginatedModalEntry) => React.ReactNode
   userWallet?: string
   findMeParams?: Record<string, string> // Extra params for find-me API
+  findMeUrl?: string // Override find-me endpoint (default: /api/analytics/leaderboard/find-me)
 }
 
 const PaginatedLeaderboardModal = ({
@@ -1230,6 +1312,7 @@ const PaginatedLeaderboardModal = ({
   renderSubtext,
   userWallet,
   findMeParams,
+  findMeUrl,
 }: PaginatedLeaderboardModalProps) => {
   const [page, setPage] = useState(1)
   const [entries, setEntries] = useState<PaginatedModalEntry[]>([])
@@ -1238,6 +1321,7 @@ const PaginatedLeaderboardModal = ({
   const [isLoading, setIsLoading] = useState(false)
   const [highlightWallet, setHighlightWallet] = useState<string | null>(null)
   const [findMeLoading, setFindMeLoading] = useState(false)
+  const [notFound, setNotFound] = useState(false)
   const highlightRef = React.useRef<HTMLDivElement>(null)
 
   const fetchPage = useCallback(
@@ -1291,32 +1375,37 @@ const PaginatedLeaderboardModal = ({
       setPage(1)
       setEntries([])
       setHighlightWallet(null)
+      setNotFound(false)
     }
   }, [open])
 
   const handleFindMe = useCallback(async () => {
     if (!userWallet || !findMeParams) return
     setFindMeLoading(true)
+    setNotFound(false)
     try {
       const params = new URLSearchParams({
         wallet: userWallet,
         pageSize: String(PAGE_SIZE),
         ...findMeParams,
       })
-      const res = await fetch(`/api/analytics/leaderboard/find-me?${params}`)
+      const baseUrl = findMeUrl || "/api/analytics/leaderboard/find-me"
+      const res = await fetch(`${baseUrl}?${params}`)
       if (!res.ok) return
       const json = await res.json()
       if (json.found) {
         findMeTriggeredRef.current = true
         setHighlightWallet(trimWalletAddress(userWallet.toLowerCase()))
         setPage(json.page)
+      } else {
+        setNotFound(true)
       }
     } catch {
       // silently fail
     } finally {
       setFindMeLoading(false)
     }
-  }, [userWallet, findMeParams])
+  }, [userWallet, findMeParams, findMeUrl])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1343,7 +1432,25 @@ const PaginatedLeaderboardModal = ({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto scrollbar-hide space-y-1 min-h-[60vh]">
-          {entries.length === 0 && isLoading ? (
+          {notFound ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <div className="p-3 rounded-full bg-white/[0.03]">
+                <Compass size={28} className="text-muted-foreground/20" />
+              </div>
+              <div className="text-center space-y-1">
+                <p className="text-sm font-bold text-foreground/80">You're not on this leaderboard yet</p>
+                <p className="text-xs text-muted-foreground/40">
+                  Keep trading to earn your spot among the leaders.
+                </p>
+              </div>
+              <button
+                onClick={() => setNotFound(false)}
+                className="px-4 py-2 text-xs font-bold rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              >
+                View Leaderboard
+              </button>
+            </div>
+          ) : entries.length === 0 && isLoading ? (
             <div className="p-8 text-center text-[10px] text-muted-foreground/30 font-bold uppercase animate-pulse">
               Loading...
             </div>
@@ -1404,7 +1511,7 @@ const PaginatedLeaderboardModal = ({
         </div>
 
         {/* Pagination Controls */}
-        {totalPages > 1 && (
+        {totalPages > 1 && !notFound && (
           <div className="flex items-center justify-center gap-1 pt-3 border-t border-white/5">
             {/* First */}
             <button

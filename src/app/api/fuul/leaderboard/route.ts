@@ -108,11 +108,15 @@ export async function GET(request: NextRequest) {
         rank: offset + i + 1,
       }))
 
+      const totalMiles = sorted.reduce((sum, e) => sum + e.points, 0)
+
       return NextResponse.json(
         {
           success: true,
           entries: pageEntries,
           pagination: { page, limit, total, totalPages },
+          totalParticipants: total,
+          totalMiles,
         },
         {
           headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=15" },
