@@ -161,7 +161,7 @@ export function useSwapConfirmation({
         const userAmtOutWei = parseUnits(minAmountClean, toToken.decimals).toString()
 
         if (fromToken.address === ZERO_ADDRESS && toToken.address !== WETH_ADDRESS) {
-          return await executeEthPath(inputAmtWei, userAmtOutWei)
+          return await executeEthPath(inputAmtWei, userAmtOutWei, options)
         } else {
           return await executePermitPath(inputAmtWei, userAmtOutWei, options)
         }
@@ -190,7 +190,11 @@ export function useSwapConfirmation({
    * tx we're about to send, then sends via wallet. Uses shared fetchEthPathTxAndEstimate
    * for both display (useEthPathGasEstimate) and execution.
    */
-  async function executeEthPath(inputAmtWei: string, userAmtOutWei: string) {
+  async function executeEthPath(
+    inputAmtWei: string,
+    userAmtOutWei: string,
+    options?: ConfirmSwapOptions
+  ) {
     if (!address || !fromToken || !toToken || !publicClient) {
       throw new Error("Wallet connection required. Please reconnect and try again.")
     }
@@ -238,6 +242,7 @@ export function useSwapConfirmation({
       gas: bufferedGas,
     })
 
+    options?.onPendingHash?.(txHash)
     setHash(txHash)
     setIsSubmitting(false)
     return txHash

@@ -352,25 +352,13 @@ function SwapConfirmationModal({
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
         onOpenChange(false)
       } else {
-        const hash = await confirmSwap(
-          intentPath
-            ? {
-                onPendingHash: (ph) => {
-                  pendingPlaceholder = ph
-                  addToast(
-                    ph,
-                    tokenIn,
-                    tokenOut,
-                    amountIn,
-                    amountOut,
-                    onConfirm,
-                    onCloseAfterSuccess
-                  )
-                  onOpenChange(false) // Close modal immediately; toast takes over
-                },
-              }
-            : undefined
-        )
+        const hash = await confirmSwap({
+          onPendingHash: (ph) => {
+            pendingPlaceholder = ph
+            addToast(ph, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
+            onOpenChange(false) // Close modal immediately; toast takes over
+          },
+        })
         if (pendingPlaceholder) {
           updateToastHash(pendingPlaceholder, hash)
         } else {
