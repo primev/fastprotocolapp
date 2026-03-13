@@ -289,9 +289,7 @@ export async function GET(request: Request) {
     // --- Step 2: Fetch the new value ----------------------------------------
     const gasAverage = await getMonthlyGasAverage()
 
-    console.log(
-      `[cron/miles-estimate-gas] Fetched monthly gas average: ${gasAverage}`
-    )
+    console.log(`[cron/miles-estimate-gas] Fetched monthly gas average: ${gasAverage}`)
 
     // --- Step 3: Write to Edge Config ---------------------------------------
     /**

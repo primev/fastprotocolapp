@@ -157,9 +157,7 @@ export async function patchEdgeConfigItems(
   const data: EdgeConfigPatchResponse = await response.json()
 
   if (!response.ok) {
-    throw new Error(
-      `Edge Config PATCH failed (${response.status}): ${JSON.stringify(data)}`
-    )
+    throw new Error(`Edge Config PATCH failed (${response.status}): ${JSON.stringify(data)}`)
   }
 
   return data
