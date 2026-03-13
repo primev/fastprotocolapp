@@ -3,5 +3,11 @@
     "app/**": {
       "includeFiles": "src/lib/analytics/sql/**"
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/update-edge-config/miles-estimate-gas",
+      "schedule": "0 0 1 * *"
+    }
+  ]
 }
