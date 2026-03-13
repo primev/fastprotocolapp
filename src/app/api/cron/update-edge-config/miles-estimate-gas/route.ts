@@ -293,15 +293,12 @@ export async function GET(request: Request) {
 
     // --- Step 3: Write to Edge Config ---------------------------------------
     /**
-     * We use the "update" operation (not "create") because the key should
-     * already exist in Edge Config after initial setup.  If you need the
-     * cron to create the key on first run, use "upsert" semantics by
-     * changing the operation to "create" — Vercel will no-op if it already
-     * exists with the same value.
+     * We use "upsert" so the key is created on the very first run and
+     * updated on all subsequent runs — no manual Edge Config setup needed.
      */
     const result = await patchEdgeConfigItems([
       {
-        operation: "update",
+        operation: "upsert",
         key: "miles_estimate_gas_limit_average",
         value: gasAverage,
       },

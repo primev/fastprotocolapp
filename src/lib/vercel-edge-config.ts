@@ -23,6 +23,7 @@
 export type EdgeConfigItemOperation =
   | { operation: "create"; key: string; value: EdgeConfigValue }
   | { operation: "update"; key: string; value: EdgeConfigValue }
+  | { operation: "upsert"; key: string; value: EdgeConfigValue }
   | { operation: "delete"; key: string }
 
 /**
