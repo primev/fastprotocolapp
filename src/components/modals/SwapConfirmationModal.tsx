@@ -557,6 +557,9 @@ function SwapConfirmationModal({
     operationType,
   ])
 
+  // Auto-execute retry: mount hooks + effect only, no visible UI (toast handles feedback)
+  if (autoExecute && open) return null
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>

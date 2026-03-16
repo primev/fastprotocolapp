@@ -436,6 +436,7 @@ export function useSwapForm(allTokens: Token[]) {
     computedMinAmountOut,
     isQuoteLoading,
     quoteError,
+    refetchQuote: refetch,
     timeLeft,
     exchangeRateContent,
     exchangeRateValue,

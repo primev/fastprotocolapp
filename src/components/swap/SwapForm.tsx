@@ -70,16 +70,27 @@ export function SwapForm() {
     if (lastTxError) setIsConfirmationOpen(true)
   }, [lastTxError])
 
-  // Barter slippage retry from toast: update slippage, open modal, and auto-execute (skip review)
+  // Barter slippage retry: update slippage, fetch fresh quote, then auto-execute
+  const [pendingRetry, setPendingRetry] = useState(false)
+
   useEffect(() => {
     if (retrySlippage) {
       form.updateSlippage(retrySlippage)
       clearRetrySlippage()
-      setAutoExecuteSwap(true)
       setIsConfirmationOpen(false)
-      requestAnimationFrame(() => setIsConfirmationOpen(true))
+      setPendingRetry(true)
+      form.refetchQuote()
     }
   }, [retrySlippage, clearRetrySlippage, form])
+
+  // Wait for fresh quote to arrive before opening modal with auto-execute
+  useEffect(() => {
+    if (pendingRetry && !form.isQuoteLoading) {
+      setPendingRetry(false)
+      setAutoExecuteSwap(true)
+      requestAnimationFrame(() => setIsConfirmationOpen(true))
+    }
+  }, [pendingRetry, form.isQuoteLoading])
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isFromSelectorOpen, setIsFromSelectorOpen] = useState(false)
   const [isToSelectorOpen, setIsToSelectorOpen] = useState(false)
