@@ -244,11 +244,17 @@ export function SwapToast({ hash }: { hash: string }) {
 
         {/* MIDDLE TEXT: Status label + amounts */}
         <div className="flex-1 min-w-0 flex flex-col justify-center">
-          <span className={cn(
-            "text-sm font-medium",
-            isConfirmed ? "text-white" : isPreConfirmed ? "text-blue-400" : "text-white"
-          )}>
-            {isConfirmed ? "Tokens Available" : isPreConfirmed ? "Tokens Pre-confirmed" : "Swapping..."}
+          <span
+            className={cn(
+              "text-sm font-medium",
+              isConfirmed ? "text-white" : isPreConfirmed ? "text-blue-400" : "text-white"
+            )}
+          >
+            {isConfirmed
+              ? "Tokens Available"
+              : isPreConfirmed
+                ? "Tokens Pre-confirmed"
+                : "Swapping..."}
           </span>
 
           {/* Amount Subtext */}
@@ -283,7 +289,6 @@ export function SwapToast({ hash }: { hash: string }) {
           )}
         </div>
       </div>
-
     </div>
   )
 }
