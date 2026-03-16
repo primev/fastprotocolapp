@@ -25,6 +25,10 @@ const CATALOG_CONFIGS: Record<string, CatalogConfig> = {
     catalog: "pg_mev_commit_fastrpc",
     database: "public",
   },
+  fastrpc_main: {
+    catalog: "mev_commit_fastrpc",
+    database: "public",
+  },
 }
 
 /**

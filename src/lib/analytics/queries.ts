@@ -338,64 +338,32 @@ LIMIT :limit
 `.trim()
 
 // Efficiency leaders: by longest consecutive active days (streak)
+// Uses mctransactions table (fastrpc catalog) with block-number-to-date conversion
+// Trino/Presto syntax: FROM_UNIXTIME, CAST, date_add for date arithmetic
 export const EFFICIENCY_BY_STREAK = `
-WITH daily_activity AS (
-  SELECT
-    lower(from_address) AS wallet,
-    CAST(date_trunc('day', l1_timestamp) AS DATE) AS active_day
-  FROM mevcommit_57173.processed_l1_txns_v2
-  WHERE is_swap = TRUE
-  GROUP BY lower(from_address), CAST(date_trunc('day', l1_timestamp) AS DATE)
+WITH user_days AS (
+  SELECT DISTINCT
+    sender,
+    DATE(FROM_UNIXTIME(1766015999 + (CAST(block_number AS BIGINT) - 24035770) * 12)) AS d
+  FROM mctransactions
+  WHERE status IN ('confirmed', 'pre-confirmed') AND block_number > 0
 ),
-with_row AS (
-  SELECT
-    wallet,
-    active_day,
-    ROW_NUMBER() OVER (PARTITION BY wallet ORDER BY active_day) AS rn
-  FROM daily_activity
-),
-grouped AS (
-  SELECT
-    wallet,
-    active_day,
-    CAST(active_day AS TIMESTAMP) - rn * INTERVAL '1' DAY AS grp
-  FROM with_row
+numbered AS (
+  SELECT sender, d,
+    date_add('day', -CAST(ROW_NUMBER() OVER (PARTITION BY sender ORDER BY d) AS INTEGER), d) AS grp
+  FROM user_days
 ),
 streaks AS (
-  SELECT
-    wallet,
-    grp,
-    COUNT(*) AS streak_len
-  FROM grouped
-  GROUP BY wallet, grp
-),
-best_streak AS (
-  SELECT
-    wallet,
-    MAX(streak_len) AS longest_streak
-  FROM streaks
-  GROUP BY wallet
-),
-wallet_stats AS (
-  SELECT
-    lower(from_address) AS wallet,
-    COUNT(*) AS swap_count,
-    SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
-    SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
-  FROM mevcommit_57173.processed_l1_txns_v2
-  WHERE is_swap = TRUE
-  GROUP BY lower(from_address)
+  SELECT sender, grp, COUNT(*) AS len, MAX(d) AS last_day
+  FROM numbered GROUP BY sender, grp
 )
 SELECT
-  b.wallet,
-  b.longest_streak,
-  w.swap_count,
-  w.total_swap_vol_usd,
-  w.total_swap_vol_eth
-FROM best_streak b
-JOIN wallet_stats w ON b.wallet = w.wallet
-WHERE b.longest_streak > 0
-ORDER BY b.longest_streak DESC, w.swap_count DESC
+  sender AS wallet,
+  MAX(len) AS max_streak,
+  MAX(CASE WHEN last_day >= CURRENT_DATE - INTERVAL '1' DAY THEN len ELSE 0 END) AS current_streak
+FROM streaks
+GROUP BY sender
+ORDER BY max_streak DESC
 LIMIT :limit
 `.trim()
 

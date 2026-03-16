@@ -40,6 +40,39 @@ export interface TierMetadata {
 }
 
 /**
+ * Sub-tier definitions within each major tier.
+ * Ordered descending by threshold for lookup.
+ */
+export interface SubTierDef {
+  name: string
+  threshold: number
+  tier: Tier
+}
+
+export const SUB_TIERS: SubTierDef[] = [
+  // Gold sub-tiers
+  { name: "Instant", threshold: 10_000_000, tier: "gold" },
+  { name: "Lightspeed", threshold: 5_000_000, tier: "gold" },
+  { name: "Hypersonic", threshold: 2_500_000, tier: "gold" },
+  { name: "Sonic", threshold: 1_000_000, tier: "gold" },
+  // Silver sub-tiers
+  { name: "Thunder", threshold: 500_000, tier: "silver" },
+  { name: "Blitz", threshold: 300_000, tier: "silver" },
+  { name: "Bolt", threshold: 175_000, tier: "silver" },
+  { name: "Flash", threshold: 100_000, tier: "silver" },
+  // Bronze sub-tiers
+  { name: "Storm", threshold: 75_000, tier: "bronze" },
+  { name: "Streak", threshold: 50_000, tier: "bronze" },
+  { name: "Surge", threshold: 25_000, tier: "bronze" },
+  { name: "Spark", threshold: 10_000, tier: "bronze" },
+]
+
+/**
+ * Sub-tiers in ascending order (for progress trackers)
+ */
+export const SUB_TIERS_ASC: SubTierDef[] = [...SUB_TIERS].reverse()
+
+/**
  * Gets the tier based on volume
  */
 export function getTierFromVolume(volume: number | null | undefined): Tier {
@@ -48,6 +81,28 @@ export function getTierFromVolume(volume: number | null | undefined): Tier {
   if (volume >= TIER_THRESHOLDS.SILVER) return "silver"
   if (volume >= TIER_THRESHOLDS.BRONZE) return "bronze"
   return "standard"
+}
+
+/**
+ * Gets the current sub-tier for a given volume
+ */
+export function getSubTierFromVolume(volume: number | null | undefined): SubTierDef | null {
+  if (!volume) return null
+  for (const st of SUB_TIERS) {
+    if (volume >= st.threshold) return st
+  }
+  return null
+}
+
+/**
+ * Gets the next sub-tier milestone above the current volume
+ */
+export function getNextSubTier(volume: number | null | undefined): SubTierDef | null {
+  const vol = volume || 0
+  for (const st of SUB_TIERS_ASC) {
+    if (vol < st.threshold) return st
+  }
+  return null // Already at max sub-tier
 }
 
 /**

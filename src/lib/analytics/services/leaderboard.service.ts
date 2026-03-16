@@ -60,14 +60,9 @@ export type TxsPerDayRow = [
 
 /**
  * Efficiency row: longest consecutive active streak
+ * Columns from mctransactions-based streak query (fastrpc catalog)
  */
-export type StreakRow = [
-  wallet: string,
-  longest_streak: number,
-  swap_count: number,
-  total_swap_vol_usd: number,
-  total_swap_vol_eth: number,
-]
+export type StreakRow = [wallet: string, max_streak: number, current_streak: number]
 
 /**
  * Rising Stars: new user row
@@ -236,7 +231,14 @@ export async function getEfficiencyByStreak(
   options?: QueryOptions
 ): Promise<StreakRow[]> {
   const safeLimit = Math.max(1, Math.min(Math.floor(limit), 100))
-  const rows = await client.execute("leaderboard/by-streak", { limit: safeLimit }, options)
+  const rows = await client.execute(
+    "leaderboard/by-streak",
+    { limit: safeLimit },
+    {
+      ...options,
+      catalog: "fastrpc_main",
+    }
+  )
   return rows as StreakRow[]
 }
 
@@ -475,96 +477,53 @@ export async function getEfficiencyLeadersPaginated(params: {
   }
 
   if (sort === "streak") {
-    // The streak query is complex — use the same CTE but add tier filtering via a join
-    const tierJoin =
-      tier !== "all"
-        ? `JOIN (
-          SELECT lower(from_address) AS wallet
-          FROM ${TABLE}
-          WHERE is_swap = TRUE
-          GROUP BY lower(from_address)
-          ${tierHaving}
-        ) tier_filter ON ws.wallet = tier_filter.wallet`
-        : ""
-
-    const countSql = `
-      WITH wallet_days AS (
-        SELECT lower(from_address) AS wallet, CAST(l1_timestamp AS DATE) AS active_day
-        FROM ${TABLE}
-        WHERE is_swap = TRUE
-        GROUP BY lower(from_address), CAST(l1_timestamp AS DATE)
+    // Streak query uses mctransactions table (fastrpc catalog)
+    const streakCte = `
+      WITH user_days AS (
+        SELECT DISTINCT
+          sender,
+          DATE(FROM_UNIXTIME(1766015999 + (CAST(block_number AS BIGINT) - 24035770) * 12)) AS d
+        FROM mctransactions
+        WHERE status IN ('confirmed', 'pre-confirmed') AND block_number > 0
       ),
-      ranked AS (
-        SELECT wallet, active_day,
-          ROW_NUMBER() OVER (PARTITION BY wallet ORDER BY active_day) AS rn
-        FROM wallet_days
+      numbered AS (
+        SELECT sender, d,
+          date_add('day', -CAST(ROW_NUMBER() OVER (PARTITION BY sender ORDER BY d) AS INTEGER), d) AS grp
+        FROM user_days
       ),
       streaks AS (
-        SELECT wallet,
-          CAST(active_day AS TIMESTAMP) - rn * INTERVAL '1' DAY AS grp,
-          COUNT(*) AS streak_len
-        FROM ranked
-        GROUP BY wallet, CAST(active_day AS TIMESTAMP) - rn * INTERVAL '1' DAY
-      ),
-      ws AS (
-        SELECT wallet, MAX(streak_len) AS longest_streak
-        FROM streaks
-        GROUP BY wallet
-        HAVING MAX(streak_len) > 0
-      )
-      SELECT COUNT(*) FROM ws
-      ${tierJoin}
-    `
-    const dataSql = `
-      WITH wallet_days AS (
-        SELECT lower(from_address) AS wallet, CAST(l1_timestamp AS DATE) AS active_day
-        FROM ${TABLE}
-        WHERE is_swap = TRUE
-        GROUP BY lower(from_address), CAST(l1_timestamp AS DATE)
-      ),
-      ranked AS (
-        SELECT wallet, active_day,
-          ROW_NUMBER() OVER (PARTITION BY wallet ORDER BY active_day) AS rn
-        FROM wallet_days
-      ),
-      streaks AS (
-        SELECT wallet,
-          CAST(active_day AS TIMESTAMP) - rn * INTERVAL '1' DAY AS grp,
-          COUNT(*) AS streak_len
-        FROM ranked
-        GROUP BY wallet, CAST(active_day AS TIMESTAMP) - rn * INTERVAL '1' DAY
+        SELECT sender, grp, COUNT(*) AS len, MAX(d) AS last_day
+        FROM numbered GROUP BY sender, grp
       ),
       wallet_streaks AS (
-        SELECT wallet, MAX(streak_len) AS longest_streak
-        FROM streaks
-        GROUP BY wallet
-        HAVING MAX(streak_len) > 0
-      ),
-      wallet_stats AS (
         SELECT
-          lower(from_address) AS wallet,
-          COUNT(*) AS swap_count,
-          SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
-          SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
-        FROM ${TABLE}
-        WHERE is_swap = TRUE
-        GROUP BY lower(from_address)
+          sender AS wallet,
+          MAX(len) AS max_streak,
+          MAX(CASE WHEN last_day >= CURRENT_DATE - INTERVAL '1' DAY THEN len ELSE 0 END) AS current_streak
+        FROM streaks
+        GROUP BY sender
       )
-      SELECT
-        ws.wallet,
-        ws.longest_streak,
-        wst.swap_count,
-        wst.total_swap_vol_usd,
-        wst.total_swap_vol_eth
-      FROM wallet_streaks ws
-      JOIN wallet_stats wst ON ws.wallet = wst.wallet
-      ${tier !== "all" ? `WHERE wst.total_swap_vol_usd >= ${tier === "gold" ? 1000000 : tier === "silver" ? 100000 : 10000} ${tier !== "gold" ? `AND wst.total_swap_vol_usd < ${tier === "silver" ? 1000000 : 100000}` : ""}` : ""}
-      ORDER BY ws.longest_streak DESC
+    `
+
+    // Tier filtering requires a join to the volume table (different catalog)
+    // For paginated streak, we skip tier filtering since it crosses catalogs
+    // and apply it client-side if needed
+    const countSql = `
+      ${streakCte}
+      SELECT COUNT(*) FROM wallet_streaks WHERE max_streak > 0
+    `
+    const dataSql = `
+      ${streakCte}
+      SELECT wallet, max_streak, current_streak
+      FROM wallet_streaks
+      WHERE max_streak > 0
+      ORDER BY max_streak DESC
       LIMIT ${limit} OFFSET ${offset}
     `
+    const fastrpcOpts = { catalog: "fastrpc_main" as const }
     const [countRows, dataRows] = await Promise.all([
-      client.executeRaw(countSql),
-      client.executeRaw(dataSql),
+      client.executeRaw(countSql, undefined, fastrpcOpts),
+      client.executeRaw(dataSql, undefined, fastrpcOpts),
     ])
     const total = Number(countRows[0]?.[0]) || 0
     return {

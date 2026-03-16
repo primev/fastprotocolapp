@@ -10,12 +10,35 @@ Wallet addresses are always lowercased. Volumes use `COALESCE(..., 0)` for null 
 
 Tier filtering is applied via SQL `HAVING` clauses built by `leaderboard-filters.ts`.
 
+### Major Tiers
+
 | Tier     | Volume Range              |
 | -------- | ------------------------- |
 | Gold     | >= $1,000,000             |
 | Silver   | >= $100,000 < $1,000,000  |
 | Bronze   | >= $10,000 < $100,000     |
 | Standard | < $10,000 (Rising Stars)  |
+
+### Sub-Tiers
+
+Each major tier has 4 sub-tiers (defined in `constants.ts` via `SUB_TIERS`). Sub-tiers are display-only — they do not affect SQL filtering.
+
+| Tier   | Sub-Tier    | Threshold    |
+| ------ | ----------- | ------------ |
+| Gold   | Instant     | $10,000,000  |
+| Gold   | Lightspeed  | $5,000,000   |
+| Gold   | Hypersonic  | $2,500,000   |
+| Gold   | Sonic       | $1,000,000   |
+| Silver | Thunder     | $500,000     |
+| Silver | Blitz       | $300,000     |
+| Silver | Bolt        | $175,000     |
+| Silver | Flash       | $100,000     |
+| Bronze | Storm       | $75,000      |
+| Bronze | Streak      | $50,000      |
+| Bronze | Surge       | $25,000      |
+| Bronze | Spark       | $10,000      |
+
+Helper functions: `getSubTierFromVolume(volume)` returns current sub-tier, `getNextSubTier(volume)` returns next milestone.
 
 ---
 
@@ -122,44 +145,39 @@ ORDER BY txs_per_day DESC
 
 #### sort=streak
 
-Uses a multi-CTE approach to compute longest consecutive active day streak:
+Uses a multi-CTE approach on `mctransactions` (fastrpc catalog) to compute longest consecutive active day streak and current streak. Block numbers are converted to dates via `DATE(TO_TIMESTAMP(1766015999 + (block_number - 24035770) * 12))`.
 
 ```sql
-WITH wallet_days AS (
-  -- Distinct active days per wallet
-  SELECT lower(from_address) AS wallet, CAST(l1_timestamp AS DATE) AS active_day
-  FROM processed_l1_txns_v2
-  WHERE is_swap = TRUE
-  GROUP BY lower(from_address), CAST(l1_timestamp AS DATE)
+WITH user_days AS (
+  SELECT DISTINCT
+    sender,
+    DATE(FROM_UNIXTIME(1766015999 + (CAST(block_number AS BIGINT) - 24035770) * 12)) AS d
+  FROM mctransactions_sr
+  WHERE status IN ('confirmed', 'pre-confirmed') AND block_number > 0
 ),
-ranked AS (
-  -- Assign row numbers for gap detection
-  SELECT wallet, active_day,
-    ROW_NUMBER() OVER (PARTITION BY wallet ORDER BY active_day) AS rn
-  FROM wallet_days
+numbered AS (
+  SELECT sender, d,
+    date_add('day', -CAST(ROW_NUMBER() OVER (PARTITION BY sender ORDER BY d) AS INTEGER), d) AS grp
+  FROM user_days
 ),
 streaks AS (
-  -- Group consecutive days (same grp = consecutive)
-  SELECT wallet,
-    CAST(active_day AS TIMESTAMP) - rn * INTERVAL '1' DAY AS grp,
-    COUNT(*) AS streak_len
-  FROM ranked
-  GROUP BY wallet, CAST(active_day AS TIMESTAMP) - rn * INTERVAL '1' DAY
-),
-wallet_streaks AS (
-  SELECT wallet, MAX(streak_len) AS longest_streak
-  FROM streaks
-  GROUP BY wallet
-  HAVING MAX(streak_len) > 0
+  SELECT sender, grp, COUNT(*) AS len, MAX(d) AS last_day
+  FROM numbered GROUP BY sender, grp
 )
-SELECT ws.wallet, ws.longest_streak, wst.swap_count,
-  wst.total_swap_vol_usd, wst.total_swap_vol_eth
-FROM wallet_streaks ws
-JOIN wallet_stats wst ON ws.wallet = wst.wallet
-ORDER BY ws.longest_streak DESC
+SELECT
+  sender AS wallet,
+  MAX(len) AS max_streak,
+  MAX(CASE WHEN last_day >= CURRENT_DATE - INTERVAL '1' DAY THEN len ELSE 0 END) AS current_streak
+FROM streaks
+GROUP BY sender
+ORDER BY max_streak DESC
 ```
 
-**Columns**: wallet, longest_streak, swap_count, total_swap_vol_usd, total_swap_vol_eth
+**Catalog**: `fastrpc` (`pg_mev_commit_fastrpc.public`)
+
+**Columns**: wallet, max_streak, current_streak
+
+**Note**: Tier filtering is not applied for streak queries because `mctransactions` is in a different catalog than `processed_l1_txns_v2`, making cross-catalog joins impractical.
 
 ---
 
@@ -253,13 +271,13 @@ ORDER BY (t.vol_this_week - COALESCE(l.vol_last_week, 0)) DESC
 
 ---
 
-### 4. Referral Leaders
+### 4. Referral Leaders (Miles)
 
 **Route**: `GET /api/fuul/leaderboard`
 
 **Params**: `limit`, `page`, `sort`
 
-**Data source**: External Fuul API (`https://api.fuul.xyz/api/v1/payouts/leaderboard/points`)
+**Data source**: External Fuul API (`https://api.fuul.xyz/api/v1/payouts/leaderboard/payouts`)
 
 Fetches up to 100 entries from Fuul, cached in-memory (30s TTL). Pagination is client-side.
 
@@ -269,6 +287,43 @@ Fetches up to 100 entries from Fuul, cached in-memory (30s TTL). Pagination is c
 | `miles`| points DESC        |
 
 **Columns**: wallet (trimmed address), points (total_amount), referrals (total_attributions), rank (computed)
+
+---
+
+### 4a. Squads — Top Squads
+
+**Route**: `GET /api/fuul/squads`
+
+**Params**: `limit` (default 10, max 25)
+
+**Data sources**: Fuul leaderboard API + Fuul by-referrer API + BigQuery
+
+**Cache**: In-memory, 5-minute TTL
+
+Flow:
+1. Fetch top 25 affiliates from Fuul leaderboard (sorted by `total_attributions`)
+2. For each affiliate, call `GET /api/v1/payouts/by-referrer?user_identifier={address}&user_identifier_type=evm_address` to get referred wallet addresses (batched 5 at a time)
+3. Collect all referred wallets and run a single BigQuery query to get swap volumes
+4. Aggregate volume per squad (sum of referred wallets' swap volumes)
+
+**Response**: `{ success, squads: [{ leader, leaderFull, members, squadVolume, squadVolumeEth, miles }] }`
+
+### 4b. Squads — My Squad
+
+**Route**: `GET /api/fuul/squads/my-squad`
+
+**Params**: `address` (required, wallet address)
+
+**Data sources**: Fuul by-referrer API + BigQuery
+
+**Cache**: In-memory per wallet, 2-minute TTL
+
+Flow:
+1. Call Fuul `by-referrer` for the given address to get referred wallets
+2. Query BigQuery for each referred wallet's swap volume, swap count, and last swap timestamp
+3. Active status: any swap within last 7 days = "Active", otherwise "Inactive"
+
+**Response**: `{ success, members: [{ wallet, walletFull, status, swapVolume, swapVolumeEth, swapCount }], totalVolume, totalVolumeEth, activeCount, totalCount }`
 
 ---
 
@@ -347,3 +402,25 @@ Page size: 25 (client default), max 100. Results include `{ entries, pagination:
 | `findUserInLeaderboard()` | leaderboard.service.ts | Find user rank + page (dynamic SQL) |
 | `buildTierHavingClause()` | leaderboard-filters.ts | Build HAVING for tier filter |
 | `buildCombinedHavingClause()` | leaderboard-filters.ts | Combine tier + existing HAVING |
+
+### Squads
+
+| Function / Route | File | Purpose |
+| --- | --- | --- |
+| `GET /api/fuul/squads` | app/api/fuul/squads/route.ts | Top squads (Fuul leaderboard + by-referrer + BigQuery, 5m cache) |
+| `GET /api/fuul/squads/my-squad` | app/api/fuul/squads/my-squad/route.ts | User's squad members + volumes (Fuul by-referrer + BigQuery, 2m cache) |
+
+### Tier & Sub-Tier Helpers
+
+| Function | File | Purpose |
+| --- | --- | --- |
+| `getTierFromVolume()` | constants.ts | Major tier from volume |
+| `getSubTierFromVolume()` | constants.ts | Current sub-tier from volume |
+| `getNextSubTier()` | constants.ts | Next sub-tier milestone |
+| `getNextTier()` | constants.ts | Next major tier threshold |
+
+### UI Components
+
+| Component | File | Purpose |
+| --- | --- | --- |
+| `SquadsCard` | components/dashboard/SquadsCard.tsx | My Squad + Top Squads card (replaces ReferralLeadersCard in Stats grid) |

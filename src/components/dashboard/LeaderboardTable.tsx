@@ -319,6 +319,14 @@ export const LeaderboardTable = ({
     return `$${Math.floor(v).toLocaleString()}`
   }
 
+  /** Compact shorthand: $10K, $2.5M, $1B */
+  const formatVolumeShort = (v: number) => {
+    if (v >= 1e9) return `$${(v / 1e9).toFixed(v % 1e9 === 0 ? 0 : 1)}B`
+    if (v >= 1e6) return `$${(v / 1e6).toFixed(v % 1e6 === 0 ? 0 : 1)}M`
+    if (v >= 1e3) return `$${(v / 1e3).toFixed(v % 1e3 === 0 ? 0 : 1)}K`
+    return `$${v}`
+  }
+
   const formatVolDiffDisplay = (v: number) => {
     if (v >= 1e6) return formatCurrency(v, { maximumFractionDigits: 2 })
     if (v >= 1e3) return formatCurrency(v, { maximumFractionDigits: 2 })
@@ -408,7 +416,7 @@ export const LeaderboardTable = ({
             </h1>
           </div>
 
-          {leaderboardMode !== "miles" ? (
+          {leaderboardMode === "volume" ? (
             <div className="flex flex-col items-start lg:items-end gap-3">
               <div className="flex items-center gap-4 sm:gap-6 md:gap-10">
                 <div className="flex flex-col items-start md:items-end">
@@ -436,53 +444,8 @@ export const LeaderboardTable = ({
                   </span>
                 </div>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => setTierFilter("all")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-                    tierFilter === "all"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-white/[0.03] text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => setTierFilter("gold")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
-                    tierFilter === "gold"
-                      ? "bg-yellow-500/20 text-yellow-500 border border-yellow-500/50"
-                      : "bg-white/[0.03] text-muted-foreground hover:text-yellow-500"
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                  Gold
-                </button>
-                <button
-                  onClick={() => setTierFilter("silver")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
-                    tierFilter === "silver"
-                      ? "bg-slate-400/20 text-slate-300 border border-slate-400/50"
-                      : "bg-white/[0.03] text-muted-foreground hover:text-slate-300"
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                  Silver
-                </button>
-                <button
-                  onClick={() => setTierFilter("bronze")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 ${
-                    tierFilter === "bronze"
-                      ? "bg-amber-600/20 text-amber-600 border border-amber-600/50"
-                      : "bg-white/[0.03] text-muted-foreground hover:text-amber-600"
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-                  Bronze
-                </button>
-              </div>
             </div>
-          ) : (
+          ) : leaderboardMode === "miles" ? (
             <div className="flex items-center gap-4 sm:gap-6 md:gap-10">
               <div className="flex flex-col items-start md:items-end">
                 <span className="text-[7px] sm:text-[8px] font-black text-muted-foreground/30 uppercase tracking-[0.18em] sm:tracking-[0.2em]">
@@ -501,10 +464,10 @@ export const LeaderboardTable = ({
                 </span>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* User Performance Metrics — Miles mode */}
+        {/* User Performance Metrics — Miles mode (hidden on stats) */}
         {leaderboardMode === "miles" && userAddr && (
           <div className="flex flex-col sm:flex-row items-stretch gap-3">
             {/* Rank Card */}
@@ -574,7 +537,7 @@ export const LeaderboardTable = ({
         )}
 
         {/* User Performance Metrics (volume mode only) */}
-        {leaderboardMode !== "miles" && userAddr && (
+        {leaderboardMode === "volume" && userAddr && (
           <div className="flex flex-col sm:flex-row items-stretch gap-3">
             {/* Rank Card */}
             <div className="flex-1 flex items-center justify-between px-5 py-3 rounded-2xl bg-primary/[0.03] border border-primary/20 backdrop-blur-sm group hover:bg-primary/[0.05] transition-colors">
@@ -629,7 +592,7 @@ export const LeaderboardTable = ({
       </div>
 
       {/* Progress & Analysis Section (volume mode only) */}
-      {leaderboardMode !== "miles" && (
+      {leaderboardMode === "volume" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch">
           {/* Progress Tracker Card */}
           <Card className="p-3 sm:p-4 bg-white/[0.01] border-white/5 flex flex-col justify-center space-y-2 sm:space-y-3 min-w-0 w-full h-full">
@@ -639,7 +602,9 @@ export const LeaderboardTable = ({
                 <span className="whitespace-nowrap">Progress Tracker</span>
               </div>
               <span className="text-primary font-mono text-[10px] sm:text-xs whitespace-nowrap shrink-0">
-                {progress.toFixed(1)}% to {formatVolumeDisplay(nextTierVal)}
+                {nextTierName.toLowerCase() !== currentTier
+                  ? `${currentTier === "standard" ? "Standard" : currentTierMeta.label} → ${nextTierMeta.label} (${formatVolumeShort(nextTierVal)})`
+                  : "Max Tier Reached"}
               </span>
             </div>
             <div className="relative h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
@@ -648,6 +613,7 @@ export const LeaderboardTable = ({
                 style={{ width: `${progress}%` }}
               />
             </div>
+            {/* Major tier labels */}
             <div className="flex justify-between gap-1 sm:gap-2 min-w-0">
               {[
                 { n: "Bronze", v: TIER_THRESHOLDS.BRONZE, c: "text-amber-600" },
@@ -659,7 +625,7 @@ export const LeaderboardTable = ({
                     {t.n}
                   </span>
                   <span className="text-[10px] sm:text-xs font-mono font-bold opacity-60 whitespace-nowrap truncate">
-                    {formatVolumeDisplay(t.v)}
+                    {formatVolumeShort(t.v)}
                   </span>
                 </div>
               ))}
@@ -1017,7 +983,52 @@ export const LeaderboardTable = ({
         <div className="space-y-4">
           {/* Standings */}
           <div className="space-y-2">
-            <div className="flex items-center justify-end mb-1">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex gap-1.5 flex-wrap">
+                <button
+                  onClick={() => setTierFilter("all")}
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-colors ${
+                    tierFilter === "all"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-white/[0.03] text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setTierFilter("gold")}
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-colors flex items-center gap-1 ${
+                    tierFilter === "gold"
+                      ? "bg-yellow-500/20 text-yellow-500 border border-yellow-500/50"
+                      : "bg-white/[0.03] text-muted-foreground hover:text-yellow-500"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                  Gold
+                </button>
+                <button
+                  onClick={() => setTierFilter("silver")}
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-colors flex items-center gap-1 ${
+                    tierFilter === "silver"
+                      ? "bg-slate-400/20 text-slate-300 border border-slate-400/50"
+                      : "bg-white/[0.03] text-muted-foreground hover:text-slate-300"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                  Silver
+                </button>
+                <button
+                  onClick={() => setTierFilter("bronze")}
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-colors flex items-center gap-1 ${
+                    tierFilter === "bronze"
+                      ? "bg-amber-600/20 text-amber-600 border border-amber-600/50"
+                      : "bg-white/[0.03] text-muted-foreground hover:text-amber-600"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                  Bronze
+                </button>
+              </div>
               <button
                 onClick={() => setVolumeModalOpen(true)}
                 className="text-xs text-primary hover:underline cursor-pointer font-bold"
@@ -1154,7 +1165,6 @@ const LeaderboardRow = ({
 }: LeaderboardRowProps) => {
   const entryTier = getTierFromVolume(entry.swapVolume24h)
   const tierMeta = getTierMetadata(entryTier)
-
   return (
     <div
       className={`relative grid grid-cols-12 items-center px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-xl border transition-all min-w-0 overflow-hidden ${
@@ -1211,19 +1221,21 @@ const LeaderboardRow = ({
           </span>
 
           {entry.rank <= 3 && (
-            <span
-              className={`text-[8px] font-bold uppercase tracking-[0.3em] mt-1 transition-colors ${
-                entryTier === "gold"
-                  ? "text-yellow-500/80"
-                  : entryTier === "silver"
-                    ? "text-slate-400/80"
-                    : entryTier === "bronze"
-                      ? "text-amber-600/80"
-                      : ""
-              }`}
-            >
-              {tierMeta.label}
-            </span>
+            <div className="flex flex-col items-center">
+              <span
+                className={`text-[8px] font-bold uppercase tracking-[0.3em] mt-1 transition-colors ${
+                  entryTier === "gold"
+                    ? "text-yellow-500/80"
+                    : entryTier === "silver"
+                      ? "text-slate-400/80"
+                      : entryTier === "bronze"
+                        ? "text-amber-600/80"
+                        : ""
+                }`}
+              >
+                {tierMeta.label}
+              </span>
+            </div>
           )}
         </div>
       </div>
@@ -1896,6 +1908,7 @@ interface EfficiencyLeaderEntry {
   activeDays?: number
   txsPerDay?: number
   streak?: number
+  currentStreak?: number
   volume: number
   volumeEth: number
 }
@@ -1933,7 +1946,9 @@ function getEfficiencySubtext(entry: EfficiencyLeaderEntry, tab: EfficiencyTab):
     case "Tx/Day":
       return `${entry.activeDays ?? 0} active days`
     case "Streak":
-      return `${entry.swapCount} swaps`
+      return entry.currentStreak && entry.currentStreak > 0
+        ? `${entry.currentStreak}d active`
+        : "inactive"
   }
 }
 

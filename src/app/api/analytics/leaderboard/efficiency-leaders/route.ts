@@ -29,6 +29,7 @@ interface EfficiencyLeaderEntry {
   activeDays?: number
   txsPerDay?: number
   streak?: number
+  currentStreak?: number
   volume: number
   volumeEth: number
 }
@@ -73,9 +74,10 @@ export async function GET(request: NextRequest) {
             rank: (page - 1) * limit + i + 1,
             wallet: trimWalletAddress(String(row[0])),
             streak: Number(row[1]) || 0,
-            swapCount: Number(row[2]) || 0,
-            volume: Number(row[3]) || 0,
-            volumeEth: Number(row[4]) || 0,
+            currentStreak: Number(row[2]) || 0,
+            swapCount: 0,
+            volume: 0,
+            volumeEth: 0,
           }
         }
         // tx_count
@@ -123,9 +125,10 @@ export async function GET(request: NextRequest) {
         rank: i + 1,
         wallet: trimWalletAddress(String(row[0])),
         streak: Number(row[1]) || 0,
-        swapCount: Number(row[2]) || 0,
-        volume: Number(row[3]) || 0,
-        volumeEth: Number(row[4]) || 0,
+        currentStreak: Number(row[2]) || 0,
+        swapCount: 0,
+        volume: 0,
+        volumeEth: 0,
       }))
     } else {
       const rows = await getLeaderboard(limit)
