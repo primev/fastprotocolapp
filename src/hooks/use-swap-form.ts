@@ -20,6 +20,7 @@ import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import { isStablecoin } from "@/lib/stablecoins"
 import { formatAmountByTokenType } from "@/lib/utils"
 import { useSwapSlippage } from "@/hooks/use-swap-slippage"
+import { useBarterValidation } from "@/hooks/use-barter-validation"
 import { Token } from "@/types/swap"
 import { DEFAULT_ETH_TOKEN } from "@/components/swap/TokenSelectorModal"
 
@@ -255,6 +256,16 @@ export function useSwapForm(allTokens: Token[]) {
     return formatUnits(limit, toToken.decimals)
   }, [isWrapUnwrap, displayQuote, toToken, effectiveSlippage])
 
+  // Validate Barter can route this amount within 2% slippage
+  const { amountTooSmall: barterAmountTooSmall, isValidating: isBarterValidating } =
+    useBarterValidation({
+      fromToken,
+      toToken,
+      amountOut: displayQuote?.amountOut,
+      sellAmount: amount,
+      enabled: !isWrapUnwrap && !!displayQuote,
+    })
+
   // --- UI Content Generation ---
 
   // Declared BEFORE handleSwitch to fix hoisting error
@@ -449,6 +460,8 @@ export function useSwapForm(allTokens: Token[]) {
     swappedQuote,
     setSwappedQuote,
     hasNoLiquidity,
+    barterAmountTooSmall,
+    isBarterValidating: isBarterValidating || (isQuoteLoading && !isWrapUnwrap),
     gasEstimate: isWrapUnwrap ? wrapUnwrapGasEstimate : (displayQuote?.gasEstimate ?? null),
     ethPrice: ethPrice ?? null,
     setClearSwapState,

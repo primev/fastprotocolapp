@@ -25,6 +25,8 @@ interface ActionButtonProps {
   amount: string
   insufficientBalance: boolean
   hasNoLiquidity: boolean
+  barterAmountTooSmall: boolean
+  isBarterValidating: boolean
   isWrap: boolean
   isUnwrap: boolean
   handleSwapClick: () => void
@@ -37,6 +39,8 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
   amount,
   insufficientBalance,
   hasNoLiquidity,
+  barterAmountTooSmall,
+  isBarterValidating,
   isWrap,
   isUnwrap,
   handleSwapClick,
@@ -157,6 +161,25 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
           className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-white/10 text-gray-500 cursor-not-allowed"
         >
           This trade cannot be completed right now
+        </Button>
+      ) : barterAmountTooSmall ? (
+        // Case: Amount too small for Barter to route within max slippage
+        <Button
+          disabled
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-amber-500/10 text-amber-400 cursor-not-allowed border border-amber-500/20"
+        >
+          Amount too small to swap
+        </Button>
+      ) : isBarterValidating ? (
+        // Case: Validating route with Barter
+        <Button
+          disabled
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-white/10 text-gray-500 cursor-wait"
+        >
+          <span className="flex items-center justify-center gap-2">
+            <span className="h-4 w-4 border-2 border-gray-400/50 border-t-gray-400 rounded-full animate-spin" />
+            Calculating...
+          </span>
         </Button>
       ) : isNonceLoading ? (
         // Case: Permit path - waiting for nonce bitmap to load

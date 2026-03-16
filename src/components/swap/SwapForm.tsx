@@ -199,6 +199,8 @@ export function SwapForm() {
         isWrap={form.isWrap || false}
         isUnwrap={form.isUnwrap || false}
         hasNoLiquidity={form.hasNoLiquidity}
+        barterAmountTooSmall={form.barterAmountTooSmall}
+        isBarterValidating={form.isBarterValidating}
         estimatedMiles={estimatedMiles}
       />
 
