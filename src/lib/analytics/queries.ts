@@ -338,8 +338,7 @@ LIMIT :limit
 `.trim()
 
 // Efficiency leaders: by longest consecutive active days (streak)
-// Uses mctransactions table (fastrpc catalog) with block-number-to-date conversion
-// Trino/Presto syntax: FROM_UNIXTIME, CAST, date_add for date arithmetic
+// Uses mctransactions table (fastrpc catalog — pg_mev_commit_fastrpc)
 export const EFFICIENCY_BY_STREAK = `
 WITH user_days AS (
   SELECT DISTINCT
@@ -350,7 +349,7 @@ WITH user_days AS (
 ),
 numbered AS (
   SELECT sender, d,
-    date_add('day', -CAST(ROW_NUMBER() OVER (PARTITION BY sender ORDER BY d) AS INTEGER), d) AS grp
+    CAST(d AS DATE) - CAST(ROW_NUMBER() OVER (PARTITION BY sender ORDER BY d) AS INTEGER) AS grp
   FROM user_days
 ),
 streaks AS (

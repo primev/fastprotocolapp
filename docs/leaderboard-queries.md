@@ -151,13 +151,12 @@ Uses a multi-CTE approach on `mctransactions` (fastrpc catalog) to compute longe
 WITH user_days AS (
   SELECT DISTINCT
     sender,
-    DATE(FROM_UNIXTIME(1766015999 + (CAST(block_number AS BIGINT) - 24035770) * 12)) AS d
-  FROM mctransactions_sr
+    DATE(TO_TIMESTAMP(1766015999 + (block_number - 24035770) * 12)) AS d
+  FROM mctransactions
   WHERE status IN ('confirmed', 'pre-confirmed') AND block_number > 0
 ),
 numbered AS (
-  SELECT sender, d,
-    date_add('day', -CAST(ROW_NUMBER() OVER (PARTITION BY sender ORDER BY d) AS INTEGER), d) AS grp
+  SELECT sender, d, d - (ROW_NUMBER() OVER (PARTITION BY sender ORDER BY d))::int AS grp
   FROM user_days
 ),
 streaks AS (
@@ -167,7 +166,7 @@ streaks AS (
 SELECT
   sender AS wallet,
   MAX(len) AS max_streak,
-  MAX(CASE WHEN last_day >= CURRENT_DATE - INTERVAL '1' DAY THEN len ELSE 0 END) AS current_streak
+  MAX(CASE WHEN last_day >= CURRENT_DATE - 1 THEN len ELSE 0 END) AS current_streak
 FROM streaks
 GROUP BY sender
 ORDER BY max_streak DESC

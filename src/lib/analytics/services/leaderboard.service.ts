@@ -236,7 +236,7 @@ export async function getEfficiencyByStreak(
     { limit: safeLimit },
     {
       ...options,
-      catalog: "fastrpc_main",
+      catalog: "fastrpc",
     }
   )
   return rows as StreakRow[]
@@ -488,7 +488,7 @@ export async function getEfficiencyLeadersPaginated(params: {
       ),
       numbered AS (
         SELECT sender, d,
-          date_add('day', -CAST(ROW_NUMBER() OVER (PARTITION BY sender ORDER BY d) AS INTEGER), d) AS grp
+          CAST(d AS DATE) - CAST(ROW_NUMBER() OVER (PARTITION BY sender ORDER BY d) AS INTEGER) AS grp
         FROM user_days
       ),
       streaks AS (
@@ -520,7 +520,7 @@ export async function getEfficiencyLeadersPaginated(params: {
       ORDER BY max_streak DESC
       LIMIT ${limit} OFFSET ${offset}
     `
-    const fastrpcOpts = { catalog: "fastrpc_main" as const }
+    const fastrpcOpts = { catalog: "fastrpc" as const }
     const [countRows, dataRows] = await Promise.all([
       client.executeRaw(countSql, undefined, fastrpcOpts),
       client.executeRaw(dataSql, undefined, fastrpcOpts),
