@@ -136,32 +136,32 @@ export function useEstimatedMiles({
     const userMevEth = netMevEth > 0 ? netMevEth * USER_MEV_SHARE : 0
     const miles = netMevEth > 0 ? Math.floor(userMevEth * MILES_PER_ETH) : 0
 
-    console.debug(
-      `[useEstimatedMiles] ${miles} miles${isPermitPath ? " (permit path)" : " (ETH path)"}\n` +
-        `\n` +
-        `  Step 1: Convert output to ETH\n` +
-        (isEthOutput
-          ? `    outputInEth = ${parsedAmountOut} (native ETH output)\n`
-          : `    outputInEth = ${parsedAmountOut} × $${toTokenPrice?.toFixed(2)} / $${ethPrice?.toFixed(2)} = ${outputInEth.toFixed(6)} ETH\n`) +
-        `\n` +
-        `  Step 2: MEV opportunity (slippage tolerance)\n` +
-        `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${parsedSlippage}% = ${slippageAmountEth.toFixed(8)} ETH\n` +
-        `\n` +
-        `  Step 3: Bid cost (priorityFee p55 × avgGas from Edge Config)\n` +
-        `    bidCostEth = ${priorityFee.toString()} wei × ${avgGas.toString()} gas / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
-        `\n` +
-        `  Step 4: Gas cost${isPermitPath ? " (relayer pays on permit path)" : " (user pays on ETH path = 0)"}\n` +
-        `    gasCostEth = ${isPermitPath ? `${baseFeePerGas.toString()} wei × ${avgGas.toString()} gas / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
-        `\n` +
-        `  Step 5: Net MEV\n` +
-        `    netMevEth = ${slippageAmountEth.toFixed(8)} - ${bidCostEth.toFixed(8)} - ${gasCostEth.toFixed(8)} = ${netMevEth.toFixed(8)} ETH\n` +
-        `\n` +
-        `  Step 6: User share & miles\n` +
-        `    userMevEth = ${netMevEth.toFixed(8)} × ${USER_MEV_SHARE} (${USER_MEV_SHARE * 100}% share) = ${userMevEth.toFixed(8)} ETH\n` +
-        `    miles = floor(${userMevEth.toFixed(8)} × ${MILES_PER_ETH.toLocaleString()}) = ${miles}\n` +
-        `\n` +
-        `  → UI displays: ${miles} miles`
-    )
+    // console.debug(
+    //   `[useEstimatedMiles] ${miles} miles${isPermitPath ? " (permit path)" : " (ETH path)"}\n` +
+    //     `\n` +
+    //     `  Step 1: Convert output to ETH\n` +
+    //     (isEthOutput
+    //       ? `    outputInEth = ${parsedAmountOut} (native ETH output)\n`
+    //       : `    outputInEth = ${parsedAmountOut} × $${toTokenPrice?.toFixed(2)} / $${ethPrice?.toFixed(2)} = ${outputInEth.toFixed(6)} ETH\n`) +
+    //     `\n` +
+    //     `  Step 2: MEV opportunity (slippage tolerance)\n` +
+    //     `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${parsedSlippage}% = ${slippageAmountEth.toFixed(8)} ETH\n` +
+    //     `\n` +
+    //     `  Step 3: Bid cost (priorityFee p55 × avgGas from Edge Config)\n` +
+    //     `    bidCostEth = ${priorityFee.toString()} wei × ${avgGas.toString()} gas / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
+    //     `\n` +
+    //     `  Step 4: Gas cost${isPermitPath ? " (relayer pays on permit path)" : " (user pays on ETH path = 0)"}\n` +
+    //     `    gasCostEth = ${isPermitPath ? `${baseFeePerGas.toString()} wei × ${avgGas.toString()} gas / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
+    //     `\n` +
+    //     `  Step 5: Net MEV\n` +
+    //     `    netMevEth = ${slippageAmountEth.toFixed(8)} - ${bidCostEth.toFixed(8)} - ${gasCostEth.toFixed(8)} = ${netMevEth.toFixed(8)} ETH\n` +
+    //     `\n` +
+    //     `  Step 6: User share & miles\n` +
+    //     `    userMevEth = ${netMevEth.toFixed(8)} × ${USER_MEV_SHARE} (${USER_MEV_SHARE * 100}% share) = ${userMevEth.toFixed(8)} ETH\n` +
+    //     `    miles = floor(${userMevEth.toFixed(8)} × ${MILES_PER_ETH.toLocaleString()}) = ${miles}\n` +
+    //     `\n` +
+    //     `  → UI displays: ${miles} miles`
+    // )
     return miles
   }, [
     enabled,
