@@ -308,18 +308,13 @@ WHERE lower(p.from_address) = lower(:addr)
   AND p.is_swap = TRUE
 `.trim()
 
-// Gas estimation domain
-export const GET_RECENT_SWAP_TX_HASHES = `
-SELECT m.hash
-FROM pg_mev_commit_fastrpc.public.mctransactions_sr m
-WHERE m.status IN ('confirmed', 'pre-confirmed')
-  AND EXISTS (
-    SELECT 1
-    FROM mevcommit_57173.processed_l1_txns_v2 p
-    WHERE p.is_swap = TRUE
-      AND lower(m.hash) = concat('0x', lower(p.l1_tx_hash))
-  )
-ORDER BY CAST(m.block_number AS BIGINT) DESC
+// L1 transactions domain
+export const GET_RECENT_L1_SWAP_TX_HASHES = `
+SELECT concat('0x', p.l1_tx_hash) AS tx_hash
+FROM mevcommit_57173.processed_l1_txns_v2 p
+WHERE p.is_swap = TRUE
+GROUP BY p.l1_tx_hash
+ORDER BY MAX(p.l1_timestamp) DESC
 LIMIT :limit
 `.trim()
 
@@ -343,8 +338,8 @@ export const QUERIES = {
   // Users domain
   "users/get-user-swap-volume": GET_USER_SWAP_VOLUME,
 
-  // Gas estimation domain
-  "gas/get-recent-swap-tx-hashes": GET_RECENT_SWAP_TX_HASHES,
+  // L1 transactions domain
+  "l1/get-recent-swap-tx-hashes": GET_RECENT_L1_SWAP_TX_HASHES,
 
   // Whitelist generation domain
   "whitelist/top-by-volume": WHITELIST_TOP_BY_VOLUME,
