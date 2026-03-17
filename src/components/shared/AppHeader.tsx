@@ -33,6 +33,7 @@ import { DISCORD_INVITE_URL } from "@/lib/constants"
 import { usePrefetchOnHover } from "@/hooks/use-page-prefetch"
 import { useUserPoints } from "@/hooks/use-user-points"
 import { cn } from "@/lib/utils"
+import { FEATURE_FLAGS } from "@/lib/feature-flags"
 import { Badge } from "@/components/ui/badge"
 import NumberFlow from "@number-flow/react"
 import { usePathname, useRouter } from "next/navigation"
@@ -152,17 +153,19 @@ export const AppHeader = ({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* <Badge
-            variant="outline"
-            className="h-10 px-3 text-sm border-primary/50 hidden sm:flex items-center"
-          >
-            <Award className="w-4 h-4 mr-2 text-primary" />
-            <NumberFlow
-              value={points}
-              format={{ minimumFractionDigits: 0, maximumFractionDigits: 0 }}
-            />
-            <span className="ml-1">Miles</span>
-          </Badge> */}
+          {FEATURE_FLAGS.show_miles_estimate && (
+            <Badge
+              variant="outline"
+              className="h-10 px-3 text-sm border-primary/50 hidden sm:flex items-center"
+            >
+              <Award className="w-4 h-4 mr-2 text-primary" />
+              <NumberFlow
+                value={points}
+                format={{ minimumFractionDigits: 0, maximumFractionDigits: 0 }}
+              />
+              <span className="ml-1">Miles</span>
+            </Badge>
+          )}
 
           {/* Wallet Section - Wrapped in ClientOnly to avoid ID mismatch */}
           <ClientOnly fallback={<Skeleton className="h-10 w-10 lg:w-32 rounded-full" />}>
@@ -231,10 +234,12 @@ export const AppHeader = ({
                           <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
                             Balance
                           </p>
-                          {/* <div className="text-lg font-bold flex items-center gap-1">
-                            <NumberFlow value={points} />
-                            <span className="text-sm font-medium text-muted-foreground">Miles</span>
-                          </div> */}
+                          {FEATURE_FLAGS.show_miles_estimate && (
+                            <div className="text-lg font-bold flex items-center gap-1">
+                              <NumberFlow value={points} />
+                              <span className="text-sm font-medium text-muted-foreground">Miles</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
