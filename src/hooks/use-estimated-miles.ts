@@ -70,7 +70,7 @@ export function useEstimatedMiles({
     }
   }, [enabled])
 
-  // Poll 90th percentile priority fee via getFeeHistory every ~12s
+  // Poll 55th percentile priority fee via getFeeHistory every ~12s
   useEffect(() => {
     if (!enabled) return
 
@@ -80,7 +80,7 @@ export function useEstimatedMiles({
       try {
         const feeHistory = await publicClient.getFeeHistory({
           blockCount: 1,
-          rewardPercentiles: [90],
+          rewardPercentiles: [55],
         })
         const fee = feeHistory.reward?.[0]?.[0]
         if (!cancelled && fee != null) setPriorityFee(fee)
@@ -147,7 +147,7 @@ export function useEstimatedMiles({
         `  Step 2: MEV opportunity (slippage tolerance)\n` +
         `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${parsedSlippage}% = ${slippageAmountEth.toFixed(8)} ETH\n` +
         `\n` +
-        `  Step 3: Bid cost (priorityFee p90 × avgGas from Edge Config)\n` +
+        `  Step 3: Bid cost (priorityFee p55 × avgGas from Edge Config)\n` +
         `    bidCostEth = ${priorityFee.toString()} wei × ${avgGas.toString()} gas / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
         `\n` +
         `  Step 4: Gas cost${isPermitPath ? " (relayer pays on permit path)" : " (user pays on ETH path = 0)"}\n` +
