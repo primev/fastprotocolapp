@@ -12,8 +12,8 @@ const publicClient = createPublicClient({
   }),
 })
 
-/** Average gas used by FastSwap transactions */
-const FAST_SWAP_AVG_GAS = 450_000n
+/** Fallback average gas used by FastSwap transactions */
+const DEFAULT_AVG_GAS = 450_000n
 /** User receives 90% of captured MEV */
 const USER_MEV_SHARE = 0.9
 /** 100,000 miles per 1 ETH (0.00001 ETH per mile) */
@@ -43,6 +43,32 @@ export function useEstimatedMiles({
   enabled,
 }: UseEstimatedMilesParams): { estimatedMiles: number | null } {
   const [priorityFee, setPriorityFee] = useState<bigint | null>(null)
+  const [avgGas, setAvgGas] = useState<bigint>(DEFAULT_AVG_GAS)
+
+  // Fetch average gas estimate from Edge Config (via API route)
+  useEffect(() => {
+    if (!enabled) return
+
+    let cancelled = false
+
+    const fetchGasEstimate = async () => {
+      try {
+        const res = await fetch("/api/config/gas-estimate")
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && typeof data.gasEstimate === "number" && data.gasEstimate > 0) {
+          setAvgGas(BigInt(data.gasEstimate))
+        }
+      } catch (err) {
+        console.warn("[useEstimatedMiles] Failed to fetch gas estimate:", err)
+      }
+    }
+
+    fetchGasEstimate()
+    return () => {
+      cancelled = true
+    }
+  }, [enabled])
 
   // Poll eth_maxPriorityFeePerGas every ~12s for bid cost estimation
   useEffect(() => {
@@ -96,14 +122,17 @@ export function useEstimatedMiles({
     const slippageAmountEth = (parsedSlippage / 100) * outputInEth
 
     // Bid cost: priority fee × avg gas / 1e18
-    const bidCostEth = Number(priorityFee * FAST_SWAP_AVG_GAS) / 1e18
+    const bidCostEth = Number(priorityFee * avgGas) / 1e18
 
     // Gas cost: only deducted on permit path (relayer pays)
-    const gasCostEth = isPermitPath ? Number(baseFeePerGas * FAST_SWAP_AVG_GAS) / 1e18 : 0
+    const gasCostEth = isPermitPath ? Number(baseFeePerGas * avgGas) / 1e18 : 0
 
     const netMevEth = slippageAmountEth - bidCostEth - gasCostEth
 
     console.debug("[useEstimatedMiles]", {
+      avgGas: avgGas.toString(),
+      priorityFee: priorityFee.toString(),
+      baseFeePerGas: baseFeePerGas.toString(),
       outputInEth: outputInEth.toFixed(6),
       slippageAmountEth: slippageAmountEth.toFixed(8),
       bidCostEth: bidCostEth.toFixed(8),
@@ -117,6 +146,7 @@ export function useEstimatedMiles({
     return Math.floor(netMevEth * USER_MEV_SHARE * MILES_PER_ETH)
   }, [
     enabled,
+    avgGas,
     priorityFee,
     baseFeePerGas,
     amountOut,
