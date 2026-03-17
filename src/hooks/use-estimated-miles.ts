@@ -45,7 +45,7 @@ export function useEstimatedMiles({
   const [priorityFee, setPriorityFee] = useState<bigint | null>(null)
   const [avgGas, setAvgGas] = useState<bigint>(DEFAULT_AVG_GAS)
 
-  // Fetch average gas estimate from Edge Config (via API route)
+  // Fetch average gas estimate from Edge Config (updated monthly by cron)
   useEffect(() => {
     if (!enabled) return
 
@@ -70,7 +70,7 @@ export function useEstimatedMiles({
     }
   }, [enabled])
 
-  // Poll eth_maxPriorityFeePerGas every ~12s for bid cost estimation
+  // Poll 90th percentile priority fee via getFeeHistory every ~12s
   useEffect(() => {
     if (!enabled) return
 
@@ -78,8 +78,12 @@ export function useEstimatedMiles({
 
     const fetchPriorityFee = async () => {
       try {
-        const fee = await publicClient.estimateMaxPriorityFeePerGas()
-        if (!cancelled) setPriorityFee(fee)
+        const feeHistory = await publicClient.getFeeHistory({
+          blockCount: 1,
+          rewardPercentiles: [90],
+        })
+        const fee = feeHistory.reward?.[0]?.[0]
+        if (!cancelled && fee != null) setPriorityFee(fee)
       } catch (err) {
         console.warn("[useEstimatedMiles] Failed to fetch priority fee:", err)
       }
@@ -121,7 +125,7 @@ export function useEstimatedMiles({
     // Slippage amount in ETH = what MEV can be captured from
     const slippageAmountEth = (parsedSlippage / 100) * outputInEth
 
-    // Bid cost: priority fee × avg gas / 1e18
+    // Bid cost: 90th percentile priority fee × avg gas (from Edge Config) / 1e18
     const bidCostEth = Number(priorityFee * avgGas) / 1e18
 
     // Gas cost: only deducted on permit path (relayer pays)
@@ -129,25 +133,35 @@ export function useEstimatedMiles({
 
     const netMevEth = slippageAmountEth - bidCostEth - gasCostEth
 
-    console.debug("[useEstimatedMiles]", {
-      avgGas: avgGas.toString(),
-      priorityFee: priorityFee.toString(),
-      baseFeePerGas: baseFeePerGas.toString(),
-      outputInEth: outputInEth.toFixed(6),
-      slippageAmountEth: slippageAmountEth.toFixed(8),
-      bidCostEth: bidCostEth.toFixed(8),
-      gasCostEth: gasCostEth.toFixed(8),
-      netMevEth: netMevEth.toFixed(8),
-      isPermitPath,
-    })
+    const userMevEth = netMevEth > 0 ? netMevEth * USER_MEV_SHARE : 0
+    const miles = netMevEth > 0 ? Math.floor(userMevEth * MILES_PER_ETH) : 0
 
-    if (netMevEth <= 0) {
-      console.debug("[useEstimatedMiles] estimatedMiles: 0 (netMevEth <= 0)")
-      return 0
-    }
-
-    const miles = Math.floor(netMevEth * USER_MEV_SHARE * MILES_PER_ETH)
-    console.debug("[useEstimatedMiles] estimatedMiles:", miles)
+    console.debug(
+      `[useEstimatedMiles] ${miles} miles${isPermitPath ? " (permit path)" : " (ETH path)"}\n` +
+        `\n` +
+        `  Step 1: Convert output to ETH\n` +
+        (isEthOutput
+          ? `    outputInEth = ${parsedAmountOut} (native ETH output)\n`
+          : `    outputInEth = ${parsedAmountOut} × $${toTokenPrice?.toFixed(2)} / $${ethPrice?.toFixed(2)} = ${outputInEth.toFixed(6)} ETH\n`) +
+        `\n` +
+        `  Step 2: MEV opportunity (slippage tolerance)\n` +
+        `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${parsedSlippage}% = ${slippageAmountEth.toFixed(8)} ETH\n` +
+        `\n` +
+        `  Step 3: Bid cost (priorityFee p90 × avgGas from Edge Config)\n` +
+        `    bidCostEth = ${priorityFee.toString()} wei × ${avgGas.toString()} gas / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
+        `\n` +
+        `  Step 4: Gas cost${isPermitPath ? " (relayer pays on permit path)" : " (user pays on ETH path = 0)"}\n` +
+        `    gasCostEth = ${isPermitPath ? `${baseFeePerGas.toString()} wei × ${avgGas.toString()} gas / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
+        `\n` +
+        `  Step 5: Net MEV\n` +
+        `    netMevEth = ${slippageAmountEth.toFixed(8)} - ${bidCostEth.toFixed(8)} - ${gasCostEth.toFixed(8)} = ${netMevEth.toFixed(8)} ETH\n` +
+        `\n` +
+        `  Step 6: User share & miles\n` +
+        `    userMevEth = ${netMevEth.toFixed(8)} × ${USER_MEV_SHARE} (${USER_MEV_SHARE * 100}% share) = ${userMevEth.toFixed(8)} ETH\n` +
+        `    miles = floor(${userMevEth.toFixed(8)} × ${MILES_PER_ETH.toLocaleString()}) = ${miles}\n` +
+        `\n` +
+        `  → UI displays: ${miles} miles`
+    )
     return miles
   }, [
     enabled,
