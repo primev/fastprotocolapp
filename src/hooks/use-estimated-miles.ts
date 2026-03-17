@@ -141,9 +141,14 @@ export function useEstimatedMiles({
       isPermitPath,
     })
 
-    if (netMevEth <= 0) return 0
+    if (netMevEth <= 0) {
+      console.debug("[useEstimatedMiles] estimatedMiles: 0 (netMevEth <= 0)")
+      return 0
+    }
 
-    return Math.floor(netMevEth * USER_MEV_SHARE * MILES_PER_ETH)
+    const miles = Math.floor(netMevEth * USER_MEV_SHARE * MILES_PER_ETH)
+    console.debug("[useEstimatedMiles] estimatedMiles:", miles)
+    return miles
   }, [
     enabled,
     avgGas,
