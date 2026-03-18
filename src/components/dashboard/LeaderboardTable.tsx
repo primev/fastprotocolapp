@@ -205,9 +205,9 @@ export const LeaderboardTable = ({
     const userEntry = ranked.find((e) => e.isCurrentUser)
     const calculatedPos = userEntry ? userEntry.rank : null
 
-    // Show top 15 entries
-    const top15 = ranked.slice(0, 15)
-    const userInTop15 = top15.some((e) => e.isCurrentUser)
+    // Keep full ranked list for tier filtering; display is sliced later
+    const top15 = ranked
+    const userInTop15 = ranked.slice(0, 15).some((e) => e.isCurrentUser)
 
     // If user is in top 15, use calculated position; otherwise use actual API position
     const newPos = userInTop15 && calculatedPos ? calculatedPos : userPos
@@ -342,48 +342,26 @@ export const LeaderboardTable = ({
     return "bg-muted-foreground/[0.03]"
   }, [currentTierMeta.color])
 
-  // Fetch tier-filtered data from API when tier is not "all"
-  const [tierFilteredData, setTierFilteredData] = useState<LeaderboardEntry[] | null>(null)
-  const [isTierLoading, setIsTierLoading] = useState(false)
-  useEffect(() => {
+  // Filter leaderboard data by tier (client-side from top 100 dataset)
+  // When "all", show top 15 with global ranks. When filtered, re-rank within tier (1, 2, 3...)
+  const filteredLbData = useMemo(() => {
     if (tierFilter === "all") {
-      setTierFilteredData(null)
-      return
+      // Show top 15 + user entry if outside top 15
+      const top15 = adjustedLbData.filter((e) => !e.isCurrentUser).slice(0, 15)
+      const userEntry = adjustedLbData.find((e) => e.isCurrentUser)
+      if (userEntry && !top15.some((e) => e.wallet === userEntry.wallet)) {
+        return [...top15, userEntry]
+      }
+      return top15
     }
-    let cancelled = false
-    setIsTierLoading(true)
-    const params = new URLSearchParams({
-      sort: "volume",
-      tier: tierFilter,
-      page: "1",
-      limit: "15",
-    })
-    fetch(`/api/analytics/leaderboard/volume-leaders?${params}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!cancelled && data?.entries) {
-          setTierFilteredData(
-            data.entries.map((e: any) => ({
-              wallet: e.wallet,
-              rank: e.rank,
-              swapVolume24h: e.volume || 0,
-              swapCount: e.swapCount || 0,
-              change24h: 0,
-              ethValue: e.volumeEth || 0,
-            }))
-          )
-          setIsTierLoading(false)
-        }
+    const filtered = adjustedLbData
+      .filter((entry) => {
+        if (entry.isCurrentUser) return false
+        return getTierFromVolume(entry.swapVolume24h) === tierFilter
       })
-      .catch(() => {
-        if (!cancelled) setIsTierLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [tierFilter])
-
-  const filteredLbData = tierFilter === "all" ? adjustedLbData : (tierFilteredData ?? [])
+      .slice(0, 15)
+    return filtered.map((entry, i) => ({ ...entry, rank: i + 1 }))
+  }, [adjustedLbData, tierFilter])
 
   // Stats: sorted variants for stats tab
   const statsByTxCount = useMemo(
@@ -1066,15 +1044,18 @@ export const LeaderboardTable = ({
                 onClick={() => setVolumeModalOpen(true)}
                 className="text-xs text-primary hover:underline cursor-pointer font-bold"
               >
-                All Leaders &rarr;
+                {tierFilter === "all"
+                  ? "All Leaders"
+                  : `All ${tierFilter.charAt(0).toUpperCase() + tierFilter.slice(1)} Leaders`}{" "}
+                &rarr;
               </button>
             </div>
             <div className="space-y-1.5 w-full">
-              {(isLoadingProp && lbData.length === 0) || isTierLoading ? (
+              {isLoadingProp && lbData.length === 0 ? (
                 <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20 animate-pulse">
                   Loading leaderboard...
                 </div>
-              ) : lbData.length === 0 && tierFilter === "all" ? (
+              ) : lbData.length === 0 ? (
                 <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20">
                   No leaderboard data available
                 </div>
@@ -1147,14 +1128,31 @@ export const LeaderboardTable = ({
           <PaginatedLeaderboardModal
             open={volumeModalOpen}
             onOpenChange={setVolumeModalOpen}
-            title="Volume Leaders"
-            description="All wallets sorted by swap volume"
+            title={
+              tierFilter === "all"
+                ? "Volume Leaders"
+                : `${tierFilter.charAt(0).toUpperCase() + tierFilter.slice(1)} Volume Leaders`
+            }
+            description={
+              tierFilter === "all"
+                ? "All wallets sorted by swap volume"
+                : `${tierFilter.charAt(0).toUpperCase() + tierFilter.slice(1)} tier wallets sorted by swap volume`
+            }
             fetchUrl="/api/analytics/leaderboard/volume-leaders"
             buildParams={volumeModalBuildParams}
             renderStat={(e) => formatVolumeDisplay(Number((e as any).volume ?? 0))}
             renderSubtext={(e) => `${Number((e as any).swapCount ?? 0)} swaps`}
             userWallet={userAddr}
             findMeParams={volumeModalFindMeParams}
+            tierAccent={
+              tierFilter === "gold"
+                ? { label: "Gold", dot: "bg-yellow-500", gradient: "via-yellow-500/50", border: "border-yellow-500/20" }
+                : tierFilter === "silver"
+                  ? { label: "Silver", dot: "bg-slate-400", gradient: "via-slate-400/50", border: "border-slate-400/20" }
+                  : tierFilter === "bronze"
+                    ? { label: "Bronze", dot: "bg-amber-600", gradient: "via-amber-600/50", border: "border-amber-600/20" }
+                    : null
+            }
           />
         </div>
       ) : (
@@ -1362,6 +1360,7 @@ interface PaginatedLeaderboardModalProps {
   userWallet?: string
   findMeParams?: Record<string, string> // Extra params for find-me API
   findMeUrl?: string // Override find-me endpoint (default: /api/analytics/leaderboard/find-me)
+  tierAccent?: { label: string; dot: string; gradient: string; border: string } | null // Tier color accent for modal
 }
 
 const PaginatedLeaderboardModal = ({
@@ -1376,6 +1375,7 @@ const PaginatedLeaderboardModal = ({
   userWallet,
   findMeParams,
   findMeUrl,
+  tierAccent,
 }: PaginatedLeaderboardModalProps) => {
   const [page, setPage] = useState(1)
   const [entries, setEntries] = useState<PaginatedModalEntry[]>([])
@@ -1472,11 +1472,17 @@ const PaginatedLeaderboardModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] bg-background border-white/10 flex flex-col">
+      <DialogContent className={`max-w-2xl max-h-[85vh] bg-background flex flex-col ${tierAccent ? tierAccent.border : "border-white/10"}`}>
+        {tierAccent && (
+          <div className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent ${tierAccent.gradient} to-transparent`} />
+        )}
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
-              <DialogTitle className="text-lg font-black">{title}</DialogTitle>
+              <DialogTitle className="text-lg font-black flex items-center gap-2">
+                {tierAccent && <span className={`w-2 h-2 rounded-full ${tierAccent.dot}`} />}
+                {title}
+              </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground/60">
                 {description} {total > 0 && `· ${total.toLocaleString()} total`}
               </DialogDescription>

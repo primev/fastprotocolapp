@@ -52,8 +52,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cachedData)
     }
 
-    // Get main leaderboard (top 15)
-    const leaderboardRows = await getLeaderboard(15)
+    // Get main leaderboard (top 100 for client-side tier filtering)
+    const leaderboardRows = await getLeaderboard(100)
 
     // Transform leaderboard rows (USD from DB columns)
     // useTotalVolume=true means we use total_swap_vol_usd
