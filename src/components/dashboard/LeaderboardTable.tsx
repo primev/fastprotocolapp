@@ -342,15 +342,48 @@ export const LeaderboardTable = ({
     return "bg-muted-foreground/[0.03]"
   }, [currentTierMeta.color])
 
-  // Filter leaderboard data by tier
-  const filteredLbData = useMemo(() => {
-    if (tierFilter === "all") return adjustedLbData
-    return adjustedLbData.filter((entry) => {
-      if (entry.isCurrentUser) return false
-      const entryTier = getTierFromVolume(entry.swapVolume24h)
-      return entryTier === tierFilter
+  // Fetch tier-filtered data from API when tier is not "all"
+  const [tierFilteredData, setTierFilteredData] = useState<LeaderboardEntry[] | null>(null)
+  const [isTierLoading, setIsTierLoading] = useState(false)
+  useEffect(() => {
+    if (tierFilter === "all") {
+      setTierFilteredData(null)
+      return
+    }
+    let cancelled = false
+    setIsTierLoading(true)
+    const params = new URLSearchParams({
+      sort: "volume",
+      tier: tierFilter,
+      page: "1",
+      limit: "15",
     })
-  }, [adjustedLbData, tierFilter])
+    fetch(`/api/analytics/leaderboard/volume-leaders?${params}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.entries) {
+          setTierFilteredData(
+            data.entries.map((e: any) => ({
+              wallet: e.wallet,
+              rank: e.rank,
+              swapVolume24h: e.volume || 0,
+              swapCount: e.swapCount || 0,
+              change24h: 0,
+              ethValue: e.volumeEth || 0,
+            }))
+          )
+          setIsTierLoading(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIsTierLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [tierFilter])
+
+  const filteredLbData = tierFilter === "all" ? adjustedLbData : (tierFilteredData ?? [])
 
   // Stats: sorted variants for stats tab
   const statsByTxCount = useMemo(
@@ -1037,11 +1070,11 @@ export const LeaderboardTable = ({
               </button>
             </div>
             <div className="space-y-1.5 w-full">
-              {isLoadingProp && lbData.length === 0 ? (
+              {(isLoadingProp && lbData.length === 0) || isTierLoading ? (
                 <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20 animate-pulse">
                   Loading leaderboard...
                 </div>
-              ) : lbData.length === 0 ? (
+              ) : lbData.length === 0 && tierFilter === "all" ? (
                 <div className="p-8 sm:p-12 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-20">
                   No leaderboard data available
                 </div>
