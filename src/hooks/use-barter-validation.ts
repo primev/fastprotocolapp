@@ -16,6 +16,8 @@ interface UseBarterValidationParams {
   amountOut: bigint | undefined
   /** Sell amount (human-readable, e.g. "0.01") */
   sellAmount: string
+  /** Monotonic counter — increments on each Uniswap requote so we re-validate even when amountOut is unchanged */
+  quoteGeneration: number
   enabled: boolean
 }
 
@@ -39,15 +41,16 @@ export function useBarterValidation({
   toToken,
   amountOut,
   sellAmount,
+  quoteGeneration,
   enabled,
 }: UseBarterValidationParams): UseBarterValidationReturn {
   const [amountTooSmall, setAmountTooSmall] = useState(false)
   const [settled, setSettled] = useState(true)
   const requestIdRef = useRef(0)
 
-  // Build a stable key for the current inputs so we know when they change
+  // quoteGeneration is included so a requote that returns the same amountOut still triggers re-validation
   const inputKey = enabled
-    ? `${fromToken?.address}|${toToken?.address}|${sellAmount}|${amountOut?.toString()}`
+    ? `${fromToken?.address}|${toToken?.address}|${sellAmount}|${amountOut?.toString()}|${quoteGeneration}`
     : ""
   const lastSettledKeyRef = useRef(inputKey)
 
@@ -108,7 +111,7 @@ export function useBarterValidation({
     return () => {
       clearTimeout(timer)
     }
-  }, [fromToken, toToken, amountOut, sellAmount, enabled, inputKey])
+  }, [fromToken, toToken, amountOut, sellAmount, quoteGeneration, enabled, inputKey])
 
   return { amountTooSmall, isValidating: !settled }
 }

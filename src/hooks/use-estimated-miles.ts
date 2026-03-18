@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useRef } from "react"
 import { createPublicClient, http } from "viem"
 import { mainnet } from "wagmi/chains"
 import { FALLBACK_RPC_ENDPOINT } from "@/lib/network-config"
@@ -97,35 +97,55 @@ export function useEstimatedMiles({
     }
   }, [enabled])
 
-  const estimatedMiles = useMemo(() => {
-    if (!enabled || priorityFee == null || baseFeePerGas == null) {
-      if (enabled) {
-        console.debug("[useEstimatedMiles] waiting:", {
-          priorityFee: priorityFee?.toString(),
-          baseFeePerGas: baseFeePerGas?.toString(),
-        })
-      }
-      return null
+  // Only recalculate when the Uniswap quote actually changes (amountOut).
+  // Gas fees, prices, and other params are captured at calculation time but
+  // do NOT trigger recalculation — we compute once per quote, not per tick.
+  const [estimatedMiles, setEstimatedMiles] = useState<number | null>(null)
+  const lastAmountOutRef = useRef<string>("")
+
+  useEffect(() => {
+    const normalizedAmountOut = amountOut?.replace(/,/g, "") ?? ""
+
+    if (!enabled) {
+      setEstimatedMiles(null)
+      lastAmountOutRef.current = ""
+      return
     }
 
-    const parsedAmountOut = parseFloat(amountOut?.replace(/,/g, "") ?? "")
+    // Only recalculate when amountOut actually changes
+    if (normalizedAmountOut === lastAmountOutRef.current) return
+
+    if (priorityFee == null || baseFeePerGas == null) {
+      console.debug("[useEstimatedMiles] waiting:", {
+        priorityFee: priorityFee?.toString(),
+        baseFeePerGas: baseFeePerGas?.toString(),
+      })
+      return
+    }
+
+    const parsedAmountOut = parseFloat(normalizedAmountOut)
     const parsedSlippage = parseFloat(slippage ?? "0")
-    if (!parsedAmountOut || parsedAmountOut <= 0 || !parsedSlippage || parsedSlippage <= 0)
-      return null
+    if (!parsedAmountOut || parsedAmountOut <= 0 || !parsedSlippage || parsedSlippage <= 0) {
+      lastAmountOutRef.current = normalizedAmountOut
+      setEstimatedMiles(null)
+      return
+    }
 
     // Convert output amount to ETH
     let outputInEth: number
     if (isEthOutput) {
       outputInEth = parsedAmountOut
     } else {
-      if (toTokenPrice == null || toTokenPrice <= 0 || !ethPrice || ethPrice <= 0) return null
+      if (toTokenPrice == null || toTokenPrice <= 0 || !ethPrice || ethPrice <= 0) {
+        return
+      }
       outputInEth = (parsedAmountOut * toTokenPrice) / ethPrice
     }
 
     // Slippage amount in ETH = what MEV can be captured from
     const slippageAmountEth = (parsedSlippage / 100) * outputInEth
 
-    // Bid cost: 90th percentile priority fee × avg gas (from Edge Config) / 1e18
+    // Bid cost: p55 priority fee × avg gas (from Edge Config) / 1e18
     const bidCostEth = Number(priorityFee * avgGas) / 1e18
 
     // Gas cost: only deducted on permit path (relayer pays)
@@ -162,19 +182,13 @@ export function useEstimatedMiles({
         `\n` +
         `  → UI displays: ${miles} miles`
     )
-    return miles
-  }, [
-    enabled,
-    avgGas,
-    priorityFee,
-    baseFeePerGas,
-    amountOut,
-    slippage,
-    isEthOutput,
-    toTokenPrice,
-    ethPrice,
-    isPermitPath,
-  ])
+    lastAmountOutRef.current = normalizedAmountOut
+    setEstimatedMiles(miles)
+    // amountOut is the primary trigger. priorityFee/baseFeePerGas/toTokenPrice/ethPrice are
+    // included so the effect retries once async data arrives, but the ref guard ensures
+    // we only compute once per unique amountOut.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amountOut, enabled, priorityFee, baseFeePerGas, toTokenPrice, ethPrice])
 
   return { estimatedMiles }
 }

@@ -237,7 +237,9 @@ export const AppHeader = ({
                           {FEATURE_FLAGS.show_miles_estimate && (
                             <div className="text-lg font-bold flex items-center gap-1">
                               <NumberFlow value={points} />
-                              <span className="text-sm font-medium text-muted-foreground">Miles</span>
+                              <span className="text-sm font-medium text-muted-foreground">
+                                Miles
+                              </span>
                             </div>
                           )}
                         </div>
