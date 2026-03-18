@@ -1146,11 +1146,26 @@ export const LeaderboardTable = ({
             findMeParams={volumeModalFindMeParams}
             tierAccent={
               tierFilter === "gold"
-                ? { label: "Gold", dot: "bg-yellow-500", gradient: "via-yellow-500/50", border: "border-yellow-500/20" }
+                ? {
+                    label: "Gold",
+                    dot: "bg-yellow-500",
+                    gradient: "via-yellow-500/50",
+                    border: "border-yellow-500/20",
+                  }
                 : tierFilter === "silver"
-                  ? { label: "Silver", dot: "bg-slate-400", gradient: "via-slate-400/50", border: "border-slate-400/20" }
+                  ? {
+                      label: "Silver",
+                      dot: "bg-slate-400",
+                      gradient: "via-slate-400/50",
+                      border: "border-slate-400/20",
+                    }
                   : tierFilter === "bronze"
-                    ? { label: "Bronze", dot: "bg-amber-600", gradient: "via-amber-600/50", border: "border-amber-600/20" }
+                    ? {
+                        label: "Bronze",
+                        dot: "bg-amber-600",
+                        gradient: "via-amber-600/50",
+                        border: "border-amber-600/20",
+                      }
                     : null
             }
           />
@@ -1472,9 +1487,13 @@ const PaginatedLeaderboardModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`max-w-2xl max-h-[85vh] bg-background flex flex-col ${tierAccent ? tierAccent.border : "border-white/10"}`}>
+      <DialogContent
+        className={`max-w-2xl max-h-[85vh] bg-background flex flex-col ${tierAccent ? tierAccent.border : "border-white/10"}`}
+      >
         {tierAccent && (
-          <div className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent ${tierAccent.gradient} to-transparent`} />
+          <div
+            className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent ${tierAccent.gradient} to-transparent`}
+          />
         )}
         <DialogHeader>
           <div className="flex items-center justify-between">
