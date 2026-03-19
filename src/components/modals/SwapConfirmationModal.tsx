@@ -339,23 +339,26 @@ function SwapConfirmationModal({
     let pendingPlaceholder: string | null = null
     try {
       const onConfirm = () => {
-        setClearSwapState(true)
+        onCloseAfterSuccess()
         if (refreshBalances) setTimeout(() => refreshBalances(), 1000)
         setTimeout(() => refetchMiles(), 5000)
       }
       if (isWrap) {
         const hash = await wrap()
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
+        onCloseAfterSuccess()
         onOpenChange(false)
       } else if (isUnwrap) {
         const hash = await unwrap()
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
+        onCloseAfterSuccess()
         onOpenChange(false)
       } else {
         const hash = await confirmSwap({
           onPendingHash: (ph) => {
             pendingPlaceholder = ph
             addToast(ph, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
+            onCloseAfterSuccess()
             onOpenChange(false) // Close modal immediately; toast takes over
           },
         })
@@ -363,6 +366,7 @@ function SwapConfirmationModal({
           updateToastHash(pendingPlaceholder, hash)
         } else {
           addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
+          onCloseAfterSuccess()
         }
         onOpenChange(false)
       }
