@@ -10,8 +10,6 @@ import {
 } from "@/hooks/use-leaderboard-data"
 import { usePrefetchDashboard } from "@/hooks/use-prefetch-dashboard"
 import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/constants"
-import { Badge } from "@/components/ui/badge"
-
 // Components
 import { LeaderboardTable } from "@/components/dashboard/LeaderboardTable"
 
@@ -140,14 +138,6 @@ export function LeaderboardPageClient({
   // Layout provides header and paddingTop - content area needs no additional top padding
   return (
     <div className="w-full container mx-auto px-0 sm:px-0 pb-2 md:pb-4 overflow-x-hidden relative">
-      {/* Show subtle indicator for background refresh - only if we have data */}
-      {isFetching && hasAnyData && (
-        <div className="fixed top-20 right-4 z-50 animate-in fade-in slide-in-from-top-2">
-          <Badge variant="secondary" className="text-xs">
-            Refreshing...
-          </Badge>
-        </div>
-      )}
       <LeaderboardTable
         address={address}
         leaderboardData={leaderboardData}

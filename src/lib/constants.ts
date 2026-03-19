@@ -36,7 +36,41 @@ export interface TierMetadata {
   label: string
   color: string
   dot: string
+  circleBg: string
 }
+
+/**
+ * Sub-tier definitions within each major tier.
+ * Ordered descending by threshold for lookup.
+ */
+export interface SubTierDef {
+  name: string
+  threshold: number
+  tier: Tier
+}
+
+export const SUB_TIERS: SubTierDef[] = [
+  // Gold sub-tiers
+  { name: "Instant", threshold: 10_000_000, tier: "gold" },
+  { name: "Lightspeed", threshold: 5_000_000, tier: "gold" },
+  { name: "Hypersonic", threshold: 2_500_000, tier: "gold" },
+  { name: "Sonic", threshold: 1_000_000, tier: "gold" },
+  // Silver sub-tiers
+  { name: "Thunder", threshold: 500_000, tier: "silver" },
+  { name: "Blitz", threshold: 300_000, tier: "silver" },
+  { name: "Bolt", threshold: 175_000, tier: "silver" },
+  { name: "Flash", threshold: 100_000, tier: "silver" },
+  // Bronze sub-tiers
+  { name: "Storm", threshold: 75_000, tier: "bronze" },
+  { name: "Streak", threshold: 50_000, tier: "bronze" },
+  { name: "Surge", threshold: 25_000, tier: "bronze" },
+  { name: "Spark", threshold: 10_000, tier: "bronze" },
+]
+
+/**
+ * Sub-tiers in ascending order (for progress trackers)
+ */
+export const SUB_TIERS_ASC: SubTierDef[] = [...SUB_TIERS].reverse()
 
 /**
  * Gets the tier based on volume
@@ -50,21 +84,59 @@ export function getTierFromVolume(volume: number | null | undefined): Tier {
 }
 
 /**
+ * Gets the current sub-tier for a given volume
+ */
+export function getSubTierFromVolume(volume: number | null | undefined): SubTierDef | null {
+  if (!volume) return null
+  for (const st of SUB_TIERS) {
+    if (volume >= st.threshold) return st
+  }
+  return null
+}
+
+/**
+ * Gets the next sub-tier milestone above the current volume
+ */
+export function getNextSubTier(volume: number | null | undefined): SubTierDef | null {
+  const vol = volume || 0
+  for (const st of SUB_TIERS_ASC) {
+    if (vol < st.threshold) return st
+  }
+  return null // Already at max sub-tier
+}
+
+/**
  * Gets metadata for a tier (styling information)
  */
 export function getTierMetadata(tier: string): TierMetadata {
   switch (tier.toLowerCase()) {
     case "gold":
-      return { label: "Gold", color: "text-yellow-500", dot: "bg-yellow-500" }
+      return {
+        label: "Gold",
+        color: "text-yellow-500",
+        dot: "bg-yellow-500",
+        circleBg: "bg-yellow-500/10",
+      }
     case "silver":
-      return { label: "Silver", color: "text-slate-400", dot: "bg-slate-400" }
+      return {
+        label: "Silver",
+        color: "text-slate-400",
+        dot: "bg-slate-400",
+        circleBg: "bg-slate-400/10",
+      }
     case "bronze":
-      return { label: "Bronze", color: "text-amber-600", dot: "bg-amber-600" }
+      return {
+        label: "Bronze",
+        color: "text-amber-600",
+        dot: "bg-amber-600",
+        circleBg: "bg-amber-600/10",
+      }
     default:
       return {
         label: "Standard",
         color: "text-muted-foreground/30",
         dot: "bg-muted-foreground/20",
+        circleBg: "bg-primary/10",
       }
   }
 }
@@ -87,10 +159,16 @@ export const TESTING_VOLUME_MULTIPLIER = 1
 
 /**
  * React Query cache settings for leaderboard data
- * These match the API cache TTL (2 minutes) to ensure consistent caching behavior
+ * These match the API cache TTL to ensure consistent caching behavior
  */
-export const LEADERBOARD_CACHE_STALE_TIME = 1 * 60 * 1000 // 2 minutes in milliseconds. Controls freshness (when to refetch)
+export const LEADERBOARD_CACHE_STALE_TIME = 1 * 60 * 1000 // 1 minute in milliseconds. Controls freshness (when to refetch)
 export const LEADERBOARD_CACHE_GC_TIME = 5 * 60 * 1000 // 5 minutes in milliseconds. Controls how long to keep cached data (when to delete)
+
+/**
+ * Default leaderboard polling interval (ms).
+ * Runtime value is read from Vercel Edge Config (leaderboard_poll_interval_ms).
+ */
+export const DEFAULT_LEADERBOARD_POLL_INTERVAL = 15_000
 
 /**
  * React Query cache settings for dashboard data

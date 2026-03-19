@@ -298,6 +298,218 @@ ORDER BY recent_swap_count DESC
 LIMIT :limit
 `.trim()
 
+// Efficiency leaders: by average transactions per day
+export const EFFICIENCY_BY_TXS_PER_DAY = `
+WITH daily_activity AS (
+  SELECT
+    lower(from_address) AS wallet,
+    CAST(date_trunc('day', l1_timestamp) AS DATE) AS active_day
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address), CAST(date_trunc('day', l1_timestamp) AS DATE)
+),
+wallet_stats AS (
+  SELECT
+    lower(from_address) AS wallet,
+    COUNT(*) AS swap_count,
+    SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
+    SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address)
+),
+days_active AS (
+  SELECT wallet, COUNT(*) AS active_days
+  FROM daily_activity
+  GROUP BY wallet
+)
+SELECT
+  w.wallet,
+  w.swap_count,
+  d.active_days,
+  CAST(w.swap_count AS DOUBLE) / d.active_days AS txs_per_day,
+  w.total_swap_vol_usd,
+  w.total_swap_vol_eth
+FROM wallet_stats w
+JOIN days_active d ON w.wallet = d.wallet
+WHERE w.swap_count > 0
+ORDER BY txs_per_day DESC
+LIMIT :limit
+`.trim()
+
+// Efficiency leaders: by longest consecutive active days (streak)
+// Uses mctransactions table (fastrpc catalog — pg_mev_commit_fastrpc)
+export const EFFICIENCY_BY_STREAK = `
+WITH user_days AS (
+  SELECT DISTINCT
+    sender,
+    DATE(FROM_UNIXTIME(1766015999 + (CAST(block_number AS BIGINT) - 24035770) * 12)) AS d
+  FROM mctransactions
+  WHERE status IN ('confirmed', 'pre-confirmed') AND block_number > 0
+),
+numbered AS (
+  SELECT sender, d,
+    CAST(d AS DATE) - CAST(ROW_NUMBER() OVER (PARTITION BY sender ORDER BY d) AS INTEGER) AS grp
+  FROM user_days
+),
+streaks AS (
+  SELECT sender, grp, COUNT(*) AS len, MAX(d) AS last_day
+  FROM numbered GROUP BY sender, grp
+)
+SELECT
+  sender AS wallet,
+  MAX(len) AS max_streak,
+  MAX(CASE WHEN last_day >= CURRENT_DATE - INTERVAL '1' DAY THEN len ELSE 0 END) AS current_streak
+FROM streaks
+GROUP BY sender
+ORDER BY max_streak DESC
+LIMIT :limit
+`.trim()
+
+// Rising Stars: new users (first swap in last 30 days) ranked by volume
+// Only includes "standard" tier wallets (total volume below Bronze threshold)
+export const RISING_STARS_NEW_USERS = `
+WITH first_swap AS (
+  SELECT
+    lower(from_address) AS wallet,
+    MIN(l1_timestamp) AS first_swap_time
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address)
+  HAVING MIN(l1_timestamp) >= CURRENT_TIMESTAMP - INTERVAL '30' DAY
+),
+wallet_stats AS (
+  SELECT
+    lower(from_address) AS wallet,
+    COUNT(*) AS swap_count,
+    SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
+    SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address)
+  HAVING SUM(COALESCE(swap_vol_usd, 0)) < 10000
+)
+SELECT
+  f.wallet,
+  w.total_swap_vol_usd,
+  w.total_swap_vol_eth,
+  w.swap_count,
+  f.first_swap_time
+FROM first_swap f
+JOIN wallet_stats w ON f.wallet = w.wallet
+ORDER BY w.total_swap_vol_usd DESC
+LIMIT :limit
+`.trim()
+
+// Rising Stars: week-over-week volume growth percentage
+// Only includes "standard" tier wallets (total volume below Bronze threshold)
+export const RISING_STARS_WOW_GROWTH = `
+WITH total_volume AS (
+  SELECT
+    lower(from_address) AS wallet,
+    SUM(COALESCE(swap_vol_usd, 0)) AS total_vol
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address)
+  HAVING SUM(COALESCE(swap_vol_usd, 0)) < 10000
+),
+this_week AS (
+  SELECT
+    lower(from_address) AS wallet,
+    SUM(COALESCE(swap_vol_usd, 0)) AS vol_this_week
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+    AND l1_timestamp >= CURRENT_TIMESTAMP - INTERVAL '7' DAY
+  GROUP BY lower(from_address)
+),
+last_week AS (
+  SELECT
+    lower(from_address) AS wallet,
+    SUM(COALESCE(swap_vol_usd, 0)) AS vol_last_week
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+    AND l1_timestamp >= CURRENT_TIMESTAMP - INTERVAL '14' DAY
+    AND l1_timestamp < CURRENT_TIMESTAMP - INTERVAL '7' DAY
+  GROUP BY lower(from_address)
+)
+SELECT
+  t.wallet,
+  t.vol_this_week,
+  COALESCE(l.vol_last_week, 0) AS vol_last_week,
+  CASE
+    WHEN COALESCE(l.vol_last_week, 0) > 0
+    THEN ((t.vol_this_week - l.vol_last_week) / l.vol_last_week * 100)
+    ELSE 100
+  END AS wow_growth_pct
+FROM this_week t
+JOIN total_volume tv ON t.wallet = tv.wallet
+LEFT JOIN last_week l ON t.wallet = l.wallet
+WHERE t.vol_this_week > 0
+ORDER BY wow_growth_pct DESC
+LIMIT :limit
+`.trim()
+
+// Rising Stars: climbers (biggest absolute volume increase this week vs last)
+// Only includes "standard" tier wallets (total volume below Bronze threshold)
+export const RISING_STARS_CLIMBERS = `
+WITH total_volume AS (
+  SELECT
+    lower(from_address) AS wallet,
+    SUM(COALESCE(swap_vol_usd, 0)) AS total_vol
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+  GROUP BY lower(from_address)
+  HAVING SUM(COALESCE(swap_vol_usd, 0)) < 10000
+),
+this_week AS (
+  SELECT
+    lower(from_address) AS wallet,
+    SUM(COALESCE(swap_vol_usd, 0)) AS vol_this_week
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+    AND l1_timestamp >= CURRENT_TIMESTAMP - INTERVAL '7' DAY
+  GROUP BY lower(from_address)
+),
+last_week AS (
+  SELECT
+    lower(from_address) AS wallet,
+    SUM(COALESCE(swap_vol_usd, 0)) AS vol_last_week
+  FROM mevcommit_57173.processed_l1_txns_v2
+  WHERE is_swap = TRUE
+    AND l1_timestamp >= CURRENT_TIMESTAMP - INTERVAL '14' DAY
+    AND l1_timestamp < CURRENT_TIMESTAMP - INTERVAL '7' DAY
+  GROUP BY lower(from_address)
+)
+SELECT
+  t.wallet,
+  t.vol_this_week,
+  COALESCE(l.vol_last_week, 0) AS vol_last_week,
+  t.vol_this_week - COALESCE(l.vol_last_week, 0) AS vol_increase
+FROM this_week t
+JOIN total_volume tv ON t.wallet = tv.wallet
+LEFT JOIN last_week l ON t.wallet = l.wallet
+WHERE t.vol_this_week > 0
+ORDER BY vol_increase DESC
+LIMIT :limit
+`.trim()
+
+// Volume leaders: by largest single swap
+export const LEADERBOARD_BY_LARGEST_SWAP = `
+SELECT
+  lower(from_address) AS wallet,
+  MAX(COALESCE(swap_vol_usd, 0)) AS largest_swap_usd,
+  MAX(COALESCE(swap_vol_eth, 0)) AS largest_swap_eth,
+  COUNT(*) AS swap_count,
+  SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
+  SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth
+FROM mevcommit_57173.processed_l1_txns_v2
+WHERE is_swap = TRUE
+GROUP BY lower(from_address)
+HAVING MAX(COALESCE(swap_vol_usd, 0)) > 0
+ORDER BY largest_swap_usd DESC
+LIMIT :limit
+`.trim()
+
 // Users domain
 export const GET_USER_SWAP_VOLUME = `
 SELECT
@@ -334,6 +546,18 @@ export const QUERIES = {
   "leaderboard/user-data": LEADERBOARD_USER_DATA,
   "leaderboard/user-rank": LEADERBOARD_USER_RANK,
   "leaderboard/next-rank-threshold": LEADERBOARD_NEXT_RANK_THRESHOLD,
+
+  // Volume leaders
+  "leaderboard/by-largest-swap": LEADERBOARD_BY_LARGEST_SWAP,
+
+  // Efficiency leaders
+  "leaderboard/by-txs-per-day": EFFICIENCY_BY_TXS_PER_DAY,
+  "leaderboard/by-streak": EFFICIENCY_BY_STREAK,
+
+  // Rising stars
+  "leaderboard/rising-new-users": RISING_STARS_NEW_USERS,
+  "leaderboard/rising-wow-growth": RISING_STARS_WOW_GROWTH,
+  "leaderboard/rising-climbers": RISING_STARS_CLIMBERS,
 
   // Users domain
   "users/get-user-swap-volume": GET_USER_SWAP_VOLUME,
