@@ -181,7 +181,9 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
           <Dialog open={showNoLiquidityInfo} onOpenChange={setShowNoLiquidityInfo}>
             <DialogContent className="bg-[#0d1117] border-white/10 max-w-md">
               <DialogHeader>
-                <DialogTitle className="text-white">Why can&#39;t this trade be completed?</DialogTitle>
+                <DialogTitle className="text-white">
+                  Why can&#39;t this trade be completed?
+                </DialogTitle>
                 <DialogDescription asChild>
                   <div className="text-gray-400 text-sm space-y-3 pt-2">
                     <p>
@@ -191,7 +193,9 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
                       <li>There is no liquidity pool for this token pair on this network.</li>
                       <li>A pool exists but has no liquidity at the current price range.</li>
                       <li>No multi-hop route could be found between these two tokens.</li>
-                      <li>The RPC endpoint used to fetch quotes is unreachable or returning errors.</li>
+                      <li>
+                        The RPC endpoint used to fetch quotes is unreachable or returning errors.
+                      </li>
                       <li>Quote requests timed out before a response was received.</li>
                     </ul>
                     <p className="text-gray-300 font-medium pt-1">Next steps</p>
@@ -199,7 +203,9 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
                       <li>Edit your input amount to trigger a fresh quote.</li>
                       <li>Check your internet and RPC connection.</li>
                       <li>Try a different token pair.</li>
-                      <li>Check back later &mdash; liquidity and network conditions change frequently.</li>
+                      <li>
+                        Check back later &mdash; liquidity and network conditions change frequently.
+                      </li>
                     </ul>
                   </div>
                 </DialogDescription>
