@@ -4,6 +4,13 @@ import React, { useEffect, useState } from "react"
 // UI Components
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { useAccount } from "wagmi"
 
@@ -49,6 +56,7 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
   const { status } = useAccount()
   const { isPreApproved, isLoading: isWhitelistLoading } = useGateStatus()
   const [connectionSettled, setConnectionSettled] = useState(false)
+  const [showNoLiquidityInfo, setShowNoLiquidityInfo] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setConnectionSettled(true), CONNECTION_SETTLE_MS)
@@ -156,12 +164,49 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
         </Button>
       ) : hasNoLiquidity ? (
         // Case: No Uniswap pool / route exists for this pair
-        <Button
-          disabled
-          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-white/10 text-gray-500 cursor-not-allowed"
-        >
-          This trade cannot be completed right now
-        </Button>
+        <>
+          <Button
+            disabled
+            className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-white/10 text-gray-500 cursor-not-allowed"
+          >
+            This trade cannot be completed right now
+          </Button>
+          <button
+            type="button"
+            onClick={() => setShowNoLiquidityInfo(true)}
+            className="w-full mt-2 text-xs text-gray-500 hover:text-gray-300 transition-colors cursor-pointer"
+          >
+            Why am I seeing this?
+          </button>
+          <Dialog open={showNoLiquidityInfo} onOpenChange={setShowNoLiquidityInfo}>
+            <DialogContent className="bg-[#0d1117] border-white/10 max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-white">Why can&#39;t this trade be completed?</DialogTitle>
+                <DialogDescription asChild>
+                  <div className="text-gray-400 text-sm space-y-3 pt-2">
+                    <p>
+                      This swap cannot be routed right now. This can happen for several reasons:
+                    </p>
+                    <ul className="list-disc pl-4 space-y-1.5">
+                      <li>There is no liquidity pool for this token pair on this network.</li>
+                      <li>A pool exists but has no liquidity at the current price range.</li>
+                      <li>No multi-hop route could be found between these two tokens.</li>
+                      <li>The RPC endpoint used to fetch quotes is unreachable or returning errors.</li>
+                      <li>Quote requests timed out before a response was received.</li>
+                    </ul>
+                    <p className="text-gray-300 font-medium pt-1">Next steps</p>
+                    <ul className="list-disc pl-4 space-y-1.5">
+                      <li>Edit your input amount to trigger a fresh quote.</li>
+                      <li>Check your internet and RPC connection.</li>
+                      <li>Try a different token pair.</li>
+                      <li>Check back later &mdash; liquidity and network conditions change frequently.</li>
+                    </ul>
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+            </DialogContent>
+          </Dialog>
+        </>
       ) : barterAmountTooSmall ? (
         // Case: Amount too small for Barter to route within max slippage
         <Button

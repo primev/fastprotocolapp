@@ -8,6 +8,8 @@ export const FEATURE_FLAGS = {
   swapPrivateMode: true,
   /** When true, show estimated Fast Miles earned on the swap form and confirmation modal. */
   show_miles_estimate: true,
+  /** When true, the quote hook always returns no liquidity, forcing the "This trade cannot be completed right now" button and "Why am I seeing this?" explainer link to appear for any token pair. Set to false for production. */
+  test_no_liquidity: false,
 }
 
 /** Placeholder data for SwapToast test mode (ETH → USDC) */

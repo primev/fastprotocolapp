@@ -8,6 +8,7 @@ import { sanitizeAmountInput, formatTokenAmount } from "@/lib/utils"
 import { isStablecoin } from "@/lib/stablecoins"
 import { resolveTokenAddress, resolveTokenDecimals, getTokenSymbol } from "@/lib/token-resolver"
 import type { Token } from "@/types/swap"
+import { FEATURE_FLAGS } from "@/lib/feature-flags"
 
 // Uniswap V3 Quoter V2 on Ethereum mainnet
 const QUOTER_V2_ADDRESS = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e" as const
@@ -1171,6 +1172,11 @@ export function useQuote({
       }
     }
   }, [])
+
+  // Test mode: force no-liquidity state so the explainer UI can be verified
+  if (FEATURE_FLAGS.test_no_liquidity) {
+    return { quote: null, isLoading: false, error: null, noLiquidity: true, refetch }
+  }
 
   return {
     quote,
