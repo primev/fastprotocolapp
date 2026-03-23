@@ -182,21 +182,21 @@ function BuyReceiveValue({ value, className }: { value: string; className?: stri
 function SwapConfirmationModal({
   open,
   onOpenChange,
-  tokenIn,
-  tokenOut,
-  amountIn,
-  amountOut,
-  minAmountOut,
-  slippageLimitFormatted,
-  isMaxIn = false,
-  exchangeRate,
-  priceImpact,
-  slippage,
-  deadline,
-  gasEstimate,
-  ethPrice,
-  fromTokenPrice,
-  toTokenPrice,
+  tokenIn: tokenInLive,
+  tokenOut: tokenOutLive,
+  amountIn: amountInLive,
+  amountOut: amountOutLive,
+  minAmountOut: minAmountOutLive,
+  slippageLimitFormatted: slippageLimitFormattedLive,
+  isMaxIn: isMaxInLive = false,
+  exchangeRate: exchangeRateLive,
+  priceImpact: priceImpactLive,
+  slippage: slippageLive,
+  deadline: deadlineLive,
+  gasEstimate: gasEstimateLive,
+  ethPrice: ethPriceLive,
+  fromTokenPrice: fromTokenPriceLive,
+  toTokenPrice: toTokenPriceLive,
   timeLeft,
   isLoading = false,
   refreshBalances,
@@ -208,12 +208,78 @@ function SwapConfirmationModal({
   approvalTxHash,
   onApprove,
   approveTokenSymbol,
-  estimatedMiles,
+  estimatedMiles: estimatedMilesLive,
   onRetryWithSlippage,
   autoExecute = false,
   onAutoExecuteConsumed,
   externalError,
 }: SwapConfirmationModalProps) {
+  // Snapshot quote-dependent values when the modal opens so they stay static
+  // during the review — live quote refreshes should not shift the numbers.
+  // We use a ref + synchronous assignment (not useEffect) so the snapshot is
+  // available on the very first render when `open` flips to true.
+  const snapshotRef = useRef<{
+    tokenIn: Token | undefined
+    tokenOut: Token | undefined
+    amountIn: string
+    amountOut: string
+    minAmountOut: string
+    slippageLimitFormatted: string
+    isMaxIn: boolean
+    exchangeRate: number
+    priceImpact: number
+    slippage: string
+    deadline: number
+    gasEstimate: bigint | null
+    ethPrice: number | undefined
+    fromTokenPrice: number | null | undefined
+    toTokenPrice: number | null | undefined
+    estimatedMiles: number | null | undefined
+  } | null>(null)
+  const wasOpenRef = useRef(open)
+
+  if (open && !wasOpenRef.current) {
+    // Modal just opened — capture current values
+    snapshotRef.current = {
+      tokenIn: tokenInLive,
+      tokenOut: tokenOutLive,
+      amountIn: amountInLive,
+      amountOut: amountOutLive,
+      minAmountOut: minAmountOutLive,
+      slippageLimitFormatted: slippageLimitFormattedLive,
+      isMaxIn: isMaxInLive,
+      exchangeRate: exchangeRateLive,
+      priceImpact: priceImpactLive,
+      slippage: slippageLive,
+      deadline: deadlineLive,
+      gasEstimate: gasEstimateLive,
+      ethPrice: ethPriceLive,
+      fromTokenPrice: fromTokenPriceLive,
+      toTokenPrice: toTokenPriceLive,
+      estimatedMiles: estimatedMilesLive,
+    }
+  } else if (!open && wasOpenRef.current) {
+    // Modal just closed — clear snapshot
+    snapshotRef.current = null
+  }
+  wasOpenRef.current = open
+
+  const tokenIn = snapshotRef.current?.tokenIn ?? tokenInLive
+  const tokenOut = snapshotRef.current?.tokenOut ?? tokenOutLive
+  const amountIn = snapshotRef.current?.amountIn ?? amountInLive
+  const amountOut = snapshotRef.current?.amountOut ?? amountOutLive
+  const minAmountOut = snapshotRef.current?.minAmountOut ?? minAmountOutLive
+  const slippageLimitFormatted = snapshotRef.current?.slippageLimitFormatted ?? slippageLimitFormattedLive
+  const isMaxIn = snapshotRef.current?.isMaxIn ?? isMaxInLive
+  const exchangeRate = snapshotRef.current?.exchangeRate ?? exchangeRateLive
+  const priceImpact = snapshotRef.current?.priceImpact ?? priceImpactLive
+  const slippage = snapshotRef.current?.slippage ?? slippageLive
+  const deadline = snapshotRef.current?.deadline ?? deadlineLive
+  const gasEstimate = snapshotRef.current?.gasEstimate ?? gasEstimateLive
+  const ethPrice = snapshotRef.current?.ethPrice ?? ethPriceLive
+  const fromTokenPrice = snapshotRef.current?.fromTokenPrice ?? fromTokenPriceLive
+  const toTokenPrice = snapshotRef.current?.toTokenPrice ?? toTokenPriceLive
+  const estimatedMiles = snapshotRef.current?.estimatedMiles ?? estimatedMilesLive
   // --- EXTERNAL HOOKS ---
   const { chain: signerChain, isConnected } = useAccount()
 
