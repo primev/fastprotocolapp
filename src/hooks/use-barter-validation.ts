@@ -98,9 +98,9 @@ export function useBarterValidation({
 
         setAmountTooSmall(shortfall > MAX_SLIPPAGE_PCT)
       } catch {
-        if (currentRequest === requestIdRef.current) {
-          setAmountTooSmall(true)
-        }
+        // Network errors should NOT flip the flag — keep whatever state we
+        // had before so the UI doesn't flicker "swap too small" on transient
+        // failures.  The next successful validation will set the correct value.
       } finally {
         if (currentRequest === requestIdRef.current) {
           setSettled(true)
