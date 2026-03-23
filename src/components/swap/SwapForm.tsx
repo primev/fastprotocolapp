@@ -60,12 +60,37 @@ export function SwapForm() {
   const estimatedMiles = FEATURE_FLAGS.show_miles_estimate ? rawEstimatedMiles : null
 
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
+  const [autoExecuteSwap, setAutoExecuteSwap] = useState(false)
   const lastTxError = useSwapToastStore((s) => s.lastTxError)
+  const retrySlippage = useSwapToastStore((s) => s.retrySlippage)
+  const clearRetrySlippage = useSwapToastStore((s) => s.clearRetrySlippage)
 
   // Reopen confirmation modal when a tx fails after submit (e.g. status 0x0)
   useEffect(() => {
     if (lastTxError) setIsConfirmationOpen(true)
   }, [lastTxError])
+
+  // Barter slippage retry: update slippage, fetch fresh quote, then auto-execute
+  const [pendingRetry, setPendingRetry] = useState(false)
+
+  useEffect(() => {
+    if (retrySlippage) {
+      form.updateSlippage(retrySlippage)
+      clearRetrySlippage()
+      setIsConfirmationOpen(false)
+      setPendingRetry(true)
+      form.refetchQuote()
+    }
+  }, [retrySlippage, clearRetrySlippage, form])
+
+  // Wait for fresh quote to arrive before opening modal with auto-execute
+  useEffect(() => {
+    if (pendingRetry && !form.isQuoteLoading) {
+      setPendingRetry(false)
+      setAutoExecuteSwap(true)
+      requestAnimationFrame(() => setIsConfirmationOpen(true))
+    }
+  }, [pendingRetry, form.isQuoteLoading])
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isFromSelectorOpen, setIsFromSelectorOpen] = useState(false)
   const [isToSelectorOpen, setIsToSelectorOpen] = useState(false)
@@ -174,6 +199,8 @@ export function SwapForm() {
         isWrap={form.isWrap || false}
         isUnwrap={form.isUnwrap || false}
         hasNoLiquidity={form.hasNoLiquidity}
+        barterAmountTooSmall={form.barterAmountTooSmall}
+        isBarterValidating={form.isBarterValidating}
         estimatedMiles={estimatedMiles}
       />
 
@@ -261,6 +288,8 @@ export function SwapForm() {
             setIsConfirmationOpen(false)
             requestAnimationFrame(() => setIsConfirmationOpen(true))
           }}
+          autoExecute={autoExecuteSwap}
+          onAutoExecuteConsumed={() => setAutoExecuteSwap(false)}
         />
       )}
     </div>

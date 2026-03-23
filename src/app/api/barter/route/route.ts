@@ -36,7 +36,6 @@ export async function POST(request: NextRequest) {
     })
 
     const data = await resp.json()
-    console.log("barter data", data)
 
     if (!resp.ok) {
       const msg = data?.error ?? data?.message ?? `Barter API error (${resp.status})`

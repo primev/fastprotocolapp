@@ -7,40 +7,26 @@ import { getAnalyticsClient } from "@/lib/analytics/client"
 // ---------------------------------------------------------------------------
 
 /**
- * Number of recent swap transaction hashes to sample from the analytics DB.
- *
- * We fetch receipts individually via RPC (the analytics DB doesn't store gas
- * data), so this controls the trade-off between accuracy and RPC call volume.
- * 200 gives a statistically meaningful sample while keeping the cron execution
- * well under Vercel's 60-second function timeout.
+ * Number of recent L1 swap transaction hashes to sample from the analytics DB.
+ * Controls the trade-off between accuracy and Alchemy RPC call volume.
  */
 const SAMPLE_SIZE = 200
 
-/**
- * Timeout per individual RPC receipt fetch (ms).
- * Matches the timeout used in `transaction-receipt-utils.ts`.
- */
+/** Timeout per individual Alchemy RPC receipt fetch (ms). */
 const RPC_TIMEOUT_MS = 5_000
 
 /**
- * How many RPC receipt requests to run concurrently.
- * Keeps us from overwhelming the FastRPC endpoint while still finishing
- * quickly.  At 20 concurrent × 5s max timeout ≈ worst-case ~50s for 200 txns.
+ * How many Alchemy RPC receipt requests to run concurrently.
+ * Alchemy free tier allows ~25 CU/s; each getTransactionReceipt is 15 CU,
+ * so 5 concurrent keeps us safely under the limit.
  */
-const RPC_CONCURRENCY = 20
+const RPC_CONCURRENCY = 5
 
 /**
- * Fallback value if we can't compute a real average (no data, RPC failures,
- * etc.).  Matches the current hardcoded FAST_SWAP_AVG_GAS in
- * `use-estimated-miles.ts` so the miles formula remains consistent.
+ * Fallback value if we can't compute a real average.
+ * Matches the current hardcoded FAST_SWAP_AVG_GAS in `use-estimated-miles.ts`.
  */
 const FALLBACK_GAS_AVERAGE = 450_000
-
-/**
- * FastRPC endpoint for fetching transaction receipts.
- * Same endpoint used in `transaction-receipt-utils.ts`.
- */
-const RPC_URL = "https://fastrpc.mev-commit.xyz"
 
 // ---------------------------------------------------------------------------
 // Auth helper
@@ -78,27 +64,42 @@ function isAuthorised(request: Request): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// RPC helpers
+// Alchemy RPC helpers
 // ---------------------------------------------------------------------------
 
 /**
- * Fetches the `gasUsed` field from a single transaction receipt via JSON-RPC.
- *
- * Returns `null` on any failure (timeout, not found, malformed response) so
- * the caller can simply filter out nulls without aborting the whole batch.
- *
- * ### Why not reuse `fetchTransactionReceiptFromDb`?
- * That utility converts the full receipt into a viem `TransactionReceipt`
- * (with BigInt fields, logs, etc.) — far more work than we need here.  We
- * only need the `gasUsed` hex string, so a lightweight fetch is faster and
- * avoids importing viem in a server-only route.
+ * Builds the Alchemy Ethereum mainnet RPC URL from the environment.
+ * Falls back to undefined if the key isn't set, which the caller handles.
  */
-async function fetchGasUsed(txHash: string): Promise<number | null> {
+function getAlchemyRpcUrl(): string {
+  const key = process.env.ALCHEMY_API_KEY
+  if (!key) {
+    throw new Error("ALCHEMY_API_KEY is not configured")
+  }
+  return `https://eth-mainnet.g.alchemy.com/v2/${key}`
+}
+
+/**
+ * Receipt data extracted from an L1 transaction receipt.
+ */
+type ReceiptData = {
+  gasUsed: number
+  effectiveGasPrice: number
+}
+
+/**
+ * Fetches `gasUsed` and `effectiveGasPrice` from a single L1 transaction
+ * receipt via Alchemy.
+ *
+ * Returns `null` on any failure (timeout, not found, malformed response)
+ * so the caller can filter out nulls without aborting the whole batch.
+ */
+async function fetchReceipt(rpcUrl: string, txHash: string): Promise<ReceiptData | null> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS)
 
   try {
-    const response = await fetch(RPC_URL, {
+    const response = await fetch(rpcUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -115,19 +116,20 @@ async function fetchGasUsed(txHash: string): Promise<number | null> {
     const data = await response.json()
 
     /**
-     * `data.result` is null when the RPC node hasn't indexed the tx yet.
-     * `data.result.gasUsed` is a hex string like "0x6ddd0".
+     * `data.result.gasUsed` and `data.result.effectiveGasPrice` are hex strings.
+     * Gas values for individual transactions fit within JS safe integer range.
      */
     const gasUsedHex: string | undefined = data?.result?.gasUsed
-    if (!gasUsedHex) return null
+    const effectiveGasPriceHex: string | undefined = data?.result?.effectiveGasPrice
+    if (!gasUsedHex || !effectiveGasPriceHex) return null
 
-    /**
-     * Parse the hex string to a plain number.  Gas values for individual
-     * transactions fit comfortably within JS's safe integer range (2^53),
-     * so Number() is fine here — no BigInt needed.
-     */
     const gasUsed = Number(gasUsedHex)
-    return Number.isFinite(gasUsed) && gasUsed > 0 ? gasUsed : null
+    const effectiveGasPrice = Number(effectiveGasPriceHex)
+
+    if (!Number.isFinite(gasUsed) || gasUsed <= 0) return null
+    if (!Number.isFinite(effectiveGasPrice) || effectiveGasPrice <= 0) return null
+
+    return { gasUsed, effectiveGasPrice }
   } catch {
     clearTimeout(timeoutId)
     return null
@@ -135,23 +137,20 @@ async function fetchGasUsed(txHash: string): Promise<number | null> {
 }
 
 /**
- * Fetches gas usage for a batch of transaction hashes with bounded concurrency.
+ * Fetches receipts for a batch of L1 transaction hashes with bounded
+ * concurrency against Alchemy.
  *
- * Uses a simple semaphore pattern rather than a library:  we chunk the array
- * into groups of `RPC_CONCURRENCY` and await each group before starting the
- * next.  This keeps inflight requests capped without external dependencies.
- *
- * @returns Array of gasUsed numbers (nulls filtered out).
+ * @returns Array of ReceiptData (nulls filtered out).
  */
-async function batchFetchGasUsed(hashes: string[]): Promise<number[]> {
-  const results: number[] = []
+async function batchFetchReceipts(rpcUrl: string, hashes: string[]): Promise<ReceiptData[]> {
+  const results: ReceiptData[] = []
 
   for (let i = 0; i < hashes.length; i += RPC_CONCURRENCY) {
     const chunk = hashes.slice(i, i + RPC_CONCURRENCY)
-    const chunkResults = await Promise.all(chunk.map(fetchGasUsed))
+    const chunkResults = await Promise.all(chunk.map((h) => fetchReceipt(rpcUrl, h)))
 
-    for (const gas of chunkResults) {
-      if (gas !== null) results.push(gas)
+    for (const r of chunkResults) {
+      if (r !== null) results.push(r)
     }
   }
 
@@ -163,100 +162,123 @@ async function batchFetchGasUsed(hashes: string[]): Promise<number[]> {
 // ---------------------------------------------------------------------------
 
 /**
- * Computes the average gas used by recent FastSwap transactions.
+ * Computes the average gas used by recent FastSwap transactions on Ethereum L1.
  *
  * ### Pipeline
- * 1. Query the analytics DB for the most recent `SAMPLE_SIZE` confirmed swap
- *    transaction hashes (cross-referencing `mctransactions_sr` with
- *    `processed_l1_txns_v2` to ensure we only sample actual swaps).
- * 2. Batch-fetch each transaction's receipt from the FastRPC endpoint.
- * 3. Extract `gasUsed` from each receipt and compute the arithmetic mean.
+ * 1. Query the analytics DB (`processed_l1_txns_v2`) for the most recent
+ *    L1 swap transaction hashes, ordered by timestamp descending.
+ * 2. Batch-fetch each transaction's receipt from Alchemy's Ethereum mainnet
+ *    RPC to extract `gasUsed`.
+ * 3. Compute the arithmetic mean.
  *
  * ### Why this two-step approach?
- * The analytics database stores swap metadata (volume, addresses, timestamps)
- * but does **not** store gas data.  Gas usage is only available in the
- * on-chain transaction receipt, which we must fetch from the RPC node.
+ * The analytics database stores L1 swap metadata (volume, addresses, timestamps)
+ * but does **not** store L1 gas data.  The `receipts` table in the DB contains
+ * mev-commit chain (57173) receipts, not Ethereum L1 receipts.  L1 gas usage
+ * is only available via an Ethereum RPC node.
  *
  * ### Why a number (not bigint)?
  * Edge Config preserves JSON types.  Storing the value as a raw `number`
  * means the read side (`get<number>("miles_estimate_gas_limit_average")`)
- * receives a `number` directly — no `parseInt` / `parseFloat` needed.
- * This is consistent with how `tx_confirmation_timeout_ms` is stored.
- * Individual gas values are well within JS's safe integer range.
+ * receives a `number` directly — no parsing needed.
  *
  * @returns The average gas used as a plain integer, or FALLBACK_GAS_AVERAGE
  *          if insufficient data is available.
  */
 async function getMonthlyGasAverage(): Promise<number> {
+  const rpcUrl = getAlchemyRpcUrl()
   const client = getAnalyticsClient()
 
   /**
-   * Step 1 — Fetch recent swap transaction hashes from the analytics DB.
+   * Step 1 — Fetch recent L1 swap transaction hashes from the analytics DB.
    *
-   * The query joins `mctransactions_sr` (which has the tx hash and
-   * confirmation status) with `processed_l1_txns_v2` (which flags swaps)
-   * to return only confirmed swap hashes, ordered by most recent block.
+   * Uses `processed_l1_txns_v2.l1_tx_hash` (without 0x prefix in DB, we
+   * prepend it in the query) ordered by `l1_timestamp DESC` to get the
+   * most recent swaps.
    */
-  const rows = await client.execute(
-    "gas/get-recent-swap-tx-hashes",
-    { limit: SAMPLE_SIZE },
-    {
-      /**
-       * Use the `default` catalog because the query cross-joins tables from
-       * both `pg_mev_commit_fastrpc` and `mevcommit_57173` — the default
-       * catalog's Trino/Presto engine can reach both via federated queries.
-       */
-      catalog: "default",
-      timeout: 30_000,
-    }
-  )
+  const rows = await client.execute("l1/get-recent-swap-tx-hashes", { limit: SAMPLE_SIZE })
 
   if (rows.length === 0) {
     console.warn(
-      "[cron/miles-estimate-gas] No swap transaction hashes returned from analytics DB — using fallback"
+      "[cron/miles-estimate-gas] No L1 swap tx hashes returned from analytics DB — using fallback"
     )
     return FALLBACK_GAS_AVERAGE
   }
 
   /**
-   * Each row is a single-element array: [hash].
-   * Hashes from `mctransactions_sr` already include the `0x` prefix.
+   * Each row is a single-element array: [tx_hash].
+   * The query prepends '0x' so hashes are ready for RPC calls.
    */
   const hashes = rows
     .map((row) => row[0] as string)
     .filter((h) => typeof h === "string" && h.startsWith("0x"))
 
   console.log(
-    `[cron/miles-estimate-gas] Fetched ${hashes.length} swap tx hashes, fetching receipts…`
+    `[cron/miles-estimate-gas] Fetched ${hashes.length} L1 swap tx hashes, fetching receipts from Alchemy…`
   )
 
   /**
-   * Step 2 — Batch-fetch gasUsed from RPC receipts.
+   * Step 2 — Batch-fetch receipts (gasUsed + effectiveGasPrice) from Alchemy.
    */
-  const gasValues = await batchFetchGasUsed(hashes)
+  const receipts = await batchFetchReceipts(rpcUrl, hashes)
 
-  if (gasValues.length === 0) {
-    console.warn(
-      "[cron/miles-estimate-gas] No valid gasUsed values retrieved from RPC — using fallback"
-    )
+  if (receipts.length === 0) {
+    console.warn("[cron/miles-estimate-gas] No valid receipts from Alchemy — using fallback")
     return FALLBACK_GAS_AVERAGE
   }
 
   /**
-   * Step 3 — Compute the arithmetic mean and round to an integer.
+   * Step 3 — Compute per-tx costs and log the full breakdown.
    *
-   * We use Math.round (not Math.floor) because this is an average — rounding
-   * to nearest is more accurate than always rounding down.
+   * effectiveGasPrice = baseFeePerGas + priorityFeePerGas (in wei).
+   * totalCost = gasUsed × effectiveGasPrice (in wei, logged in gwei).
    */
-  const sum = gasValues.reduce((acc, g) => acc + g, 0)
-  const average = Math.round(sum / gasValues.length)
+  const txData = receipts.map((r) => ({
+    gasUsed: r.gasUsed,
+    effectiveGasPrice: r.effectiveGasPrice,
+    totalCost: r.gasUsed * r.effectiveGasPrice,
+  }))
 
+  // Per-tx breakdown
+  console.log(`[cron/miles-estimate-gas] Per-tx breakdown (${txData.length} txs):`)
+  for (let i = 0; i < txData.length; i++) {
+    const t = txData[i]
+    console.log(
+      `  tx ${String(i + 1).padStart(3)}: ` +
+        `gasUsed=${t.gasUsed.toLocaleString().padStart(10)}  ` +
+        `effectiveGasPrice=${(t.effectiveGasPrice / 1e9).toFixed(4).padStart(10)} gwei  ` +
+        `totalCost=${(t.totalCost / 1e9).toFixed(4).padStart(18)} gwei`
+    )
+  }
+
+  // gasUsed stats
+  const gasValues = txData.map((t) => t.gasUsed).sort((a, b) => a - b)
+  const gasAvg = Math.round(gasValues.reduce((a, g) => a + g, 0) / gasValues.length)
   console.log(
-    `[cron/miles-estimate-gas] Computed gas average: ${average} ` +
-      `(from ${gasValues.length}/${hashes.length} successful receipt fetches)`
+    `[cron/miles-estimate-gas] gasUsed — min: ${gasValues[0].toLocaleString()}  median: ${gasValues[Math.floor(gasValues.length / 2)].toLocaleString()}  mean: ${gasAvg.toLocaleString()}  max: ${gasValues[gasValues.length - 1].toLocaleString()}`
   )
 
-  return average
+  // effectiveGasPrice stats
+  const gasPrices = txData.map((t) => t.effectiveGasPrice).sort((a, b) => a - b)
+  const gpAvg = Math.round(gasPrices.reduce((a, f) => a + f, 0) / gasPrices.length)
+  console.log(
+    `[cron/miles-estimate-gas] effectiveGasPrice — min: ${(gasPrices[0] / 1e9).toFixed(4)} gwei  median: ${(gasPrices[Math.floor(gasPrices.length / 2)] / 1e9).toFixed(4)} gwei  mean: ${(gpAvg / 1e9).toFixed(4)} gwei  max: ${(gasPrices[gasPrices.length - 1] / 1e9).toFixed(4)} gwei`
+  )
+
+  // totalCost stats
+  const costs = txData.map((t) => t.totalCost).sort((a, b) => a - b)
+  const costAvg = Math.round(costs.reduce((a, c) => a + c, 0) / costs.length)
+  console.log(
+    `[cron/miles-estimate-gas] totalCost (gasUsed × effectiveGasPrice) — min: ${(costs[0] / 1e9).toFixed(4)} gwei  median: ${(costs[Math.floor(costs.length / 2)] / 1e9).toFixed(4)} gwei  mean: ${(costAvg / 1e9).toFixed(4)} gwei  max: ${(costs[costs.length - 1] / 1e9).toFixed(4)} gwei`
+  )
+  console.log(`[cron/miles-estimate-gas] totalCost mean in ETH: ${(costAvg / 1e18).toFixed(8)} ETH`)
+
+  console.log(
+    `[cron/miles-estimate-gas] Result: gasUsed average = ${gasAvg} ` +
+      `(from ${receipts.length}/${hashes.length} successful receipt fetches)`
+  )
+
+  return gasAvg
 }
 
 // ---------------------------------------------------------------------------
@@ -269,8 +291,9 @@ async function getMonthlyGasAverage(): Promise<number> {
  * Vercel Cron invokes route handlers via GET.  This endpoint:
  *
  * 1. Authenticates the caller using `CRON_SECRET`.
- * 2. Fetches the latest monthly gas average from on-chain data.
- * 3. Writes (updates) the `miles_estimate_gas_limit_average` key in the
+ * 2. Queries the analytics DB for recent L1 swap tx hashes, then fetches
+ *    their receipts from Alchemy to compute the average gasUsed.
+ * 3. Writes (upserts) the `miles_estimate_gas_limit_average` key in the
  *    project's Edge Config store via the Vercel REST API.
  * 4. Returns a JSON summary of the result.
  *

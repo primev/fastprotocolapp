@@ -35,8 +35,8 @@ export function parseBarterSlippageError(message: string): {
 
   // Required slippage = how far barterMinReturn falls short of the original quote
   const requiredSlippagePct = ((amountOut - barterMinReturn) / amountOut) * 100
-  // Round up to nearest 0.1%, add 0.1% safety buffer, cap at 2.0%
-  const recommended = Math.min(2.0, Math.ceil(requiredSlippagePct * 10) / 10 + 0.1)
+  // Round up to nearest 0.1%, add 0.5% safety buffer, cap at 2.0%
+  const recommended = Math.min(2.0, Math.ceil(requiredSlippagePct * 10) / 10 + 0.5)
   return { barterMinReturn, userRequired, recommendedSlippage: recommended.toFixed(1) }
 }
 

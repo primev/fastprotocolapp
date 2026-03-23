@@ -20,6 +20,8 @@ import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import { isStablecoin } from "@/lib/stablecoins"
 import { formatAmountByTokenType } from "@/lib/utils"
 import { useSwapSlippage } from "@/hooks/use-swap-slippage"
+import { useBarterValidation } from "@/hooks/use-barter-validation"
+import { usePageActive } from "@/hooks/use-page-active"
 import { Token } from "@/types/swap"
 import { DEFAULT_ETH_TOKEN } from "@/components/swap/TokenSelectorModal"
 
@@ -53,6 +55,7 @@ export function useSwapForm(allTokens: Token[]) {
   const [lastValidRate, setLastValidRate] = useState<string | null>(null)
   const [wrapUnwrapGasEstimate, setWrapUnwrapGasEstimate] = useState<bigint | null>(null)
 
+  const isPageActive = usePageActive()
   const prevConnectedRef = useRef<boolean | undefined>(undefined)
   const lastValidQuotePairKeyRef = useRef<string>("")
 
@@ -209,9 +212,12 @@ export function useSwapForm(allTokens: Token[]) {
   })
 
   // Keep lastValidQuotePairKeyRef in sync so the activeQuote memo can read it synchronously.
+  // Also bump quoteGeneration so Barter re-validates on every requote, even if amountOut is unchanged.
+  const [quoteGeneration, setQuoteGeneration] = useState(0)
   useEffect(() => {
     if (quote && !isQuoteLoading) {
       lastValidQuotePairKeyRef.current = pairKey
+      setQuoteGeneration((g) => g + 1)
     }
   }, [quote, isQuoteLoading, pairKey])
 
@@ -254,6 +260,49 @@ export function useSwapForm(allTokens: Token[]) {
     const limit = (displayQuote.amountOut * (10000n - slippageBps)) / 10000n
     return formatUnits(limit, toToken.decimals)
   }, [isWrapUnwrap, displayQuote, toToken, effectiveSlippage])
+
+  // Validate Barter can route this amount within 2% slippage.
+  // Skip when user has insufficient balance — no point quoting an unexecutable swap.
+  const hasSufficientBalance =
+    fromBalanceValue > 0 && parseFloat(amount?.replace(/,/g, "") || "0") <= fromBalanceValue
+  const { amountTooSmall: barterAmountTooSmall, isValidating: isBarterValidating } =
+    useBarterValidation({
+      fromToken,
+      toToken,
+      amountOut: displayQuote?.amountOut,
+      sellAmount: amount,
+      quoteGeneration,
+      enabled: !isWrapUnwrap && !!displayQuote && hasSufficientBalance,
+    })
+
+  // --- Minimum "Calculating..." display time ---
+  // The combined validating signal (quote loading OR barter validating) must stay true
+  // for at least 1.5s to prevent the swap button text from flickering.
+  const MIN_VALIDATING_DISPLAY_MS = 1500
+  const rawValidating = isBarterValidating || (isQuoteLoading && !isWrapUnwrap)
+  const [debouncedValidating, setDebouncedValidating] = useState(false)
+  const validatingSinceRef = useRef<number>(0)
+  const minDisplayTimerRef = useRef<ReturnType<typeof setTimeout>>()
+
+  useEffect(() => {
+    if (rawValidating) {
+      // Going true — show immediately, record timestamp
+      clearTimeout(minDisplayTimerRef.current)
+      setDebouncedValidating(true)
+      validatingSinceRef.current = Date.now()
+    } else if (debouncedValidating) {
+      // Going false — delay until minimum display time has elapsed
+      const elapsed = Date.now() - validatingSinceRef.current
+      const remaining = MIN_VALIDATING_DISPLAY_MS - elapsed
+      if (remaining > 0) {
+        minDisplayTimerRef.current = setTimeout(() => setDebouncedValidating(false), remaining)
+      } else {
+        setDebouncedValidating(false)
+      }
+    }
+    return () => clearTimeout(minDisplayTimerRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawValidating])
 
   // --- UI Content Generation ---
 
@@ -390,12 +439,25 @@ export function useSwapForm(allTokens: Token[]) {
     return () => clearTimeout(tid)
   }, [isWrapUnwrap, amount, address, isConnected, fromToken, toToken])
 
-  // --- Refresh Timer ---
+  // --- Refresh Timer (pauses when tab hidden or user idle) ---
   useEffect(() => {
-    if (isWrapUnwrap || !activeQuote || isSwitching) return
+    if (isWrapUnwrap || !activeQuote || isSwitching || !isPageActive) return
     const timer = setInterval(() => setTimeLeft((t) => (t > 0 ? t - 1 : 0)), 1000)
     return () => clearInterval(timer)
-  }, [activeQuote, isSwitching, isWrapUnwrap])
+  }, [activeQuote, isSwitching, isWrapUnwrap, isPageActive])
+
+  // When user returns from inactive state, refetch immediately
+  const wasActiveRef = useRef(isPageActive)
+  useEffect(() => {
+    const wasActive = wasActiveRef.current
+    wasActiveRef.current = isPageActive
+
+    if (isPageActive && !wasActive && activeQuote && !isWrapUnwrap) {
+      setIsManualInversion(false)
+      setSwappedQuote(null)
+      refetch().then(() => setTimeLeft(15))
+    }
+  }, [isPageActive, activeQuote, isWrapUnwrap, refetch])
 
   useEffect(() => {
     if (timeLeft === 0 && !isQuoteLoading) {
@@ -436,6 +498,7 @@ export function useSwapForm(allTokens: Token[]) {
     computedMinAmountOut,
     isQuoteLoading,
     quoteError,
+    refetchQuote: refetch,
     timeLeft,
     exchangeRateContent,
     exchangeRateValue,
@@ -448,6 +511,8 @@ export function useSwapForm(allTokens: Token[]) {
     swappedQuote,
     setSwappedQuote,
     hasNoLiquidity,
+    barterAmountTooSmall,
+    isBarterValidating: debouncedValidating,
     gasEstimate: isWrapUnwrap ? wrapUnwrapGasEstimate : (displayQuote?.gasEstimate ?? null),
     ethPrice: ethPrice ?? null,
     setClearSwapState,

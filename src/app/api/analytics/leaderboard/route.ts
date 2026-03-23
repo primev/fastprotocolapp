@@ -52,8 +52,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cachedData)
     }
 
-    // Get main leaderboard (top 15)
-    const leaderboardRows = await getLeaderboard(15)
+    // Get main leaderboard (top 100 for client-side tier filtering)
+    const leaderboardRows = await getLeaderboard(100)
 
     // Transform leaderboard rows (USD from DB columns)
     // useTotalVolume=true means we use total_swap_vol_usd
@@ -142,7 +142,11 @@ export async function GET(request: NextRequest) {
     // Cache the response
     setCachedData(cacheKey, responseData)
 
-    return NextResponse.json(responseData)
+    return NextResponse.json(responseData, {
+      headers: {
+        "Cache-Control": "public, s-maxage=10, stale-while-revalidate=5",
+      },
+    })
   } catch (error) {
     console.error("Error fetching leaderboard:", error)
 

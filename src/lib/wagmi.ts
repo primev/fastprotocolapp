@@ -13,7 +13,7 @@ import { createConfig, http, fallback, createConnector } from "wagmi"
 import { mainnet, bsc, hyperliquid } from "wagmi/chains"
 import { mock } from "wagmi/connectors"
 
-const WHALE_WALLET_ADDRESS = "0x1da9c87e4a1a7487279dad2050579f4790583afe"
+const WHALE_WALLET_ADDRESS = "0x40B38765696e3d5d8d9d834D8AaD4bB6e418E489"
 
 // Minimal 32x32 placeholder icon (data URI) so we don't depend on external URLs
 const MOCK_ICON =
