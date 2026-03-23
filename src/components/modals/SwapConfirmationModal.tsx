@@ -269,7 +269,8 @@ function SwapConfirmationModal({
   const amountIn = snapshotRef.current?.amountIn ?? amountInLive
   const amountOut = snapshotRef.current?.amountOut ?? amountOutLive
   const minAmountOut = snapshotRef.current?.minAmountOut ?? minAmountOutLive
-  const slippageLimitFormatted = snapshotRef.current?.slippageLimitFormatted ?? slippageLimitFormattedLive
+  const slippageLimitFormatted =
+    snapshotRef.current?.slippageLimitFormatted ?? slippageLimitFormattedLive
   const isMaxIn = snapshotRef.current?.isMaxIn ?? isMaxInLive
   const exchangeRate = snapshotRef.current?.exchangeRate ?? exchangeRateLive
   const priceImpact = snapshotRef.current?.priceImpact ?? priceImpactLive
