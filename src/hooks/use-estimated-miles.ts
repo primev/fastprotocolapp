@@ -18,6 +18,18 @@ const DEFAULT_AVG_GAS = 450_000n
 const USER_MEV_SHARE = 0.9
 /** 100,000 miles per 1 ETH (0.00001 ETH per mile) */
 const MILES_PER_ETH = 100_000
+/** Fallback percentile for priority fee estimation */
+const DEFAULT_FEE_PERCENTILE = 55
+/** Module-level percentile, fetched once on page load */
+let feePercentile = DEFAULT_FEE_PERCENTILE
+fetch("/api/config/fee-percentile")
+  .then((res) => (res.ok ? res.json() : null))
+  .then((data) => {
+    if (typeof data?.feePercentile === "number" && data.feePercentile > 0) {
+      feePercentile = data.feePercentile
+    }
+  })
+  .catch(() => {})
 /** How often to refresh priority fee (ms) — roughly 1 block */
 const PRIORITY_FEE_POLL_MS = 12_000
 
@@ -70,7 +82,7 @@ export function useEstimatedMiles({
     }
   }, [enabled])
 
-  // Poll 55th percentile priority fee via getFeeHistory every ~12s
+  // Poll priority fee via getFeeHistory every ~12s
   useEffect(() => {
     if (!enabled) return
 
@@ -80,7 +92,7 @@ export function useEstimatedMiles({
       try {
         const feeHistory = await publicClient.getFeeHistory({
           blockCount: 1,
-          rewardPercentiles: [55],
+          rewardPercentiles: [feePercentile],
         })
         const fee = feeHistory.reward?.[0]?.[0]
         if (!cancelled && fee != null) setPriorityFee(fee)
@@ -145,7 +157,7 @@ export function useEstimatedMiles({
     // Slippage amount in ETH = what MEV can be captured from
     const slippageAmountEth = (parsedSlippage / 100) * outputInEth
 
-    // Bid cost: p55 priority fee × avg gas (from Edge Config) / 1e18
+    // Bid cost: priority fee (percentile from Edge Config) × avg gas (from Edge Config) / 1e18
     const bidCostEth = Number(priorityFee * avgGas) / 1e18
 
     // Gas cost: only deducted on permit path (relayer pays)
@@ -167,7 +179,7 @@ export function useEstimatedMiles({
         `  Step 2: MEV opportunity (slippage tolerance)\n` +
         `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${parsedSlippage}% = ${slippageAmountEth.toFixed(8)} ETH\n` +
         `\n` +
-        `  Step 3: Bid cost (priorityFee p55 × avgGas from Edge Config)\n` +
+        `  Step 3: Bid cost (priorityFee p${feePercentile} × avgGas from Edge Config)\n` +
         `    bidCostEth = ${priorityFee.toString()} wei × ${avgGas.toString()} gas / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
         `\n` +
         `  Step 4: Gas cost${isPermitPath ? " (relayer pays on permit path)" : " (user pays on ETH path = 0)"}\n` +
