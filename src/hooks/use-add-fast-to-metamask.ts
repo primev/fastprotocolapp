@@ -53,9 +53,7 @@ export function useAddFastToMetamask(): UseAddFastToMetamaskReturn {
       if (!provider) {
         const ethereum = (window as any).ethereum
         if (ethereum?.providers && Array.isArray(ethereum.providers)) {
-          provider = ethereum.providers.find(
-            (p: any) => p && p.isMetaMask === true && !p.isRabby
-          )
+          provider = ethereum.providers.find((p: any) => p && p.isMetaMask === true && !p.isRabby)
         } else if (ethereum?.isMetaMask === true && !ethereum?.isRabby) {
           provider = ethereum
         }

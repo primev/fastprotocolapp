@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import type { TransactionReceipt } from "viem"
+import { fetchFastTxStatus } from "@/lib/fast-tx-status"
 import { fetchTransactionReceiptFromDb } from "@/lib/transaction-receipt-utils"
 import { getTxConfirmationTimeoutMs } from "@/lib/tx-config"
 import { RPCError } from "@/lib/transaction-errors"
 
-const RECEIPT_CHECK_INTERVAL_MS = 500
+const STATUS_CHECK_INTERVAL_MS = 500
 
 export type WaitForTxConfirmationMode = "receipt" | "status"
 
@@ -23,7 +24,7 @@ export interface UseWaitForTxConfirmationParams {
   receiptError?: Error | null
   mode: WaitForTxConfirmationMode
   onConfirmed: (result: TxConfirmationResult) => void
-  /** Called when DB finds receipt first (before on-chain). Wagmi continues waiting for on-chain confirmation. */
+  /** Called when RPC receipt or mctransactions reports pre-confirmed. */
   onPreConfirmed?: (result: TxConfirmationResult) => void
   onError?: (error: Error) => void
 }
@@ -35,8 +36,19 @@ export interface UseWaitForTxConfirmationReturn {
 }
 
 /**
- * Races database polling against Wagmi's on-chain receipt.
- * The first to resolve triggers onConfirmed and halts the other process.
+ * Two-phase polling with Wagmi as parallel fallback:
+ *
+ * Phase 1 (pending → pre-confirmed):
+ *   Poll BOTH eth_getTransactionReceipt (FastRPC) and mctransactions in parallel.
+ *   First source to show success/pre-confirmed fires onPreConfirmed.
+ *   mctransactions "failed" in this phase fires onError immediately.
+ *
+ * Phase 2 (pre-confirmed → final):
+ *   Stop RPC receipt polling. Poll only mctransactions for confirmed/failed.
+ *   mctransactions "confirmed" → fire onConfirmed (final success).
+ *   mctransactions "failed" → fire onError.
+ *
+ * Wagmi receipt (on-chain) stays active throughout as a parallel fallback.
  */
 export function useWaitForTxConfirmation({
   hash,
@@ -78,7 +90,7 @@ export function useWaitForTxConfirmation({
     }
   }, [])
 
-  // Effect: Watch for Wagmi (on-chain) receipt to arrive
+  // Effect: Watch for Wagmi (on-chain) receipt — parallel fallback throughout
   useEffect(() => {
     if (!hash || !receipt || hasConfirmedRef.current) return
 
@@ -121,9 +133,7 @@ export function useWaitForTxConfirmation({
     onErrorRef.current?.(e)
   }, [hash, receiptError])
 
-  // Effect: Database polling logic (one fetch per iteration to detect status flip 0x1 -> 0x0)
-  // Start whenever we have a hash and aren't already polling this hash (don't gate on hasConfirmedRef
-  // so that we still poll when Wagmi receipt isn't ready yet and DB can be first)
+  // Effect: Two-phase polling
   useEffect(() => {
     if (!hash || processingHashRef.current === hash) return
 
@@ -134,11 +144,27 @@ export function useWaitForTxConfirmation({
     setIsConfirmed(false)
     setError(null)
 
-    const dbPoll = async () => {
+    /** Fire onPreConfirmed once, from whichever source wins the race. */
+    const firePreConfirmed = () => {
+      if (preConfirmedFiredRef.current) return
+      preConfirmedFiredRef.current = true
+      const result: TxConfirmationResult =
+        mode === "receipt" ? { source: "db" } : { source: "db", status: { success: true, hash } }
+      try {
+        onPreConfirmedRef.current?.(result)
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err))
+        setError(e)
+        onErrorRef.current?.(e)
+      }
+    }
+
+    const poll = async () => {
       try {
         const timeoutMs = await getTxConfirmationTimeoutMs()
         const startTime = Date.now()
 
+        // ── Phase 1: Poll both RPC receipt and mctransactions ──
         while (!abortController.signal.aborted && !hasConfirmedRef.current) {
           if (Date.now() - startTime > timeoutMs) {
             const e = new Error(
@@ -149,39 +175,115 @@ export function useWaitForTxConfirmation({
             return
           }
 
-          const dbResult = await fetchTransactionReceiptFromDb(hash, abortController.signal)
+          // Poll both sources in parallel
+          const [rpcResult, mcStatus] = await Promise.all([
+            fetchTransactionReceiptFromDb(hash, abortController.signal),
+            fetchFastTxStatus(hash, abortController.signal),
+          ])
 
-          if (dbResult) {
-            const { receipt: dbReceipt, rawResult } = dbResult
-            if (dbReceipt.status === "reverted") {
-              hasConfirmedRef.current = true
-              abortController.abort()
-              const e = new RPCError("RPC Error", dbReceipt, rawResult)
-              setError(e)
-              onErrorRef.current?.(e)
-              return
-            }
-            // Success (0x1): fire onPreConfirmed once, then keep polling to detect flip to 0x0
-            if (!preConfirmedFiredRef.current) {
-              preConfirmedFiredRef.current = true
-              const result: TxConfirmationResult =
-                mode === "receipt"
-                  ? { source: "db", receipt: dbReceipt }
-                  : { source: "db", status: { success: true, hash } }
-              try {
-                onPreConfirmedRef.current?.(result)
-              } catch (err) {
-                const e = err instanceof Error ? err : new Error(String(err))
-                setError(e)
-                onErrorRef.current?.(e)
-              }
-            }
+          if (abortController.signal.aborted || hasConfirmedRef.current) return
+
+          // mctransactions "failed" → immediate error (dropped tx)
+          if (mcStatus === "failed") {
+            hasConfirmedRef.current = true
+            abortController.abort()
+            const e = rpcResult
+              ? new RPCError("Transaction failed", rpcResult.receipt, rpcResult.rawResult)
+              : new Error("Transaction was dropped by the network.")
+            setError(e)
+            onErrorRef.current?.(e)
+            return
           }
 
-          await new Promise((r) => setTimeout(r, RECEIPT_CHECK_INTERVAL_MS))
+          // RPC receipt with reverted status → immediate error
+          if (rpcResult && rpcResult.receipt.status === "reverted") {
+            hasConfirmedRef.current = true
+            abortController.abort()
+            const e = new RPCError("RPC Error", rpcResult.receipt, rpcResult.rawResult)
+            setError(e)
+            onErrorRef.current?.(e)
+            return
+          }
+
+          // Either source signals pre-confirmed → fire and move to phase 2
+          if (
+            mcStatus === "pre-confirmed" ||
+            mcStatus === "confirmed" ||
+            (rpcResult && rpcResult.receipt.status === "success")
+          ) {
+            firePreConfirmed()
+            // If mctransactions already says confirmed, finish now
+            if (mcStatus === "confirmed") {
+              hasConfirmedRef.current = true
+              abortController.abort()
+              setIsConfirmed(true)
+              const result: TxConfirmationResult =
+                mode === "receipt"
+                  ? { source: "db" }
+                  : { source: "db", status: { success: true, hash } }
+              onConfirmedRef.current(result)
+              return
+            }
+            break // → Phase 2
+          }
+
+          await new Promise((r) => setTimeout(r, STATUS_CHECK_INTERVAL_MS))
+        }
+
+        // ── Phase 2: Poll only mctransactions for confirmed/failed ──
+        while (!abortController.signal.aborted && !hasConfirmedRef.current) {
+          if (Date.now() - startTime > timeoutMs) {
+            const e = new Error(
+              "Transaction confirmation timed out — your swap may have still succeeded. Check your wallet."
+            )
+            setError(e)
+            onErrorRef.current?.(e)
+            return
+          }
+
+          const mcStatus = await fetchFastTxStatus(hash, abortController.signal)
+
+          if (abortController.signal.aborted || hasConfirmedRef.current) return
+
+          if (mcStatus === "confirmed") {
+            hasConfirmedRef.current = true
+            abortController.abort()
+            setIsConfirmed(true)
+            const result: TxConfirmationResult =
+              mode === "receipt"
+                ? { source: "db" }
+                : { source: "db", status: { success: true, hash } }
+            onConfirmedRef.current(result)
+            return
+          }
+
+          if (mcStatus === "failed") {
+            hasConfirmedRef.current = true
+            abortController.abort()
+
+            let dbReceipt: TransactionReceipt | undefined
+            let rawResult: unknown
+            try {
+              const receiptResult = await fetchTransactionReceiptFromDb(hash)
+              if (receiptResult) {
+                dbReceipt = receiptResult.receipt
+                rawResult = receiptResult.rawResult
+              }
+            } catch {
+              // Best-effort for error details
+            }
+
+            const e = dbReceipt
+              ? new RPCError("Transaction failed", dbReceipt, rawResult)
+              : new Error("Transaction was dropped by the network.")
+            setError(e)
+            onErrorRef.current?.(e)
+            return
+          }
+
+          await new Promise((r) => setTimeout(r, STATUS_CHECK_INTERVAL_MS))
         }
       } catch (err) {
-        // Ignore deliberate aborts; surface genuine polling errors
         if ((err as Error).name !== "AbortError" && !hasConfirmedRef.current) {
           const e = err instanceof Error ? err : new Error(String(err))
           setError(e)
@@ -190,7 +292,7 @@ export function useWaitForTxConfirmation({
       }
     }
 
-    dbPoll()
+    poll()
 
     return () => {
       abortController.abort()
