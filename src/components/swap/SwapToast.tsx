@@ -253,7 +253,7 @@ export function SwapToast({ hash }: { hash: string }) {
             {isConfirmed
               ? "Tokens Available"
               : isPreConfirmed
-                ? "Tokens Pre-confirmed"
+                ? "Tokens Preconfirmed"
                 : "Swapping..."}
           </span>
 
