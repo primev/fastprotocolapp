@@ -17,12 +17,8 @@ export async function GET(request: NextRequest) {
 
   // Load custom fonts
   const [clonoidFont, soraFont] = await Promise.all([
-    fetch(new URL("./fonts/clonoid-bold-italic.ttf", import.meta.url)).then(
-      (r) => r.arrayBuffer()
-    ),
-    fetch(new URL("./fonts/sora-semibold.ttf", import.meta.url)).then((r) =>
-      r.arrayBuffer()
-    ),
+    fetch(new URL("./fonts/clonoid-bold-italic.ttf", import.meta.url)).then((r) => r.arrayBuffer()),
+    fetch(new URL("./fonts/sora-semibold.ttf", import.meta.url)).then((r) => r.arrayBuffer()),
   ])
 
   // Background image — designer-provided template with blue glow + speed lines
@@ -97,8 +93,7 @@ export async function GET(request: NextRequest) {
               color: "#fff",
               lineHeight: 1,
               letterSpacing: "-0.02em",
-              textShadow:
-                "0 0 60px rgba(100, 180, 255, 0.4), 0 0 120px rgba(100, 180, 255, 0.2)",
+              textShadow: "0 0 60px rgba(100, 180, 255, 0.4), 0 0 120px rgba(100, 180, 255, 0.2)",
             }}
           >
             {time}
