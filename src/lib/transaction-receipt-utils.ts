@@ -56,6 +56,15 @@ async function fetchTransactionReceipt(
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
+  // Link parent abort signal so in-flight requests cancel immediately
+  if (abortSignal) {
+    if (abortSignal.aborted) {
+      clearTimeout(timeoutId)
+      return null
+    }
+    abortSignal.addEventListener("abort", () => controller.abort(), { once: true })
+  }
+
   try {
     const response = await fetch(RPC_URL, {
       method: "POST",

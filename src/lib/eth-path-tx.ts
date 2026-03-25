@@ -48,12 +48,20 @@ export async function fetchEthPathTxAndEstimate(
     throw new Error(apiError)
   }
 
-  const estimated = await publicClient.estimateGas({
-    account,
-    to: data.to as `0x${string}`,
-    data: data.data as `0x${string}`,
-    value: BigInt(data.value || 0),
-  })
+  let estimated: bigint
+  try {
+    estimated = await publicClient.estimateGas({
+      account,
+      to: data.to as `0x${string}`,
+      data: data.data as `0x${string}`,
+      value: BigInt(data.value || 0),
+    })
+  } catch (err) {
+    // Surface a clear message instead of the raw viem dump
+    throw new Error(
+      "This swap would fail on-chain — the price may have moved. Try increasing slippage or refreshing the quote."
+    )
+  }
 
   return {
     to: data.to,

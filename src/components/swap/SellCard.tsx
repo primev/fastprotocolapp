@@ -4,16 +4,21 @@ import React, { useState, useEffect } from "react"
 import Image from "next/image"
 // UI Components & Icons
 import { ChevronDown } from "lucide-react"
+import { formatUnits } from "viem"
 import { cn } from "@/lib/utils"
 
 // Local Components
 import AmountInput from "./AmountInput"
 import TokenInfoRow from "./TokenInfoRow"
 
+// Hooks
+import { useBalanceFlash } from "@/hooks/use-balance-flash"
+
 // Types
 import { Token } from "@/types/swap"
 import { QuoteResult } from "@/hooks/use-swap-quote"
 import { UseBalanceReturnType } from "wagmi"
+import { ZERO_ADDRESS } from "@/lib/swap-constants"
 
 interface SellCardProps {
   // Token & Balance Data
@@ -68,6 +73,7 @@ const SellCardComponent: React.FC<SellCardProps> = ({
   setSwappedQuote,
 }) => {
   const [hasImageError, setHasImageError] = useState(false)
+  const isBalanceFlashing = useBalanceFlash(fromBalanceValue, isConnected)
 
   /**
    * Reset image error state if the token changes.
@@ -75,6 +81,24 @@ const SellCardComponent: React.FC<SellCardProps> = ({
   useEffect(() => {
     setHasImageError(false)
   }, [fromToken?.address])
+
+  const handleMaxBalance = () => {
+    if (!fromToken || !fromBalance || fromBalance.value === 0n) return
+    setEditingSide("sell")
+    setIsManualInversion(false)
+    setSwappedQuote(null)
+
+    const isNativeEth = fromToken.address === ZERO_ADDRESS
+    if (isNativeEth) {
+      // Reserve 0.01 ETH for gas
+      const reserve = 10n ** 16n // 0.01 ETH in wei
+      const max = fromBalance.value > reserve ? fromBalance.value - reserve : 0n
+      if (max === 0n) return
+      setAmount(formatUnits(max, fromToken.decimals))
+    } else {
+      setAmount(formatUnits(fromBalance.value, fromToken.decimals))
+    }
+  }
 
   const handleAmountChange = (value: string) => {
     setEditingSide("sell")
@@ -87,7 +111,17 @@ const SellCardComponent: React.FC<SellCardProps> = ({
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Sell</span>
         {fromToken && (
-          <span className="text-xs text-gray-500">Balance: {formattedFromBalance}</span>
+          <button
+            type="button"
+            onClick={handleMaxBalance}
+            disabled={!isConnected || !fromBalance || fromBalance.value === 0n}
+            className={cn(
+              "text-xs transition-colors duration-700 hover:text-white disabled:hover:text-gray-500 disabled:cursor-default cursor-pointer",
+              isBalanceFlashing ? "text-green-400" : "text-gray-500"
+            )}
+          >
+            Balance: {formattedFromBalance}
+          </button>
         )}
       </div>
 
