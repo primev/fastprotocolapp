@@ -407,18 +407,17 @@ export function SwapToast({ hash }: { hash: string }) {
 
                   const fast = [
                     `I just made a Fast Swap on Ethereum mainnet — preconfirmed in ${elapsedSec}s. Didn't even see a spinner.${fire}\n\n@Fast_Protocol @ethereum`,
-                    `${elapsedSec}s from sign to preconfirmed on Ethereum. That's a Fast Swap — mev surplus returned to me instead of extracted.${fire}\n\n@Fast_Protocol`,
+                    `${elapsedSec}s from sign to preconfirmed on Ethereum. That's a Fast Swap.${fire}\n\n@Fast_Protocol @ethereumfdn`,
                     `Just swapped on Ethereum mainnet and it was preconfirmed in ${elapsedSec}s. This is what preconfirmations feel like.${fire}\n\n@Fast_Protocol @ethereumfdn`,
-                    `I just made a Fast Swap — preconfirmed in ${elapsedSec}s. Sub-second on L1, mev rewards back to the swapper.${fire}\n\n@Fast_Protocol @ethereum`,
+                    `I just made a Fast Swap — preconfirmed in ${elapsedSec}s. Sub-second on Ethereum L1.${fire}\n\n@Fast_Protocol @ethereum`,
                   ]
                   const mid = [
                     `I just made a Fast Swap on Ethereum — preconfirmed in ${elapsedSec}s before the block even landed.${fire}\n\n@Fast_Protocol @ethereum`,
-                    `Swapped on Ethereum mainnet and preconfirmed in ${elapsedSec}s. No more watching spinners, mev surplus returned.${fire}\n\n@Fast_Protocol`,
-                    `${elapsedSec}s to preconfirmed on Ethereum L1. Fast Swaps give you the speed and return the mev.${fire}\n\n@Fast_Protocol @ethereumfdn`,
+                    `Swapped on Ethereum mainnet and preconfirmed in ${elapsedSec}s. No more watching spinners.${fire}\n\n@Fast_Protocol @ethereumfdn`,
+                    `${elapsedSec}s to preconfirmed on Ethereum L1. Fast Swaps hit different.${fire}\n\n@Fast_Protocol @ethereum`,
                   ]
                   const slow = [
-                    `I just made a Fast Swap on Ethereum — preconfirmed in ${elapsedSec}s. Knew my tokens were secured before L1 confirmed, mev surplus returned.${fire}\n\n@Fast_Protocol @ethereum`,
-                    `Preconfirmed in ${elapsedSec}s on Ethereum mainnet. Still faster than waiting for a block, and I keep the mev.${fire}\n\n@Fast_Protocol @ethereumfdn`,
+                    `I just made a Fast Swap on Ethereum — preconfirmed in ${elapsedSec}s. Fast and reliable, secured before L1 confirmed.${fire}\n\n@Fast_Protocol @ethereum`,
                   ]
 
                   const variants = secs < 1 ? fast : secs < 4 ? mid : slow
