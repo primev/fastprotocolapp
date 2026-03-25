@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import type { TransactionReceipt } from "viem"
 import { fetchFastTxStatus } from "@/lib/fast-tx-status"
 import { fetchTransactionReceiptFromDb } from "@/lib/transaction-receipt-utils"
+import { fetchCommitmentStatus } from "@/lib/fast-rpc-status"
 import { getTxConfirmationTimeoutMs } from "@/lib/tx-config"
 import { RPCError } from "@/lib/transaction-errors"
 
@@ -191,8 +192,12 @@ export function useWaitForTxConfirmation({
             return
           }
 
-          // Poll both sources in parallel
-          const [rpcResult, mcStatus] = await Promise.all([
+          // Poll three sources in parallel:
+          // 1. FastRPC commitment status (fastest — node knows instantly)
+          // 2. RPC eth_getTransactionReceipt
+          // 3. mctransactions DB status (slowest — lags ~15s)
+          const [commitStatus, rpcResult, mcStatus] = await Promise.all([
+            fetchCommitmentStatus(hash, abortController.signal),
             fetchTransactionReceiptFromDb(hash, abortController.signal),
             fetchFastTxStatus(hash, abortController.signal),
           ])
@@ -221,8 +226,9 @@ export function useWaitForTxConfirmation({
             return
           }
 
-          // Either source signals preconfirmed → fire and move to phase 2
+          // Any source signals preconfirmed → fire and move to phase 2
           if (
+            commitStatus === "preconfirmed" ||
             mcStatus === "preconfirmed" ||
             mcStatus === "confirmed" ||
             (rpcResult && rpcResult.receipt.status === "success")
