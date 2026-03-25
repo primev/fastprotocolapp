@@ -48,12 +48,22 @@ export async function fetchEthPathTxAndEstimate(
     throw new Error(apiError)
   }
 
-  const estimated = await publicClient.estimateGas({
-    account,
-    to: data.to as `0x${string}`,
-    data: data.data as `0x${string}`,
-    value: BigInt(data.value || 0),
-  })
+  // Gas estimation can revert if the quote is stale or liquidity shifted.
+  // Fall back to a generous static limit so the user still gets the wallet popup —
+  // the actual on-chain execution determines success/failure.
+  const FALLBACK_GAS_LIMIT = 500_000n
+  let estimated: bigint
+  try {
+    estimated = await publicClient.estimateGas({
+      account,
+      to: data.to as `0x${string}`,
+      data: data.data as `0x${string}`,
+      value: BigInt(data.value || 0),
+    })
+  } catch {
+    console.warn("[eth-path-tx] Gas estimation reverted, using fallback limit")
+    estimated = FALLBACK_GAS_LIMIT
+  }
 
   return {
     to: data.to,
