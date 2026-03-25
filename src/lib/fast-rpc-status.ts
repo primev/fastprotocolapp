@@ -40,13 +40,18 @@ export async function fetchCommitmentStatus(
 
     const data = await response.json()
 
+    // Log first few polls to debug what the endpoint returns
+    console.log(`[CommitmentPoll] ${txHash.slice(0, 10)}...`, JSON.stringify(data).slice(0, 200))
+
     // If result is a non-empty array, the tx has commitments → preconfirmed
     if (data?.result && Array.isArray(data.result) && data.result.length > 0) {
+      console.log(`[CommitmentPoll] FOUND commitments for ${txHash.slice(0, 10)}...`)
       return "preconfirmed"
     }
 
     // Non-array truthy result also indicates commitments exist
     if (data?.result && !data?.error) {
+      console.log(`[CommitmentPoll] FOUND result for ${txHash.slice(0, 10)}...`)
       return "preconfirmed"
     }
 
