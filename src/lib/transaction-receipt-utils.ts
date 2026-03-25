@@ -58,7 +58,10 @@ async function fetchTransactionReceipt(
 
   // Link parent abort signal so in-flight requests cancel immediately
   if (abortSignal) {
-    if (abortSignal.aborted) { clearTimeout(timeoutId); return null }
+    if (abortSignal.aborted) {
+      clearTimeout(timeoutId)
+      return null
+    }
     abortSignal.addEventListener("abort", () => controller.abort(), { once: true })
   }
 

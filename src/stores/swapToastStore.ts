@@ -106,7 +106,9 @@ export const useSwapToastStore = create<Store>((set, get) => ({
           ? {
               ...t,
               status,
-              ...(status === "preconfirmed" && !t.preconfirmedAt ? { preconfirmedAt: Date.now() } : {}),
+              ...(status === "preconfirmed" && !t.preconfirmedAt
+                ? { preconfirmedAt: Date.now() }
+                : {}),
             }
           : t
       ),

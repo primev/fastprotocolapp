@@ -132,7 +132,10 @@ export function SwapToast({ hash }: { hash: string }) {
             </button>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); removeToast(hash) }}
+              onClick={(e) => {
+                e.stopPropagation()
+                removeToast(hash)
+              }}
               className="text-neutral-600 hover:text-neutral-300 transition-colors p-1"
               aria-label="Dismiss"
             >
@@ -164,7 +167,10 @@ export function SwapToast({ hash }: { hash: string }) {
           </div>
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); removeToast(hash) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              removeToast(hash)
+            }}
             className="text-neutral-600 hover:text-neutral-300 transition-colors p-1"
             aria-label="Dismiss"
           >
@@ -184,13 +190,17 @@ export function SwapToast({ hash }: { hash: string }) {
         className="flex items-center gap-2 rounded-full bg-neutral-900 border border-white/10 px-3 py-2 shadow-lg"
       >
         {isPreConfirmed ? (
-          <Image src="/assets/fast-icon.png" alt="" width={20} height={20} className="h-5 w-5 rounded-full" />
+          <Image
+            src="/assets/fast-icon.png"
+            alt=""
+            width={20}
+            height={20}
+            className="h-5 w-5 rounded-full"
+          />
         ) : (
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
         )}
-        <span className="text-sm text-white">
-          {isPreConfirmed ? "Preconfirmed" : "Swapping"}
-        </span>
+        <span className="text-sm text-white">{isPreConfirmed ? "Preconfirmed" : "Swapping"}</span>
       </button>
     )
   }
@@ -212,7 +222,10 @@ export function SwapToast({ hash }: { hash: string }) {
       {/* ── Dismiss: bare X, no bubble ── */}
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); removeToast(hash) }}
+        onClick={(e) => {
+          e.stopPropagation()
+          removeToast(hash)
+        }}
         className="absolute top-2.5 right-3 z-20 text-neutral-600 hover:text-neutral-300 transition-opacity opacity-0 group-hover:opacity-100 p-0.5"
         aria-label="Dismiss"
       >
@@ -224,7 +237,10 @@ export function SwapToast({ hash }: { hash: string }) {
         role="button"
         tabIndex={0}
         onClick={() => explorerUrl && window.open(explorerUrl, "_blank")}
-        className={cn("relative h-[84px] p-4 flex items-center gap-4", explorerUrl && settled && "cursor-pointer")}
+        className={cn(
+          "relative h-[84px] p-4 flex items-center gap-4",
+          explorerUrl && settled && "cursor-pointer"
+        )}
       >
         {/* LEFT: Icon */}
         <div className="relative h-11 w-11 shrink-0" style={{ overflow: "visible" }}>
@@ -271,9 +287,23 @@ export function SwapToast({ hash }: { hash: string }) {
                 className="absolute -bottom-0.5 -right-0.5 z-10 h-[18px] w-[18px] rounded-full bg-green-500 border-2 border-neutral-900 flex items-center justify-center"
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.3, delay: 0.1, type: "spring", damping: 15, stiffness: 300 }}
+                transition={{
+                  duration: 0.3,
+                  delay: 0.1,
+                  type: "spring",
+                  damping: 15,
+                  stiffness: 300,
+                }}
               >
-                <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  className="h-2.5 w-2.5 text-white"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <polyline points="2.5 6 5 8.5 9.5 3.5" />
                 </svg>
               </motion.div>
@@ -333,9 +363,7 @@ export function SwapToast({ hash }: { hash: string }) {
                 transition={{ delay: 0.2, duration: 0.3, type: "spring", damping: 15 }}
                 className={cn(
                   "px-2 py-0.5 rounded-md text-xs font-semibold tabular-nums",
-                  isConfirmed
-                    ? "bg-green-500/10 text-green-400"
-                    : "bg-blue-500/10 text-blue-400"
+                  isConfirmed ? "bg-green-500/10 text-green-400" : "bg-blue-500/10 text-blue-400"
                 )}
               >
                 {elapsedSec}s
@@ -351,12 +379,14 @@ export function SwapToast({ hash }: { hash: string }) {
               transition={{ delay: 0.3 }}
               className="flex items-center justify-center"
             >
-              <ExternalLink className={cn(
-                "h-4 w-4 transition-colors",
-                isConfirmed
-                  ? "text-green-400/60 hover:text-green-400"
-                  : "text-blue-400/60 hover:text-blue-400"
-              )} />
+              <ExternalLink
+                className={cn(
+                  "h-4 w-4 transition-colors",
+                  isConfirmed
+                    ? "text-green-400/60 hover:text-green-400"
+                    : "text-blue-400/60 hover:text-blue-400"
+                )}
+              />
             </motion.div>
           ) : isPending ? (
             <div className="relative h-5 w-5 flex items-center justify-center">
@@ -374,7 +404,10 @@ export function SwapToast({ hash }: { hash: string }) {
             className="absolute bottom-0 left-0 h-[2px] bg-green-500/40 rounded-b-2xl"
             initial={{ width: "100%", opacity: 0 }}
             animate={{ width: "0%", opacity: 1 }}
-            transition={{ width: { duration: CONFIRMED_AUTO_DISMISS_MS / 1000, ease: "linear" }, opacity: { duration: 0.3 } }}
+            transition={{
+              width: { duration: CONFIRMED_AUTO_DISMISS_MS / 1000, ease: "linear" },
+              opacity: { duration: 0.3 },
+            }}
           />
         )}
         {isPreConfirmed && !isConfirmed && (
@@ -403,7 +436,12 @@ export function SwapToast({ hash }: { hash: string }) {
                 onClick={(e) => {
                   e.stopPropagation()
                   const secs = parseFloat(elapsedSec!)
-                  const fire = secs < 1 ? " \u{1F525}\u{1F525}\u{1F525}" : secs < 4 ? " \u{1F525}\u{1F525}" : " \u{1F525}"
+                  const fire =
+                    secs < 1
+                      ? " \u{1F525}\u{1F525}\u{1F525}"
+                      : secs < 4
+                        ? " \u{1F525}\u{1F525}"
+                        : " \u{1F525}"
 
                   const fast = [
                     `I just made a Fast Swap on Ethereum mainnet — preconfirmed in ${elapsedSec}s. Didn't even see a spinner.${fire}\n\n@Fast_Protocol @ethereum`,
@@ -416,11 +454,14 @@ export function SwapToast({ hash }: { hash: string }) {
                     `Swapped on Ethereum mainnet and preconfirmed in ${elapsedSec}s. No more watching spinners.${fire}\n\n@Fast_Protocol @ethereumfdn`,
                     `${elapsedSec}s to preconfirmed on Ethereum L1. Fast Swaps hit different.${fire}\n\n@Fast_Protocol @ethereum`,
                   ]
-                  const slow = secs <= 10 ? [
-                    `I just made a Fast Swap on Ethereum — preconfirmed in ${elapsedSec}s. Fast and reliable, secured before L1 confirmed.${fire}\n\n@Fast_Protocol @ethereum`,
-                  ] : [
-                    `I just made a Fast Swap on Ethereum — preconfirmed and secured before L1 confirmed.${fire}\n\n@Fast_Protocol @ethereum`,
-                  ]
+                  const slow =
+                    secs <= 10
+                      ? [
+                          `I just made a Fast Swap on Ethereum — preconfirmed in ${elapsedSec}s. Fast and reliable, secured before L1 confirmed.${fire}\n\n@Fast_Protocol @ethereum`,
+                        ]
+                      : [
+                          `I just made a Fast Swap on Ethereum — preconfirmed and secured before L1 confirmed.${fire}\n\n@Fast_Protocol @ethereum`,
+                        ]
 
                   const variants = secs < 1 ? fast : secs < 4 ? mid : slow
                   const text = variants[Math.floor(Math.random() * variants.length)]

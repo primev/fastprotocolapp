@@ -1,11 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import {
-  useAccount,
-  usePublicClient,
-  useSendTransaction,
-} from "wagmi"
+import { useAccount, usePublicClient, useSendTransaction } from "wagmi"
 import { ETH_PATH_GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
 import { mainnet } from "wagmi/chains"
 import { parseUnits, formatUnits } from "viem"
@@ -50,11 +46,7 @@ export function useSwapConfirmation({
   const publicClient = usePublicClient({ chainId: mainnet.id })
 
   const { createIntentSignature } = useSwapIntent()
-  const {
-    getFreshNonce,
-    releaseNonce,
-    isLoading: isNonceLoading,
-  } = usePermit2Nonce()
+  const { getFreshNonce, releaseNonce, isLoading: isNonceLoading } = usePermit2Nonce()
   const { sendTransactionAsync } = useSendTransaction()
 
   // --- Transaction State ---

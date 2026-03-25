@@ -17,7 +17,10 @@ export async function fetchCommitmentStatus(
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
   if (abortSignal) {
-    if (abortSignal.aborted) { clearTimeout(timeoutId); return null }
+    if (abortSignal.aborted) {
+      clearTimeout(timeoutId)
+      return null
+    }
     abortSignal.addEventListener("abort", () => controller.abort(), { once: true })
   }
 

@@ -30,9 +30,9 @@ export function playPreconfirmSound() {
 
   // C5 → E5 → G5 rising arpeggio
   const notes: [number, number, number][] = [
-    [523, 0, 0.12],    // C5
-    [659, 0.1, 0.12],  // E5
-    [784, 0.2, 0.15],  // G5
+    [523, 0, 0.12], // C5
+    [659, 0.1, 0.12], // E5
+    [784, 0.2, 0.15], // G5
   ]
 
   for (const [freq, start, dur] of notes) {
