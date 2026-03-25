@@ -416,15 +416,18 @@ export function SwapToast({ hash }: { hash: string }) {
                     `Swapped on Ethereum mainnet and preconfirmed in ${elapsedSec}s. No more watching spinners.${fire}\n\n@Fast_Protocol @ethereumfdn`,
                     `${elapsedSec}s to preconfirmed on Ethereum L1. Fast Swaps hit different.${fire}\n\n@Fast_Protocol @ethereum`,
                   ]
-                  const slow = [
+                  const slow = secs <= 10 ? [
                     `I just made a Fast Swap on Ethereum — preconfirmed in ${elapsedSec}s. Fast and reliable, secured before L1 confirmed.${fire}\n\n@Fast_Protocol @ethereum`,
+                  ] : [
+                    `I just made a Fast Swap on Ethereum — preconfirmed and secured before L1 confirmed.${fire}\n\n@Fast_Protocol @ethereum`,
                   ]
 
                   const variants = secs < 1 ? fast : secs < 4 ? mid : slow
                   const text = variants[Math.floor(Math.random() * variants.length)]
-                  const tweet = text
+                  // Twitter needs a URL in the tweet to render the OG card
+                  const shareUrl = `${window.location.origin}/share/preconfirm?time=${elapsedSec}`
                   window.open(
-                    `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`,
+                    `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`,
                     "_blank"
                   )
                 }}
