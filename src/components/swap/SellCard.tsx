@@ -73,7 +73,7 @@ const SellCardComponent: React.FC<SellCardProps> = ({
   setSwappedQuote,
 }) => {
   const [hasImageError, setHasImageError] = useState(false)
-  const balanceFlash = useBalanceFlash(fromBalanceValue, isConnected)
+  const balanceFlash = useBalanceFlash(fromBalanceValue, fromToken?.address, isConnected)
 
   /**
    * Reset image error state if the token changes.
@@ -117,11 +117,7 @@ const SellCardComponent: React.FC<SellCardProps> = ({
             disabled={!isConnected || !fromBalance || fromBalance.value === 0n}
             className={cn(
               "text-xs transition-colors duration-700 hover:text-white disabled:hover:text-gray-500 disabled:cursor-default cursor-pointer",
-              balanceFlash === "green"
-                ? "text-green-400"
-                : balanceFlash === "red"
-                  ? "text-red-400"
-                  : "text-gray-500"
+              balanceFlash === "green" ? "text-green-400" : "text-gray-500"
             )}
           >
             Balance: {formattedFromBalance}

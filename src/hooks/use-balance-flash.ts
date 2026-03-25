@@ -3,23 +3,31 @@
 import { useState, useEffect, useRef } from "react"
 
 /**
- * Returns a color hint when a balance changes after a swap:
- * - "green" when balance increases (tokens arrived)
- * - "red" when balance decreases (tokens sent)
- * - null when idle
- *
- * Flashes for 2s then resets. Independent of toast state.
+ * Returns "green" briefly when a balance increases after a swap.
+ * Resets when the token address changes (no false flash on token switch).
+ * Independent of toast state.
  */
 export function useBalanceFlash(
   value: number,
+  tokenAddress: string | undefined,
   enabled: boolean = true
-): "green" | "red" | null {
-  const [flash, setFlash] = useState<"green" | "red" | null>(null)
+): "green" | null {
+  const [flash, setFlash] = useState<"green" | null>(null)
   const prevValue = useRef(value)
+  const prevToken = useRef(tokenAddress)
   const initialized = useRef(false)
 
   useEffect(() => {
-    // Skip the very first render — don't flash on initial load
+    // Token changed — reset baseline, no flash
+    if (prevToken.current !== tokenAddress) {
+      prevToken.current = tokenAddress
+      prevValue.current = value
+      initialized.current = true
+      setFlash(null)
+      return
+    }
+
+    // Skip initial render
     if (!initialized.current) {
       initialized.current = true
       prevValue.current = value
@@ -31,13 +39,16 @@ export function useBalanceFlash(
       return
     }
 
-    const color = value > prevValue.current ? "green" : "red"
-    setFlash(color)
-    prevValue.current = value
+    // Only flash green on increases (tokens arriving)
+    if (value > prevValue.current) {
+      setFlash("green")
+      prevValue.current = value
+      const timer = setTimeout(() => setFlash(null), 2000)
+      return () => clearTimeout(timer)
+    }
 
-    const timer = setTimeout(() => setFlash(null), 2000)
-    return () => clearTimeout(timer)
-  }, [value, enabled])
+    prevValue.current = value
+  }, [value, tokenAddress, enabled])
 
   return flash
 }

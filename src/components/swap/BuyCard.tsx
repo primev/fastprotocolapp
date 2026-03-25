@@ -79,7 +79,7 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
    * prevents unnecessary re-renders of the entire swap interface.
    */
   const [hasImageError, setHasImageError] = useState(false)
-  const balanceFlash = useBalanceFlash(toBalanceValue, isConnected)
+  const balanceFlash = useBalanceFlash(toBalanceValue, toToken?.address, isConnected)
 
   useEffect(() => {
     setHasImageError(false)
@@ -113,11 +113,7 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
             disabled={!isConnected || toBalanceValue <= 0}
             className={cn(
               "text-xs transition-colors duration-700 hover:text-white disabled:hover:text-gray-500 disabled:cursor-default cursor-pointer",
-              balanceFlash === "green"
-                ? "text-green-400"
-                : balanceFlash === "red"
-                  ? "text-red-400"
-                  : "text-gray-500"
+              balanceFlash === "green" ? "text-green-400" : "text-gray-500"
             )}
           >
             Balance: {formattedToBalance}
