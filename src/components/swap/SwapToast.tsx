@@ -17,6 +17,7 @@ import {
 import { FAST_PROTOCOL_NETWORK } from "@/lib/network-config"
 import { TokenPairIcon } from "./TokenPairIcon"
 import { PreconfirmCelebration, PreconfirmGlow } from "./PreconfirmCelebration"
+import { playPreconfirmSound } from "@/lib/preconfirm-sound"
 import { cn } from "@/lib/utils"
 
 /** Auto-dismiss delay for confirmed state (ms). */
@@ -67,6 +68,7 @@ export function SwapToast({ hash }: { hash: string }) {
       const currentStatus = useSwapToastStore.getState().toasts.find((t) => t.hash === hash)?.status
       if (effectiveHash && currentStatus !== "confirmed") {
         setStatus(hash, "preconfirmed")
+        playPreconfirmSound()
         const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
         t?.onPreConfirm?.()
       }
