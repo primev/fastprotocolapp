@@ -2,7 +2,7 @@ import { create } from "zustand"
 import type { Token } from "@/types/swap"
 import type { TransactionReceipt } from "viem"
 
-export type SwapToastStatus = "pending" | "pre-confirmed" | "confirmed" | "failed"
+export type SwapToastStatus = "pending" | "preconfirmed" | "confirmed" | "failed"
 
 export type SwapToast = {
   /** Stable id so key doesn't change when we update hash (Permit path); avoids remount jank. */
@@ -10,12 +10,16 @@ export type SwapToast = {
   hash: string
   status: SwapToastStatus
   collapsed: boolean
+  /** Timestamp when toast was created (pending). Used for elapsed time display. */
+  createdAt: number
+  /** Timestamp when preconfirmed status was set. Freezes the elapsed timer. */
+  preconfirmedAt?: number
   tokenIn?: Token
   tokenOut?: Token
   amountIn?: string
   amountOut?: string
   onConfirm?: () => void
-  /** Called when DB has success receipt (pre-confirmation). Use to reset form state. */
+  /** Called when DB has success receipt (preconfirmation). Use to reset form state. */
   onPreConfirm?: () => void
   /** Error info stored on toast when tx fails (status "failed"). */
   errorMessage?: string
@@ -30,7 +34,7 @@ export type SwapTxError = {
   receipt?: TransactionReceipt
   /** Raw RPC result from DB as returned (unmodified). Shown in Error Log when user clicks. */
   rawDbRecord?: unknown
-  /** True when the tx had already reached pre-confirmed before failing (e.g. reverted after DB 0x1). Hide Try Again. */
+  /** True when the tx had already reached preconfirmed before failing (e.g. reverted after DB 0x1). Hide Try Again. */
   occurredAfterPreConfirm?: boolean
 }
 
@@ -84,6 +88,7 @@ export const useSwapToastStore = create<Store>((set, get) => ({
           hash,
           status: "pending",
           collapsed: false,
+          createdAt: Date.now(),
           tokenIn,
           tokenOut,
           amountIn,
@@ -96,13 +101,21 @@ export const useSwapToastStore = create<Store>((set, get) => ({
 
   setStatus: (hash, status) =>
     set((s) => ({
-      toasts: s.toasts.map((t) => (t.hash === hash ? { ...t, status } : t)),
+      toasts: s.toasts.map((t) =>
+        t.hash === hash
+          ? {
+              ...t,
+              status,
+              ...(status === "preconfirmed" && !t.preconfirmedAt ? { preconfirmedAt: Date.now() } : {}),
+            }
+          : t
+      ),
     })),
 
   setFailed: (hash, receipt, message, rawDbRecord) =>
     set((s) => {
       const toast = s.toasts.find((t) => t.hash === hash)
-      const occurredAfterPreConfirm = toast?.status === "pre-confirmed"
+      const occurredAfterPreConfirm = toast?.status === "preconfirmed"
       return {
         toasts: s.toasts.map((t) =>
           t.hash === hash
@@ -146,7 +159,7 @@ export const useSwapToastStore = create<Store>((set, get) => ({
   collapse: (hash) =>
     set((s) => ({
       toasts: s.toasts.map((t) =>
-        t.hash === hash && (t.status === "pending" || t.status === "pre-confirmed")
+        t.hash === hash && (t.status === "pending" || t.status === "preconfirmed")
           ? { ...t, collapsed: true }
           : t
       ),

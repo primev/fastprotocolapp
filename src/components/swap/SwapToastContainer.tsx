@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { AnimatePresence } from "motion/react"
 import { useSwapToastStore } from "@/stores/swapToastStore"
 import { SwapToast } from "./SwapToast"
 import { FEATURE_FLAGS, TEST_SWAP_TOAST_PLACEHOLDER } from "@/lib/feature-flags"
@@ -27,12 +28,12 @@ export function SwapToastContainer() {
   }, [addToast])
 
   return (
-    <div className="fixed top-[100px] right-4 z-50 flex flex-col items-end">
-      {toasts.map((t, i) => (
-        <div key={t.id} style={{ marginTop: i * 12 }}>
-          <SwapToast hash={t.hash} />
-        </div>
-      ))}
+    <div className="fixed top-[100px] right-4 z-50 flex flex-col items-end gap-3">
+      <AnimatePresence mode="popLayout">
+        {toasts.map((t) => (
+          <SwapToast key={t.id} hash={t.hash} />
+        ))}
+      </AnimatePresence>
     </div>
   )
 }

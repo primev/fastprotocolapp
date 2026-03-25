@@ -3,7 +3,8 @@ import { getAnalyticsClient } from "@/lib/analytics/client"
 
 /**
  * Queries mctransactions for a swap's preconfirmation status.
- * Returns: "pre-confirmed" | "confirmed" | "failed" | null (not found yet)
+ * Returns: "preconfirmed" | "confirmed" | "failed" | null (not found yet)
+ * Note: DB stores "pre-confirmed" — normalized to "preconfirmed" by the client-side fetcher.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ hash: string }> }) {
   try {

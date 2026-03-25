@@ -5,17 +5,12 @@ import {
   useAccount,
   usePublicClient,
   useSendTransaction,
-  useWaitForTransactionReceipt,
 } from "wagmi"
-import {
-  useBroadcastGasPrice,
-  ETH_PATH_GAS_LIMIT_MULTIPLIER,
-} from "@/hooks/use-broadcast-gas-price"
+import { ETH_PATH_GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
 import { mainnet } from "wagmi/chains"
-import { parseUnits, formatUnits, type TransactionReceipt } from "viem"
+import { parseUnits, formatUnits } from "viem"
 import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
-import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import { fetchEthPathTxAndEstimate } from "@/lib/eth-path-tx"
 import type { Token } from "@/types/swap"
@@ -51,14 +46,12 @@ export function useSwapConfirmation({
   onSuccess,
 }: UseSwapConfirmationParams) {
   const { isConnected, address } = useAccount()
-  const { getFreshGasFees } = useBroadcastGasPrice()
   const publicClient = usePublicClient({ chainId: mainnet.id })
 
   const { createIntentSignature } = useSwapIntent()
   const {
     getFreshNonce,
     releaseNonce,
-    syncFromChain,
     isLoading: isNonceLoading,
   } = usePermit2Nonce()
   const { sendTransactionAsync } = useSendTransaction()
@@ -71,34 +64,8 @@ export function useSwapConfirmation({
   const [hash, setHash] = useState<string | null>(null)
   const [error, setError] = useState<Error | null>(null)
 
-  // Wagmi receipt hook used as a data source for the race-condition confirmation hook
-  const { data: receipt, error: receiptError } = useWaitForTransactionReceipt({
-    hash: hash ? (hash as `0x${string}`) : undefined,
-  })
-
-  const onConfirmed = useCallback(() => {
-    setIsSubmitting(false)
-    setIsConfirming(false)
-    setIsSuccess(true)
-    syncFromChain() // Refresh nonce state
-    onSuccess?.()
-  }, [onSuccess, syncFromChain])
-
-  const onConfirmationError = useCallback((err: Error) => {
-    setIsSubmitting(false)
-    setIsConfirming(false)
-    setError(err instanceof Error ? err : new Error(String(err)))
-  }, [])
-
-  // Races DB polling against on-chain receipt
-  useWaitForTxConfirmation({
-    hash: hash ?? undefined,
-    receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
-    receiptError,
-    mode: "status",
-    onConfirmed,
-    onError: onConfirmationError,
-  })
+  // Note: Confirmation polling is handled by SwapToast (single source of truth).
+  // Removed duplicate useWaitForTxConfirmation here to halve API calls per swap.
 
   // Sync confirmation status based on hash availability
   useEffect(() => {
@@ -202,13 +169,6 @@ export function useSwapConfirmation({
     const deadlineUnix = Math.floor(Date.now() / 1000) + deadline * 60
 
     let result
-    console.log("body", {
-      outputToken: toToken.address,
-      inputAmt: inputAmtWei,
-      userAmtOut: userAmtOutWei,
-      sender: address,
-      deadline: String(deadlineUnix),
-    })
     try {
       result = await fetchEthPathTxAndEstimate(
         {
@@ -224,14 +184,11 @@ export function useSwapConfirmation({
     } catch (err) {
       const apiError = err instanceof Error ? err.message : "FastSwap API error"
       let errorMessage = apiError
-      console.log("apiError", apiError)
       if (apiError.toLowerCase().includes("api error")) {
         errorMessage += `\n\nContext:\nInput token: ${fromToken.symbol} (${fromToken.address})\nOutput token: ${toToken.symbol} (${toToken.address})\nSlippage: ${slippage}\nMinimum Output: ${userAmtOutWei}\nDeadline (minutes): ${deadline}`
       }
       throw new Error(errorMessage)
     }
-
-    await getFreshGasFees()
 
     const bufferedGas = (result.gasEstimate * ETH_PATH_GAS_LIMIT_MULTIPLIER) / 100n
 
@@ -302,7 +259,6 @@ export function useSwapConfirmation({
     })
 
     const result = await resp.json()
-    console.log("[Permit Path] fastswap response:", { status: resp.status, result })
     if (!resp.ok || !result?.txHash) {
       releaseNonce(nonce)
       const rawError = result?.error || "FastSwap API error"

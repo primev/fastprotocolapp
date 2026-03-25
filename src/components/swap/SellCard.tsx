@@ -10,10 +10,14 @@ import { cn } from "@/lib/utils"
 import AmountInput from "./AmountInput"
 import TokenInfoRow from "./TokenInfoRow"
 
+// Hooks
+import { useBalanceFlash } from "@/hooks/use-balance-flash"
+
 // Types
 import { Token } from "@/types/swap"
 import { QuoteResult } from "@/hooks/use-swap-quote"
 import { UseBalanceReturnType } from "wagmi"
+import { ZERO_ADDRESS } from "@/lib/swap-constants"
 
 interface SellCardProps {
   // Token & Balance Data
@@ -68,6 +72,7 @@ const SellCardComponent: React.FC<SellCardProps> = ({
   setSwappedQuote,
 }) => {
   const [hasImageError, setHasImageError] = useState(false)
+  const isBalanceFlashing = useBalanceFlash(fromBalanceValue, isConnected)
 
   /**
    * Reset image error state if the token changes.
@@ -75,6 +80,19 @@ const SellCardComponent: React.FC<SellCardProps> = ({
   useEffect(() => {
     setHasImageError(false)
   }, [fromToken?.address])
+
+  const handleMaxBalance = () => {
+    if (!fromToken || fromBalanceValue <= 0) return
+    setEditingSide("sell")
+    setIsManualInversion(false)
+    setSwappedQuote(null)
+    // Reserve gas for native ETH swaps
+    const isNativeEth = fromToken.address === ZERO_ADDRESS
+    const reserveForGas = isNativeEth ? 0.01 : 0
+    const maxAmount = Math.max(0, fromBalanceValue - reserveForGas)
+    if (maxAmount <= 0) return
+    setAmount(maxAmount.toString())
+  }
 
   const handleAmountChange = (value: string) => {
     setEditingSide("sell")
@@ -87,7 +105,17 @@ const SellCardComponent: React.FC<SellCardProps> = ({
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Sell</span>
         {fromToken && (
-          <span className="text-xs text-gray-500">Balance: {formattedFromBalance}</span>
+          <button
+            type="button"
+            onClick={handleMaxBalance}
+            disabled={!isConnected || fromBalanceValue <= 0}
+            className={cn(
+              "text-xs transition-colors duration-700 hover:text-white disabled:hover:text-gray-500 disabled:cursor-default cursor-pointer",
+              isBalanceFlashing ? "text-green-400" : "text-gray-500"
+            )}
+          >
+            Balance: {formattedFromBalance}
+          </button>
         )}
       </div>
 

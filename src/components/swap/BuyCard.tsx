@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils"
 import AmountInput from "./AmountInput"
 import TokenInfoRow from "./TokenInfoRow"
 
+// Hooks
+import { useBalanceFlash } from "@/hooks/use-balance-flash"
+
 // Types
 import { Token } from "@/types/swap"
 import { UseBalanceReturnType } from "wagmi"
@@ -76,6 +79,7 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
    * prevents unnecessary re-renders of the entire swap interface.
    */
   const [hasImageError, setHasImageError] = useState(false)
+  const isBalanceFlashing = useBalanceFlash(toBalanceValue, isConnected)
 
   useEffect(() => {
     setHasImageError(false)
@@ -91,12 +95,30 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
     setAmount(value)
   }
 
+  const handleBalanceClick = () => {
+    if (!toToken || toBalanceValue <= 0 || !isConnected) return
+    setEditingSide("buy")
+    setAmount(toBalanceValue.toString())
+  }
+
   return (
     <div className="rounded-[14px] sm:rounded-[16px] bg-[#161b22] border border-white/5 px-3 py-2.5 sm:px-5 sm:py-4">
       {/* Header Section */}
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Buy</span>
-        {toToken && <span className="text-xs text-gray-500">Balance: {formattedToBalance}</span>}
+        {toToken && (
+          <button
+            type="button"
+            onClick={handleBalanceClick}
+            disabled={!isConnected || toBalanceValue <= 0}
+            className={cn(
+              "text-xs transition-colors duration-700 hover:text-white disabled:hover:text-gray-500 disabled:cursor-default cursor-pointer",
+              isBalanceFlashing ? "text-green-400" : "text-gray-500"
+            )}
+          >
+            Balance: {formattedToBalance}
+          </button>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-3">

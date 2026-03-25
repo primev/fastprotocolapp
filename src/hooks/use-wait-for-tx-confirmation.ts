@@ -7,7 +7,17 @@ import { fetchTransactionReceiptFromDb } from "@/lib/transaction-receipt-utils"
 import { getTxConfirmationTimeoutMs } from "@/lib/tx-config"
 import { RPCError } from "@/lib/transaction-errors"
 
-const STATUS_CHECK_INTERVAL_MS = 500
+/**
+ * Adaptive polling: starts fast to catch sub-second preconfirmations,
+ * then backs off. First 5 polls at 100ms (~500ms window), then 500ms.
+ */
+const FAST_POLL_INTERVAL_MS = 100
+const NORMAL_POLL_INTERVAL_MS = 500
+const FAST_POLL_COUNT = 5
+
+function getPollInterval(pollCount: number): number {
+  return pollCount < FAST_POLL_COUNT ? FAST_POLL_INTERVAL_MS : NORMAL_POLL_INTERVAL_MS
+}
 
 export type WaitForTxConfirmationMode = "receipt" | "status"
 
@@ -24,7 +34,7 @@ export interface UseWaitForTxConfirmationParams {
   receiptError?: Error | null
   mode: WaitForTxConfirmationMode
   onConfirmed: (result: TxConfirmationResult) => void
-  /** Called when RPC receipt or mctransactions reports pre-confirmed. */
+  /** Called when RPC receipt or mctransactions reports preconfirmed. */
   onPreConfirmed?: (result: TxConfirmationResult) => void
   onError?: (error: Error) => void
 }
@@ -38,12 +48,12 @@ export interface UseWaitForTxConfirmationReturn {
 /**
  * Two-phase polling with Wagmi as parallel fallback:
  *
- * Phase 1 (pending → pre-confirmed):
+ * Phase 1 (pending → preconfirmed):
  *   Poll BOTH eth_getTransactionReceipt (FastRPC) and mctransactions in parallel.
- *   First source to show success/pre-confirmed fires onPreConfirmed.
+ *   First source to show success/preconfirmed fires onPreConfirmed.
  *   mctransactions "failed" in this phase fires onError immediately.
  *
- * Phase 2 (pre-confirmed → final):
+ * Phase 2 (preconfirmed → final):
  *   Stop RPC receipt polling. Poll only mctransactions for confirmed/failed.
  *   mctransactions "confirmed" → fire onConfirmed (final success).
  *   mctransactions "failed" → fire onError.
@@ -163,6 +173,7 @@ export function useWaitForTxConfirmation({
       try {
         const timeoutMs = await getTxConfirmationTimeoutMs()
         const startTime = Date.now()
+        let pollCount = 0
 
         // ── Phase 1: Poll both RPC receipt and mctransactions ──
         while (!abortController.signal.aborted && !hasConfirmedRef.current) {
@@ -205,9 +216,9 @@ export function useWaitForTxConfirmation({
             return
           }
 
-          // Either source signals pre-confirmed → fire and move to phase 2
+          // Either source signals preconfirmed → fire and move to phase 2
           if (
-            mcStatus === "pre-confirmed" ||
+            mcStatus === "preconfirmed" ||
             mcStatus === "confirmed" ||
             (rpcResult && rpcResult.receipt.status === "success")
           ) {
@@ -227,7 +238,7 @@ export function useWaitForTxConfirmation({
             break // → Phase 2
           }
 
-          await new Promise((r) => setTimeout(r, STATUS_CHECK_INTERVAL_MS))
+          await new Promise((r) => setTimeout(r, getPollInterval(pollCount++)))
         }
 
         // ── Phase 2: Poll only mctransactions for confirmed/failed ──
@@ -281,7 +292,7 @@ export function useWaitForTxConfirmation({
             return
           }
 
-          await new Promise((r) => setTimeout(r, STATUS_CHECK_INTERVAL_MS))
+          await new Promise((r) => setTimeout(r, NORMAL_POLL_INTERVAL_MS))
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError" && !hasConfirmedRef.current) {
