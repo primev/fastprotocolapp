@@ -44,14 +44,14 @@ export function SwapToast({ hash }: { hash: string }) {
     receiptError: undefined,
     mode: "status",
     onConfirmed: () => {
-      console.log(`[SwapToast] onConfirmed hash=${effectiveHash}`)
+      console.log(`[SwapToast] onConfirmed hash=${effectiveHash} t=${Date.now()}`)
       if (effectiveHash) setStatus(hash, "confirmed")
       const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
       t?.onConfirm?.()
     },
     onPreConfirmed: () => {
       const currentStatus = useSwapToastStore.getState().toasts.find((t) => t.hash === hash)?.status
-      console.log(`[SwapToast] onPreConfirmed hash=${effectiveHash} currentStatus=${currentStatus}`)
+      console.log(`[SwapToast] onPreConfirmed hash=${effectiveHash} currentStatus=${currentStatus} t=${Date.now()}`)
       if (effectiveHash && currentStatus !== "confirmed") {
         setStatus(hash, "preconfirmed")
         playPreconfirmSound()
@@ -60,7 +60,7 @@ export function SwapToast({ hash }: { hash: string }) {
       }
     },
     onError: (err) => {
-      console.log(`[SwapToast] onError hash=${effectiveHash}`, err.message)
+      console.log(`[SwapToast] onError hash=${effectiveHash} t=${Date.now()}`, err.message)
       const txReceipt = err instanceof RPCError ? err.receipt : undefined
       const rawDbRecord = err instanceof RPCError ? err.rawDbRecord : undefined
       const message =
