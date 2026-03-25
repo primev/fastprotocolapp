@@ -153,6 +153,7 @@ export function useWaitForTxConfirmation({
 
     processingHashRef.current = hash
     preConfirmedFiredRef.current = false
+    console.log(`[TxConfirmation] Polling started | hash=${hash}`)
     const abortController = new AbortController()
     abortRef.current = abortController
     setIsConfirmed(false)

@@ -47,7 +47,7 @@ export function SwapToast({ hash }: { hash: string }) {
       const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
       const elapsed = t?.createdAt ? ((Date.now() - t.createdAt) / 1000).toFixed(2) : "?"
       const sincePreconf = t?.preconfirmedAt ? ((Date.now() - t.preconfirmedAt) / 1000).toFixed(2) : "n/a"
-      console.log(`[SwapToast] CONFIRMED | +${elapsed}s from submit | +${sincePreconf}s from preconf | hash=${effectiveHash?.slice(0, 14)}...`)
+      console.log(`[SwapToast] CONFIRMED | +${elapsed}s from submit | +${sincePreconf}s from preconf | hash=${effectiveHash}`)
       if (effectiveHash) setStatus(hash, "confirmed")
       t?.onConfirm?.()
     },
@@ -55,7 +55,7 @@ export function SwapToast({ hash }: { hash: string }) {
       const currentStatus = useSwapToastStore.getState().toasts.find((t) => t.hash === hash)?.status
       const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
       const elapsed = t?.createdAt ? ((Date.now() - t.createdAt) / 1000).toFixed(2) : "?"
-      console.log(`[SwapToast] PRECONFIRMED | +${elapsed}s from submit | status was ${currentStatus} | hash=${effectiveHash?.slice(0, 14)}...`)
+      console.log(`[SwapToast] PRECONFIRMED | +${elapsed}s from submit | status was ${currentStatus} | hash=${effectiveHash}`)
       if (effectiveHash && currentStatus !== "confirmed") {
         setStatus(hash, "preconfirmed")
         playPreconfirmSound()
@@ -65,7 +65,7 @@ export function SwapToast({ hash }: { hash: string }) {
     onError: (err) => {
       const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
       const elapsed = t?.createdAt ? ((Date.now() - t.createdAt) / 1000).toFixed(2) : "?"
-      console.log(`[SwapToast] ERROR | +${elapsed}s from submit | hash=${effectiveHash?.slice(0, 14)}...`, err.message)
+      console.log(`[SwapToast] ERROR | +${elapsed}s from submit | hash=${effectiveHash}`, err.message)
       const txReceipt = err instanceof RPCError ? err.receipt : undefined
       const rawDbRecord = err instanceof RPCError ? err.rawDbRecord : undefined
       const message =
