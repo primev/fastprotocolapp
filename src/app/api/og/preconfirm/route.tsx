@@ -11,9 +11,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const time = searchParams.get("time") || "0.4"
 
-  const secs = parseFloat(time)
-  const fire = secs < 1 ? "\u{1F525}\u{1F525}\u{1F525}" : secs < 4 ? "\u{1F525}\u{1F525}" : "\u{1F525}"
-
   return new ImageResponse(
     <div
       style={{
@@ -36,36 +33,28 @@ export async function GET(request: NextRequest) {
           width: "600px",
           height: "600px",
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%)",
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
         }}
       />
 
-      {/* Top: Fast Swaps label */}
+      {/* Top label */}
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          marginBottom: "16px",
+          fontSize: "18px",
+          fontWeight: 600,
+          color: "rgba(255,255,255,0.35)",
+          letterSpacing: "0.12em",
+          textTransform: "uppercase" as const,
+          marginBottom: "20px",
         }}
       >
-        <div
-          style={{
-            fontSize: "20px",
-            fontWeight: 600,
-            color: "rgba(255,255,255,0.5)",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase" as const,
-          }}
-        >
-          Fast Swaps
-        </div>
+        Swap Preconfirmed
       </div>
 
-      {/* Center: speed number */}
+      {/* Speed number */}
       <div
         style={{
           display: "flex",
@@ -75,7 +64,7 @@ export async function GET(request: NextRequest) {
       >
         <div
           style={{
-            fontSize: "140px",
+            fontSize: "148px",
             fontWeight: 800,
             color: "#fff",
             lineHeight: 1,
@@ -88,7 +77,7 @@ export async function GET(request: NextRequest) {
           style={{
             fontSize: "48px",
             fontWeight: 600,
-            color: "rgba(255,255,255,0.4)",
+            color: "rgba(255,255,255,0.35)",
             lineHeight: 1,
           }}
         >
@@ -96,47 +85,26 @@ export async function GET(request: NextRequest) {
         </div>
       </div>
 
-      {/* Fire emojis */}
+      {/* Thin accent line */}
       <div
         style={{
-          fontSize: "36px",
-          marginTop: "8px",
-          marginBottom: "24px",
+          width: "80px",
+          height: "2px",
+          background: "linear-gradient(90deg, transparent, rgba(96, 165, 250, 0.5), transparent)",
+          marginTop: "28px",
+          marginBottom: "28px",
         }}
-      >
-        {fire}
-      </div>
+      />
 
-      {/* Label */}
+      {/* Branding */}
       <div
         style={{
-          fontSize: "24px",
-          color: "rgba(96, 165, 250, 0.6)",
-          fontWeight: 500,
+          fontSize: "20px",
+          fontWeight: 600,
+          color: "rgba(255,255,255,0.25)",
         }}
       >
-        swap preconfirmed
-      </div>
-
-      {/* Bottom: branding */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "40px",
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-        }}
-      >
-        <div
-          style={{
-            fontSize: "18px",
-            fontWeight: 600,
-            color: "rgba(255,255,255,0.3)",
-          }}
-        >
-          fastprotocol.io
-        </div>
+        fastprotocol.io
       </div>
     </div>,
     {

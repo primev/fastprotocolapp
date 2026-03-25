@@ -403,9 +403,27 @@ export function SwapToast({ hash }: { hash: string }) {
                 onClick={(e) => {
                   e.stopPropagation()
                   const secs = parseFloat(elapsedSec!)
-                  const fire = secs < 1 ? "\u{1F525}\u{1F525}\u{1F525}" : secs < 4 ? "\u{1F525}\u{1F525}" : "\u{1F525}"
-                  const shareUrl = `${window.location.origin}/share/preconfirm?time=${elapsedSec}`
-                  const tweet = `${fire} Swap preconfirmed in ${elapsedSec}s on @Fast_Protocol\n\n${shareUrl}`
+                  const fire = secs < 1 ? " \u{1F525}\u{1F525}\u{1F525}" : secs < 4 ? " \u{1F525}\u{1F525}" : " \u{1F525}"
+
+                  // Variations grounded in the actual speed experience
+                  const fast = [
+                    `I just made a Fast Swap — preconfirmed in ${elapsedSec}s. Didn't even see a spinner.${fire}`,
+                    `${elapsedSec}s from sign to preconfirmed. That's a Fast Swap.${fire}`,
+                    `Just swapped and it was preconfirmed in ${elapsedSec}s. This is what preconfirmations feel like.${fire}`,
+                  ]
+                  const mid = [
+                    `I just made a Fast Swap — preconfirmed in ${elapsedSec}s before the block even landed.${fire}`,
+                    `Swapped and preconfirmed in ${elapsedSec}s. No more watching spinners.${fire}`,
+                    `${elapsedSec}s to preconfirmed. Fast Swaps hit different.${fire}`,
+                  ]
+                  const slow = [
+                    `I just made a Fast Swap — preconfirmed in ${elapsedSec}s. Still faster than waiting for a block.${fire}`,
+                    `Preconfirmed in ${elapsedSec}s on a Fast Swap. Knew my tokens were secured before L1 confirmed.${fire}`,
+                  ]
+
+                  const variants = secs < 1 ? fast : secs < 4 ? mid : slow
+                  const text = variants[Math.floor(Math.random() * variants.length)]
+                  const tweet = `${text}\n\n@Fast_Protocol`
                   window.open(
                     `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`,
                     "_blank"

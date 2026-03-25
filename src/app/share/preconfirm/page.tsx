@@ -8,10 +8,7 @@ interface Props {
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const params = await searchParams
   const time = params.time || "0.4"
-  const secs = parseFloat(time)
-  const fire = secs < 1 ? "\u{1F525}\u{1F525}\u{1F525}" : secs < 4 ? "\u{1F525}\u{1F525}" : "\u{1F525}"
-
-  const title = `${fire} Preconfirmed in ${time}s — Fast Swaps`
+  const title = `Preconfirmed in ${time}s — Fast Swaps`
   const description = `Swap preconfirmed in ${time} seconds on Fast Protocol`
   const ogUrl = `/api/og/preconfirm?time=${time}`
 
