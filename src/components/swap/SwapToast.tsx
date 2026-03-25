@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence } from "motion/react"
+import { useWaitForTransactionReceipt } from "wagmi"
+import type { TransactionReceipt } from "viem"
 import { X, RefreshCw, ExternalLink } from "lucide-react"
 import { FaXTwitter } from "react-icons/fa6"
 import { useSwapToastStore } from "@/stores/swapToastStore"
@@ -42,14 +44,17 @@ export function SwapToast({ hash }: { hash: string }) {
     console.log(`[SwapToast] Hash ready | +${elapsed}s from submit | now=${Date.now()} | hash=${effectiveHash}`)
   }
 
-  // Poll for tx status — NO wagmi useWaitForTransactionReceipt here.
-  // Wagmi treats FastRPC's simulated preconf receipt as a real on-chain receipt,
-  // which caused "confirmed" to fire before "preconfirmed". Our custom polling
-  // hook handles the preconfirmed → confirmed lifecycle correctly.
+  // Wagmi watches for real on-chain receipt — used for confirmed detection only.
+  // Our custom polling hook handles preconfirmed detection via FastRPC commitment/receipt polling.
+  // Wagmi correctly distinguishes real L1 receipts from FastRPC's simulated preconf receipts.
+  const { data: receipt, error: receiptError } = useWaitForTransactionReceipt({
+    hash: effectiveHash as `0x${string}` | undefined,
+  })
+
   useWaitForTxConfirmation({
     hash: effectiveHash ?? undefined,
-    receipt: undefined, // No wagmi receipt — avoids the premature confirmed race
-    receiptError: undefined,
+    receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
+    receiptError,
     mode: "status",
     onConfirmed: () => {
       const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)

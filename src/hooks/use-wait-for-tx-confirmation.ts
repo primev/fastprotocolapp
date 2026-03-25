@@ -257,8 +257,10 @@ export function useWaitForTxConfirmation({
           await new Promise((r) => setTimeout(r, getPollInterval(pollCount++)))
         }
 
-        // ── Phase 2: Poll for confirmed/failed ──
-        // RPC receipt + DB status both useful here (L1 inclusion takes 12s+ so DB lag doesn't matter)
+        // ── Phase 2: Wait for confirmed/failed ──
+        // Wagmi handles confirmed detection via real L1 receipt (passed as prop).
+        // We only poll DB here for failure detection. Wagmi's onConfirmed effect
+        // fires when a real on-chain receipt arrives — no FastRPC simulated receipt issue.
         while (!abortController.signal.aborted && !hasConfirmedRef.current) {
           if (Date.now() - startTime > timeoutMs) {
             clearInterval(dbPollInterval)
@@ -270,25 +272,18 @@ export function useWaitForTxConfirmation({
             return
           }
 
-          const [mcStatus, rpcResult] = await Promise.all([
-            fetchFastTxStatus(hash, abortController.signal),
-            fetchTransactionReceiptFromDb(hash, abortController.signal),
-          ])
+          const mcStatus = await fetchFastTxStatus(hash, abortController.signal)
 
           if (abortController.signal.aborted || hasConfirmedRef.current) break
 
-          // Either source confirms
-          if (
-            mcStatus === "confirmed" ||
-            (rpcResult && rpcResult.receipt.status === "success" && rpcResult.receipt.blockNumber > 0n)
-          ) {
+          if (mcStatus === "confirmed") {
             hasConfirmedRef.current = true
             abortController.abort()
             clearInterval(dbPollInterval)
             setIsConfirmed(true)
             const result: TxConfirmationResult =
               mode === "receipt"
-                ? { source: "db", receipt: rpcResult?.receipt }
+                ? { source: "db" }
                 : { source: "db", status: { success: true, hash } }
             onConfirmedRef.current(result)
             return
@@ -298,10 +293,7 @@ export function useWaitForTxConfirmation({
             hasConfirmedRef.current = true
             abortController.abort()
             clearInterval(dbPollInterval)
-
-            const e = rpcResult
-              ? new RPCError("Transaction failed", rpcResult.receipt, rpcResult.rawResult)
-              : new Error("Transaction was dropped by the network.")
+            const e = new Error("Transaction was dropped by the network.")
             setError(e)
             onErrorRef.current?.(e)
             return
