@@ -465,8 +465,11 @@ export function SwapToast({ hash }: { hash: string }) {
 
                   const variants = secs < 1 ? fast : secs < 4 ? mid : slow
                   const text = variants[Math.floor(Math.random() * variants.length)]
-                  // Twitter needs a URL in the tweet to render the OG card
-                  const shareUrl = `${window.location.origin}/share/preconfirm?time=${elapsedSec}`
+                  // Speed OG card for fast swaps, generic for slower ones
+                  const shareUrl =
+                    secs <= 4.1
+                      ? `${window.location.origin}/share/preconfirm?time=${elapsedSec}`
+                      : `${window.location.origin}`
                   window.open(
                     `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`,
                     "_blank"
