@@ -3,8 +3,6 @@
 import { useEffect, useRef } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence } from "motion/react"
-import { useWaitForTransactionReceipt } from "wagmi"
-import type { TransactionReceipt } from "viem"
 import { X, RefreshCw, ExternalLink } from "lucide-react"
 import { FaXTwitter } from "react-icons/fa6"
 import { useSwapToastStore } from "@/stores/swapToastStore"
@@ -36,22 +34,24 @@ export function SwapToast({ hash }: { hash: string }) {
   const toastRef = useRef<HTMLDivElement>(null)
   const effectiveHash = hash.startsWith("pending-") ? undefined : hash
 
-  const { data: receipt, error: receiptError } = useWaitForTransactionReceipt({
-    hash: effectiveHash as `0x${string}` | undefined,
-  })
-
+  // Poll for tx status — NO wagmi useWaitForTransactionReceipt here.
+  // Wagmi treats FastRPC's simulated preconf receipt as a real on-chain receipt,
+  // which caused "confirmed" to fire before "preconfirmed". Our custom polling
+  // hook handles the preconfirmed → confirmed lifecycle correctly.
   useWaitForTxConfirmation({
     hash: effectiveHash ?? undefined,
-    receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
-    receiptError,
+    receipt: undefined, // No wagmi receipt — avoids the premature confirmed race
+    receiptError: undefined,
     mode: "status",
     onConfirmed: () => {
+      console.log(`[SwapToast] onConfirmed hash=${effectiveHash}`)
       if (effectiveHash) setStatus(hash, "confirmed")
       const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
       t?.onConfirm?.()
     },
     onPreConfirmed: () => {
       const currentStatus = useSwapToastStore.getState().toasts.find((t) => t.hash === hash)?.status
+      console.log(`[SwapToast] onPreConfirmed hash=${effectiveHash} currentStatus=${currentStatus}`)
       if (effectiveHash && currentStatus !== "confirmed") {
         setStatus(hash, "preconfirmed")
         playPreconfirmSound()
@@ -60,6 +60,7 @@ export function SwapToast({ hash }: { hash: string }) {
       }
     },
     onError: (err) => {
+      console.log(`[SwapToast] onError hash=${effectiveHash}`, err.message)
       const txReceipt = err instanceof RPCError ? err.receipt : undefined
       const rawDbRecord = err instanceof RPCError ? err.rawDbRecord : undefined
       const message =
