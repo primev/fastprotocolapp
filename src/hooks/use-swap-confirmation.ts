@@ -253,7 +253,8 @@ export function useSwapConfirmation({
       slippage: (parseFloat(slippage || "0.5") || 0.5).toFixed(1),
     }
 
-    // Call FastRPC directly — CORS allows it, skip Vercel serverless proxy (~100-300ms saved)
+    // Call FastRPC directly — CORS allows it, skip Vercel serverless proxy
+    const t0 = performance.now()
     const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -261,6 +262,9 @@ export function useSwapConfirmation({
     })
 
     const result = await resp.json()
+    const t1 = performance.now()
+    console.log(`[Permit Path] FastRPC /fastswap responded in ${(t1 - t0).toFixed(0)}ms`, { status: resp.status, txHash: result?.txHash })
+
     if (!resp.ok || !result?.txHash) {
       releaseNonce(nonce)
       const rawError = result?.error || "FastSwap API error"

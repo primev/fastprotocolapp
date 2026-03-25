@@ -154,10 +154,13 @@ export function useWaitForTxConfirmation({
     setIsConfirmed(false)
     setError(null)
 
+    const pollingStartedAt = performance.now()
+
     /** Fire onPreConfirmed once, from whichever source wins the race. */
     const firePreConfirmed = () => {
       if (preConfirmedFiredRef.current) return
       preConfirmedFiredRef.current = true
+      console.log(`[TxConfirmation] Preconfirmed detected in ${(performance.now() - pollingStartedAt).toFixed(0)}ms after polling started`)
       const result: TxConfirmationResult =
         mode === "receipt" ? { source: "db" } : { source: "db", status: { success: true, hash } }
       try {
@@ -170,6 +173,8 @@ export function useWaitForTxConfirmation({
     }
 
     const poll = async () => {
+      const pollStartTime = performance.now()
+      console.log(`[TxConfirmation] Polling started for ${hash.slice(0, 10)}...`)
       try {
         const timeoutMs = await getTxConfirmationTimeoutMs()
         const startTime = Date.now()

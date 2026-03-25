@@ -175,8 +175,14 @@ export const useSwapToastStore = create<Store>((set, get) => ({
       toasts: s.toasts.filter((t) => t.hash !== hash),
     })),
 
-  updateToastHash: (placeholderHash, realHash) =>
+  updateToastHash: (placeholderHash, realHash) => {
+    const toast = get().toasts.find((t) => t.hash === placeholderHash)
+    if (toast) {
+      const elapsed = Date.now() - toast.createdAt
+      console.log(`[Toast] Hash updated after ${elapsed}ms dead time (placeholder → ${realHash.slice(0, 10)}...)`)
+    }
     set((s) => ({
       toasts: s.toasts.map((t) => (t.hash === placeholderHash ? { ...t, hash: realHash } : t)),
-    })),
+    }))
+  },
 }))
