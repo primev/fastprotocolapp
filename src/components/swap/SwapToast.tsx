@@ -33,6 +33,14 @@ export function SwapToast({ hash }: { hash: string }) {
 
   const toastRef = useRef<HTMLDivElement>(null)
   const effectiveHash = hash.startsWith("pending-") ? undefined : hash
+  const prevEffectiveHashRef = useRef<string | undefined>(undefined)
+
+  // Log when real hash arrives (permit path: placeholder → real hash swap)
+  if (effectiveHash && effectiveHash !== prevEffectiveHashRef.current) {
+    prevEffectiveHashRef.current = effectiveHash
+    const elapsed = toast?.createdAt ? ((Date.now() - toast.createdAt) / 1000).toFixed(2) : "?"
+    console.log(`[SwapToast] Hash ready | +${elapsed}s from submit | now=${Date.now()} | hash=${effectiveHash}`)
+  }
 
   // Poll for tx status — NO wagmi useWaitForTransactionReceipt here.
   // Wagmi treats FastRPC's simulated preconf receipt as a real on-chain receipt,
@@ -55,7 +63,7 @@ export function SwapToast({ hash }: { hash: string }) {
       const currentStatus = useSwapToastStore.getState().toasts.find((t) => t.hash === hash)?.status
       const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
       const elapsed = t?.createdAt ? ((Date.now() - t.createdAt) / 1000).toFixed(2) : "?"
-      console.log(`[SwapToast] PRECONFIRMED | +${elapsed}s from submit | status was ${currentStatus} | hash=${effectiveHash}`)
+      console.log(`[SwapToast] PRECONFIRMED | +${elapsed}s from submit | status was ${currentStatus} | now=${Date.now()} | hash=${effectiveHash}`)
       if (effectiveHash && currentStatus !== "confirmed") {
         setStatus(hash, "preconfirmed")
         playPreconfirmSound()
