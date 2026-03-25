@@ -20,21 +20,9 @@ import { PreconfirmCelebration, PreconfirmGlow } from "./PreconfirmCelebration"
 import { playPreconfirmSound } from "@/lib/preconfirm-sound"
 import { cn } from "@/lib/utils"
 
-/** Auto-dismiss delay for confirmed state (ms). */
 const CONFIRMED_AUTO_DISMISS_MS = 6000
-/** Delay before share button floats in (ms after preconfirmed). */
-const SHARE_POPUP_DELAY_S = 2
+const SHARE_STRIP_DELAY_S = 1.5
 
-/**
- * SwapToast — a single evolving card for the full swap lifecycle:
- *
- *   pending → preconfirmed → confirmed (or failed at any point)
- *
- * The card never swaps out; it transitions in place:
- *   - Pending: spinner, token pair icon, white border
- *   - Preconfirmed: celebration particles, Fast logo, blue accent, speed timer
- *   - Confirmed: green checkmark badge on Fast logo, title change, green accent, auto-dismiss
- */
 export function SwapToast({ hash }: { hash: string }) {
   const toast = useSwapToastStore((s) => s.toasts.find((t) => t.hash === hash))
   const setStatus = useSwapToastStore((s) => s.setStatus)
@@ -46,8 +34,6 @@ export function SwapToast({ hash }: { hash: string }) {
   const removeToast = useSwapToastStore((s) => s.removeToast)
 
   const toastRef = useRef<HTMLDivElement>(null)
-
-  // Placeholder hash (Permit path) until relayer returns real hash
   const effectiveHash = hash.startsWith("pending-") ? undefined : hash
 
   const { data: receipt, error: receiptError } = useWaitForTransactionReceipt({
@@ -82,14 +68,12 @@ export function SwapToast({ hash }: { hash: string }) {
     },
   })
 
-  // Auto-dismiss after confirmed
   useEffect(() => {
     if (toast?.status !== "confirmed") return
     const timer = setTimeout(() => removeToast(hash), CONFIRMED_AUTO_DISMISS_MS)
     return () => clearTimeout(timer)
   }, [toast?.status, hash, removeToast])
 
-  // Click outside
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (!toastRef.current?.contains(e.target as Node) && toast) {
@@ -116,7 +100,7 @@ export function SwapToast({ hash }: { hash: string }) {
       ? ((toast.preconfirmedAt - toast.createdAt) / 1000).toFixed(1)
       : null
 
-  // ── Failed states (slippage retry + generic) ──────────────────────
+  // ── Failed ────────────────────────────────────────────────────────
   if (isFailed) {
     const barterSlippage = toast.errorMessage ? parseBarterSlippageError(toast.errorMessage) : null
 
@@ -136,26 +120,24 @@ export function SwapToast({ hash }: { hash: string }) {
                 Minimum required: {barterSlippage.recommendedSlippage}%
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  requestRetryWithSlippage(hash, barterSlippage.recommendedSlippage)
-                }}
-                className="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-xs font-semibold transition-colors whitespace-nowrap"
-              >
-                Retry {barterSlippage.recommendedSlippage}%
-              </button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); removeToast(hash) }}
-                className="text-neutral-500 hover:text-white transition-colors"
-                aria-label="Dismiss"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                requestRetryWithSlippage(hash, barterSlippage.recommendedSlippage)
+              }}
+              className="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-xs font-semibold transition-colors whitespace-nowrap"
+            >
+              Retry {barterSlippage.recommendedSlippage}%
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); removeToast(hash) }}
+              className="text-neutral-600 hover:text-neutral-300 transition-colors p-1"
+              aria-label="Dismiss"
+            >
+              <X className="h-3 w-3" />
+            </button>
           </div>
         </div>
       )
@@ -183,17 +165,17 @@ export function SwapToast({ hash }: { hash: string }) {
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); removeToast(hash) }}
-            className="text-neutral-500 hover:text-white transition-colors"
+            className="text-neutral-600 hover:text-neutral-300 transition-colors p-1"
             aria-label="Dismiss"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-3 w-3" />
           </button>
         </div>
       </div>
     )
   }
 
-  // ── Collapsed bubble ──────────────────────────────────────────────
+  // ── Collapsed ─────────────────────────────────────────────────────
   if ((isPending || isPreConfirmed) && toast.collapsed) {
     return (
       <button
@@ -213,13 +195,13 @@ export function SwapToast({ hash }: { hash: string }) {
     )
   }
 
-  // ── Main card: single element that evolves ────────────────────────
+  // ── Main card ─────────────────────────────────────────────────────
   return (
     <motion.div
       ref={toastRef}
       layout
       className={cn(
-        "group relative w-[360px] overflow-visible rounded-2xl bg-neutral-900 shadow-2xl transition-colors duration-500 border",
+        "group relative w-[360px] rounded-2xl bg-neutral-900 shadow-2xl transition-colors duration-500 border",
         isConfirmed
           ? "border-green-500/25"
           : isPreConfirmed
@@ -227,17 +209,14 @@ export function SwapToast({ hash }: { hash: string }) {
             : "border-white/10 hover:border-white/20"
       )}
     >
-      {/* ── Subtle corner dismiss ── */}
+      {/* ── Dismiss: bare X, no bubble ── */}
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); removeToast(hash) }}
-        className={cn(
-          "absolute -top-1.5 -right-1.5 z-20 h-5 w-5 rounded-full bg-neutral-800 border border-white/10 flex items-center justify-center transition-opacity",
-          "opacity-0 group-hover:opacity-100"
-        )}
+        className="absolute top-2.5 right-3 z-20 text-neutral-600 hover:text-neutral-300 transition-opacity opacity-0 group-hover:opacity-100 p-0.5"
         aria-label="Dismiss"
       >
-        <X className="h-2.5 w-2.5 text-neutral-400" />
+        <X className="h-3 w-3" />
       </button>
 
       {/* ── Card body ── */}
@@ -245,15 +224,13 @@ export function SwapToast({ hash }: { hash: string }) {
         role="button"
         tabIndex={0}
         onClick={() => explorerUrl && window.open(explorerUrl, "_blank")}
-        className={cn("relative h-[84px] p-4 flex items-center gap-4", explorerUrl && "cursor-pointer")}
+        className={cn("relative h-[84px] p-4 flex items-center gap-4", explorerUrl && settled && "cursor-pointer")}
       >
-        {/* LEFT: Icon area */}
+        {/* LEFT: Icon */}
         <div className="relative h-11 w-11 shrink-0" style={{ overflow: "visible" }}>
-          {/* Celebration particles (fires once on preconfirmed) */}
           <PreconfirmCelebration active={isPreConfirmed} />
           <PreconfirmGlow active={isPreConfirmed && !isConfirmed} />
 
-          {/* Token pair (pending) */}
           <div
             className={cn(
               "absolute inset-0 transition-all duration-500",
@@ -264,7 +241,6 @@ export function SwapToast({ hash }: { hash: string }) {
             <TokenPairIcon leftToken={toast.tokenIn} rightToken={toast.tokenOut} />
           </div>
 
-          {/* Fast logo (preconfirmed+confirmed) */}
           <AnimatePresence>
             {settled && (
               <motion.div
@@ -288,7 +264,7 @@ export function SwapToast({ hash }: { hash: string }) {
             )}
           </AnimatePresence>
 
-          {/* Green checkmark badge (confirmed — overlays bottom-right of Fast logo) */}
+          {/* Green checkmark badge */}
           <AnimatePresence>
             {isConfirmed && (
               <motion.div
@@ -315,9 +291,7 @@ export function SwapToast({ hash }: { hash: string }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <span className="text-sm font-semibold text-green-400">
-                  Tokens Available
-                </span>
+                <span className="text-sm font-semibold text-green-400">Tokens Available</span>
                 <div className="mt-0.5 text-xs text-neutral-500 tabular-nums">
                   {toast.amountIn ?? "—"} {toast.tokenIn?.symbol} → {toast.amountOut ?? "—"}{" "}
                   {toast.tokenOut?.symbol}
@@ -330,14 +304,7 @@ export function SwapToast({ hash }: { hash: string }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <span className="text-sm font-semibold text-blue-400">
-                  Preconfirmed
-                  {elapsedSec && (
-                    <span className="ml-1.5 text-[11px] font-medium text-blue-300/70">
-                      in {elapsedSec}s
-                    </span>
-                  )}
-                </span>
+                <span className="text-sm font-semibold text-blue-400">Preconfirmed</span>
                 <div className="mt-0.5 text-xs text-neutral-500 tabular-nums">
                   {toast.amountIn ?? "—"} {toast.tokenIn?.symbol} → {toast.amountOut ?? "—"}{" "}
                   {toast.tokenOut?.symbol}
@@ -355,15 +322,41 @@ export function SwapToast({ hash }: { hash: string }) {
           </AnimatePresence>
         </div>
 
-        {/* RIGHT: Status indicator */}
-        <div className="flex items-center">
+        {/* RIGHT: Speed badge + explorer link */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* Speed badge — prominent */}
+          <AnimatePresence>
+            {settled && elapsedSec && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2, duration: 0.3, type: "spring", damping: 15 }}
+                className={cn(
+                  "px-2 py-0.5 rounded-md text-xs font-semibold tabular-nums",
+                  isConfirmed
+                    ? "bg-green-500/10 text-green-400"
+                    : "bg-blue-500/10 text-blue-400"
+                )}
+              >
+                {elapsedSec}s
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Explorer link */}
           {settled && explorerUrl ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
+              className="flex items-center justify-center"
             >
-              <ExternalLink className="h-3.5 w-3.5 text-neutral-500 hover:text-white transition-colors" />
+              <ExternalLink className={cn(
+                "h-4 w-4 transition-colors",
+                isConfirmed
+                  ? "text-green-400/60 hover:text-green-400"
+                  : "text-blue-400/60 hover:text-blue-400"
+              )} />
             </motion.div>
           ) : isPending ? (
             <div className="relative h-5 w-5 flex items-center justify-center">
@@ -378,7 +371,7 @@ export function SwapToast({ hash }: { hash: string }) {
       <AnimatePresence>
         {isConfirmed && (
           <motion.div
-            className="absolute bottom-0 left-0 h-[2px] bg-green-500/40"
+            className="absolute bottom-0 left-0 h-[2px] bg-green-500/40 rounded-b-2xl"
             initial={{ width: "100%", opacity: 0 }}
             animate={{ width: "0%", opacity: 1 }}
             transition={{ width: { duration: CONFIRMED_AUTO_DISMISS_MS / 1000, ease: "linear" }, opacity: { duration: 0.3 } }}
@@ -386,7 +379,7 @@ export function SwapToast({ hash }: { hash: string }) {
         )}
         {isPreConfirmed && !isConfirmed && (
           <motion.div
-            className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-blue-400/50 to-transparent"
+            className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-blue-400/50 to-transparent rounded-b-2xl"
             initial={{ opacity: 0, scaleX: 0 }}
             animate={{ opacity: 1, scaleX: 1 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
@@ -394,28 +387,34 @@ export function SwapToast({ hash }: { hash: string }) {
         )}
       </AnimatePresence>
 
-      {/* ── Floating share-on-X popup ── */}
+      {/* ── Share on X: flush strip below card body ── */}
       <AnimatePresence>
         {(isPreConfirmed || isConfirmed) && elapsedSec && (
-          <motion.button
-            type="button"
-            initial={{ opacity: 0, y: 4, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.9 }}
-            transition={{ delay: SHARE_POPUP_DELAY_S, duration: 0.4, ease: [0.2, 0.8, 0.2, 1] }}
-            onClick={(e) => {
-              e.stopPropagation()
-              const tweet = `Just swapped on @Fast_Protocol — preconfirmed in ${elapsedSec}s\n\nhttps://fastprotocol.xyz`
-              window.open(
-                `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`,
-                "_blank"
-              )
-            }}
-            className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-800 border border-white/10 shadow-lg hover:bg-neutral-700 hover:border-white/20 transition-colors"
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ delay: SHARE_STRIP_DELAY_S, duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
+            className="overflow-hidden"
           >
-            <FaXTwitter className="h-3 w-3 text-neutral-300" />
-            <span className="text-[11px] font-medium text-neutral-300">Share</span>
-          </motion.button>
+            <div className="border-t border-white/5">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const tweet = `Just swapped on @Fast_Protocol — preconfirmed in ${elapsedSec}s\n\nhttps://fastprotocol.xyz`
+                  window.open(
+                    `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`,
+                    "_blank"
+                  )
+                }}
+                className="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-neutral-500 hover:text-neutral-200 transition-colors"
+              >
+                <FaXTwitter className="h-3 w-3" />
+                <span className="text-[11px] font-medium">Share on X</span>
+              </button>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
