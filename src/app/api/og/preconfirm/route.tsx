@@ -9,7 +9,8 @@ export const runtime = "edge"
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
-  const time = searchParams.get("time") || "0.4"
+  const raw = parseFloat(searchParams.get("time") || "0.4")
+  const time = !isNaN(raw) && raw >= 0 && raw <= 999 ? raw.toFixed(1) : "0.4"
 
   return new ImageResponse(
     <div

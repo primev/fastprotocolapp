@@ -40,13 +40,8 @@ export async function fetchCommitmentStatus(
 
     const data = await response.json()
 
-    // If result is a non-empty array, the tx has commitments → preconfirmed
+    // Only trust array results with actual commitment objects
     if (data?.result && Array.isArray(data.result) && data.result.length > 0) {
-      return "preconfirmed"
-    }
-
-    // Non-array truthy result also indicates commitments exist
-    if (data?.result && !data?.error) {
       return "preconfirmed"
     }
 

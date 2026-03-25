@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback } from "react"
 import {
   useAccount,
   usePublicClient,
@@ -58,30 +58,15 @@ export function useSwapConfirmation({
   const { sendTransactionAsync } = useSendTransaction()
 
   // --- Transaction State ---
+  // Note: Confirmation polling is handled by SwapToast (single source of truth).
   const [isSigning, setIsSigning] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isConfirming, setIsConfirming] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
   const [hash, setHash] = useState<string | null>(null)
   const [error, setError] = useState<Error | null>(null)
-
-  // Note: Confirmation polling is handled by SwapToast (single source of truth).
-  // Removed duplicate useWaitForTxConfirmation here to halve API calls per swap.
-
-  // Sync confirmation status based on hash availability
-  useEffect(() => {
-    if (hash && !isSuccess && !error) {
-      setIsConfirming(true)
-    } else if (error) {
-      setIsConfirming(false)
-    }
-  }, [hash, isSuccess, error])
 
   const reset = useCallback(() => {
     setIsSigning(false)
     setIsSubmitting(false)
-    setIsConfirming(false)
-    setIsSuccess(false)
     setHash(null)
     setError(null)
   }, [])
@@ -89,7 +74,6 @@ export function useSwapConfirmation({
   const handleSwapError = useCallback((err: unknown) => {
     setIsSigning(false)
     setIsSubmitting(false)
-    setIsConfirming(false)
     setError(err instanceof Error ? err : new Error(String(err)))
   }, [])
 
@@ -277,8 +261,6 @@ export function useSwapConfirmation({
     confirmSwap,
     isSigning,
     isSubmitting,
-    isConfirming,
-    isSuccess,
     hash,
     error,
     reset,
