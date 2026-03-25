@@ -404,10 +404,8 @@ export function SwapToast({ hash }: { hash: string }) {
                   e.stopPropagation()
                   const secs = parseFloat(elapsedSec!)
                   const fire = secs < 1 ? "\u{1F525}\u{1F525}\u{1F525}" : secs < 4 ? "\u{1F525}\u{1F525}" : "\u{1F525}"
-                  const tokenIn = toast.tokenIn?.symbol || "ETH"
-                  const tokenOut = toast.tokenOut?.symbol || "USDC"
-                  const shareUrl = `${window.location.origin}/share/preconfirm?time=${elapsedSec}&in=${tokenIn}&out=${tokenOut}`
-                  const tweet = `${fire} Preconfirmed in ${elapsedSec}s — Fast Swaps\n\n${tokenIn} → ${tokenOut} swap preconfirmed on @Fast_Protocol\n\n${shareUrl}`
+                  const shareUrl = `${window.location.origin}/share/preconfirm?time=${elapsedSec}`
+                  const tweet = `${fire} Swap preconfirmed in ${elapsedSec}s on @Fast_Protocol\n\n${shareUrl}`
                   window.open(
                     `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`,
                     "_blank"

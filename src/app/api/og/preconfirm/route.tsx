@@ -5,13 +5,11 @@ export const runtime = "edge"
 
 /**
  * Dynamic OG image for preconfirmation share cards.
- * Usage: /api/og/preconfirm?time=0.4&in=ETH&out=USDC
+ * Usage: /api/og/preconfirm?time=0.4
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const time = searchParams.get("time") || "0.4"
-  const tokenIn = searchParams.get("in") || "ETH"
-  const tokenOut = searchParams.get("out") || "USDC"
 
   const secs = parseFloat(time)
   const fire = secs < 1 ? "\u{1F525}\u{1F525}\u{1F525}" : secs < 4 ? "\u{1F525}\u{1F525}" : "\u{1F525}"
@@ -109,21 +107,15 @@ export async function GET(request: NextRequest) {
         {fire}
       </div>
 
-      {/* Swap pair */}
+      {/* Label */}
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          fontSize: "22px",
-          color: "rgba(255,255,255,0.35)",
+          fontSize: "24px",
+          color: "rgba(96, 165, 250, 0.6)",
           fontWeight: 500,
         }}
       >
-        <span>{tokenIn}</span>
-        <span style={{ color: "rgba(255,255,255,0.15)" }}>{"\u2192"}</span>
-        <span>{tokenOut}</span>
-        <span style={{ marginLeft: "8px", color: "rgba(96, 165, 250, 0.6)" }}>preconfirmed</span>
+        swap preconfirmed
       </div>
 
       {/* Bottom: branding */}
@@ -143,7 +135,7 @@ export async function GET(request: NextRequest) {
             color: "rgba(255,255,255,0.3)",
           }}
         >
-          fastprotocol.xyz
+          fastprotocol.io
         </div>
       </div>
     </div>,
