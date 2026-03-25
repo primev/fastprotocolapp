@@ -1,13 +1,11 @@
 import { ImageResponse } from "next/og"
 import { NextRequest } from "next/server"
-import { readFile } from "node:fs/promises"
-import { join } from "node:path"
 
 export const runtime = "edge"
 
 /**
  * Dynamic OG image for preconfirmation share cards.
- * Uses designer-provided background + custom fonts (Clonoid Bold Italic, Sora).
+ * Clean background (blue glow, speed lines, Fast logo) with dynamic text overlay.
  * Usage: /api/og/preconfirm?time=0.4
  */
 export async function GET(request: NextRequest) {
@@ -15,13 +13,15 @@ export async function GET(request: NextRequest) {
   const raw = parseFloat(searchParams.get("time") || "0.4")
   const time = !isNaN(raw) && raw >= 0 && raw <= 999 ? raw.toFixed(1) : "0.4"
 
-  // Load custom fonts
   const [clonoidFont, soraFont] = await Promise.all([
-    fetch(new URL("./fonts/clonoid-bold-italic.ttf", import.meta.url)).then((r) => r.arrayBuffer()),
-    fetch(new URL("./fonts/sora-semibold.ttf", import.meta.url)).then((r) => r.arrayBuffer()),
+    fetch(new URL("./fonts/clonoid-bold-italic.ttf", import.meta.url)).then(
+      (r) => r.arrayBuffer()
+    ),
+    fetch(new URL("./fonts/sora-semibold.ttf", import.meta.url)).then((r) =>
+      r.arrayBuffer()
+    ),
   ])
 
-  // Background image — designer-provided template with blue glow + speed lines
   const bgUrl = `${request.nextUrl.origin}/assets/og-preconfirm-bg.png`
 
   return new ImageResponse(
@@ -30,14 +30,11 @@ export async function GET(request: NextRequest) {
         width: "100%",
         height: "100%",
         display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
         position: "relative",
         backgroundColor: "#040810",
       }}
     >
-      {/* Background image */}
+      {/* Background */}
       <img
         src={bgUrl}
         width={1200}
@@ -52,7 +49,7 @@ export async function GET(request: NextRequest) {
         }}
       />
 
-      {/* Content overlay */}
+      {/* Content — positioned above the blue glow line */}
       <div
         style={{
           display: "flex",
@@ -61,18 +58,21 @@ export async function GET(request: NextRequest) {
           justifyContent: "center",
           position: "relative",
           zIndex: 1,
+          width: "100%",
+          height: "100%",
+          paddingBottom: "80px",
         }}
       >
         {/* SWAP PRECONFIRMED */}
         <div
           style={{
             fontFamily: "Sora",
-            fontSize: "24px",
+            fontSize: "26px",
             fontWeight: 600,
-            color: "rgba(160, 200, 255, 0.5)",
-            letterSpacing: "0.25em",
+            color: "rgba(180, 215, 255, 0.7)",
+            letterSpacing: "0.3em",
             textTransform: "uppercase" as const,
-            marginBottom: "10px",
+            marginBottom: "16px",
           }}
         >
           Swap Preconfirmed
@@ -89,11 +89,12 @@ export async function GET(request: NextRequest) {
           <div
             style={{
               fontFamily: "Clonoid",
-              fontSize: "180px",
+              fontSize: "200px",
               color: "#fff",
               lineHeight: 1,
               letterSpacing: "-0.02em",
-              textShadow: "0 0 60px rgba(100, 180, 255, 0.4), 0 0 120px rgba(100, 180, 255, 0.2)",
+              textShadow:
+                "0 0 40px rgba(100, 180, 255, 0.5), 0 0 80px rgba(100, 180, 255, 0.3), 0 0 160px rgba(60, 140, 255, 0.15)",
             }}
           >
             {time}
@@ -101,14 +102,28 @@ export async function GET(request: NextRequest) {
           <div
             style={{
               fontFamily: "Sora",
-              fontSize: "48px",
+              fontSize: "52px",
               fontWeight: 600,
-              color: "rgba(160, 200, 255, 0.5)",
+              color: "rgba(180, 215, 255, 0.55)",
               lineHeight: 1,
             }}
           >
             sec
           </div>
+        </div>
+
+        {/* fastprotocol.io */}
+        <div
+          style={{
+            fontFamily: "Sora",
+            fontSize: "22px",
+            fontWeight: 600,
+            color: "rgba(180, 215, 255, 0.4)",
+            marginTop: "32px",
+            fontStyle: "italic",
+          }}
+        >
+          fastprotocol.io
         </div>
       </div>
     </div>,
