@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react"
 import Image from "next/image"
 // UI Components & Icons
 import { ChevronDown } from "lucide-react"
+import { formatUnits } from "viem"
 import { cn } from "@/lib/utils"
 
 // Local Components
@@ -82,16 +83,21 @@ const SellCardComponent: React.FC<SellCardProps> = ({
   }, [fromToken?.address])
 
   const handleMaxBalance = () => {
-    if (!fromToken || fromBalanceValue <= 0) return
+    if (!fromToken || !fromBalance || fromBalance.value === 0n) return
     setEditingSide("sell")
     setIsManualInversion(false)
     setSwappedQuote(null)
-    // Reserve gas for native ETH swaps
+
     const isNativeEth = fromToken.address === ZERO_ADDRESS
-    const reserveForGas = isNativeEth ? 0.01 : 0
-    const maxAmount = Math.max(0, fromBalanceValue - reserveForGas)
-    if (maxAmount <= 0) return
-    setAmount(maxAmount.toString())
+    if (isNativeEth) {
+      // Reserve 0.01 ETH for gas
+      const reserve = 10n ** 16n // 0.01 ETH in wei
+      const max = fromBalance.value > reserve ? fromBalance.value - reserve : 0n
+      if (max === 0n) return
+      setAmount(formatUnits(max, fromToken.decimals))
+    } else {
+      setAmount(formatUnits(fromBalance.value, fromToken.decimals))
+    }
   }
 
   const handleAmountChange = (value: string) => {
@@ -108,7 +114,7 @@ const SellCardComponent: React.FC<SellCardProps> = ({
           <button
             type="button"
             onClick={handleMaxBalance}
-            disabled={!isConnected || fromBalanceValue <= 0}
+            disabled={!isConnected || !fromBalance || fromBalance.value === 0n}
             className={cn(
               "text-xs transition-colors duration-700 hover:text-white disabled:hover:text-gray-500 disabled:cursor-default cursor-pointer",
               isBalanceFlashing ? "text-green-400" : "text-gray-500"
