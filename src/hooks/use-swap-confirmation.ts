@@ -12,6 +12,7 @@ import { parseUnits, formatUnits } from "viem"
 import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
+import { FASTSWAP_API_BASE } from "@/lib/network-config"
 import { fetchEthPathTxAndEstimate } from "@/lib/eth-path-tx"
 import type { Token } from "@/types/swap"
 
@@ -252,7 +253,8 @@ export function useSwapConfirmation({
       slippage: (parseFloat(slippage || "0.5") || 0.5).toFixed(1),
     }
 
-    const resp = await fetch("/api/fastswap", {
+    // Call FastRPC directly — CORS allows it, skip Vercel serverless proxy (~100-300ms saved)
+    const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
