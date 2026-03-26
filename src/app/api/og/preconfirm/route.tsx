@@ -3,14 +3,8 @@ import { NextRequest } from "next/server"
 
 export const runtime = "edge"
 
-/**
- * Dynamic OG image for preconfirmation share cards.
- * Clean background (blue glow, speed lines, Fast logo) with dynamic text overlay.
- * Usage: /api/og/preconfirm?time=0.4
- */
 export async function GET(request: NextRequest) {
-  const { searchParams } = request.nextUrl
-  const raw = parseFloat(searchParams.get("time") || "0.4")
+  const raw = parseFloat(request.nextUrl.searchParams.get("time") || "0.4")
   const time = !isNaN(raw) && raw >= 0 && raw <= 999 ? raw.toFixed(1) : "0.4"
 
   const [clonoidFont, soraFont] = await Promise.all([
@@ -22,39 +16,48 @@ export async function GET(request: NextRequest) {
     ),
   ])
 
-  // Background embedded as base64 data URI to avoid edge runtime fetch issues
-  const bgData = await fetch(
-    new URL("./bg.jpg", import.meta.url)
-  ).then((r) => r.arrayBuffer())
-  const bgBase64 = Buffer.from(bgData).toString("base64")
-  const bgUrl = `data:image/jpeg;base64,${bgBase64}`
-
   return new ImageResponse(
     <div
       style={{
         width: "100%",
         height: "100%",
         display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(145deg, #030810 0%, #0a1a30 50%, #0c1e38 100%)",
         position: "relative",
-        backgroundColor: "#040810",
+        overflow: "hidden",
       }}
     >
-      {/* Background */}
-      <img
-        src={bgUrl}
-        width={1200}
-        height={630}
+      {/* Blue glow center */}
+      <div
         style={{
           position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
+          width: "700px",
+          height: "500px",
+          borderRadius: "50%",
+          background:
+            "radial-gradient(ellipse, rgba(30, 100, 200, 0.25) 0%, rgba(20, 80, 180, 0.1) 40%, transparent 70%)",
+          top: "30%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
         }}
       />
 
-      {/* Content — positioned above the blue glow line */}
+      {/* Horizontal glow line */}
+      <div
+        style={{
+          position: "absolute",
+          width: "100%",
+          height: "2px",
+          background:
+            "linear-gradient(90deg, transparent 10%, rgba(0, 160, 255, 0.4) 50%, transparent 90%)",
+          top: "62%",
+        }}
+      />
+
+      {/* Content */}
       <div
         style={{
           display: "flex",
@@ -63,43 +66,37 @@ export async function GET(request: NextRequest) {
           justifyContent: "center",
           position: "relative",
           zIndex: 1,
-          width: "100%",
-          height: "100%",
-          paddingBottom: "80px",
+          paddingBottom: "60px",
         }}
       >
-        {/* SWAP PRECONFIRMED */}
         <div
           style={{
             fontFamily: "Sora",
-            fontSize: "26px",
+            fontSize: "24px",
             fontWeight: 600,
-            color: "rgba(180, 215, 255, 0.7)",
+            color: "rgba(150, 200, 255, 0.55)",
             letterSpacing: "0.3em",
             textTransform: "uppercase" as const,
-            marginBottom: "16px",
+            marginBottom: "12px",
           }}
         >
           Swap Preconfirmed
         </div>
 
-        {/* Speed number + sec */}
         <div
           style={{
             display: "flex",
             alignItems: "baseline",
-            gap: "16px",
+            gap: "14px",
           }}
         >
           <div
             style={{
               fontFamily: "Clonoid",
-              fontSize: "200px",
+              fontSize: "180px",
               color: "#fff",
               lineHeight: 1,
               letterSpacing: "-0.02em",
-              textShadow:
-                "0 0 40px rgba(100, 180, 255, 0.5), 0 0 80px rgba(100, 180, 255, 0.3), 0 0 160px rgba(60, 140, 255, 0.15)",
             }}
           >
             {time}
@@ -107,9 +104,9 @@ export async function GET(request: NextRequest) {
           <div
             style={{
               fontFamily: "Sora",
-              fontSize: "52px",
+              fontSize: "48px",
               fontWeight: 600,
-              color: "rgba(180, 215, 255, 0.55)",
+              color: "rgba(150, 200, 255, 0.45)",
               lineHeight: 1,
             }}
           >
@@ -117,14 +114,13 @@ export async function GET(request: NextRequest) {
           </div>
         </div>
 
-        {/* fastprotocol.io */}
         <div
           style={{
             fontFamily: "Sora",
-            fontSize: "22px",
+            fontSize: "20px",
             fontWeight: 600,
-            color: "rgba(180, 215, 255, 0.4)",
-            marginTop: "32px",
+            color: "rgba(150, 200, 255, 0.35)",
+            marginTop: "28px",
             fontStyle: "italic",
           }}
         >
@@ -136,18 +132,8 @@ export async function GET(request: NextRequest) {
       width: 1200,
       height: 630,
       fonts: [
-        {
-          name: "Clonoid",
-          data: clonoidFont,
-          style: "italic",
-          weight: 700,
-        },
-        {
-          name: "Sora",
-          data: soraFont,
-          style: "normal",
-          weight: 600,
-        },
+        { name: "Clonoid", data: clonoidFont, style: "italic", weight: 700 },
+        { name: "Sora", data: soraFont, style: "normal", weight: 600 },
       ],
     }
   )
