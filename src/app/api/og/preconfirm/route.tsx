@@ -7,15 +7,6 @@ export async function GET(request: NextRequest) {
   const raw = parseFloat(request.nextUrl.searchParams.get("time") || "0.4")
   const time = !isNaN(raw) && raw >= 0 && raw <= 999 ? raw.toFixed(1) : "0.4"
 
-  const [clonoidFont, soraFont] = await Promise.all([
-    fetch(new URL("./fonts/clonoid-bold-italic.ttf", import.meta.url)).then(
-      (r) => r.arrayBuffer()
-    ),
-    fetch(new URL("./fonts/sora-semibold.ttf", import.meta.url)).then((r) =>
-      r.arrayBuffer()
-    ),
-  ])
-
   return new ImageResponse(
     <div
       style={{
@@ -26,11 +17,11 @@ export async function GET(request: NextRequest) {
         alignItems: "center",
         justifyContent: "center",
         background: "linear-gradient(145deg, #030810 0%, #0a1a30 50%, #0c1e38 100%)",
+        fontFamily: "sans-serif",
         position: "relative",
         overflow: "hidden",
       }}
     >
-      {/* Blue glow center */}
       <div
         style={{
           position: "absolute",
@@ -44,8 +35,6 @@ export async function GET(request: NextRequest) {
           transform: "translate(-50%, -50%)",
         }}
       />
-
-      {/* Horizontal glow line */}
       <div
         style={{
           position: "absolute",
@@ -56,8 +45,6 @@ export async function GET(request: NextRequest) {
           top: "62%",
         }}
       />
-
-      {/* Content */}
       <div
         style={{
           display: "flex",
@@ -71,7 +58,6 @@ export async function GET(request: NextRequest) {
       >
         <div
           style={{
-            fontFamily: "Sora",
             fontSize: "24px",
             fontWeight: 600,
             color: "rgba(150, 200, 255, 0.55)",
@@ -82,18 +68,12 @@ export async function GET(request: NextRequest) {
         >
           Swap Preconfirmed
         </div>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            gap: "14px",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "baseline", gap: "14px" }}>
           <div
             style={{
-              fontFamily: "Clonoid",
               fontSize: "180px",
+              fontWeight: 800,
+              fontStyle: "italic",
               color: "#fff",
               lineHeight: 1,
               letterSpacing: "-0.02em",
@@ -103,7 +83,6 @@ export async function GET(request: NextRequest) {
           </div>
           <div
             style={{
-              fontFamily: "Sora",
               fontSize: "48px",
               fontWeight: 600,
               color: "rgba(150, 200, 255, 0.45)",
@@ -113,10 +92,8 @@ export async function GET(request: NextRequest) {
             sec
           </div>
         </div>
-
         <div
           style={{
-            fontFamily: "Sora",
             fontSize: "20px",
             fontWeight: 600,
             color: "rgba(150, 200, 255, 0.35)",
@@ -128,13 +105,6 @@ export async function GET(request: NextRequest) {
         </div>
       </div>
     </div>,
-    {
-      width: 1200,
-      height: 630,
-      fonts: [
-        { name: "Clonoid", data: clonoidFont, style: "italic", weight: 700 },
-        { name: "Sora", data: soraFont, style: "normal", weight: 600 },
-      ],
-    }
+    { width: 1200, height: 630 }
   )
 }
