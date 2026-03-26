@@ -1,5 +1,4 @@
 import { Metadata } from "next"
-import { redirect } from "next/navigation"
 
 interface Props {
   searchParams: Promise<{ time?: string }>
@@ -28,10 +27,16 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       images: [ogUrl],
       site: "@Fast_Protocol",
     },
+    robots: { index: false },
   }
 }
 
-/** Redirect visitors to the main swap page — this route only exists for OG meta. */
-export default async function SharePreconfirmPage() {
-  redirect("/")
+/**
+ * Renders a minimal page so crawlers (Twitter, Facebook) can read the meta tags.
+ * Human visitors get a client-side redirect to the swap page.
+ */
+export default function SharePreconfirmPage() {
+  return (
+    <meta httpEquiv="refresh" content="0;url=/" />
+  )
 }
