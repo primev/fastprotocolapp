@@ -232,6 +232,11 @@ export function useWaitForTxConfirmation({
             fetchTransactionReceiptFromDb(hash, abortController.signal),
           ])
 
+          if (pollCount <= 10 || pollCount % 10 === 0) {
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(2)
+            console.log(`[TxConfirmation] Poll #${pollCount} | +${elapsed}s | commit=${commitStatus} | rpc=${rpcResult?.receipt?.status ?? "null"} | hash=${hash.slice(0, 14)}...`)
+          }
+
           if (abortController.signal.aborted || hasConfirmedRef.current) break
 
           // RPC receipt with reverted status → immediate error
