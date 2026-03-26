@@ -22,7 +22,12 @@ export async function GET(request: NextRequest) {
     ),
   ])
 
-  const bgUrl = `${request.nextUrl.origin}/assets/og-preconfirm-bg.png`
+  // Background embedded as base64 data URI to avoid edge runtime fetch issues
+  const bgData = await fetch(
+    new URL("./bg.jpg", import.meta.url)
+  ).then((r) => r.arrayBuffer())
+  const bgBase64 = Buffer.from(bgData).toString("base64")
+  const bgUrl = `data:image/jpeg;base64,${bgBase64}`
 
   return new ImageResponse(
     <div
