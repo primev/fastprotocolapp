@@ -90,7 +90,9 @@ async function fetchTransactionReceipt(
 
     // No result means transaction not found in DB yet
     if (!data.result) {
-      // This is normal - DB hasn't indexed the transaction yet
+      if (data.error) {
+        console.warn(`[txReceipt] RPC error: ${data.error.message || JSON.stringify(data.error)} | hash=${txHash.slice(0, 14)}...`)
+      }
       return null
     }
 

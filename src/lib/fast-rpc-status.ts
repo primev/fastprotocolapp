@@ -43,14 +43,20 @@ export async function fetchCommitmentStatus(
 
     const data = await response.json()
 
+    // Log RPC errors that would otherwise be silently swallowed
+    if (data?.error) {
+      console.warn(`[commitmentStatus] RPC error: ${data.error.message} | hash=${txHash.slice(0, 14)}...`)
+    }
+
     // Only trust array results with actual commitment objects
     if (data?.result && Array.isArray(data.result) && data.result.length > 0) {
       return "preconfirmed"
     }
 
     return null
-  } catch {
+  } catch (err) {
     clearTimeout(timeoutId)
+    console.warn(`[commitmentStatus] fetch error: ${err instanceof Error ? err.message : err} | hash=${txHash.slice(0, 14)}...`)
     return null
   }
 }
