@@ -10,7 +10,7 @@ export async function GET(
 
   const title = `Preconfirmed in ${time}s — Fast Swaps`
   const description = `Swap preconfirmed in ${time} seconds on Fast Protocol`
-  const ogImage = `${request.nextUrl.origin}/opengraph-image.png`
+  const ogImage = `${request.nextUrl.origin}/og-preconfirm.jpg`
 
   const html = `<!DOCTYPE html>
 <html>
