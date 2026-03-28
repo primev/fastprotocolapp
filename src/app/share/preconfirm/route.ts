@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 
 /**
  * Returns raw HTML with OG/Twitter meta tags for share card rendering.
- * Twitter's crawler doesn't execute JS, so we can't use generateMetadata.
- * Human visitors get redirected to / via meta refresh.
+ * Crawlers (Twitter, Facebook) read the meta tags.
+ * Browsers get a JS redirect — crawlers don't execute JS so they stay.
  */
 export async function GET(request: NextRequest) {
   const raw = parseFloat(request.nextUrl.searchParams.get("time") || "0.4")
@@ -30,9 +30,11 @@ export async function GET(request: NextRequest) {
   <meta name="twitter:title" content="${title}" />
   <meta name="twitter:description" content="${description}" />
   <meta name="twitter:image" content="${ogImage}" />
-  <meta http-equiv="refresh" content="0;url=/" />
 </head>
-<body></body>
+<body>
+  <p>Redirecting...</p>
+  <script>window.location.href="/"</script>
+</body>
 </html>`
 
   return new NextResponse(html, {
