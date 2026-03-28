@@ -225,6 +225,9 @@ export async function GET(
         { name: "Clonoid", data: clonoidFont, style: "italic", weight: 700 },
         { name: "Sora", data: soraFont, style: "normal", weight: 600 },
       ],
+      headers: {
+        "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+      },
     }
   )
 }
