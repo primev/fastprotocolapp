@@ -5,10 +5,13 @@ import { Providers } from "@/components/providers"
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { getBaseUrl, SITE_URL } from "@/lib/site-config"
+import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register"
+import { InstallPrompt } from "@/components/pwa/install-prompt"
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#3b8df8",
 }
 
 export const metadata: Metadata = {
@@ -19,7 +22,11 @@ export const metadata: Metadata = {
   },
   description:
     "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Earn tokenized mev rewards with every trade on Fast Protocol.",
-  icons: { icon: "/icon.png" },
+  icons: {
+    icon: "/icon.png",
+    apple: "/icons/icon-192x192.png",
+  },
+  manifest: "/manifest.json",
   keywords: [
     "fast swaps",
     "ethereum swaps",
@@ -81,12 +88,19 @@ const jsonLd = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="scroll-smooth overflow-x-hidden">
+      <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Fast Protocol" />
+      </head>
       <body className="overflow-x-hidden">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <Providers>{children}</Providers>
+        <ServiceWorkerRegister />
+        <InstallPrompt />
         <Analytics />
         <SpeedInsights />
       </body>
