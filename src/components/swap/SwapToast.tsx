@@ -472,7 +472,7 @@ export function SwapToast({ hash }: { hash: string }) {
                       : `${window.location.origin}`
                   // Pre-warm the OG image CDN cache before Twitter's crawler fetches it
                   if (secs <= 4.1) {
-                    fetch(`${window.location.origin}/api/og/preconfirm/${elapsedSec}`).catch(() => {})
+                    fetch(`${window.location.origin}/og/preconfirm/${elapsedSec}`).catch(() => {})
                   }
                   window.open(
                     `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`,

@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const title = `Preconfirmed in ${time}s — Fast Swaps`
   const description = `Swap preconfirmed in ${time} seconds on Fast Protocol`
   const origin = request.nextUrl.origin
-  const ogImage = `${origin}/api/og/preconfirm/${time}`
+  const ogImage = `${origin}/og/preconfirm/${time}`
 
   const html = `<!DOCTYPE html>
 <html>
