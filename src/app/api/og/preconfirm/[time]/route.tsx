@@ -193,25 +193,25 @@ export async function GET(
       <div
         style={{
           position: "absolute",
-          bottom: "32px",
+          bottom: "34px",
           display: "flex",
           alignItems: "center",
-          gap: "10px",
+          gap: "14px",
         }}
       >
         <img
           src={ICON_DATA_URI}
-          width={28}
-          height={28}
-          style={{ width: "28px", height: "28px" }}
+          width={48}
+          height={48}
+          style={{ width: "48px", height: "48px" }}
         />
         <div
           style={{
             fontFamily: "Sora",
-            fontSize: "17px",
+            fontSize: "22px",
             fontWeight: 600,
-            color: "rgba(150, 200, 255, 0.35)",
-            letterSpacing: "0.04em",
+            color: "rgba(150, 200, 255, 0.4)",
+            letterSpacing: "0.06em",
           }}
         >
           fastprotocol.io
