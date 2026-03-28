@@ -468,7 +468,7 @@ export function SwapToast({ hash }: { hash: string }) {
                   // Speed OG card for fast swaps, generic for slower ones
                   const shareUrl =
                     secs <= 4.1
-                      ? `${window.location.origin}/share/preconfirm?time=${elapsedSec}`
+                      ? `${window.location.origin}/s/${elapsedSec}`
                       : `${window.location.origin}`
                   // Pre-warm the OG image CDN cache before Twitter's crawler fetches it
                   if (secs <= 4.1) {
