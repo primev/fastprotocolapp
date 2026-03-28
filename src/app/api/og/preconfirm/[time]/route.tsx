@@ -30,22 +30,23 @@ export async function GET(
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(160deg, #020810 0%, #071428 35%, #0d2040 60%, #091830 100%)",
+        background:
+          "linear-gradient(160deg, #020810 0%, #071428 35%, #0d2040 60%, #091830 100%)",
         position: "relative",
         overflow: "hidden",
       }}
     >
-      {/* Outer subtle vignette */}
+      {/* Vignette */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(ellipse 80% 70% at 50% 45%, transparent 30%, rgba(0,0,0,0.4) 100%)",
+            "radial-gradient(ellipse 80% 70% at 50% 42%, transparent 30%, rgba(0,0,0,0.45) 100%)",
         }}
       />
 
-      {/* Primary blue glow — centered upper half */}
+      {/* Primary glow */}
       <div
         style={{
           position: "absolute",
@@ -54,87 +55,92 @@ export async function GET(
           borderRadius: "50%",
           background:
             "radial-gradient(ellipse, rgba(20, 90, 200, 0.3) 0%, rgba(15, 70, 170, 0.12) 35%, transparent 65%)",
-          top: "20%",
+          top: "22%",
           left: "50%",
           transform: "translate(-50%, -50%)",
         }}
       />
 
-      {/* Secondary smaller glow for depth */}
+      {/* Inner glow behind number */}
       <div
         style={{
           position: "absolute",
-          width: "400px",
+          width: "500px",
           height: "300px",
           borderRadius: "50%",
           background:
-            "radial-gradient(ellipse, rgba(40, 130, 255, 0.15) 0%, transparent 70%)",
-          top: "35%",
+            "radial-gradient(ellipse, rgba(50, 140, 255, 0.12) 0%, transparent 70%)",
+          top: "38%",
           left: "50%",
           transform: "translate(-50%, -50%)",
         }}
       />
 
-      {/* Cyan horizon line */}
+      {/* Horizon line */}
       <div
         style={{
           position: "absolute",
           width: "100%",
           height: "1px",
-          top: "63%",
+          top: "66%",
           background:
-            "linear-gradient(90deg, transparent 5%, rgba(0, 180, 255, 0.15) 25%, rgba(0, 200, 255, 0.5) 50%, rgba(0, 180, 255, 0.15) 75%, transparent 95%)",
+            "linear-gradient(90deg, transparent 5%, rgba(0, 180, 255, 0.12) 25%, rgba(0, 200, 255, 0.45) 50%, rgba(0, 180, 255, 0.12) 75%, transparent 95%)",
         }}
       />
 
-      {/* Soft glow on the line */}
+      {/* Line bloom */}
       <div
         style={{
           position: "absolute",
-          width: "60%",
-          height: "40px",
-          top: "61.5%",
-          left: "20%",
+          width: "50%",
+          height: "30px",
+          top: "64.5%",
+          left: "25%",
           background:
-            "radial-gradient(ellipse, rgba(0, 160, 255, 0.08) 0%, transparent 70%)",
+            "radial-gradient(ellipse, rgba(0, 160, 255, 0.06) 0%, transparent 70%)",
         }}
       />
 
-      {/* Content */}
+      {/* Content — shifted up slightly so number sits above horizon */}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
           position: "relative",
           zIndex: 1,
-          paddingBottom: "70px",
+          marginTop: "-30px",
         }}
       >
-        {/* SWAP PRECONFIRMED label */}
+        {/* SWAP PRECONFIRMED */}
         <div
           style={{
             fontFamily: "Sora",
-            fontSize: "22px",
+            fontSize: "20px",
             fontWeight: 600,
-            color: "rgba(140, 190, 255, 0.45)",
-            letterSpacing: "0.35em",
+            color: "rgba(160, 205, 255, 0.55)",
+            letterSpacing: "0.4em",
             textTransform: "uppercase" as const,
-            marginBottom: "8px",
+            marginBottom: "20px",
           }}
         >
           Swap Preconfirmed
         </div>
 
-        {/* Speed number + sec */}
-        <div style={{ display: "flex", alignItems: "baseline", gap: "16px" }}>
+        {/* Number + sec on same baseline */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: "18px",
+          }}
+        >
           <div
             style={{
               fontFamily: "Clonoid",
               fontSize: "200px",
-              color: "#fff",
-              lineHeight: 1,
+              color: "#ffffff",
+              lineHeight: 0.85,
               letterSpacing: "-0.02em",
             }}
           >
@@ -143,31 +149,31 @@ export async function GET(
           <div
             style={{
               fontFamily: "Sora",
-              fontSize: "52px",
+              fontSize: "46px",
               fontWeight: 600,
-              color: "rgba(140, 190, 255, 0.4)",
+              color: "rgba(160, 205, 255, 0.5)",
               lineHeight: 1,
-              marginBottom: "20px",
             }}
           >
             sec
           </div>
         </div>
+      </div>
 
-        {/* Branding */}
-        <div
-          style={{
-            fontFamily: "Sora",
-            fontSize: "22px",
-            fontWeight: 600,
-            color: "rgba(140, 190, 255, 0.3)",
-            marginTop: "24px",
-            fontStyle: "italic",
-            letterSpacing: "0.05em",
-          }}
-        >
-          fastprotocol.io
-        </div>
+      {/* fastprotocol.io — pinned to bottom with generous padding */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "40px",
+          fontFamily: "Sora",
+          fontSize: "18px",
+          fontWeight: 600,
+          color: "rgba(140, 190, 255, 0.28)",
+          fontStyle: "italic",
+          letterSpacing: "0.06em",
+        }}
+      >
+        fastprotocol.io
       </div>
     </div>,
     {
