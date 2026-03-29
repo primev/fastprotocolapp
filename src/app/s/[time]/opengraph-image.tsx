@@ -136,32 +136,13 @@ export default async function OGImage({
         />
         <div
           style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "2px",
+            fontSize: "28px",
+            fontWeight: 800,
+            color: "rgba(160, 210, 255, 0.55)",
+            lineHeight: 1,
           }}
         >
-          <div
-            style={{
-              fontSize: "28px",
-              fontWeight: 800,
-              color: "rgba(150, 200, 255, 0.5)",
-              letterSpacing: "0.06em",
-            }}
-          >
-            Fast Protocol
-          </div>
-          <div
-            style={{
-              fontSize: "16px",
-              fontWeight: 600,
-              color: "rgba(150, 200, 255, 0.3)",
-              letterSpacing: "0.04em",
-            }}
-          >
-            fastprotocol.io
-          </div>
+          Fast Protocol
         </div>
       </div>
     </div>,
