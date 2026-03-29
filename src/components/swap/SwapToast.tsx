@@ -474,8 +474,11 @@ export function SwapToast({ hash }: { hash: string }) {
                   if (secs <= 4.1) {
                     fetch(`${window.location.origin}/og/preconfirm/${elapsedSec}`).catch(() => {})
                   }
+                  // Embed URL in tweet text rather than using &url= param
+                  // The &url= param causes Twitter composer to get stuck reloading state
+                  const tweetText = `${text}\n\n${shareUrl}`
                   window.open(
-                    `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`,
+                    `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`,
                     "_blank"
                   )
                 }}
