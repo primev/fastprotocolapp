@@ -90,13 +90,11 @@ async function fetchTransactionReceipt(
 
     // No result means transaction not found in DB yet
     if (!data.result) {
-      // This is normal - DB hasn't indexed the transaction yet
       return null
     }
 
     // Has result but no status means pending/not confirmed
     if (!data.result.status) {
-      console.log(`[fetchTransactionReceipt] Receipt found but no status (pending) for ${txHash}`)
       return null
     }
 

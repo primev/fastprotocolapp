@@ -35,7 +35,18 @@ export function SwapToast({ hash }: { hash: string }) {
 
   const toastRef = useRef<HTMLDivElement>(null)
   const effectiveHash = hash.startsWith("pending-") ? undefined : hash
+  const prevEffectiveHashRef = useRef<string | undefined>(undefined)
 
+  // Log when real hash arrives (permit path: placeholder → real hash swap)
+  if (effectiveHash && effectiveHash !== prevEffectiveHashRef.current) {
+    prevEffectiveHashRef.current = effectiveHash
+    const elapsed = toast?.createdAt ? ((Date.now() - toast.createdAt) / 1000).toFixed(2) : "?"
+    console.log(`[SwapToast] Hash ready | +${elapsed}s from submit | now=${Date.now()} | hash=${effectiveHash}`)
+  }
+
+  // Wagmi watches for real on-chain receipt — used for confirmed detection only.
+  // Our custom polling hook handles preconfirmed detection via FastRPC commitment/receipt polling.
+  // Wagmi correctly distinguishes real L1 receipts from FastRPC's simulated preconf receipts.
   const { data: receipt, error: receiptError } = useWaitForTransactionReceipt({
     hash: effectiveHash as `0x${string}` | undefined,
   })
@@ -46,20 +57,28 @@ export function SwapToast({ hash }: { hash: string }) {
     receiptError,
     mode: "status",
     onConfirmed: () => {
-      if (effectiveHash) setStatus(hash, "confirmed")
       const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
+      const elapsed = t?.createdAt ? ((Date.now() - t.createdAt) / 1000).toFixed(2) : "?"
+      const sincePreconf = t?.preconfirmedAt ? ((Date.now() - t.preconfirmedAt) / 1000).toFixed(2) : "n/a"
+      console.log(`[SwapToast] CONFIRMED | +${elapsed}s from submit | +${sincePreconf}s from preconf | hash=${effectiveHash}`)
+      if (effectiveHash) setStatus(hash, "confirmed")
       t?.onConfirm?.()
     },
     onPreConfirmed: () => {
       const currentStatus = useSwapToastStore.getState().toasts.find((t) => t.hash === hash)?.status
+      const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
+      const elapsed = t?.createdAt ? ((Date.now() - t.createdAt) / 1000).toFixed(2) : "?"
+      console.log(`[SwapToast] PRECONFIRMED | +${elapsed}s from submit | status was ${currentStatus} | now=${Date.now()} | hash=${effectiveHash}`)
       if (effectiveHash && currentStatus !== "confirmed") {
         setStatus(hash, "preconfirmed")
         playPreconfirmSound()
-        const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
         t?.onPreConfirm?.()
       }
     },
     onError: (err) => {
+      const t = useSwapToastStore.getState().toasts.find((x) => x.hash === hash)
+      const elapsed = t?.createdAt ? ((Date.now() - t.createdAt) / 1000).toFixed(2) : "?"
+      console.log(`[SwapToast] ERROR | +${elapsed}s from submit | hash=${effectiveHash}`, err.message)
       const txReceipt = err instanceof RPCError ? err.receipt : undefined
       const rawDbRecord = err instanceof RPCError ? err.rawDbRecord : undefined
       const message =
