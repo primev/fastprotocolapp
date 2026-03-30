@@ -399,7 +399,7 @@ export function useQuote({
   amountIn,
   slippage,
   enabled = true,
-  debounceMs = 500,
+  debounceMs = 300,
   tradeType = "exactIn",
   tokenList = [],
 }: UseQuoteProps): UseQuoteReturn {
