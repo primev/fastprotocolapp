@@ -278,7 +278,7 @@ export function useSwapForm(allTokens: Token[]) {
   // --- Minimum "Calculating..." display time ---
   // The combined validating signal (quote loading OR barter validating) must stay true
   // for at least 1.5s to prevent the swap button text from flickering.
-  const MIN_VALIDATING_DISPLAY_MS = 1500
+  const MIN_VALIDATING_DISPLAY_MS = 500
   const rawValidating = isBarterValidating || (isQuoteLoading && !isWrapUnwrap)
   const [debouncedValidating, setDebouncedValidating] = useState(false)
   const validatingSinceRef = useRef<number>(0)

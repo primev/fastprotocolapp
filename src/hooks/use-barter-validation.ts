@@ -6,7 +6,7 @@ import { fetchBarterRoute } from "@/lib/barter-api"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import type { Token } from "@/types/swap"
 
-const DEBOUNCE_MS = 1500
+const DEBOUNCE_MS = 300
 const MAX_SLIPPAGE_PCT = 2.0
 
 interface UseBarterValidationParams {
