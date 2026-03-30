@@ -153,7 +153,6 @@ export function useWaitForTxConfirmation({
 
     processingHashRef.current = hash
     preConfirmedFiredRef.current = false
-    console.log(`[TxConfirmation] Polling started | hash=${hash}`)
     const abortController = new AbortController()
     abortRef.current = abortController
     setIsConfirmed(false)
@@ -231,11 +230,6 @@ export function useWaitForTxConfirmation({
             fetchCommitmentStatus(hash, abortController.signal),
             fetchTransactionReceiptFromDb(hash, abortController.signal),
           ])
-
-          if (pollCount <= 10 || pollCount % 10 === 0) {
-            const elapsed = ((Date.now() - startTime) / 1000).toFixed(2)
-            console.log(`[TxConfirmation] Poll #${pollCount} | +${elapsed}s | commit=${commitStatus} | rpc=${rpcResult?.receipt?.status ?? "null"} | hash=${hash.slice(0, 14)}...`)
-          }
 
           if (abortController.signal.aborted || hasConfirmedRef.current) break
 
