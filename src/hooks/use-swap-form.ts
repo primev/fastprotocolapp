@@ -147,7 +147,18 @@ export function useSwapForm(allTokens: Token[]) {
       setLastValidRate(null)
       setWrapUnwrapGasEstimate(null)
     }
-  }, [isConnected, clearSwapState])
+  }, [isConnected])
+
+  // Clear form inputs after a successful swap
+  useEffect(() => {
+    if (clearSwapState) {
+      setAmount("")
+      setEditingSide("sell")
+      setIsManualInversion(false)
+      setSwappedQuote(null)
+      setClearSwapState(false)
+    }
+  }, [clearSwapState])
 
   // --- Quote Logic ---
   const isWrapUnwrap = isWrapUnwrapPair(fromToken, toToken)
@@ -246,34 +257,38 @@ export function useSwapForm(allTokens: Token[]) {
     return noLiquidity || (quoteError && quoteError.message?.includes("No liquidity found"))
   }, [noLiquidity, quoteError, isManualInversion, swappedQuote])
 
-  // Compute minAmountOut inline from current slippage + amountOut.
-  // Intentionally NOT derived from displayQuote.slippageLimit, which is updated inside a
-  // useEffect in useQuote and lags one render cycle behind slippage changes. Computing here
-  // ensures the value is always in sync with effectiveSlippage (e.g. after a retry).
-  //
-  // Slippage is applied to the output for BOTH exactIn and exactOut. For exactOut the
-  // barter API still treats userAmtOut as a minimum return, so it must have slippage applied
-  // or the swap will always fail when barter's price deviates from the Uniswap quote.
-  const computedMinAmountOut = useMemo(() => {
-    if (isWrapUnwrap || !displayQuote || !toToken) return null
-    const slippageBps = BigInt(Math.floor(parseFloat(effectiveSlippage || "0") * 100))
-    const limit = (displayQuote.amountOut * (10000n - slippageBps)) / 10000n
-    return formatUnits(limit, toToken.decimals)
-  }, [isWrapUnwrap, displayQuote, toToken, effectiveSlippage])
-
   // Validate Barter can route this amount within 2% slippage.
   // Skip when user has insufficient balance — no point quoting an unexecutable swap.
   const hasSufficientBalance =
     fromBalanceValue > 0 && parseFloat(amount?.replace(/,/g, "") || "0") <= fromBalanceValue
-  const { amountTooSmall: barterAmountTooSmall, isValidating: isBarterValidating } =
-    useBarterValidation({
-      fromToken,
-      toToken,
-      amountOut: displayQuote?.amountOut,
-      sellAmount: amount,
-      quoteGeneration,
-      enabled: !isWrapUnwrap && !!displayQuote && hasSufficientBalance,
-    })
+  const {
+    amountTooSmall: barterAmountTooSmall,
+    shortfallPct: barterShortfallPct,
+    isValidating: isBarterValidating,
+  } = useBarterValidation({
+    fromToken,
+    toToken,
+    amountOut: displayQuote?.amountOut,
+    sellAmount: amount,
+    quoteGeneration,
+    enabled: !isWrapUnwrap && !!displayQuote && hasSufficientBalance,
+  })
+
+  // Compute minAmountOut inline from current slippage + observed barter shortfall.
+  // Uses the larger of user slippage and barter shortfall (+0.1% buffer), capped at 2%,
+  // so the minAmountOut is always achievable by barter on first click.
+  //
+  // Intentionally NOT derived from displayQuote.slippageLimit, which is updated inside a
+  // useEffect in useQuote and lags one render cycle behind slippage changes.
+  const computedMinAmountOut = useMemo(() => {
+    if (isWrapUnwrap || !displayQuote || !toToken) return null
+    const userSlippage = parseFloat(effectiveSlippage || "0")
+    const barterFloor = barterShortfallPct > 0 ? barterShortfallPct + 0.5 : 0
+    const appliedSlippage = Math.min(2.0, Math.max(userSlippage, barterFloor))
+    const slippageBps = BigInt(Math.floor(appliedSlippage * 100))
+    const limit = (displayQuote.amountOut * (10000n - slippageBps)) / 10000n
+    return formatUnits(limit, toToken.decimals)
+  }, [isWrapUnwrap, displayQuote, toToken, effectiveSlippage, barterShortfallPct])
 
   // --- Minimum "Calculating..." display time ---
   // The combined validating signal (quote loading OR barter validating) must stay true
