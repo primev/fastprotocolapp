@@ -11,6 +11,7 @@ import { useSwapToastStore } from "@/stores/swapToastStore"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
 import {
   getTransactionShortMessage,
+  isTransactionRejection,
   parseBarterSlippageError,
   RPCError,
 } from "@/lib/transaction-errors"
@@ -165,25 +166,38 @@ export function SwapToast({ hash }: { hash: string }) {
       )
     }
 
+    const isCancelled = isTransactionRejection(toast.errorMessage)
+    const shortMessage = getTransactionShortMessage(toast.errorMessage)
+    const title = isCancelled ? "Swap Cancelled" : shortMessage || "Swap Failed"
+    const subtitle = isCancelled
+      ? `${toast.amountIn ?? "—"} ${toast.tokenIn?.symbol} → ${toast.amountOut ?? "—"} ${toast.tokenOut?.symbol}`
+      : null
+
     return (
       <div
         ref={toastRef}
-        role="button"
-        tabIndex={0}
-        onClick={() => showErrorForToast(hash)}
-        className="relative w-[360px] overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-red-500/30 animate-in fade-in slide-in-from-right-5 duration-300 cursor-pointer"
+        className="relative w-[360px] overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-red-500/30 animate-in fade-in slide-in-from-right-5 duration-300"
       >
-        <div className="relative h-[84px] p-4 flex items-center gap-4">
+        <div className="relative p-4 flex items-center gap-4">
           <div className="h-11 w-11 shrink-0 rounded-full bg-red-500/10 flex items-center justify-center">
             <X className="h-5 w-5 text-red-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium text-red-400">Swap Failed</span>
-            <div className="mt-0.5 text-xs text-neutral-500 tabular-nums">
-              {toast.amountIn ?? "—"} {toast.tokenIn?.symbol} → {toast.amountOut ?? "—"}{" "}
-              {toast.tokenOut?.symbol}
-            </div>
+            <span className="text-sm font-medium text-red-400">{title}</span>
+            {subtitle && (
+              <div className="mt-0.5 text-xs text-neutral-500 tabular-nums">{subtitle}</div>
+            )}
           </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              showErrorForToast(hash)
+            }}
+            className="px-3 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-400 text-xs font-semibold transition-colors whitespace-nowrap"
+          >
+            Details
+          </button>
           <button
             type="button"
             onClick={(e) => {
