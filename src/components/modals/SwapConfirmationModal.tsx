@@ -352,6 +352,16 @@ function SwapConfirmationModal({
   const [isAutoSwappingAfterApproval, setIsAutoSwappingAfterApproval] = useState(false)
   const prevNeedsApprovalRef = useRef(needsPermit2Approval)
 
+  // Swap errors → route to toast and close modal
+  useEffect(() => {
+    if (!swapError) return
+    const placeholder = `error-${Date.now()}`
+    addToast(placeholder, tokenIn, tokenOut, amountIn, amountOut)
+    setFailed(placeholder, undefined, swapError.message)
+    resetSwap()
+    onOpenChange(false)
+  }, [swapError]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Reset accordion when modal closes so it starts collapsed on next open
   useEffect(() => {
     if (!open) setIsExpanded(false)
@@ -443,7 +453,8 @@ function SwapConfirmationModal({
         const message = err instanceof Error ? err.message : "Transaction failed"
         setFailed(pendingPlaceholder, undefined, message)
       }
-      // Otherwise error is set by hooks (wrapError/swapError); ERROR VIEW shows with "View Error Details" / "Try Again"
+      // Barter slippage errors are handled by the swapError effect above.
+      // Other errors are set by hooks (wrapError/swapError); ERROR VIEW renders.
     } finally {
       setIsConfirming(false)
       setIsAutoSwappingAfterApproval(false)
