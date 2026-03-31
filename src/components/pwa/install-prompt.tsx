@@ -44,7 +44,9 @@ export function InstallPrompt() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground">Install Fast Protocol</p>
-          <p className="text-xs text-muted-foreground">Add to home screen for the best experience</p>
+          <p className="text-xs text-muted-foreground">
+            Add to home screen for the best experience
+          </p>
         </div>
         <button
           onClick={handleInstall}

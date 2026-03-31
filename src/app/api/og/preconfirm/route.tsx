@@ -6,8 +6,5 @@ export const runtime = "edge"
 export async function GET(request: NextRequest) {
   const raw = parseFloat(request.nextUrl.searchParams.get("time") || "0.4")
   const time = !isNaN(raw) && raw >= 0 && raw <= 999 ? raw.toFixed(1) : "0.4"
-  return NextResponse.redirect(
-    new URL(`/api/og/preconfirm/${time}`, request.url),
-    301
-  )
+  return NextResponse.redirect(new URL(`/api/og/preconfirm/${time}`, request.url), 301)
 }
