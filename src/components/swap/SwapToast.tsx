@@ -493,11 +493,11 @@ export function SwapToast({ hash }: { hash: string }) {
                   if (secs <= 4.1) {
                     fetch(`${window.location.origin}/og/preconfirm/${elapsedSec}`).catch(() => {})
                   }
-                  // Embed URL in tweet text rather than using &url= param
-                  // The &url= param causes Twitter composer to get stuck reloading state
-                  const tweetText = `${text}\n\n${shareUrl}`
+                  // Use x.com/intent/post (modern endpoint) with separate url param.
+                  // twitter.com/intent/tweet drops query params during mobile deep link handoff.
+                  // Separate &url= ensures the link card renders even if text is truncated.
                   window.open(
-                    `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`,
+                    `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`,
                     "_blank"
                   )
                 }}
