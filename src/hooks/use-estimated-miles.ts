@@ -163,7 +163,13 @@ export function useEstimatedMiles({
     // Gas cost: only deducted on permit path (relayer pays)
     const gasCostEth = isPermitPath ? Number(baseFeePerGas * avgGas) / 1e18 : 0
 
-    const netMevEth = slippageAmountEth - bidCostEth - gasCostEth
+    // Sweep overhead: non-ETH output requires a sweep tx (batched fastswap).
+    // 1.5x multiplier approximates pro-rata share assuming avg batch of ~3 txs.
+    const sweepMultiplier = isEthOutput ? 1 : 1.5
+    const totalBidCost = bidCostEth * sweepMultiplier
+    const totalGasCost = gasCostEth * sweepMultiplier
+
+    const netMevEth = slippageAmountEth - totalBidCost - totalGasCost
 
     const userMevEth = netMevEth > 0 ? netMevEth * USER_MEV_SHARE : 0
     const miles = netMevEth > 0 ? Math.floor(userMevEth * MILES_PER_ETH) : 0
@@ -184,9 +190,12 @@ export function useEstimatedMiles({
         `\n` +
         `  Step 4: Gas cost${isPermitPath ? " (relayer pays on permit path)" : " (user pays on ETH path = 0)"}\n` +
         `    gasCostEth = ${isPermitPath ? `${baseFeePerGas.toString()} wei × ${avgGas.toString()} gas / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
+        (!isEthOutput ? `\n  Step 4b: Sweep overhead (non-ETH output, ${sweepMultiplier}x multiplier)\n` +
+        `    totalBidCost = ${bidCostEth.toFixed(8)} × ${sweepMultiplier} = ${totalBidCost.toFixed(8)} ETH\n` +
+        `    totalGasCost = ${gasCostEth.toFixed(8)} × ${sweepMultiplier} = ${totalGasCost.toFixed(8)} ETH\n` : "") +
         `\n` +
         `  Step 5: Net MEV\n` +
-        `    netMevEth = ${slippageAmountEth.toFixed(8)} - ${bidCostEth.toFixed(8)} - ${gasCostEth.toFixed(8)} = ${netMevEth.toFixed(8)} ETH\n` +
+        `    netMevEth = ${slippageAmountEth.toFixed(8)} - ${totalBidCost.toFixed(8)} - ${totalGasCost.toFixed(8)} = ${netMevEth.toFixed(8)} ETH\n` +
         `\n` +
         `  Step 6: User share & miles\n` +
         `    userMevEth = ${netMevEth.toFixed(8)} × ${USER_MEV_SHARE} (${USER_MEV_SHARE * 100}% share) = ${userMevEth.toFixed(8)} ETH\n` +
