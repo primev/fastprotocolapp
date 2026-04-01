@@ -133,27 +133,21 @@ export function useEstimatedMiles({
   // Synchronous calculation — updates in the same render as slippage/amountOut changes.
   // gasReady is a dep so we recalculate once when gas data first arrives, but subsequent
   // gas fee ticks (every 12s) are read from refs and don't trigger recalculation.
-  const estimatedMiles = useMemo(() => {
-    if (!enabled) return lastMilesRef.current
+  const rawMiles = useMemo(() => {
+    if (!enabled) return null
 
     const normalizedAmountOut = amountOut?.replace(/,/g, "") ?? ""
     const curPriorityFee = priorityFeeRef.current
     const curBaseFee = baseFeeRef.current
     const curAvgGas = avgGasRef.current
-    if (curPriorityFee == null || curBaseFee == null) return lastMilesRef.current
+    if (curPriorityFee == null || curBaseFee == null) return null
 
     const parsedAmountOut = parseFloat(normalizedAmountOut)
-    if (!parsedAmountOut || parsedAmountOut <= 0) {
-      lastMilesRef.current = 0
-      return 0
-    }
+    if (!parsedAmountOut || parsedAmountOut <= 0) return 0
 
     // Parse slippage — if transient/invalid, show 0 miles
     const parsedSlippage = parseFloat(slippage ?? "0")
-    if (isNaN(parsedSlippage) || parsedSlippage <= 0) {
-      lastMilesRef.current = 0
-      return 0
-    }
+    if (isNaN(parsedSlippage) || parsedSlippage <= 0) return 0
 
     // Convert output amount to ETH
     let outputInEth: number
@@ -161,7 +155,7 @@ export function useEstimatedMiles({
       outputInEth = parsedAmountOut
     } else {
       if (toTokenPrice == null || toTokenPrice <= 0 || !ethPrice || ethPrice <= 0) {
-        return lastMilesRef.current
+        return null
       }
       outputInEth = (parsedAmountOut * toTokenPrice) / ethPrice
     }
@@ -218,13 +212,16 @@ export function useEstimatedMiles({
         `  → UI displays: ${miles} miles`
     )
 
-    lastMilesRef.current = miles
     return miles
     // gasReady triggers one recalc when gas data first loads; subsequent gas ticks are
     // read from refs and don't cause recalculation. Only user-driven changes (amountOut,
     // slippage) and price updates trigger recalculation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amountOut, slippage, enabled, gasReady, toTokenPrice, ethPrice, isEthOutput, isPermitPath])
+
+  // Update ref outside useMemo to avoid React error #300 (state mutation during render)
+  if (rawMiles != null) lastMilesRef.current = rawMiles
+  const estimatedMiles = rawMiles ?? lastMilesRef.current
 
   return { estimatedMiles }
 }

@@ -41,9 +41,13 @@ export function SwapForm() {
     form.toToken?.address?.toLowerCase() === ZERO_ADDRESS.toLowerCase() ||
     form.toToken?.address?.toLowerCase() === WETH_ADDRESS.toLowerCase()
 
+  // Only use the quote's output for miles if the user has entered an amount.
+  // After resetFormAfterSuccess, amount is "" but displayQuote may linger.
   const milesAmountOut = form.isWrapUnwrap
     ? form.amount
-    : form.displayQuote?.amountOutFormatted || form.amount
+    : form.amount && form.displayQuote?.amountOutFormatted
+      ? form.displayQuote.amountOutFormatted
+      : form.amount
 
   const { estimatedMiles: rawEstimatedMiles } = useEstimatedMiles({
     amountOut: milesAmountOut,
@@ -53,7 +57,12 @@ export function SwapForm() {
     isEthOutput,
     baseFeePerGas,
     isPermitPath: !!isPermitPath && !form.isWrapUnwrap,
-    enabled: !form.isWrapUnwrap && !!form.displayQuote && !!form.fromToken && !!form.toToken,
+    enabled:
+      !form.isWrapUnwrap &&
+      !!form.amount &&
+      !!form.displayQuote &&
+      !!form.fromToken &&
+      !!form.toToken,
   })
 
   // Keep estimation behind the feature flag for UI, but always log to console
