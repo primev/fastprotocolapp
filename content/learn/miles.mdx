@@ -49,6 +49,32 @@ During volatile market periods, mev generation increases across the board. Swaps
 
 The common thread: **Miles are a direct function of mev generated**. If a swap doesn't create extractable mev — because the pair is stable, liquidity is deep, and markets are calm — it won't earn Miles, regardless of the dollar amount swapped. Conversely, a smaller swap in a volatile, thin market can earn significant Miles because it generates real mev.
 
+## Why miles might be delayed
+
+Miles are designed to credit quickly after your swap confirms, but several conditions can cause delays or prevent miles from being credited at all. Understanding these helps set expectations.
+
+### Provider commitment delays
+
+Your swap is sent through Fast RPC, where a **provider** (the block builder who includes your transaction) makes a preconfirmation commitment. The provider must then **open that commitment** on the mev-commit chain — revealing the bid details and confirming the mev value generated. If the provider delays opening this commitment, your miles are held in a pending state until it's resolved. This is the most common reason for delayed miles.
+
+If a provider hasn't opened the commitment after an extended period, the protocol can step in to resolve it — but this requires manual intervention and doesn't happen instantly.
+
+### Swap too small to generate mev
+
+Very small swaps may not generate enough mev to cover the preconfirmation bid cost (the amount paid to the provider for committing to include the transaction). When the bid cost equals or exceeds the mev generated, the net mev is zero — and zero miles are earned. This isn't a delay; it's the expected outcome for swaps below a certain threshold.
+
+### Token sweep profitability
+
+When you swap to a non-ETH token output (ERC-20s), the protocol needs to **sweep** (convert) the mev surplus tokens back to ETH to calculate and distribute rewards. If the accumulated tokens from your swap aren't enough to make the sweep transaction profitable, miles are **withheld until enough of that token accumulates** across multiple users' swaps to make the sweep worthwhile.
+
+This means your miles for small ERC-20 output swaps may appear later — potentially in a future processing cycle when the sweep becomes profitable. Your miles aren't lost; they're deferred.
+
+### What you can do
+
+- **Check your transaction**: If miles haven't appeared after a few minutes, the provider commitment may still be pending. Give it up to 15 minutes.
+- **Swap size matters**: Very small swaps (especially to ERC-20 tokens) may not generate enough mev for immediate miles crediting.
+- **ETH output is faster**: Swaps with ETH as the output token don't require a token sweep, so miles process more quickly.
+
 ## Miles and mev rewards
 
 Miles work alongside [mev rewards](/learn/mev-rewards) — they're complementary systems, not alternatives.
