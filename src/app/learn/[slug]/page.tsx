@@ -152,7 +152,7 @@ export default async function LearnArticlePage({ params }: { params: Promise<{ s
         </div>
 
         <div
-          className="prose prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary hover:prose-a:text-primary/80 prose-li:text-muted-foreground prose-code:text-primary prose-code:bg-muted/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:before:content-none prose-code:after:content-none prose-hr:border-border/50"
+          className="prose prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary hover:prose-a:text-primary/80 prose-li:text-muted-foreground prose-code:text-primary prose-code:bg-muted/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:before:content-none prose-code:after:content-none prose-hr:border-border/50 prose-table:border prose-table:border-border/40 prose-table:rounded-lg prose-table:overflow-hidden prose-thead:bg-muted/30 prose-thead:border-b prose-thead:border-border/40 prose-th:text-foreground prose-th:font-medium prose-th:px-4 prose-th:py-2.5 prose-td:px-4 prose-td:py-2.5 prose-td:text-muted-foreground prose-tr:border-b prose-tr:border-border/20 last:prose-tr:border-0"
           dangerouslySetInnerHTML={{ __html: html }}
         />
 
