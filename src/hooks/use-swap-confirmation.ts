@@ -169,11 +169,6 @@ export function useSwapConfirmation({
 
     const bufferedGas = (result.gasEstimate * ETH_PATH_GAS_LIMIT_MULTIPLIER) / 100n
 
-    // Fire placeholder immediately so modal closes and toast appears while
-    // the wallet broadcasts. Same pattern as the permit path.
-    const placeholder = `pending-eth-${Date.now()}`
-    options?.onPendingHash?.(placeholder)
-
     const txHash = await sendTransactionAsync({
       to: result.to as `0x${string}`,
       data: result.data,
@@ -181,6 +176,9 @@ export function useSwapConfirmation({
       gas: bufferedGas,
     })
 
+    // Fire after wallet signs — timer should measure submission→preconfirmation,
+    // not include wallet interaction time.
+    options?.onPendingHash?.(txHash)
     setHash(txHash)
     setIsSubmitting(false)
     return txHash
