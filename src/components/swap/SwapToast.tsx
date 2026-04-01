@@ -131,6 +131,19 @@ export function SwapToast({ hash }: { hash: string }) {
       ? ((toast.preconfirmedAt - toast.createdAt) / 1000).toFixed(1)
       : null
 
+  // Pre-warm the OG image CDN as soon as preconfirmation is detected,
+  // so it's cached by the time the user taps Share and X's crawler fetches it.
+  const ogWarmedRef = useRef(false)
+  useEffect(() => {
+    if (elapsedSec && !ogWarmedRef.current) {
+      ogWarmedRef.current = true
+      const secs = parseFloat(elapsedSec)
+      if (secs <= 4.1) {
+        fetch(`${window.location.origin}/og/preconfirm/${elapsedSec}`).catch(() => {})
+      }
+    }
+  }, [elapsedSec])
+
   // ── Failed ────────────────────────────────────────────────────────
   if (isFailed) {
     const barterSlippage = toast.errorMessage ? parseBarterSlippageError(toast.errorMessage) : null
@@ -514,10 +527,6 @@ export function SwapToast({ hash }: { hash: string }) {
                     secs <= 4.1
                       ? `${window.location.origin}/s/${elapsedSec}`
                       : `${window.location.origin}`
-                  // Pre-warm the OG image CDN cache before Twitter's crawler fetches it
-                  if (secs <= 4.1) {
-                    fetch(`${window.location.origin}/og/preconfirm/${elapsedSec}`).catch(() => {})
-                  }
                   // Mobile: use native URL schemes to open X app composer directly.
                   // Web intent URLs drop query params during deep link handoff.
                   // Android: intent:// URL is the most reliable scheme for passing params.
