@@ -204,7 +204,15 @@ export function useSwapForm(allTokens: Token[]) {
 
   const effectiveSlippage = settings.slippage
 
-  const quoteEnabled = !isSwitching && !!amount && !!fromToken && !!toToken && !isWrapUnwrap
+  const parsedAmount = parseFloat(amount?.replace(/,/g, "") || "")
+  const quoteEnabled =
+    !isSwitching &&
+    !!amount &&
+    !isNaN(parsedAmount) &&
+    parsedAmount > 0 &&
+    !!fromToken &&
+    !!toToken &&
+    !isWrapUnwrap
 
   const {
     quote,
@@ -282,6 +290,7 @@ export function useSwapForm(allTokens: Token[]) {
   // useEffect in useQuote and lags one render cycle behind slippage changes.
   const computedMinAmountOut = useMemo(() => {
     if (isWrapUnwrap || !displayQuote || !toToken) return null
+    if (typeof displayQuote.amountOut !== "bigint") return null
     const userSlippage = Number(parseFloat(effectiveSlippage || "0")) || 0
     const barterFloor = Number(barterShortfallPct) > 0 ? Number(barterShortfallPct) + 0.5 : 0
     const appliedSlippage = Math.min(2.0, Math.max(userSlippage, barterFloor))

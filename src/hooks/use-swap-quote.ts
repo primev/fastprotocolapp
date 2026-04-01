@@ -618,7 +618,7 @@ export function useQuote({
       // --- Slippage limit (worst-case value for contract + Details section) ---
       // slippageLimit is passed to the contract and shown in the modal "Details" section.
       const slippagePct = latestSlippageRef.current
-      const slippageBps = BigInt(Math.floor(parseFloat(slippagePct) * 100))
+      const slippageBps = BigInt(Math.floor(validateSlippage(slippagePct) * 100))
 
       let slippageLimit: bigint
       let slippageLimitFormatted: string
@@ -929,7 +929,7 @@ export function useQuote({
 
       // --- Slippage limit (worst-case value for contract + Details section) ---
       // slippageLimit is passed to the contract and shown in the modal "Details" section.
-      const slippageBps = BigInt(Math.floor(parseFloat(slippage) * 100))
+      const slippageBps = BigInt(Math.floor(validateSlippage(slippage) * 100))
 
       let slippageLimit: bigint
       let slippageLimitFormatted: string
@@ -1139,6 +1139,10 @@ export function useQuote({
   // When only slippage changes, Market Price (amountOut) stays the same; slippageLimit updates.
   // Only depend on slippage to avoid excessive runs from quote/tokenList reference churn.
   useEffect(() => {
+    // Skip transient/invalid slippage values ("", ".", "0.", "0") to avoid needless recalcs
+    const slippageNum = parseFloat(slippage)
+    if (isNaN(slippageNum) || slippageNum <= 0) return
+
     const currentQuote = quoteRef.current
     const currentTokenIn = latestTokenInRef.current
     const currentTokenOut = latestTokenOutRef.current
