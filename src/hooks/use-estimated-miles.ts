@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { createPublicClient, http } from "viem"
 import { mainnet } from "wagmi/chains"
 import { FALLBACK_RPC_ENDPOINT } from "@/lib/network-config"
@@ -57,10 +57,9 @@ export function useEstimatedMiles({
   const [priorityFee, setPriorityFee] = useState<bigint | null>(null)
   const [avgGas, setAvgGas] = useState<bigint>(DEFAULT_AVG_GAS)
 
-  // Fetch average gas estimate from Edge Config (updated monthly by cron)
+  // Fetch average gas estimate from Edge Config (updated monthly by cron).
+  // Runs on mount — not gated on `enabled` so data is ready before the first quote arrives.
   useEffect(() => {
-    if (!enabled) return
-
     let cancelled = false
 
     const fetchGasEstimate = async () => {
@@ -80,22 +79,29 @@ export function useEstimatedMiles({
     return () => {
       cancelled = true
     }
-  }, [enabled])
+  }, [])
 
-  // Poll priority fee via getFeeHistory every ~12s
+  // Poll priority fee via getFeeHistory every ~12s.
+  // Fetches 5 blocks and uses the median to smooth out single-block spikes.
+  // Runs on mount — not gated on `enabled` so data is ready before the first quote arrives.
   useEffect(() => {
-    if (!enabled) return
-
     let cancelled = false
 
     const fetchPriorityFee = async () => {
       try {
         const feeHistory = await publicClient.getFeeHistory({
-          blockCount: 1,
+          blockCount: 5,
           rewardPercentiles: [feePercentile],
         })
-        const fee = feeHistory.reward?.[0]?.[0]
-        if (!cancelled && fee != null) setPriorityFee(fee)
+        const fees = (feeHistory.reward ?? [])
+          .map((r) => r[0])
+          .filter((f): f is bigint => f != null)
+          .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+
+        if (!cancelled && fees.length > 0) {
+          const median = fees[Math.floor(fees.length / 2)]
+          setPriorityFee(median)
+        }
       } catch (err) {
         console.warn("[useEstimatedMiles] Failed to fetch priority fee:", err)
       }
@@ -107,40 +113,46 @@ export function useEstimatedMiles({
       cancelled = true
       clearInterval(interval)
     }
-  }, [enabled])
+  }, [])
 
-  // Only recalculate when the Uniswap quote actually changes (amountOut).
-  // Gas fees, prices, and other params are captured at calculation time but
-  // do NOT trigger recalculation — we compute once per quote, not per tick.
-  const [estimatedMiles, setEstimatedMiles] = useState<number | null>(null)
-  const lastAmountOutRef = useRef<string>("")
+  // Snapshot gas data in refs so the memo only recalculates on user-driven changes
+  // (amountOut, slippage), not on background 12s gas fee ticks.
+  const priorityFeeRef = useRef<bigint | null>(null)
+  const baseFeeRef = useRef<bigint | null>(null)
+  const avgGasRef = useRef<bigint>(DEFAULT_AVG_GAS)
+  priorityFeeRef.current = priorityFee
+  baseFeeRef.current = baseFeePerGas
+  avgGasRef.current = avgGas
 
-  useEffect(() => {
+  // Track last successful miles so transient states don't flash null.
+  const lastMilesRef = useRef<number | null>(null)
+
+  // Whether gas data has loaded at least once — triggers one recalc when it arrives.
+  const gasReady = priorityFee != null && baseFeePerGas != null
+
+  // Synchronous calculation — updates in the same render as slippage/amountOut changes.
+  // gasReady is a dep so we recalculate once when gas data first arrives, but subsequent
+  // gas fee ticks (every 12s) are read from refs and don't trigger recalculation.
+  const estimatedMiles = useMemo(() => {
+    if (!enabled) return lastMilesRef.current
+
     const normalizedAmountOut = amountOut?.replace(/,/g, "") ?? ""
-
-    if (!enabled) {
-      setEstimatedMiles(null)
-      lastAmountOutRef.current = ""
-      return
-    }
-
-    // Only recalculate when amountOut actually changes
-    if (normalizedAmountOut === lastAmountOutRef.current) return
-
-    if (priorityFee == null || baseFeePerGas == null) {
-      console.debug("[useEstimatedMiles] waiting:", {
-        priorityFee: priorityFee?.toString(),
-        baseFeePerGas: baseFeePerGas?.toString(),
-      })
-      return
-    }
+    const curPriorityFee = priorityFeeRef.current
+    const curBaseFee = baseFeeRef.current
+    const curAvgGas = avgGasRef.current
+    if (curPriorityFee == null || curBaseFee == null) return lastMilesRef.current
 
     const parsedAmountOut = parseFloat(normalizedAmountOut)
+    if (!parsedAmountOut || parsedAmountOut <= 0) {
+      lastMilesRef.current = 0
+      return 0
+    }
+
+    // Parse slippage — if transient/invalid, show 0 miles
     const parsedSlippage = parseFloat(slippage ?? "0")
-    if (!parsedAmountOut || parsedAmountOut <= 0 || !parsedSlippage || parsedSlippage <= 0) {
-      lastAmountOutRef.current = normalizedAmountOut
-      setEstimatedMiles(null)
-      return
+    if (isNaN(parsedSlippage) || parsedSlippage <= 0) {
+      lastMilesRef.current = 0
+      return 0
     }
 
     // Convert output amount to ETH
@@ -149,7 +161,7 @@ export function useEstimatedMiles({
       outputInEth = parsedAmountOut
     } else {
       if (toTokenPrice == null || toTokenPrice <= 0 || !ethPrice || ethPrice <= 0) {
-        return
+        return lastMilesRef.current
       }
       outputInEth = (parsedAmountOut * toTokenPrice) / ethPrice
     }
@@ -158,10 +170,10 @@ export function useEstimatedMiles({
     const slippageAmountEth = (parsedSlippage / 100) * outputInEth
 
     // Bid cost: priority fee (percentile from Edge Config) × avg gas (from Edge Config) / 1e18
-    const bidCostEth = Number(priorityFee * avgGas) / 1e18
+    const bidCostEth = Number(curPriorityFee * curAvgGas) / 1e18
 
     // Gas cost: only deducted on permit path (relayer pays)
-    const gasCostEth = isPermitPath ? Number(baseFeePerGas * avgGas) / 1e18 : 0
+    const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGas) / 1e18 : 0
 
     // Sweep overhead: non-ETH output requires a sweep tx (batched fastswap).
     // 1.5x multiplier approximates pro-rata share assuming avg batch of ~3 txs.
@@ -174,22 +186,22 @@ export function useEstimatedMiles({
     const userMevEth = netMevEth > 0 ? netMevEth * USER_MEV_SHARE : 0
     const miles = netMevEth > 0 ? Math.floor(userMevEth * MILES_PER_ETH) : 0
 
-    console.debug(
-      `[useEstimatedMiles] ${miles} miles${isPermitPath ? " (permit path)" : " (ETH path)"}\n` +
+    console.log(
+      `[useEstimatedMiles] ${miles} miles | slippage=${parsedSlippage}% | ${isPermitPath ? "permit" : "ETH"} path\n` +
         `\n` +
         `  Step 1: Convert output to ETH\n` +
         (isEthOutput
           ? `    outputInEth = ${parsedAmountOut} (native ETH output)\n`
           : `    outputInEth = ${parsedAmountOut} × $${toTokenPrice?.toFixed(2)} / $${ethPrice?.toFixed(2)} = ${outputInEth.toFixed(6)} ETH\n`) +
         `\n` +
-        `  Step 2: MEV opportunity (slippage tolerance)\n` +
+        `  Step 2: MEV opportunity (slippage tolerance = ${parsedSlippage}%)\n` +
         `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${parsedSlippage}% = ${slippageAmountEth.toFixed(8)} ETH\n` +
         `\n` +
         `  Step 3: Bid cost (priorityFee p${feePercentile} × avgGas from Edge Config)\n` +
-        `    bidCostEth = ${priorityFee.toString()} wei × ${avgGas.toString()} gas / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
+        `    bidCostEth = ${curPriorityFee.toString()} wei × ${curAvgGas.toString()} gas / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
         `\n` +
         `  Step 4: Gas cost${isPermitPath ? " (relayer pays on permit path)" : " (user pays on ETH path = 0)"}\n` +
-        `    gasCostEth = ${isPermitPath ? `${baseFeePerGas.toString()} wei × ${avgGas.toString()} gas / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
+        `    gasCostEth = ${isPermitPath ? `${curBaseFee.toString()} wei × ${curAvgGas.toString()} gas / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
         (!isEthOutput
           ? `\n  Step 4b: Sweep overhead (non-ETH output, ${sweepMultiplier}x multiplier)\n` +
             `    totalBidCost = ${bidCostEth.toFixed(8)} × ${sweepMultiplier} = ${totalBidCost.toFixed(8)} ETH\n` +
@@ -205,13 +217,14 @@ export function useEstimatedMiles({
         `\n` +
         `  → UI displays: ${miles} miles`
     )
-    lastAmountOutRef.current = normalizedAmountOut
-    setEstimatedMiles(miles)
-    // amountOut is the primary trigger. priorityFee/baseFeePerGas/toTokenPrice/ethPrice are
-    // included so the effect retries once async data arrives, but the ref guard ensures
-    // we only compute once per unique amountOut.
+
+    lastMilesRef.current = miles
+    return miles
+    // gasReady triggers one recalc when gas data first loads; subsequent gas ticks are
+    // read from refs and don't cause recalculation. Only user-driven changes (amountOut,
+    // slippage) and price updates trigger recalculation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [amountOut, enabled, priorityFee, baseFeePerGas, toTokenPrice, ethPrice])
+  }, [amountOut, slippage, enabled, gasReady, toTokenPrice, ethPrice, isEthOutput, isPermitPath])
 
   return { estimatedMiles }
 }
