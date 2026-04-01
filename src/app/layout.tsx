@@ -23,7 +23,11 @@ export const metadata: Metadata = {
   description:
     "Swap tokens on Ethereum with sub-second execution powered by preconfirmations. Earn tokenized mev rewards with every trade on Fast Protocol.",
   icons: {
-    icon: "/icon.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/icon.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
     apple: "/icons/icon-192x192.png",
   },
   manifest: "/manifest.json",
