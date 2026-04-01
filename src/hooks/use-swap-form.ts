@@ -282,10 +282,11 @@ export function useSwapForm(allTokens: Token[]) {
   // useEffect in useQuote and lags one render cycle behind slippage changes.
   const computedMinAmountOut = useMemo(() => {
     if (isWrapUnwrap || !displayQuote || !toToken) return null
-    const userSlippage = parseFloat(effectiveSlippage || "0")
-    const barterFloor = barterShortfallPct > 0 ? barterShortfallPct + 0.5 : 0
+    const userSlippage = Number(parseFloat(effectiveSlippage || "0")) || 0
+    const barterFloor = Number(barterShortfallPct) > 0 ? Number(barterShortfallPct) + 0.5 : 0
     const appliedSlippage = Math.min(2.0, Math.max(userSlippage, barterFloor))
-    const slippageBps = BigInt(Math.floor(appliedSlippage * 100))
+    const bps = Math.floor(appliedSlippage * 100)
+    const slippageBps = BigInt(Number.isFinite(bps) ? bps : 0)
     const limit = (displayQuote.amountOut * (10000n - slippageBps)) / 10000n
     return formatUnits(limit, toToken.decimals)
   }, [isWrapUnwrap, displayQuote, toToken, effectiveSlippage, barterShortfallPct])

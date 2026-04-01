@@ -109,23 +109,24 @@ export function useEstimatedMiles({
     }
   }, [enabled])
 
-  // Only recalculate when the Uniswap quote actually changes (amountOut).
+  // Recalculate when the quote or slippage changes.
   // Gas fees, prices, and other params are captured at calculation time but
-  // do NOT trigger recalculation — we compute once per quote, not per tick.
+  // do NOT trigger recalculation — we compute once per quote/slippage change, not per tick.
   const [estimatedMiles, setEstimatedMiles] = useState<number | null>(null)
-  const lastAmountOutRef = useRef<string>("")
+  const lastInputRef = useRef<string>("")
 
   useEffect(() => {
     const normalizedAmountOut = amountOut?.replace(/,/g, "") ?? ""
+    const inputKey = `${normalizedAmountOut}|${slippage}`
 
     if (!enabled) {
       setEstimatedMiles(null)
-      lastAmountOutRef.current = ""
+      lastInputRef.current = ""
       return
     }
 
-    // Only recalculate when amountOut actually changes
-    if (normalizedAmountOut === lastAmountOutRef.current) return
+    // Only recalculate when amountOut or slippage actually changes
+    if (inputKey === lastInputRef.current) return
 
     if (priorityFee == null || baseFeePerGas == null) {
       console.debug("[useEstimatedMiles] waiting:", {
@@ -138,7 +139,7 @@ export function useEstimatedMiles({
     const parsedAmountOut = parseFloat(normalizedAmountOut)
     const parsedSlippage = parseFloat(slippage ?? "0")
     if (!parsedAmountOut || parsedAmountOut <= 0 || !parsedSlippage || parsedSlippage <= 0) {
-      lastAmountOutRef.current = normalizedAmountOut
+      lastInputRef.current = inputKey
       setEstimatedMiles(null)
       return
     }
@@ -182,7 +183,8 @@ export function useEstimatedMiles({
           ? `    outputInEth = ${parsedAmountOut} (native ETH output)\n`
           : `    outputInEth = ${parsedAmountOut} × $${toTokenPrice?.toFixed(2)} / $${ethPrice?.toFixed(2)} = ${outputInEth.toFixed(6)} ETH\n`) +
         `\n` +
-        `  Step 2: MEV opportunity (slippage tolerance)\n` +
+        `  Step 2: MEV opportunity (slippage tolerance = ${parsedSlippage}%)\n` +
+        `    slippage = ${slippage} (raw input)\n` +
         `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${parsedSlippage}% = ${slippageAmountEth.toFixed(8)} ETH\n` +
         `\n` +
         `  Step 3: Bid cost (priorityFee p${feePercentile} × avgGas from Edge Config)\n` +
@@ -205,13 +207,13 @@ export function useEstimatedMiles({
         `\n` +
         `  → UI displays: ${miles} miles`
     )
-    lastAmountOutRef.current = normalizedAmountOut
+    lastInputRef.current = inputKey
     setEstimatedMiles(miles)
-    // amountOut is the primary trigger. priorityFee/baseFeePerGas/toTokenPrice/ethPrice are
-    // included so the effect retries once async data arrives, but the ref guard ensures
-    // we only compute once per unique amountOut.
+    // amountOut and slippage are the primary triggers. priorityFee/baseFeePerGas/toTokenPrice/ethPrice
+    // are included so the effect retries once async data arrives, but the ref guard ensures
+    // we only compute once per unique amountOut+slippage combination.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [amountOut, enabled, priorityFee, baseFeePerGas, toTokenPrice, ethPrice])
+  }, [amountOut, slippage, enabled, priorityFee, baseFeePerGas, toTokenPrice, ethPrice])
 
   return { estimatedMiles }
 }
