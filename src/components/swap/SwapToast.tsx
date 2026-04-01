@@ -518,13 +518,19 @@ export function SwapToast({ hash }: { hash: string }) {
                   if (secs <= 4.1) {
                     fetch(`${window.location.origin}/og/preconfirm/${elapsedSec}`).catch(() => {})
                   }
-                  // Mobile: use twitter:// native URL scheme to open X app composer directly.
-                  // Web intent URLs drop query params during Android/iOS deep link handoff.
-                  // Desktop: use x.com/intent/post which works reliably in browser.
+                  // Mobile: use native URL schemes to open X app composer directly.
+                  // Web intent URLs drop query params during deep link handoff.
+                  // Android: intent:// URL is the most reliable scheme for passing params.
+                  // iOS: twitter://post?text= works for native app deep links.
+                  // Desktop: x.com/intent/post works reliably in browser.
                   const tweetText = `${text}\n\n${shareUrl}`
-                  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-                  if (isMobile) {
-                    window.location.href = `twitter://post?message=${encodeURIComponent(tweetText)}`
+                  const encoded = encodeURIComponent(tweetText)
+                  const isAndroid = /Android/i.test(navigator.userAgent)
+                  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+                  if (isAndroid) {
+                    window.location.href = `intent://post?text=${encoded}#Intent;scheme=twitter;package=com.twitter.android;end`
+                  } else if (isIOS) {
+                    window.location.href = `twitter://post?text=${encoded}`
                   } else {
                     window.open(
                       `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`,
