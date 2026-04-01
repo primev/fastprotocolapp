@@ -518,13 +518,19 @@ export function SwapToast({ hash }: { hash: string }) {
                   if (secs <= 4.1) {
                     fetch(`${window.location.origin}/og/preconfirm/${elapsedSec}`).catch(() => {})
                   }
-                  // Use x.com/intent/post (modern endpoint) with separate url param.
-                  // twitter.com/intent/tweet drops query params during mobile deep link handoff.
-                  // Separate &url= ensures the link card renders even if text is truncated.
-                  window.open(
-                    `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`,
-                    "_blank"
-                  )
+                  // Mobile: use twitter:// native URL scheme to open X app composer directly.
+                  // Web intent URLs drop query params during Android/iOS deep link handoff.
+                  // Desktop: use x.com/intent/post which works reliably in browser.
+                  const tweetText = `${text}\n\n${shareUrl}`
+                  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+                  if (isMobile) {
+                    window.location.href = `twitter://post?message=${encodeURIComponent(tweetText)}`
+                  } else {
+                    window.open(
+                      `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`,
+                      "_blank"
+                    )
+                  }
                 }}
                 className="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-neutral-500 hover:text-neutral-200 transition-colors"
               >
