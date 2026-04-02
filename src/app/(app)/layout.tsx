@@ -164,9 +164,9 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
   if (hideLayout) {
     return (
-      <div className="relative min-h-screen">
+      <div className="relative h-dvh overflow-hidden">
         <AnimatedBackground />
-        <div className="relative z-10">{children}</div>
+        <div className="relative z-10 h-full">{children}</div>
       </div>
     )
   }
