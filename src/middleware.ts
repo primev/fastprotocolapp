@@ -124,5 +124,9 @@ export async function middleware(request: NextRequest) {
  * Each entry must start with `/`.
  */
 export const config = {
-  matcher: ["/api/whitelist/generate"],
+  matcher: [
+    "/api/whitelist/generate",
+    "/api/whitelist/whitelist-swap-volume-holders",
+    "/api/whitelist/convert-waitlist-to-whitelist",
+  ],
 }

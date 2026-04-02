@@ -254,6 +254,20 @@ FROM (
 ) higher_volumes
 `.trim()
 
+// All wallets with any swap volume (for testing-whitelist sync)
+export const ALL_SWAP_WALLETS = `
+SELECT
+  lower(from_address) AS wallet,
+  SUM(COALESCE(swap_vol_usd, 0)) AS total_swap_vol_usd,
+  SUM(COALESCE(swap_vol_eth, 0)) AS total_swap_vol_eth,
+  COUNT(*) AS swap_count
+FROM mevcommit_57173.processed_l1_txns_v2
+WHERE is_swap = TRUE
+GROUP BY lower(from_address)
+HAVING SUM(COALESCE(swap_vol_usd, 0)) > 0
+ORDER BY total_swap_vol_usd DESC
+`.trim()
+
 // Whitelist generation domain
 export const WHITELIST_TOP_BY_VOLUME = `
 SELECT
@@ -566,6 +580,7 @@ export const QUERIES = {
   "l1/get-recent-swap-tx-hashes": GET_RECENT_L1_SWAP_TX_HASHES,
 
   // Whitelist generation domain
+  "whitelist/all-swap-wallets": ALL_SWAP_WALLETS,
   "whitelist/top-by-volume": WHITELIST_TOP_BY_VOLUME,
   "whitelist/top-by-count": WHITELIST_TOP_BY_COUNT,
   "whitelist/top-by-recent-count": WHITELIST_TOP_BY_RECENT_COUNT,
