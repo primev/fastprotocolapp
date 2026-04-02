@@ -32,7 +32,8 @@ export const metadata: Metadata = {
       { url: "/icons/apple-touch-icon-180x180.png", sizes: "180x180", type: "image/png" },
     ],
   },
-  manifest: "/manifest.json",
+  // manifest is linked manually in <head> to avoid Next.js adding crossOrigin="use-credentials"
+  // which breaks PWA installability on Vercel preview deployments
   keywords: [
     "fast swaps",
     "ethereum swaps",
@@ -95,6 +96,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="scroll-smooth overflow-x-hidden">
       <head>
+        <link rel="manifest" href="/manifest.json" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Fast Protocol" />
