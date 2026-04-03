@@ -1,16 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
-import { createPublicClient, http } from "viem"
-import { mainnet } from "wagmi/chains"
-import { FALLBACK_RPC_ENDPOINT } from "@/lib/network-config"
-
-const publicClient = createPublicClient({
-  chain: mainnet,
-  transport: http(FALLBACK_RPC_ENDPOINT, {
-    fetchOptions: { cache: "no-store" },
-  }),
-})
+import { RPC_ENDPOINT } from "@/lib/network-config"
 
 /** Fallback average gas used by FastSwap transactions */
 const DEFAULT_AVG_GAS = 450_000n
@@ -18,20 +9,8 @@ const DEFAULT_AVG_GAS = 450_000n
 const USER_MEV_SHARE = 0.9
 /** 100,000 miles per 1 ETH (0.00001 ETH per mile) */
 const MILES_PER_ETH = 100_000
-/** Fallback percentile for priority fee estimation */
-const DEFAULT_FEE_PERCENTILE = 55
-/** Module-level percentile, fetched once on page load */
-let feePercentile = DEFAULT_FEE_PERCENTILE
-fetch("/api/config/fee-percentile")
-  .then((res) => (res.ok ? res.json() : null))
-  .then((data) => {
-    if (typeof data?.feePercentile === "number" && data.feePercentile > 0) {
-      feePercentile = data.feePercentile
-    }
-  })
-  .catch(() => {})
-/** How often to refresh priority fee (ms) — roughly 1 block */
-const PRIORITY_FEE_POLL_MS = 12_000
+/** How often to refresh bid estimate from FastRPC (ms) — roughly 1 block */
+const BID_ESTIMATE_POLL_MS = 12_000
 
 interface UseEstimatedMilesParams {
   amountOut: string
@@ -81,34 +60,37 @@ export function useEstimatedMiles({
     }
   }, [])
 
-  // Poll priority fee via getFeeHistory every ~12s.
-  // Fetches 5 blocks and uses the median to smooth out single-block spikes.
-  // Runs on mount — not gated on `enabled` so data is ready before the first quote arrives.
+  // Poll bid estimate from FastRPC every ~12s.
+  // Uses mevcommit_estimateBidPricePerGas which returns the cached blocknative
+  // priority fee estimate — the same value the bidder uses for actual bids.
   useEffect(() => {
     let cancelled = false
 
-    const fetchPriorityFee = async () => {
+    const fetchBidEstimate = async () => {
       try {
-        const feeHistory = await publicClient.getFeeHistory({
-          blockCount: 5,
-          rewardPercentiles: [feePercentile],
+        const res = await fetch(RPC_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "mevcommit_estimateBidPricePerGas",
+            params: [],
+            id: 1,
+          }),
         })
-        const fees = (feeHistory.reward ?? [])
-          .map((r) => r[0])
-          .filter((f): f is bigint => f != null)
-          .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
-
-        if (!cancelled && fees.length > 0) {
-          const median = fees[Math.floor(fees.length / 2)]
-          setPriorityFee(median)
+        if (!res.ok) return
+        const data = await res.json()
+        const minGasPrice = data?.result?.minGasPrice
+        if (!cancelled && minGasPrice) {
+          setPriorityFee(BigInt(minGasPrice))
         }
       } catch (err) {
-        console.warn("[useEstimatedMiles] Failed to fetch priority fee:", err)
+        console.warn("[useEstimatedMiles] Failed to fetch bid estimate:", err)
       }
     }
 
-    fetchPriorityFee()
-    const interval = setInterval(fetchPriorityFee, PRIORITY_FEE_POLL_MS)
+    fetchBidEstimate()
+    const interval = setInterval(fetchBidEstimate, BID_ESTIMATE_POLL_MS)
     return () => {
       cancelled = true
       clearInterval(interval)
@@ -191,7 +173,7 @@ export function useEstimatedMiles({
         `  Step 2: MEV opportunity (slippage tolerance = ${parsedSlippage}%)\n` +
         `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${parsedSlippage}% = ${slippageAmountEth.toFixed(8)} ETH\n` +
         `\n` +
-        `  Step 3: Bid cost (priorityFee p${feePercentile} × avgGas from Edge Config)\n` +
+        `  Step 3: Bid cost (FastRPC bid estimate × avgGas from Edge Config)\n` +
         `    bidCostEth = ${curPriorityFee.toString()} wei × ${curAvgGas.toString()} gas / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
         `\n` +
         `  Step 4: Gas cost${isPermitPath ? " (relayer pays on permit path)" : " (user pays on ETH path = 0)"}\n` +
