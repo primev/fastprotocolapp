@@ -14,7 +14,9 @@ function detectPlatform(): Platform {
   const ua = navigator.userAgent
 
   // iOS detection (Safari, Chrome on iOS, etc. — all use WebKit on iOS)
-  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
   if (isIOS) return "ios"
 
   // macOS Safari (not Chrome/Brave/Edge which include "Chrome" in UA)
@@ -95,7 +97,9 @@ export function InstallPrompt() {
       <InstallBanner onDismiss={handleDismiss}>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground">Install Fast Protocol</p>
-          <p className="text-xs text-muted-foreground">Add to home screen for the best experience</p>
+          <p className="text-xs text-muted-foreground">
+            Add to home screen for the best experience
+          </p>
         </div>
         <button
           onClick={handleInstall}
@@ -114,7 +118,8 @@ export function InstallPrompt() {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground">Install Fast Protocol</p>
           <p className="text-xs text-muted-foreground">
-            Tap <Share className="inline h-3 w-3 align-text-bottom" /> then &quot;Add to Home Screen&quot;
+            Tap <Share className="inline h-3 w-3 align-text-bottom" /> then &quot;Add to Home
+            Screen&quot;
           </p>
         </div>
       </InstallBanner>
