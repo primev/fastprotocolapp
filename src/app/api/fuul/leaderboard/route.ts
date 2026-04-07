@@ -18,6 +18,7 @@ interface FuulLeaderboardEntry {
   total_attributions: number
   rank: number
   affiliate_code?: string
+  referred_users?: number
 }
 
 interface NormalizedEntry {
@@ -41,6 +42,7 @@ async function fetchFuulPage(
     const url = new URL(FUUL_LEADERBOARD_URL)
     url.searchParams.set("page", String(page))
     url.searchParams.set("page_size", "100")
+    url.searchParams.set("fields", "referred_users")
 
     const response = await fetch(url.toString(), {
       method: "GET",
@@ -114,7 +116,7 @@ export async function GET(request: NextRequest) {
           data: allResults.map((r) => ({
             wallet: trimWalletAddress(r.address),
             points: Number(r.total_amount) || 0,
-            referrals: Number(r.total_attributions) || 0,
+            referrals: Number(r.referred_users) || 0,
           })),
           timestamp: Date.now(),
         }
