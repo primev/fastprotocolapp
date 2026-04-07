@@ -250,8 +250,8 @@ export async function getLeaderboardTop15(): Promise<{
 } | null> {
   try {
     const leaderboardRows = await getLeaderboard(15)
-    // useTotalVolume=false: use swap_vol_usd_24h for SSR
-    const leaderboard = transformLeaderboardRows(leaderboardRows, null, false)
+    // useTotalVolume=true: use total_swap_vol_usd to match client-side API data
+    const leaderboard = transformLeaderboardRows(leaderboardRows, null, true)
 
     return { leaderboard }
   } catch (error) {
