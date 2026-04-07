@@ -263,7 +263,7 @@ export function SwapForm() {
           amountOut={
             form.isWrapUnwrap ? form.amount : form.displayQuote?.amountOutFormatted || form.amount
           }
-          minAmountOut={form.isWrapUnwrap ? form.amount : form.computedMinAmountOut || form.amount}
+          minAmountOut={form.isWrapUnwrap ? form.amount : form.computedMinAmountOut || ""}
           slippageLimitFormatted={
             form.isWrapUnwrap
               ? form.amount
