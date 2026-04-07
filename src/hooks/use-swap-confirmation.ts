@@ -9,7 +9,7 @@ import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import { FASTSWAP_API_BASE } from "@/lib/network-config"
-import { fetchEthPathTxAndEstimate } from "@/lib/eth-path-tx"
+import { fetchEthPathTxAndEstimate, type EthPathTxResult } from "@/lib/eth-path-tx"
 import type { Token } from "@/types/swap"
 
 interface UseSwapConfirmationParams {
@@ -25,6 +25,12 @@ interface UseSwapConfirmationParams {
 /** Options for confirmSwap. Used by Permit path to show toast before relayer returns. */
 export interface ConfirmSwapOptions {
   onPendingHash?: (placeholderHash: string) => void
+  /**
+   * Pre-fetched ETH-path tx data. When provided, skips the API call inside
+   * executeEthPath so the wallet popup opens synchronously off the user gesture.
+   * This prevents focus loss / app minimization on macOS.
+   */
+  preparedEthPathTx?: EthPathTxResult | null
 }
 
 /**
@@ -143,28 +149,35 @@ export function useSwapConfirmation({
       throw new Error("Wallet connection required. Please reconnect and try again.")
     }
 
-    const deadlineUnix = Math.floor(Date.now() / 1000) + deadline * 60
-
-    let result
-    try {
-      result = await fetchEthPathTxAndEstimate(
-        {
-          outputToken: toToken.address,
-          inputAmt: inputAmtWei,
-          userAmtOut: userAmtOutWei,
-          sender: address,
-          deadline: String(deadlineUnix),
-        },
-        publicClient,
-        address as `0x${string}`
-      )
-    } catch (err) {
-      const apiError = err instanceof Error ? err.message : "FastSwap API error"
-      let errorMessage = apiError
-      if (apiError.toLowerCase().includes("api error")) {
-        errorMessage += `\n\nContext:\nInput token: ${fromToken.symbol} (${fromToken.address})\nOutput token: ${toToken.symbol} (${toToken.address})\nSlippage: ${slippage}\nMinimum Output: ${userAmtOutWei}\nDeadline (minutes): ${deadline}`
+    // Prefer the pre-fetched tx data so the wallet popup fires synchronously
+    // off the user gesture (no awaits between click and wallet call).
+    let result: EthPathTxResult
+    if (options?.preparedEthPathTx) {
+      result = options.preparedEthPathTx
+    } else {
+      const deadlineUnix = Math.floor(Date.now() / 1000) + deadline * 60
+      try {
+        const fetched = await fetchEthPathTxAndEstimate(
+          {
+            outputToken: toToken.address,
+            inputAmt: inputAmtWei,
+            userAmtOut: userAmtOutWei,
+            sender: address,
+            deadline: String(deadlineUnix),
+          },
+          publicClient,
+          address as `0x${string}`
+        )
+        if (!fetched) throw new Error("FastSwap API returned no data")
+        result = fetched
+      } catch (err) {
+        const apiError = err instanceof Error ? err.message : "FastSwap API error"
+        let errorMessage = apiError
+        if (apiError.toLowerCase().includes("api error")) {
+          errorMessage += `\n\nContext:\nInput token: ${fromToken.symbol} (${fromToken.address})\nOutput token: ${toToken.symbol} (${toToken.address})\nSlippage: ${slippage}\nMinimum Output: ${userAmtOutWei}\nDeadline (minutes): ${deadline}`
+        }
+        throw new Error(errorMessage)
       }
-      throw new Error(errorMessage)
     }
 
     const bufferedGas = (result.gasEstimate * ETH_PATH_GAS_LIMIT_MULTIPLIER) / 100n

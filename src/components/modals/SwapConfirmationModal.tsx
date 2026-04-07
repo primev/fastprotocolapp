@@ -334,15 +334,10 @@ function SwapConfirmationModal({
   const { price: ethPriceFromApi } = useTokenPrice("ETH")
   const effectiveEthPrice = ethPrice ?? ethPriceFromApi ?? DEFAULT_ETH_PRICE_USD
 
-  // For ETH-path swaps, estimate gas on the actual FastSwap tx to match wallet display.
-  const { gasEstimate: ethPathGasEstimate } = useEthPathGasEstimate(
-    open && !isWrap && !isUnwrap,
-    tokenIn,
-    tokenOut,
-    amountIn,
-    minAmountOut,
-    deadline
-  )
+  // For ETH-path swaps, fetch tx data + gas estimate on modal open so the wallet
+  // popup can fire synchronously off the user gesture (prevents focus loss on macOS).
+  const { gasEstimate: ethPathGasEstimate, preparedTx: preparedEthPathTx } =
+    useEthPathGasEstimate(open && !isWrap && !isUnwrap, tokenIn, tokenOut, amountIn, minAmountOut, deadline)
 
   const [isExpanded, setIsExpanded] = useState(false)
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false)
@@ -438,6 +433,7 @@ function SwapConfirmationModal({
             onCloseAfterSuccess()
             onOpenChange(false) // Close modal immediately; toast takes over
           },
+          preparedEthPathTx,
         })
         if (pendingPlaceholder) {
           updateToastHash(pendingPlaceholder, hash)
@@ -478,6 +474,7 @@ function SwapConfirmationModal({
     refreshBalances,
     onCloseAfterSuccess,
     onOpenChange,
+    preparedEthPathTx,
   ])
 
   // Auto-execute on open (toast retry flow): skip review, go straight to wallet
