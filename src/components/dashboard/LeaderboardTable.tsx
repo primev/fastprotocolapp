@@ -78,7 +78,11 @@ export const LeaderboardTable = ({
 }: LeaderboardTableProps) => {
   // State Management - only for data not provided by React Query
   const { address: conn } = useAccount()
-  const userAddr = address || conn
+  // Avoid hydration mismatch: wagmi's `conn` is only available after mount,
+  // so defer any user-conditional UI until after the first client render.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const userAddr = mounted ? address || conn : undefined
 
   // Get data from props (React Query managed)
   const activeTraders = statsData?.activeTraders ?? null
