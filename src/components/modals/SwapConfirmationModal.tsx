@@ -336,8 +336,14 @@ function SwapConfirmationModal({
 
   // For ETH-path swaps, fetch tx data + gas estimate on modal open so the wallet
   // popup can fire synchronously off the user gesture (prevents focus loss on macOS).
-  const { gasEstimate: ethPathGasEstimate, preparedTx: preparedEthPathTx } =
-    useEthPathGasEstimate(open && !isWrap && !isUnwrap, tokenIn, tokenOut, amountIn, minAmountOut, deadline)
+  const { gasEstimate: ethPathGasEstimate, preparedTx: preparedEthPathTx } = useEthPathGasEstimate(
+    open && !isWrap && !isUnwrap,
+    tokenIn,
+    tokenOut,
+    amountIn,
+    minAmountOut,
+    deadline
+  )
 
   const [isExpanded, setIsExpanded] = useState(false)
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false)
