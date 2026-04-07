@@ -29,6 +29,7 @@ import {
 } from "lucide-react"
 import { formatCurrency, formatNumber } from "@/lib/utils"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
+import { FEATURE_FLAGS } from "@/lib/feature-flags"
 import {
   TIER_THRESHOLDS,
   getTierFromVolume,
@@ -539,14 +540,16 @@ export const LeaderboardTable = ({
                 </div>
               </div>
 
-              <div className="flex flex-col items-center sm:border-l sm:border-white/5 sm:pl-5 text-center">
-                <span className="text-[8px] font-black uppercase text-muted-foreground/30 block mb-0.5">
-                  Referrals
-                </span>
-                <p className="text-[10px] font-bold leading-none">
-                  {userMilesEntry?.referrals.toLocaleString() ?? "---"}
-                </p>
-              </div>
+              {FEATURE_FLAGS.show_referral_counts && (
+                <div className="flex flex-col items-center sm:border-l sm:border-white/5 sm:pl-5 text-center">
+                  <span className="text-[8px] font-black uppercase text-muted-foreground/30 block mb-0.5">
+                    Referrals
+                  </span>
+                  <p className="text-[10px] font-bold leading-none">
+                    {userMilesEntry?.referrals.toLocaleString() ?? "---"}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -835,10 +838,12 @@ export const LeaderboardTable = ({
                               </>
                             )
                           })()}
-                          <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-muted-foreground/40 uppercase tracking-widest">
-                            {userMilesEntry.referrals} referral
-                            {userMilesEntry.referrals !== 1 ? "s" : ""} earned
-                          </span>
+                          {FEATURE_FLAGS.show_referral_counts && (
+                            <span className="block mt-1 text-[10px] sm:text-[11px] font-bold text-muted-foreground/40 uppercase tracking-widest">
+                              {userMilesEntry.referrals} referral
+                              {userMilesEntry.referrals !== 1 ? "s" : ""} earned
+                            </span>
+                          )}
                         </>
                       )
                     ) : (
@@ -907,10 +912,12 @@ export const LeaderboardTable = ({
                         <span className="font-mono text-sm sm:text-base md:text-lg truncate">
                           {entry.wallet}
                         </span>
-                        <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
-                          {entry.referrals.toLocaleString()} referral
-                          {entry.referrals !== 1 ? "s" : ""}
-                        </span>
+                        {FEATURE_FLAGS.show_referral_counts && (
+                          <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
+                            {entry.referrals.toLocaleString()} referral
+                            {entry.referrals !== 1 ? "s" : ""}
+                          </span>
+                        )}
                       </div>
                       {isCurrentUser && (
                         <Badge className="bg-primary text-[9px] sm:text-[10px] h-4 sm:h-5 px-1.5 sm:px-2 font-black shrink-0">
@@ -955,11 +962,13 @@ export const LeaderboardTable = ({
                     <span className="font-mono text-sm sm:text-base md:text-lg truncate">
                       {userMilesEntry?.wallet ?? trimWalletAddress(userAddr.toLowerCase())}
                     </span>
-                    <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
-                      {userMilesEntry
-                        ? `${userMilesEntry.referrals.toLocaleString()} referral${userMilesEntry.referrals !== 1 ? "s" : ""}`
-                        : "0 referrals"}
-                    </span>
+                    {FEATURE_FLAGS.show_referral_counts && (
+                      <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
+                        {userMilesEntry
+                          ? `${userMilesEntry.referrals.toLocaleString()} referral${userMilesEntry.referrals !== 1 ? "s" : ""}`
+                          : "0 referrals"}
+                      </span>
+                    )}
                   </div>
                   <Badge className="bg-primary text-[9px] sm:text-[10px] h-4 sm:h-5 px-1.5 sm:px-2 font-black shrink-0">
                     YOU
@@ -987,7 +996,11 @@ export const LeaderboardTable = ({
             fetchUrl="/api/fuul/leaderboard"
             buildParams={milesModalBuildParams}
             renderStat={(e) => `${Number((e as any).points ?? 0).toLocaleString()} miles`}
-            renderSubtext={(e) => `${Number((e as any).referrals ?? 0)} referrals`}
+            renderSubtext={
+              FEATURE_FLAGS.show_referral_counts
+                ? (e) => `${Number((e as any).referrals ?? 0)} referrals`
+                : undefined
+            }
             userWallet={userAddr}
             findMeParams={milesModalFindMeParams}
             findMeUrl="/api/fuul/leaderboard/find-me"
@@ -1190,7 +1203,9 @@ export const LeaderboardTable = ({
               userWallet={userAddr}
               userVolume={adjustedUserVol}
             />
-            <ReferralLeadersCard prefetchedData={referralData} userWallet={userAddr} />
+            {FEATURE_FLAGS.show_referral_counts && (
+              <ReferralLeadersCard prefetchedData={referralData} userWallet={userAddr} />
+            )}
             <RisingStarsCard userWallet={userAddr} userVolume={adjustedUserVol} />
           </div>
         </div>
