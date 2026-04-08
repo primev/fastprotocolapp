@@ -108,9 +108,17 @@ const SellCardComponent: React.FC<SellCardProps> = ({
     }
     if (value === 0n) return
     const raw = formatUnits(value, fromToken.decimals)
-    // Apply the app's display formatting rules (ETH → 4/6 dp, stables → 2 dp,
-    // etc.) so percentage clicks don't dump full 18-decimal precision into
-    // the input. Strip locale commas — amount state must remain parseable.
+    // MAX (100%) must use the raw string so parseFloat(amount) exactly
+    // matches fromBalanceValue downstream — otherwise stablecoin formatting
+    // (2 dp, rounded) can round UP past the true balance and trigger a
+    // false "insufficient balance" error.
+    if (percent === 100) {
+      setAmount(raw)
+      return
+    }
+    // Fractional clicks: apply the app's display formatting rules so we
+    // don't dump 18-decimal precision into the input. Strip locale commas —
+    // amount state must remain parseable.
     const formatted = formatTokenAmount(
       raw,
       fromToken.symbol,
