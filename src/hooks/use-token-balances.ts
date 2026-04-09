@@ -361,18 +361,29 @@ export function formatTokenBalance(raw: bigint | undefined, decimals: number): s
 /**
  * Format a USD value for the label under a balance.
  *
- *   < $0.01         → "—"           (unpriced or dust — collapsed into a
- *                                    single honest placeholder. Showing
- *                                    "<$0.01" for airdrop spam implies a
- *                                    price exists when there's really no
- *                                    meaningful value. The dash reads as
- *                                    "no meaningful USD value" to users.)
- *   [0.01, 1)       → "$0.XX"
- *   [1, 1000)       → "$X.XX"
- *   ≥ 1000          → "$X,XXX.XX"
+ * We distinguish three cases, which look identical on a spam row at a
+ * glance but mean different things:
+ *
+ *   usdPrice === null       → "—"         No aggregator has a price for
+ *                                          this contract. Common for
+ *                                          airdrop spam and long-tail
+ *                                          tokens. The dash means
+ *                                          "we don't know what this is
+ *                                          worth."
+ *
+ *   usdPrice > 0, value<$0.01 → "<$0.01"  A real price exists but the
+ *                                          holding is dust. The user's
+ *                                          position is genuinely worth
+ *                                          less than a cent.
+ *
+ *   usdPrice > 0, value≥$0.01 → "$X.XX"   Normal formatted USD value.
+ *
+ * Callers that only have the precomputed value can pass usdPrice=null to
+ * force the dash fallback.
  */
-export function formatUsdValue(usd: number): string {
-  if (!usd || usd < 0.01) return "—"
-  if (usd < 1) return `$${usd.toFixed(2)}`
-  return `$${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+export function formatUsdValue(value: number, usdPrice: number | null): string {
+  if (usdPrice == null) return "—"
+  if (!value || value < 0.01) return "<$0.01"
+  if (value < 1) return `$${value.toFixed(2)}`
+  return `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 }

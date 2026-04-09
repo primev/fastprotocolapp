@@ -415,7 +415,7 @@ const TokenSelectorModalComponent = ({
                     key={`held-${h.token.address}`}
                     token={h.token}
                     balanceLabel={formatTokenBalance(h.rawBalance, h.token.decimals)}
-                    usdLabel={formatUsdValue(h.usdValue)}
+                    usdLabel={formatUsdValue(h.usdValue, h.usdPrice)}
                     selected={selectedToken === h.token.symbol}
                     onSelect={() => handleSelect(h.token)}
                   />
@@ -456,7 +456,7 @@ const TokenSelectorModalComponent = ({
                         key={`held-${h.token.address}`}
                         token={h.token}
                         balanceLabel={formatTokenBalance(h.rawBalance, h.token.decimals)}
-                        usdLabel={formatUsdValue(h.usdValue)}
+                        usdLabel={formatUsdValue(h.usdValue, h.usdPrice)}
                         selected={selectedToken === h.token.symbol}
                         onSelect={() => handleSelect(h.token)}
                       />
