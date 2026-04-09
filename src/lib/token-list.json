@@ -140,13 +140,6 @@
     "name": "AltLayer"
   },
   {
-    "address": "0xfF20817765cB7f73d4bde2e66e067E58D11095C2",
-    "symbol": "AMP",
-    "decimals": 18,
-    "logoURI": "https://assets.coingecko.com/coins/images/12409/thumb/amp-200x200.png?1599625397",
-    "name": "Amp"
-  },
-  {
     "address": "0x8290333ceF9e6D528dD5618Fb97a76f268f3EDD4",
     "symbol": "ANKR",
     "decimals": 18,
@@ -264,13 +257,6 @@
     "decimals": 18,
     "logoURI": "https://assets.coingecko.com/coins/images/12913/thumb/AudiusCoinLogo_2x.png?1603425727",
     "name": "Audius"
-  },
-  {
-    "address": "0x845576c64f9754CF09d87e45B720E82F3EeF522C",
-    "symbol": "AVT",
-    "decimals": 18,
-    "logoURI": "https://assets.coingecko.com/coins/images/19727/thumb/ewnektoB_400x400.png?1635767094",
-    "name": "Artverse Token"
   },
   {
     "address": "0x467719aD09025FcC6cF6F8311755809d45a5E5f3",
@@ -616,13 +602,6 @@
     "name": "Mines of Dalarnia"
   },
   {
-    "address": "0x3A880652F47bFaa771908C07Dd8673A787dAEd3A",
-    "symbol": "DDX",
-    "decimals": 18,
-    "logoURI": "https://assets.coingecko.com/coins/images/13453/thumb/ddx_logo.png?1608741641",
-    "name": "DerivaDAO"
-  },
-  {
     "address": "0x3597bfD533a99c9aa083587B074434E61Eb0A258",
     "symbol": "DENT",
     "decimals": 8,
@@ -642,13 +621,6 @@
     "decimals": 18,
     "logoURI": "https://assets.coingecko.com/coins/images/11955/thumb/image.png?1646041751",
     "name": "DIA"
-  },
-  {
-    "address": "0x0AbdAce70D3790235af448C88547603b945604ea",
-    "symbol": "DNT",
-    "decimals": 18,
-    "logoURI": "https://assets.coingecko.com/coins/images/849/thumb/district0x.png?1547223762",
-    "name": "district0x"
   },
   {
     "address": "0x0F81001eF0A83ecCE5ccebf63EB302c70a39a654",
@@ -812,13 +784,6 @@
     "name": "Stafi"
   },
   {
-    "address": "0xcf0C122c6b73ff809C693DB761e7BaeBe62b6a2E",
-    "symbol": "FLOKI",
-    "decimals": 9,
-    "logoURI": "https://assets.coingecko.com/coins/images/16746/standard/PNG_image.png?1696516318",
-    "name": "FLOKI"
-  },
-  {
     "address": "0x720CD16b011b987Da3518fbf38c3071d4F0D1495",
     "symbol": "FLUX",
     "decimals": 18,
@@ -901,13 +866,6 @@
     "decimals": 18,
     "logoURI": "https://assets.coingecko.com/coins/images/19081/thumb/GOLDFINCH.png?1634369662",
     "name": "Goldfinch"
-  },
-  {
-    "address": "0x3F382DbD960E3a9bbCeaE22651E88158d2791550",
-    "symbol": "GHST",
-    "decimals": 18,
-    "logoURI": "https://assets.coingecko.com/coins/images/12467/thumb/ghst_200.png?1600750321",
-    "name": "Aavegotchi"
   },
   {
     "address": "0x7DD9c5Cba05E151C895FDe1CF355C9A1D5DA6429",
@@ -1211,13 +1169,6 @@
     "name": "BLOCKLORDS"
   },
   {
-    "address": "0x8c1BEd5b9a0928467c9B1341Da1D7BD5e10b6549",
-    "symbol": "LSETH",
-    "decimals": 18,
-    "logoURI": "https://coin-images.coingecko.com/coins/images/28848/large/LsETH-receipt-token-circle.png?1696527824",
-    "name": "Liquid Staked ETH"
-  },
-  {
     "address": "0x6033F7f88332B8db6ad452B7C6D5bB643990aE3f",
     "symbol": "LSK",
     "decimals": 18,
@@ -1491,13 +1442,6 @@
     "name": "Ondo Finance"
   },
   {
-    "address": "0x6F59e0461Ae5E2799F1fB3847f05a63B16d0DbF8",
-    "symbol": "ORCA",
-    "decimals": 18,
-    "logoURI": "https://s2.coinmarketcap.com/static/img/coins/64x64/5183.png",
-    "name": "ORCA Alliance"
-  },
-  {
     "address": "0x0258F474786DdFd37ABCE6df6BBb1Dd5dfC4434a",
     "symbol": "ORN",
     "decimals": 8,
@@ -1510,13 +1454,6 @@
     "decimals": 18,
     "logoURI": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x4575f41308EC1483f3d399aa9a2826d74Da13Deb/logo.png",
     "name": "Orchid"
-  },
-  {
-    "address": "0xc1D204d77861dEf49b6E769347a883B15EC397Ff",
-    "symbol": "PAX",
-    "decimals": 18,
-    "logoURI": "https://assets.coingecko.com/coins/images/1601/thumb/pax.png?1547035800",
-    "name": "PayperEx"
   },
   {
     "address": "0x45804880De22913dAFE09f4980848ECE6EcbAf78",
@@ -1720,13 +1657,6 @@
     "decimals": 18,
     "logoURI": "https://assets.coingecko.com/coins/images/11845/thumb/Rari.png?1594946953",
     "name": "Rarible"
-  },
-  {
-    "address": "0xA4EED63db85311E22dF4473f87CcfC3DaDCFA3E3",
-    "symbol": "RBC",
-    "decimals": 18,
-    "logoURI": "https://assets.coingecko.com/coins/images/12629/thumb/200x200.png?1607952509",
-    "name": "Rubic"
   },
   {
     "address": "0x6123B0049F904d730dB3C36a31167D9d4121fA6B",
@@ -1967,13 +1897,6 @@
     "name": "Starknet"
   },
   {
-    "address": "0x006BeA43Baa3f7A6f765F14f10A1a1b08334EF45",
-    "symbol": "STX",
-    "decimals": 18,
-    "logoURI": "https://assets.coingecko.com/coins/images/1230/thumb/stox-token.png?1547035256",
-    "name": "Stox"
-  },
-  {
     "address": "0x0763fdCCF1aE541A5961815C0872A8c5Bc6DE4d7",
     "symbol": "SUKU",
     "decimals": 18,
@@ -2098,13 +2021,6 @@
     "decimals": 18,
     "logoURI": "https://assets.coingecko.com/coins/images/17495/thumb/tokemak-avatar-200px-black.png?1628131614",
     "name": "Tokemak"
-  },
-  {
-    "address": "0x4507cEf57C46789eF8d1a19EA45f4216bae2B528",
-    "symbol": "TOKEN",
-    "decimals": 9,
-    "logoURI": "https://coin-images.coingecko.com/coins/images/32507/large/MAIN_TokenFi_logo_icon.png?1698918427",
-    "name": "TokenFi"
   },
   {
     "address": "0x2Ab6Bb8408ca3199B8Fa6C92d5b455F820Af03c4",
