@@ -37,7 +37,14 @@ interface TokenSelectorModalProps {
   onOpenChange: (open: boolean) => void
   onSelectToken: (token: Token) => void
   selectedToken?: string | null
-  excludeToken?: string | null
+  /**
+   * Address of the token selected on the OTHER side of the swap. This row
+   * is hidden from every section (Your tokens, Recent searches, Popular,
+   * Search results, chip row) so the user can't pick the same token on
+   * both sides. Passed in as the lowercased contract address — the zero
+   * address represents native ETH. `null` disables exclusion.
+   */
+  excludeAddress?: string | null
 }
 
 interface TokenRowProps {
@@ -135,18 +142,17 @@ const TokenSelectorModalComponent = ({
   onOpenChange,
   onSelectToken,
   selectedToken,
-  excludeToken,
+  excludeAddress,
 }: TokenSelectorModalProps) => {
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedQuery, setDebouncedQuery] = useState("")
   const [barterMapReady, setBarterMapReady] = useState<boolean>(() => getBarterMap() !== null)
 
-  const { suggestedChips, popularTokens, allTokens } = getTokenLists(excludeToken)
-  const excludeAddrLower = useMemo(() => {
-    if (!excludeToken) return null
-    const t = allTokens.find((x) => x.symbol === excludeToken)
-    return t?.address.toLowerCase() ?? null
-  }, [excludeToken, allTokens])
+  const excludeAddrLower = useMemo(
+    () => (excludeAddress ? excludeAddress.toLowerCase() : null),
+    [excludeAddress]
+  )
+  const { suggestedChips, popularTokens, allTokens } = getTokenLists(excludeAddrLower)
 
   const { address } = useAccount()
   const chainId = useChainId()

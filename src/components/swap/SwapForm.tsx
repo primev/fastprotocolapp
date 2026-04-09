@@ -218,7 +218,7 @@ export function SwapForm() {
         open={isFromSelectorOpen}
         onOpenChange={setIsFromSelectorOpen}
         selectedToken={form.fromToken?.symbol}
-        excludeToken={form.toToken?.symbol}
+        excludeAddress={form.toToken?.address?.toLowerCase()}
         onSelectToken={(token) => form.setFromToken(token)}
       />
 
@@ -227,7 +227,7 @@ export function SwapForm() {
         open={isToSelectorOpen}
         onOpenChange={setIsToSelectorOpen}
         selectedToken={form.toToken?.symbol}
-        excludeToken={form.fromToken?.symbol}
+        excludeAddress={form.fromToken?.address?.toLowerCase()}
         onSelectToken={(token) => form.setToToken(token)}
       />
 
