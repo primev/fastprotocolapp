@@ -4,7 +4,13 @@ import React from "react"
 // UI Components & Icons
 import { ChevronDown } from "lucide-react"
 import { formatUnits } from "viem"
-import { cn } from "@/lib/utils"
+import { cn, formatTokenAmount } from "@/lib/utils"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 // Local Components
 import AmountInput from "./AmountInput"
@@ -74,23 +80,49 @@ const SellCardComponent: React.FC<SellCardProps> = ({
 }) => {
   const balanceFlash = useBalanceFlash(fromBalanceValue, fromToken?.address, isConnected)
 
-  const handleMaxBalance = () => {
+  const applyBalanceFraction = (percent: 25 | 50 | 75 | 100) => {
     if (!fromToken || !fromBalance || fromBalance.value === 0n) return
     setEditingSide("sell")
     setIsManualInversion(false)
     setSwappedQuote(null)
 
     const isNativeEth = fromToken.address === ZERO_ADDRESS
-    if (isNativeEth) {
-      // Reserve 0.01 ETH for gas
-      const reserve = 10n ** 16n // 0.01 ETH in wei
-      const max = fromBalance.value > reserve ? fromBalance.value - reserve : 0n
-      if (max === 0n) return
-      setAmount(formatUnits(max, fromToken.decimals))
+    let value: bigint
+    if (percent === 100) {
+      if (isNativeEth) {
+        const reserve = 10n ** 15n // 0.001 ETH in wei (~$2 gas buffer)
+        value = fromBalance.value > reserve ? fromBalance.value - reserve : 0n
+      } else {
+        value = fromBalance.value
+      }
     } else {
-      setAmount(formatUnits(fromBalance.value, fromToken.decimals))
+      value = (fromBalance.value * BigInt(percent)) / 100n
     }
+    if (value === 0n) return
+    const raw = formatUnits(value, fromToken.decimals)
+    // MAX (100%) must use the raw string so parseFloat(amount) exactly
+    // matches fromBalanceValue downstream — otherwise stablecoin formatting
+    // (2 dp, rounded) can round UP past the true balance and trigger a
+    // false "insufficient balance" error.
+    if (percent === 100) {
+      setAmount(raw)
+      return
+    }
+    // Fractional clicks: apply the app's display formatting rules so we
+    // don't dump 18-decimal precision into the input. Strip locale commas —
+    // amount state must remain parseable.
+    const formatted = formatTokenAmount(
+      raw,
+      fromToken.symbol,
+      undefined,
+      fromToken.address
+    ).replace(/,/g, "")
+    setAmount(formatted || raw)
   }
+
+  const handleMaxBalance = () => applyBalanceFraction(100)
+
+  const canUseBalance = isConnected && !!fromBalance && fromBalance.value > 0n
 
   const handleAmountChange = (value: string) => {
     setEditingSide("sell")
@@ -98,10 +130,42 @@ const SellCardComponent: React.FC<SellCardProps> = ({
   }
 
   return (
-    <div className="rounded-[14px] sm:rounded-[16px] bg-[#161b22] border border-white/5 px-3 py-2.5 sm:px-5 sm:py-4">
+    <div className="group rounded-[14px] sm:rounded-[16px] bg-[#161b22] border border-white/5 px-3 py-2.5 sm:px-5 sm:py-4">
       {/* Header: Label and Balance Information */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Sell</span>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Sell</span>
+          {fromToken && (
+            <div className="flex items-center gap-1 text-[11px]">
+              <TooltipProvider delayDuration={150}>
+                {([25, 50, 75, 100] as const).map((pct) => {
+                  const btn = (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => applyBalanceFraction(pct)}
+                      disabled={!canUseBalance}
+                      className="px-1.5 py-0.5 rounded-md bg-transparent border border-transparent text-gray-500 group-hover:bg-white/5 group-hover:border-white/10 group-hover:text-gray-300 hover:!bg-white/10 hover:!text-white hover:!border-white/20 transition-colors disabled:opacity-50 disabled:hover:!bg-transparent disabled:hover:!text-gray-500 disabled:hover:!border-transparent disabled:cursor-default cursor-pointer leading-none font-medium"
+                    >
+                      {pct === 100 ? "MAX" : `${pct}%`}
+                    </button>
+                  )
+                  if (pct === 100 && fromToken?.address === ZERO_ADDRESS) {
+                    return (
+                      <Tooltip key={pct}>
+                        <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[260px] text-xs leading-snug">
+                          A small amount of the network token balance is reserved to cover the network cost of this transaction.
+                        </TooltipContent>
+                      </Tooltip>
+                    )
+                  }
+                  return btn
+                })}
+              </TooltipProvider>
+            </div>
+          )}
+        </div>
         {fromToken && (
           <button
             type="button"
