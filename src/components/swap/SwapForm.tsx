@@ -219,14 +219,7 @@ export function SwapForm() {
         onOpenChange={setIsFromSelectorOpen}
         selectedToken={form.fromToken?.symbol}
         excludeToken={form.toToken?.symbol}
-        customTokens={{}}
-        onAddCustomToken={() => {}}
-        onSelectToken={(sym) => {
-          const token = allTokens.find((t) => t.symbol === sym)
-          if (token) {
-            form.setFromToken(token)
-          }
-        }}
+        onSelectToken={(token) => form.setFromToken(token)}
       />
 
       {/* To Token Selector Modal */}
@@ -235,14 +228,7 @@ export function SwapForm() {
         onOpenChange={setIsToSelectorOpen}
         selectedToken={form.toToken?.symbol}
         excludeToken={form.fromToken?.symbol}
-        customTokens={{}}
-        onAddCustomToken={() => {}}
-        onSelectToken={(sym) => {
-          const token = allTokens.find((t) => t.symbol === sym)
-          if (token) {
-            form.setToToken(token)
-          }
-        }}
+        onSelectToken={(token) => form.setToToken(token)}
       />
 
       {form.fromToken && form.toToken && (
