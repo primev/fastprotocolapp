@@ -68,9 +68,16 @@ export function useSwapForm(allTokens: Token[]) {
   // --- BALANCES LOGIC ---
 
   const refreshBalances = useCallback(async () => {
-    await queryClient.invalidateQueries({
-      queryKey: ["balance", { address, chainId }],
-    })
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ["balance", { address, chainId }],
+      }),
+      // Also refresh the token selector's "Your tokens" list so it reflects
+      // post-swap balances without waiting for the 30s staleTime.
+      queryClient.invalidateQueries({
+        queryKey: ["held-tokens", chainId, address],
+      }),
+    ])
   }, [address, chainId, queryClient])
 
   const resetFormAfterSuccess = useCallback(() => {
