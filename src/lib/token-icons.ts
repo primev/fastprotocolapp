@@ -7,9 +7,10 @@
  * For tokens discovered from the barter map (which has no `logoURI`), we
  * walk a chain of public icon CDNs in order of coverage:
  *
- *   1. DeFiLlama icons CDN       (~15k ERC-20s, aggregates multiple upstreams)
- *   2. 1inch token list CDN      (~5–8k, flat bucket keyed by lowercased addr)
- *   3. TrustWallet assets CDN    (~4–5k, keyed by EIP-55 checksum addr)
+ *   1. TrustWallet assets CDN    (~4–5k, keyed by EIP-55 checksum addr —
+ *                                 preferred for image quality)
+ *   2. DeFiLlama icons CDN       (~15k ERC-20s, aggregates multiple upstreams)
+ *   3. 1inch token list CDN      (~5–8k, flat bucket keyed by lowercased addr)
  *
  * The caller walks `tokenIconCandidates(token)` by index, advancing on image
  * error, until either a candidate loads or the list is exhausted (in which
@@ -65,9 +66,13 @@ export function tokenIconCandidates(token: Pick<Token, "address" | "logoURI">): 
   if (token.logoURI) return [token.logoURI]
 
   // Long-tail barter tokens: walk the public CDN fallback chain.
-  const candidates: string[] = [defillamaUrl(token.address), oneInchUrl(token.address)]
+  // TrustWallet is preferred (highest image quality) with DeFiLlama and
+  // 1inch as back-fills for tokens TrustWallet doesn't have.
+  const candidates: string[] = []
   const tw = trustWalletUrl(token.address)
   if (tw) candidates.push(tw)
+  candidates.push(defillamaUrl(token.address))
+  candidates.push(oneInchUrl(token.address))
   return candidates
 }
 
