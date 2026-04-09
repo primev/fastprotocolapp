@@ -1,7 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import Image from "next/image"
+import React from "react"
 // UI Components & Icons
 import { ChevronDown } from "lucide-react"
 import { formatUnits } from "viem"
@@ -19,6 +18,7 @@ import { Token } from "@/types/swap"
 import { QuoteResult } from "@/hooks/use-swap-quote"
 import { UseBalanceReturnType } from "wagmi"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
+import { TokenAvatar } from "@/components/swap/TokenAvatar"
 
 interface SellCardProps {
   // Token & Balance Data
@@ -72,15 +72,7 @@ const SellCardComponent: React.FC<SellCardProps> = ({
   setIsManualInversion,
   setSwappedQuote,
 }) => {
-  const [hasImageError, setHasImageError] = useState(false)
   const balanceFlash = useBalanceFlash(fromBalanceValue, fromToken?.address, isConnected)
-
-  /**
-   * Reset image error state if the token changes.
-   */
-  useEffect(() => {
-    setHasImageError(false)
-  }, [fromToken?.address])
 
   const handleMaxBalance = () => {
     if (!fromToken || !fromBalance || fromBalance.value === 0n) return
@@ -167,24 +159,7 @@ const SellCardComponent: React.FC<SellCardProps> = ({
         >
           {fromToken ? (
             <>
-              <div className="h-6 w-6 min-w-[24px] min-h-[24px] flex items-center justify-center overflow-hidden rounded-full shrink-0">
-                {hasImageError || !fromToken.logoURI ? (
-                  <div className="h-full w-full flex items-center justify-center bg-gray-600 text-[10px] font-bold text-white uppercase">
-                    {fromToken.symbol.charAt(0)}
-                  </div>
-                ) : (
-                  <Image
-                    src={fromToken.logoURI}
-                    alt={fromToken.symbol}
-                    width={24}
-                    height={24}
-                    className="h-full w-full object-contain"
-                    onError={() => setHasImageError(true)}
-                    loading="lazy"
-                    unoptimized
-                  />
-                )}
-              </div>
+              <TokenAvatar token={fromToken} size={24} />
               {fromToken.symbol}
             </>
           ) : (
