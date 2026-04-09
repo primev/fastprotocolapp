@@ -1,7 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import Image from "next/image"
+import React from "react"
 // UI Components & Icons
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -16,6 +15,7 @@ import { useBalanceFlash } from "@/hooks/use-balance-flash"
 // Types
 import { Token } from "@/types/swap"
 import { UseBalanceReturnType } from "wagmi"
+import { TokenAvatar } from "@/components/swap/TokenAvatar"
 
 /**
  * Optimized Prop Interface.
@@ -78,12 +78,7 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
    * we handle it locally. This keeps the parent's logic clean and
    * prevents unnecessary re-renders of the entire swap interface.
    */
-  const [hasImageError, setHasImageError] = useState(false)
   const balanceFlash = useBalanceFlash(toBalanceValue, toToken?.address, isConnected)
-
-  useEffect(() => {
-    setHasImageError(false)
-  }, [toToken?.address])
 
   /**
    * 2. EVENT HANDLERS
@@ -166,24 +161,7 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
         >
           {toToken ? (
             <>
-              <div className="h-6 w-6 min-w-[24px] min-h-[24px] flex items-center justify-center overflow-hidden rounded-full shrink-0">
-                {hasImageError || !toToken.logoURI ? (
-                  <div className="h-full w-full flex items-center justify-center bg-gray-600 text-[10px] font-bold text-white uppercase">
-                    {toToken.symbol.charAt(0)}
-                  </div>
-                ) : (
-                  <Image
-                    src={toToken.logoURI}
-                    alt={toToken.symbol}
-                    width={24}
-                    height={24}
-                    className="h-full w-full object-contain"
-                    onError={() => setHasImageError(true)}
-                    loading="lazy"
-                    unoptimized
-                  />
-                )}
-              </div>
+              <TokenAvatar token={toToken} size={24} />
               {toToken.symbol}
             </>
           ) : (

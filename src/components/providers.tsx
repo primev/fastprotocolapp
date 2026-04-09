@@ -9,6 +9,8 @@ import { Toaster } from "@/components/ui/toaster"
 import { Toaster as Sonner } from "@/components/ui/sonner"
 import { SwapToastContainer } from "@/components/swap/SwapToastContainer"
 import { config } from "@/lib/wagmi"
+import { loadBarterSupportedTokens } from "@/lib/barter-supported-tokens"
+import { mainnet } from "wagmi/chains"
 import "@rainbow-me/rainbowkit/styles.css"
 
 const queryClient = new QueryClient({
@@ -49,7 +51,17 @@ function WalletDisconnectHandler() {
     }
   }
 
-  const { isConnected, address } = useAccount()
+  const { isConnected, address, chainId } = useAccount()
+
+  // Prefetch the barter-supported tokens map as soon as the wallet connects on
+  // mainnet, so the token selector modal has it ready on first open.
+  useEffect(() => {
+    if (isConnected && chainId === mainnet.id) {
+      void loadBarterSupportedTokens().catch(() => {
+        // Swallow — the modal will retry on open.
+      })
+    }
+  }, [isConnected, chainId])
 
   // Listen for external wallet disconnection events (manual disconnect from wallet)
   // This is a backup for cases where wagmi doesn't immediately detect manual disconnections
