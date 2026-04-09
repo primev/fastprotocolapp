@@ -22,9 +22,7 @@ export const getTokenLists = (excludeToken: string | null) => {
 
   // "Popular tokens" section — curated blue-chip list, ordered by the
   // POPULAR_TOKEN_ADDRESSES array so the UI order is intentional.
-  const byAddress = new Map(
-    deduplicatedTokens.map((t) => [t.address.toLowerCase(), t] as const)
-  )
+  const byAddress = new Map(deduplicatedTokens.map((t) => [t.address.toLowerCase(), t] as const))
   const popularTokens = POPULAR_TOKEN_ADDRESSES.map((addr) =>
     byAddress.get(addr.toLowerCase())
   ).filter((t): t is Token => !!t && (!excludeToken || t.symbol !== excludeToken))

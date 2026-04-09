@@ -5,12 +5,7 @@ import React from "react"
 import { ChevronDown } from "lucide-react"
 import { formatUnits } from "viem"
 import { cn, formatTokenAmount } from "@/lib/utils"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 // Local Components
 import AmountInput from "./AmountInput"
@@ -155,7 +150,8 @@ const SellCardComponent: React.FC<SellCardProps> = ({
                       <Tooltip key={pct}>
                         <TooltipTrigger asChild>{btn}</TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[260px] text-xs leading-snug">
-                          A small amount of the network token balance is reserved to cover the network cost of this transaction.
+                          A small amount of the network token balance is reserved to cover the
+                          network cost of this transaction.
                         </TooltipContent>
                       </Tooltip>
                     )

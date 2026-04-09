@@ -6,6 +6,7 @@ import { formatUnits } from "viem"
 import { mainnet } from "wagmi/chains"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import type { Token } from "@/types/swap"
+import { loadBarterSupportedTokens, barterEntryToToken } from "@/lib/barter-supported-tokens"
 
 // Canonical WETH address — used as the CoinGecko lookup key for native ETH.
 const WETH_ADDRESS = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
@@ -17,10 +18,6 @@ const NATIVE_ETH_TOKEN: Token = {
   name: "Ethereum",
   logoURI: "https://token-icons.s3.amazonaws.com/eth.png",
 }
-import {
-  loadBarterSupportedTokens,
-  barterEntryToToken,
-} from "@/lib/barter-supported-tokens"
 
 // Ethereum mainnet only — this app is not cross-chain.
 function alchemyMainnetUrl(): string | undefined {
@@ -138,9 +135,7 @@ async function fetchFromAlchemy(
   return prices
 }
 
-async function fetchFromDefiLlama(
-  addresses: string[]
-): Promise<Record<string, number>> {
+async function fetchFromDefiLlama(addresses: string[]): Promise<Record<string, number>> {
   const prices: Record<string, number> = {}
   const CHUNK = 100
   for (let i = 0; i < addresses.length; i += CHUNK) {
@@ -164,18 +159,14 @@ async function fetchFromDefiLlama(
   return prices
 }
 
-async function fetchTokenPrices(
-  addresses: string[]
-): Promise<Record<string, number>> {
+async function fetchTokenPrices(addresses: string[]): Promise<Record<string, number>> {
   if (addresses.length === 0) return {}
 
   const apiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
   if (apiKey) {
     const alchemyPrices = await fetchFromAlchemy(apiKey, addresses)
     // Back-fill any addresses Alchemy didn't know about from DefiLlama.
-    const missing = addresses.filter(
-      (a) => alchemyPrices[a.toLowerCase()] == null
-    )
+    const missing = addresses.filter((a) => alchemyPrices[a.toLowerCase()] == null)
     if (missing.length === 0) return alchemyPrices
     const llamaPrices = await fetchFromDefiLlama(missing)
     return { ...llamaPrices, ...alchemyPrices }

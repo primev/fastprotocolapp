@@ -61,10 +61,10 @@ export function useRecentTokens(chainId: number) {
       // commit timing.
       const current = readFromStorage(chainId)
       const lower = token.address.toLowerCase()
-      const next = [
-        token,
-        ...current.filter((t) => t.address.toLowerCase() !== lower),
-      ].slice(0, MAX)
+      const next = [token, ...current.filter((t) => t.address.toLowerCase() !== lower)].slice(
+        0,
+        MAX
+      )
       writeToStorage(chainId, next)
       setTokens(next)
     },

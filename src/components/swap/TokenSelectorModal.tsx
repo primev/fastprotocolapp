@@ -57,9 +57,7 @@ interface SectionHeaderProps {
 
 const SectionHeader = ({ icon, label, count, action }: SectionHeaderProps) => (
   <div className="sticky top-0 z-20 -mx-2 flex items-center gap-2 px-5 pt-4 pb-2 bg-card">
-    <span className="flex h-5 w-5 items-center justify-center text-muted-foreground">
-      {icon}
-    </span>
+    <span className="flex h-5 w-5 items-center justify-center text-muted-foreground">{icon}</span>
     <span className="text-sm font-semibold text-foreground/90">{label}</span>
     <span className="text-xs font-medium text-muted-foreground tabular-nums">{count}</span>
     {action ? <div className="ml-auto">{action}</div> : null}
@@ -84,8 +82,7 @@ const TokenRow = React.memo(function TokenRow({
   // secondary on the left; USD primary, token amount secondary on the right.
   // Non-held rows keep the simpler name + symbol pair with no right column.
   const primaryName = token.name || token.symbol
-  const isNativeEth =
-    !token.address || token.address.toLowerCase() === ZERO_ADDRESS.toLowerCase()
+  const isNativeEth = !token.address || token.address.toLowerCase() === ZERO_ADDRESS.toLowerCase()
   return (
     <button
       onClick={onSelect}
@@ -192,7 +189,10 @@ const TokenSelectorModalComponent = ({
 
   // Debounce the search query so barter-map scanning only runs after typing settles.
   useEffect(() => {
-    const tid = setTimeout(() => setDebouncedQuery(searchQuery.trim().toLowerCase()), SEARCH_DEBOUNCE_MS)
+    const tid = setTimeout(
+      () => setDebouncedQuery(searchQuery.trim().toLowerCase()),
+      SEARCH_DEBOUNCE_MS
+    )
     return () => clearTimeout(tid)
   }, [searchQuery])
 
@@ -230,9 +230,7 @@ const TokenSelectorModalComponent = ({
   const filteredHeld: HeldToken[] = useMemo(
     () =>
       (heldTokens ?? []).filter(
-        (h) =>
-          matchesQuery(h.token) &&
-          h.token.address.toLowerCase() !== excludeAddrLower
+        (h) => matchesQuery(h.token) && h.token.address.toLowerCase() !== excludeAddrLower
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [heldTokens, q, excludeAddrLower]
@@ -512,9 +510,7 @@ const TokenSelectorModalComponent = ({
                   </section>
                 )}
                 {isLoadingHeld && filteredHeld.length === 0 && address && (
-                  <p className="px-3 py-2 text-xs text-muted-foreground">
-                    Loading your balances…
-                  </p>
+                  <p className="px-3 py-2 text-xs text-muted-foreground">Loading your balances…</p>
                 )}
               </>
             )

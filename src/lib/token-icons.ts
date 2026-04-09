@@ -55,9 +55,7 @@ function trustWalletUrl(address: string): string | null {
  * icons are authoritative and we never want to silently swap them out for
  * a different source's version.
  */
-export function tokenIconCandidates(
-  token: Pick<Token, "address" | "logoURI">
-): string[] {
+export function tokenIconCandidates(token: Pick<Token, "address" | "logoURI">): string[] {
   // Native ETH — always use the canonical static icon.
   if (!token.address || token.address.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
     return [NATIVE_ETH_ICON]
@@ -77,9 +75,7 @@ export function tokenIconCandidates(
  * Legacy single-URL resolver — returns the first candidate. Kept for callers
  * that don't need fallback walking (e.g. static rendering, tests).
  */
-export function tokenIconUrl(
-  token: Pick<Token, "address" | "logoURI">
-): string | null {
+export function tokenIconUrl(token: Pick<Token, "address" | "logoURI">): string | null {
   const candidates = tokenIconCandidates(token)
   return candidates[0] ?? null
 }
