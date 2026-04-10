@@ -99,7 +99,7 @@ function UserSwapsModalBody({ address }: { address: string }) {
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : null}
           <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/20 text-sm px-3 py-1">
-            {totalMiles.toLocaleString()} miles
+            {totalMiles.toLocaleString()} miles (pre-fee)
           </Badge>
         </div>
       </div>

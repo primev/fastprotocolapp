@@ -56,7 +56,7 @@ export function UserSwapsTable({ address, isConnected }: Props) {
             ) : null}
             {isConnected ? (
               <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/20 text-sm px-3 py-1">
-                {totalMiles.toLocaleString()} miles
+                {totalMiles.toLocaleString()} miles (pre-fee)
               </Badge>
             ) : null}
           </div>
