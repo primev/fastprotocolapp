@@ -116,9 +116,11 @@ export function useGateStatus() {
   // A user is "pre-approved" if they're on the whitelist OR approved on the waitlist (col F)
   const isPreApproved = (data?.whitelisted ?? false) || (data?.approved ?? false)
 
-  // Persist approval to sessionStorage whenever a fresh API response
-  // confirms it. Idempotent — safe to run on every render cycle.
-  if (isPreApproved && address) {
+  // Only cache once the user has fully passed the gate: both approved
+  // AND has accepted the invite (clicked "Start Swapping"). This ensures
+  // first-time approved users still see the welcome screen before being
+  // fast-tracked on subsequent visits.
+  if (isPreApproved && (data?.acceptedInvite ?? false) && address) {
     setCachedApproval(address)
   }
 

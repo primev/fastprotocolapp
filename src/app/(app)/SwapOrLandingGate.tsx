@@ -48,6 +48,18 @@ export function SwapOrLandingGate() {
     setView("swap")
   }
 
+  // Auto-proceed to swap when the gate resolves to approved + accepted.
+  // With sessionStorage cache this resolves synchronously on mount (no
+  // API call, no skeleton, no landing page flash). Without cache, it
+  // waits for the API response and then transitions.
+  useEffect(() => {
+    if (view !== "landing" || isCheckingAccess || !isConnected) return
+    if (isPreApproved && acceptedInvite) {
+      goToSwap()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, isConnected, isCheckingAccess, isPreApproved, acceptedInvite])
+
   // After connecting + checks resolve, proceed automatically if user had clicked the button
   useEffect(() => {
     if (!earlyAccessIntended || !isConnected || isCheckingAccess) return
