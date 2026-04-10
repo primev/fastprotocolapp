@@ -117,7 +117,7 @@ interface SwapConfirmationModalProps {
 interface InfoRowProps {
   label: string
   value: React.ReactNode
-  tooltip?: string
+  tooltip?: React.ReactNode
   valueClassName?: string
 }
 
@@ -913,13 +913,27 @@ function SwapConfirmationModal({
                             />
                           </span>
                         ) : (
-                          <span className="text-gray-500">Swap too small</span>
+                          <span className="text-gray-500">TBD</span>
                         )
                       }
                       tooltip={
-                        estimatedMiles > 0
-                          ? "Estimated Fast Miles earned from MEV redistribution on this swap"
-                          : "This swap's slippage value doesn't cover transaction costs, so no miles are earned. Try a larger amount."
+                        estimatedMiles > 0 ? (
+                          "Estimated Fast Miles earned from MEV redistribution on this swap"
+                        ) : (
+                          <>
+                            We are unable to show a miles estimate at this time. You may continue to
+                            earn miles as your swap executes. See{" "}
+                            <a
+                              href="/learn/miles#about-the-miles-estimate"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline underline-offset-2 text-[#3898FF] hover:text-[#5aa9ff]"
+                            >
+                              Learn
+                            </a>{" "}
+                            for more info.
+                          </>
+                        )
                       }
                       valueClassName={estimatedMiles > 0 ? "text-[#3898FF]" : "text-gray-500"}
                     />

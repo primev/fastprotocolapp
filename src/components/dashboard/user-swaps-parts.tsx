@@ -217,9 +217,8 @@ export function MilesDiscrepancyInfo() {
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-[300px] text-xs">
-          This total is the sum of miles credited across all your Fast
-          Swaps, shown after a 2% referral fee is deducted (if
-          applicable).
+          This total is the sum of miles credited across all your Fast Swaps, shown after a 2%
+          referral fee is deducted (if applicable).
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

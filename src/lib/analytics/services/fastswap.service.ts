@@ -107,10 +107,8 @@ export async function getUserRecentSwaps(
   ])
 
   const aggRow = aggRows[0] ?? []
-  const total =
-    aggRow[0] != null && Number.isFinite(Number(aggRow[0])) ? Number(aggRow[0]) : 0
-  const totalMiles =
-    aggRow[1] != null && Number.isFinite(Number(aggRow[1])) ? Number(aggRow[1]) : 0
+  const total = aggRow[0] != null && Number.isFinite(Number(aggRow[0])) ? Number(aggRow[0]) : 0
+  const totalMiles = aggRow[1] != null && Number.isFinite(Number(aggRow[1])) ? Number(aggRow[1]) : 0
   const totalPages = total === 0 ? 0 : Math.ceil(total / safePageSize)
 
   return {

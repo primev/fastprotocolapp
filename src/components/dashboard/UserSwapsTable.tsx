@@ -64,8 +64,8 @@ export function UserSwapsTable({ address, isConnected }: Props) {
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[240px] text-xs">
-                    Total miles across all your Fast Swaps, shown before a 2%
-                    referral fee is deducted (if applicable).
+                    Total miles across all your Fast Swaps, shown before a 2% referral fee is
+                    deducted (if applicable).
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -108,11 +108,7 @@ export function UserSwapsTable({ address, isConnected }: Props) {
       </Card>
 
       {isConnected && address ? (
-        <UserSwapsModal
-          open={isModalOpen}
-          onOpenChange={setIsModalOpen}
-          address={address}
-        />
+        <UserSwapsModal open={isModalOpen} onOpenChange={setIsModalOpen} address={address} />
       ) : null}
     </>
   )

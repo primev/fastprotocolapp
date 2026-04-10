@@ -76,8 +76,7 @@ export function useGateStatus() {
   // initialData so React Query resolves synchronously (isLoading=false
   // on the very first render) and set staleTime to Infinity so no
   // refetch is attempted for this address in this tab session.
-  const isCached =
-    typeof window !== "undefined" && !!address && getCachedApproval(address)
+  const isCached = typeof window !== "undefined" && !!address && getCachedApproval(address)
 
   const { data, isLoading } = useQuery({
     queryKey: [GATE_STATUS_QUERY_KEY, address],

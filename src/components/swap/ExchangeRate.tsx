@@ -181,9 +181,8 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[260px] text-xs">
-                        We are unable to show a miles estimate at this time.
-                        You may continue to earn miles as your swap executes.
-                        See{" "}
+                        We are unable to show a miles estimate at this time. You may continue to
+                        earn miles as your swap executes. See{" "}
                         <a
                           href="/learn/miles#about-the-miles-estimate"
                           target="_blank"

@@ -45,7 +45,9 @@ function readPending(): PendingEntry[] {
     const parsed = JSON.parse(raw) as PendingStore
     if (!parsed || !Array.isArray(parsed.entries)) return []
     const now = Date.now()
-    return parsed.entries.filter((e) => e && typeof e.hash === "string" && now - e.submittedAt < EXPIRY_MS)
+    return parsed.entries.filter(
+      (e) => e && typeof e.hash === "string" && now - e.submittedAt < EXPIRY_MS
+    )
   } catch {
     return []
   }

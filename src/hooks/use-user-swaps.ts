@@ -247,9 +247,7 @@ export function useUserSwaps(
       pollTimerRef.current = setTimeout(() => {
         const controller = new AbortController()
         abortRef.current = controller
-        fetchSwaps(addr, p, controller.signal, { silent: true }).then(() =>
-          schedulePoll(addr, p)
-        )
+        fetchSwaps(addr, p, controller.signal, { silent: true }).then(() => schedulePoll(addr, p))
       }, delay)
     },
     [clearPollTimer, fetchSwaps, pollIntervalMs]
@@ -278,9 +276,7 @@ export function useUserSwaps(
       // Immediate silent refetch — don't wait for the next poll tick.
       const controller = new AbortController()
       abortRef.current = controller
-      fetchSwaps(addr, p, controller.signal, { silent: true }).then(() =>
-        schedulePoll(addr, p)
-      )
+      fetchSwaps(addr, p, controller.signal, { silent: true }).then(() => schedulePoll(addr, p))
     },
     [fetchSwaps, schedulePoll]
   )
