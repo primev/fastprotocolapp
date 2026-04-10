@@ -141,8 +141,8 @@ export function useUserSwaps(
   }, [])
 
   const fetchSwaps = useCallback(
-    async (addr: string, p: number, signal: AbortSignal) => {
-      setIsLoading(true)
+    async (addr: string, p: number, signal: AbortSignal, { silent = false } = {}) => {
+      if (!silent) setIsLoading(true)
       setError(null)
       try {
         const url = `/api/fastswap-miles/by-address?address=${encodeURIComponent(
@@ -247,7 +247,9 @@ export function useUserSwaps(
       pollTimerRef.current = setTimeout(() => {
         const controller = new AbortController()
         abortRef.current = controller
-        fetchSwaps(addr, p, controller.signal).then(() => schedulePoll(addr, p))
+        fetchSwaps(addr, p, controller.signal, { silent: true }).then(() =>
+          schedulePoll(addr, p)
+        )
       }, delay)
     },
     [clearPollTimer, fetchSwaps, pollIntervalMs]
@@ -273,10 +275,12 @@ export function useUserSwaps(
       }, AWAITING_TIMEOUT_MS)
       awaitingTimeoutsRef.current.set(hash, timer)
 
-      // Immediate refetch — don't wait for the next poll tick to check.
+      // Immediate silent refetch — don't wait for the next poll tick.
       const controller = new AbortController()
       abortRef.current = controller
-      fetchSwaps(addr, p, controller.signal).then(() => schedulePoll(addr, p))
+      fetchSwaps(addr, p, controller.signal, { silent: true }).then(() =>
+        schedulePoll(addr, p)
+      )
     },
     [fetchSwaps, schedulePoll]
   )
@@ -328,15 +332,20 @@ export function useUserSwaps(
     return unsubscribe
   }, [address, page, startAwaitingHash])
 
-  // Pause/resume polling based on tab visibility.
+  // Pause/resume polling based on tab visibility. Only refetches on
+  // refocus when there are pending rows or awaiting hashes — fully
+  // finalized tables don't trigger any network activity on tab switch.
   useEffect(() => {
     if (!address) return
     const handler = () => {
       if (typeof document === "undefined") return
       if (document.visibilityState === "visible") {
+        if (!hasPendingRef.current && awaitingHashesRef.current.size === 0) return
         const controller = new AbortController()
         abortRef.current = controller
-        fetchSwaps(address, page, controller.signal).then(() => schedulePoll(address, page))
+        fetchSwaps(address, page, controller.signal, { silent: true }).then(() =>
+          schedulePoll(address, page)
+        )
       } else {
         clearPollTimer()
       }

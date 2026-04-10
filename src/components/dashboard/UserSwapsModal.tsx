@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUserSwaps } from "@/hooks/use-user-swaps"
 import { SwapsTableBody } from "./user-swaps-parts"
 
@@ -95,9 +96,19 @@ function UserSwapsModalBody({ address }: { address: string }) {
           {isLoading && swaps.length > 0 ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : null}
-          <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/20 text-sm px-3 py-1">
-            {totalMiles.toLocaleString()} miles (pre-fee)
-          </Badge>
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/20 text-sm px-3 py-1 cursor-help">
+                  {totalMiles.toLocaleString()} miles
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[240px] text-xs">
+                Total miles across all your Fast Swaps, shown before a 2%
+                referral fee is deducted (if applicable).
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
