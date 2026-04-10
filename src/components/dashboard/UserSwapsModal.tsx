@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useUserSwaps } from "@/hooks/use-user-swaps"
-import { MilesDiscrepancyInfo, SwapsTableBody } from "./user-swaps-parts"
+import { SwapsTableBody } from "./user-swaps-parts"
 
 type Props = {
   open: boolean
@@ -60,10 +60,7 @@ export function UserSwapsModal({ open, onOpenChange, address }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <DialogTitle>All your Fast Swaps</DialogTitle>
-            <MilesDiscrepancyInfo />
-          </div>
+          <DialogTitle>All your Fast Swaps</DialogTitle>
           <DialogDescription>
             Full transaction history with per-swap miles and status.
           </DialogDescription>
