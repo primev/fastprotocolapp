@@ -34,7 +34,7 @@ export const GATE_STATUS_QUERY_KEY = "gate-status"
 
 const APPROVAL_STORAGE_KEY = "fast:gate-approved"
 
-function getCachedApproval(address: string): boolean {
+export function getCachedApproval(address: string): boolean {
   try {
     return sessionStorage.getItem(`${APPROVAL_STORAGE_KEY}:${address.toLowerCase()}`) === "1"
   } catch {
