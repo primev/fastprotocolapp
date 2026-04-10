@@ -46,6 +46,7 @@ import { useEthPathGasEstimate } from "@/hooks/use-eth-path-gas-estimate"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import { useSwapToastStore } from "@/stores/swapToastStore"
 import { refetchMiles } from "@/hooks/use-user-points"
+import { notifySwapSubmitted } from "@/lib/swap-events"
 
 const numberFlowStyle = {
   "--number-flow-char-gap": "-0.5px",
@@ -422,11 +423,13 @@ function SwapConfirmationModal({
       }
       if (isWrap) {
         const hash = await wrap()
+        notifySwapSubmitted(hash)
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
         onCloseAfterSuccess()
         onOpenChange(false)
       } else if (isUnwrap) {
         const hash = await unwrap()
+        notifySwapSubmitted(hash)
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
         onCloseAfterSuccess()
         onOpenChange(false)
@@ -439,6 +442,10 @@ function SwapConfirmationModal({
             onOpenChange(false) // Close modal immediately; toast takes over
           },
         })
+        // Fire the swap-submitted event with the final (real) tx hash so
+        // the dashboard table starts polling for its fastswap_miles row
+        // regardless of whether the user is currently viewing it.
+        notifySwapSubmitted(hash)
         if (pendingPlaceholder) {
           updateToastHash(pendingPlaceholder, hash)
         } else {

@@ -11,6 +11,20 @@ const USER_MEV_SHARE = 0.9
 const MILES_PER_ETH = 100_000
 /** How often to refresh bid estimate from FastRPC (ms) — roughly 1 block */
 const BID_ESTIMATE_POLL_MS = 12_000
+/**
+ * Historical median of `surplus_eth / output_in_eth` across recent processed
+ * `eth_weth` swaps in the fastswap_miles DB. Used as the MEV pot estimate
+ * instead of the user's slippage tolerance, because real captured surplus is
+ * not bounded by slippage — bidders find backruns beyond the slippage envelope
+ * and return them to the user.
+ *
+ * Sampled 2026-04-08 from 654 swaps over the prior 30 days:
+ *   p10 0.51% · p25 0.56% · p50 0.68% · p75 2.05% · p90 2.11% · mean 1.20%
+ *
+ * Median chosen for robustness against outliers; Math.floor on the final
+ * miles value adds a downward bias so users aren't over-promised.
+ */
+const HISTORICAL_SURPLUS_RATE = 0.0068
 
 interface UseEstimatedMilesParams {
   amountOut: string
@@ -127,10 +141,6 @@ export function useEstimatedMiles({
     const parsedAmountOut = parseFloat(normalizedAmountOut)
     if (!parsedAmountOut || parsedAmountOut <= 0) return 0
 
-    // Parse slippage — if transient/invalid, show 0 miles
-    const parsedSlippage = parseFloat(slippage ?? "0")
-    if (isNaN(parsedSlippage) || parsedSlippage <= 0) return 0
-
     // Convert output amount to ETH
     let outputInEth: number
     if (isEthOutput) {
@@ -142,8 +152,10 @@ export function useEstimatedMiles({
       outputInEth = (parsedAmountOut * toTokenPrice) / ethPrice
     }
 
-    // Slippage amount in ETH = what MEV can be captured from
-    const slippageAmountEth = (parsedSlippage / 100) * outputInEth
+    // MEV pot in ETH = historical median surplus rate × outputInEth.
+    // Replaces the previous `slippage% × outputInEth` model, which structurally
+    // underpredicted because real surplus is not bounded by slippage tolerance.
+    const slippageAmountEth = HISTORICAL_SURPLUS_RATE * outputInEth
 
     // Bid cost: priority fee (percentile from Edge Config) × avg gas (from Edge Config) / 1e18
     const bidCostEth = Number(curPriorityFee * curAvgGas) / 1e18
@@ -163,15 +175,15 @@ export function useEstimatedMiles({
     const miles = netMevEth > 0 ? Math.floor(userMevEth * MILES_PER_ETH) : 0
 
     console.log(
-      `[useEstimatedMiles] ${miles} miles | slippage=${parsedSlippage}% | ${isPermitPath ? "permit" : "ETH"} path\n` +
+      `[useEstimatedMiles] ${miles} miles | ${isPermitPath ? "permit" : "ETH"} path\n` +
         `\n` +
         `  Step 1: Convert output to ETH\n` +
         (isEthOutput
           ? `    outputInEth = ${parsedAmountOut} (native ETH output)\n`
           : `    outputInEth = ${parsedAmountOut} × $${toTokenPrice?.toFixed(2)} / $${ethPrice?.toFixed(2)} = ${outputInEth.toFixed(6)} ETH\n`) +
         `\n` +
-        `  Step 2: MEV opportunity (slippage tolerance = ${parsedSlippage}%)\n` +
-        `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${parsedSlippage}% = ${slippageAmountEth.toFixed(8)} ETH\n` +
+        `  Step 2: MEV pot (historical median surplus rate = ${(HISTORICAL_SURPLUS_RATE * 100).toFixed(2)}% of output)\n` +
+        `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${HISTORICAL_SURPLUS_RATE} = ${slippageAmountEth.toFixed(8)} ETH\n` +
         `\n` +
         `  Step 3: Bid cost (FastRPC bid estimate × avgGas from Edge Config)\n` +
         `    bidCostEth = ${curPriorityFee.toString()} wei × ${curAvgGas.toString()} gas / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
