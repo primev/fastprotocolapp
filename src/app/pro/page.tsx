@@ -1,3 +1,4 @@
+import ProHeader from "@/components/pro/ProHeader"
 import Hero from "@/components/pro/Hero"
 import LiveMetrics from "@/components/pro/LiveMetrics"
 import Comparison from "@/components/pro/Comparison"
@@ -10,6 +11,7 @@ import FinalCTA from "@/components/pro/FinalCTA"
 export default function ProPage() {
   return (
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
+      <ProHeader />
       <Hero />
       <LiveMetrics />
       <Comparison />
