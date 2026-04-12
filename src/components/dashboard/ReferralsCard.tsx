@@ -28,9 +28,9 @@ export const ReferralsCard = ({
 
   const handleShareOnX = () => {
     const tweetVariants = [
-      `Just minted my Fast Genesis SBT. @Fast_Protocol\n\nNext step: stack Fast Miles by routing swaps through Fast RPC.\n\nCome mint yours →\n${referralLink}`,
-      `I just claimed the Fast Genesis SBT @Fast_Protocol.\n\nNow, I'm running Fast RPC for faster sends and earning Fast Miles on top.\n\nMint yours →\n${referralLink}`,
-      `Just finished minting Fast Genesis SBT @Fast_Protocol.\n\nSwitch your send path to Fast RPC: faster execution on mainnet, better execution quality, and earn Fast Miles on top.\n\nBacked by a16z CSX, HashKey, Figment.\n\nMint →\n${referralLink}`,
+      `Sub-second swaps on Ethereum L1. No bridge. No L2.\n\n@Fast_Protocol turns mev into Miles that reward you for every swap.\n\nEarly access is live →\n${referralLink}`,
+      `Just swapped on @Fast_Protocol — confirmed in under a second on Ethereum mainnet.\n\nMiles are stacking. Leaderboard is live. Early access filling up.\n\nGet in →\n${referralLink}`,
+      `Ethereum swaps don't have to take 12 seconds.\n\n@Fast_Protocol preconfirms your trade before the block lands. ~90% of mev flows back to you as Miles.\n\nJoin early access →\n${referralLink}`,
     ]
     const randomText = tweetVariants[Math.floor(Math.random() * tweetVariants.length)]
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(randomText)}`
