@@ -10,17 +10,17 @@ const ProHeader = () => {
           <Image
             src="/assets/fast-icon.png"
             alt="Fast Protocol"
-            width={40}
-            height={40}
-            className="md:hidden"
+            width={48}
+            height={48}
+            className="md:hidden w-12 h-12"
             priority
           />
           <Image
             src="/assets/fast-protocol-logo-icon.png"
             alt="Fast Protocol"
-            width={150}
-            height={75}
-            className="hidden md:block h-8 w-auto"
+            width={200}
+            height={100}
+            className="hidden md:block h-12 w-auto"
             priority
           />
         </Link>
