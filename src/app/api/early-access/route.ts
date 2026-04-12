@@ -53,16 +53,12 @@ export async function POST(request: NextRequest) {
     if (!isAddress(wallet_address.trim())) {
       return NextResponse.json({ error: "Invalid wallet address" }, { status: 400 })
     }
-    if (!x_handle?.trim()) {
-      return NextResponse.json({ error: "X handle is required" }, { status: 400 })
+    // At least one contact method required
+    const hasContact = x_handle?.trim() || discord_handle?.trim() || (email?.trim() && EMAIL_REGEX.test(email.trim()))
+    if (!hasContact) {
+      return NextResponse.json({ error: "At least one contact method is required (X, Discord, or email)" }, { status: 400 })
     }
-    if (!discord_handle?.trim()) {
-      return NextResponse.json({ error: "Discord handle is required" }, { status: 400 })
-    }
-    if (!email?.trim()) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 })
-    }
-    if (!EMAIL_REGEX.test(email.trim())) {
+    if (email?.trim() && !EMAIL_REGEX.test(email.trim())) {
       return NextResponse.json({ error: "Invalid email address" }, { status: 400 })
     }
 
