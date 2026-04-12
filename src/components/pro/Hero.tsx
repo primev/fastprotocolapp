@@ -21,7 +21,8 @@ const Hero = () => {
       />
 
       <h1 className="font-sora font-extrabold text-3xl sm:text-5xl md:text-6xl lg:text-7xl leading-[1.05] tracking-tight max-w-4xl relative z-10">
-        Better price. Instant confirmation. <span className="text-primary">You keep the mev.</span>
+        Better execution. Instant confirmation.{" "}
+        <span className="text-primary">Earn mev rewards.</span>
       </h1>
 
       <p className="mt-6 text-muted-foreground text-base sm:text-lg max-w-xl relative z-10">

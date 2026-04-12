@@ -30,7 +30,7 @@ const BlockPosition = () => {
         }`}
       >
         <h2 className="font-sora font-bold text-2xl sm:text-3xl md:text-4xl text-center mb-3">
-          Why execution position matters
+          Why block position determines swap price
         </h2>
         <p className="text-sm text-muted-foreground/70 text-center mb-10">
           Better position in the block = better price

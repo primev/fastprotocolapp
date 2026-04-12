@@ -29,7 +29,7 @@ const Speed = () => {
   return (
     <section className="px-4 py-20 md:py-28 max-w-6xl mx-auto">
       <h2 className="font-sora font-bold text-2xl sm:text-3xl md:text-4xl text-center mb-3">
-        Milliseconds vs seconds
+        Sub-second confirmation vs standard DEX
       </h2>
       <p className="text-sm text-muted-foreground/70 text-center mb-12 max-w-md mx-auto">
         Speed = position advantage. Earlier execution = better price.

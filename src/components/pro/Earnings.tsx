@@ -8,7 +8,7 @@ const Earnings = () => {
   return (
     <section className="px-4 py-20 md:py-28 max-w-6xl mx-auto">
       <h2 className="font-sora font-bold text-2xl sm:text-3xl md:text-4xl text-center mb-12">
-        Your swaps recover lost value
+        mev rewards calculator
       </h2>
 
       <div className="max-w-md mx-auto bg-card border border-border rounded-xl p-6 md:p-8">
