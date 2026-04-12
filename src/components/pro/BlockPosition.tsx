@@ -11,7 +11,10 @@ const BlockPosition = () => {
     if (!sectionRef.current) return
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) setVisible(true)
+        if (entry.isIntersecting) {
+          setVisible(true)
+          observer.disconnect()
+        }
       },
       { threshold: 0.15 }
     )

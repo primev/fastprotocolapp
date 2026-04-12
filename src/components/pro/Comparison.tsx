@@ -133,15 +133,16 @@ function ValueCell({ value, highlight }: { value: string; highlight: boolean }) 
     if (!highlight || !ref.current) return
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !animated) {
+        if (entry.isIntersecting) {
           setAnimated(true)
+          observer.disconnect()
         }
       },
       { threshold: 0.5 }
     )
     observer.observe(ref.current)
     return () => observer.disconnect()
-  }, [highlight, animated])
+  }, [highlight])
 
   return (
     <td
@@ -161,9 +162,13 @@ function TradeCard({ trade }: { trade: TradeData }) {
   const shareText = `I just recovered ${trade.advantageAmount} more using Fast Protocol vs Uniswap on a ${trade.tradeSize} swap. You're leaking value if you're not using this.`
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(shareText)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(shareText)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* clipboard unavailable in non-secure context */
+    }
   }
 
   const handleShare = () => {
@@ -209,21 +214,23 @@ function TradeCard({ trade }: { trade: TradeData }) {
                 metric === "Block position"
               return (
                 <tr key={metric} className="border-b border-border/50 last:border-0">
-                  <td className="px-5 py-3 text-muted-foreground flex items-center gap-1.5">
-                    {metric}
-                    {metric === "mev recovered (returned to you)" && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-muted-foreground/40 text-[9px] text-muted-foreground cursor-help">
-                            ?
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[220px] text-xs">
-                          mev is value typically extracted from trades — Fast recovers it and
-                          returns it to you.
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+                  <td className="px-5 py-3 text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      {metric}
+                      {metric === "mev recovered (returned to you)" && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-muted-foreground/40 text-[9px] text-muted-foreground cursor-help">
+                              ?
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[220px] text-xs">
+                            mev is value typically extracted from trades — Fast recovers it and
+                            returns it to you.
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
                   </td>
                   <ValueCell
                     value={fastVal}
@@ -244,6 +251,8 @@ function TradeCard({ trade }: { trade: TradeData }) {
         <p className="text-xs font-medium text-primary">{trade.advantage}</p>
         <div className="flex items-center gap-2 shrink-0">
           <button
+            type="button"
+            aria-label="Copy share text"
             onClick={handleCopy}
             className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
           >
@@ -251,6 +260,8 @@ function TradeCard({ trade }: { trade: TradeData }) {
             <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
           </button>
           <button
+            type="button"
+            aria-label="Share on X"
             onClick={handleShare}
             className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
           >
@@ -285,8 +296,8 @@ const Comparison = () => {
       </div>
 
       <div className="flex md:grid md:grid-cols-2 gap-4 overflow-x-auto pb-4 md:pb-0 snap-x snap-mandatory md:snap-none -mx-4 px-4 md:mx-0 md:px-0">
-        {visibleTrades.map((trade, i) => (
-          <div key={i} className="snap-start shrink-0 w-[85vw] md:w-auto">
+        {visibleTrades.map((trade) => (
+          <div key={trade.label} className="snap-start shrink-0 w-[85vw] md:w-auto">
             <TradeCard trade={trade} />
           </div>
         ))}

@@ -10,7 +10,9 @@ const FinalCTA = () => {
       </h2>
 
       <Button size="lg" className="mt-10 text-base px-10 py-6 font-semibold rounded-lg" asChild>
-        <Link href="/">Start swapping on Fast →</Link>
+        <Link href="/">
+          Start swapping on Fast <span aria-hidden="true">→</span>
+        </Link>
       </Button>
 
       <p className="mt-2 text-sm text-muted-foreground">

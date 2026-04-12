@@ -14,8 +14,8 @@ const Hero = () => {
       <Image
         src="/pro/logo-secondary.png"
         alt="Fast Protocol"
-        width={480}
-        height={240}
+        width={922}
+        height={500}
         priority
         className="h-48 md:h-60 w-auto mb-10 relative z-10"
       />
@@ -35,7 +35,9 @@ const Hero = () => {
 
       <div className="flex flex-col sm:flex-row gap-3 mt-10 relative z-10">
         <Button size="lg" className="text-base px-8 py-6 font-semibold rounded-lg" asChild>
-          <Link href="/">Start Swap →</Link>
+          <Link href="/">
+            Start Swap <span aria-hidden="true">→</span>
+          </Link>
         </Button>
         <Button
           variant="outline"

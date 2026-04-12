@@ -52,7 +52,7 @@ const Speed = () => {
                 <td className="px-5 py-4 text-muted-foreground">{row.label}</td>
                 <td className="text-right px-5 py-4">
                   {row.fastHighlight ? (
-                    <span className="font-mono font-bold text-primary animate-pulse-glow drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]">
+                    <span className="font-mono font-bold text-primary motion-safe:animate-pulse-glow drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]">
                       {row.fast}
                     </span>
                   ) : (
