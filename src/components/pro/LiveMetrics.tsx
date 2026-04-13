@@ -8,9 +8,9 @@ const LiveMetrics = () => {
   return (
     <div className="border-y border-border bg-card/50">
       <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col items-center gap-2">
-        <div className="flex items-center justify-center gap-6 sm:gap-10 flex-wrap">
+        <div className="grid grid-cols-3 sm:flex sm:items-center sm:justify-center sm:gap-10">
           {metrics.map((m, i) => (
-            <div key={m.label} className="flex items-center gap-3">
+            <div key={m.label} className="flex items-center justify-center gap-3">
               <div className="text-center">
                 <p
                   className={`font-mono font-bold ${
@@ -33,9 +33,7 @@ const LiveMetrics = () => {
             </div>
           ))}
         </div>
-        <p className="text-[10px] text-muted-foreground/40">
-          Based on real mainnet swap data.
-        </p>
+        <p className="text-[10px] text-muted-foreground/40">Based on real mainnet swap data.</p>
       </div>
     </div>
   )

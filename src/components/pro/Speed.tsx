@@ -39,18 +39,18 @@ const Speed = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
-              <th className="text-left px-5 py-3 font-medium">Action</th>
-              <th className="text-right px-5 py-3 font-medium">
-                <span className="text-primary font-semibold">Fast Protocol</span>
+              <th className="text-left px-3 sm:px-5 py-3 font-medium">Action</th>
+              <th className="text-right px-3 sm:px-5 py-3 font-medium">
+                <span className="text-primary font-semibold">Fast</span>
               </th>
-              <th className="text-right px-5 py-3 font-medium">Typical DEX</th>
+              <th className="text-right px-3 sm:px-5 py-3 font-medium">Typical DEX</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row.label} className="border-b border-border/50 last:border-0">
-                <td className="px-5 py-4 text-muted-foreground">{row.label}</td>
-                <td className="text-right px-5 py-4">
+                <td className="px-3 sm:px-5 py-3 sm:py-4 text-muted-foreground">{row.label}</td>
+                <td className="text-right px-3 sm:px-5 py-3 sm:py-4">
                   {row.fastHighlight ? (
                     <span className="font-mono font-bold text-primary motion-safe:animate-pulse-glow drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]">
                       {row.fast}
@@ -63,7 +63,7 @@ const Speed = () => {
                     </span>
                   )}
                 </td>
-                <td className="text-right px-5 py-4 font-mono text-muted-foreground">
+                <td className="text-right px-3 sm:px-5 py-3 sm:py-4 font-mono text-muted-foreground">
                   {row.typical}
                 </td>
               </tr>

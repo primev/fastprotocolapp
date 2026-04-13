@@ -54,9 +54,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid wallet address" }, { status: 400 })
     }
     // At least one contact method required
-    const hasContact = x_handle?.trim() || discord_handle?.trim() || (email?.trim() && EMAIL_REGEX.test(email.trim()))
+    const hasContact =
+      x_handle?.trim() ||
+      discord_handle?.trim() ||
+      (email?.trim() && EMAIL_REGEX.test(email.trim()))
     if (!hasContact) {
-      return NextResponse.json({ error: "At least one contact method is required (X, Discord, or email)" }, { status: 400 })
+      return NextResponse.json(
+        { error: "At least one contact method is required (X, Discord, or email)" },
+        { status: 400 }
+      )
     }
     if (email?.trim() && !EMAIL_REGEX.test(email.trim())) {
       return NextResponse.json({ error: "Invalid email address" }, { status: 400 })

@@ -98,32 +98,29 @@ const trades: TradeData[] = [
   },
 ]
 
-const metricLabels = [
-  "Output",
-  "Value recovered from execution",
-  "Time to confirm (execution position advantage)",
-  "mev recovered (returned to you)",
-  "Block position",
+const metrics = [
+  { key: "output" as const, label: "Output", showTooltip: false },
+  { key: "improvement" as const, label: "Value recovered", showTooltip: false },
+  { key: "time" as const, label: "Confirmation", showTooltip: false },
+  { key: "mev" as const, label: "mev recovered", showTooltip: true },
+  { key: "blockPosition" as const, label: "Block position", showTooltip: false },
 ] as const
 
-function getValue(data: TradeData["fast"], metric: (typeof metricLabels)[number]) {
-  switch (metric) {
-    case "Output":
-      return data.output
-    case "Value recovered from execution":
-      return data.improvement
-    case "Time to confirm (execution position advantage)":
-      return data.time
-    case "mev recovered (returned to you)":
-      return data.mev
-    case "Block position":
-      return data.blockPosition
-  }
+type MetricKey = (typeof metrics)[number]["key"]
+
+function getVal(data: TradeData["fast"], key: MetricKey) {
+  return data[key]
 }
 
 function isPositive(val: string) {
   return val.startsWith("+")
 }
+
+function isHighlight(val: string) {
+  return isPositive(val) || val === "Top-of-block"
+}
+
+/* ── Desktop: 4-column table row value cell with flash animation ── */
 
 function ValueCell({ value, highlight }: { value: string; highlight: boolean }) {
   const ref = useRef<HTMLTableCellElement>(null)
@@ -148,13 +145,123 @@ function ValueCell({ value, highlight }: { value: string; highlight: boolean }) 
     <td
       ref={ref}
       className={`text-right px-4 py-3 font-mono font-bold bg-primary/[0.03] ${
-        isPositive(value) || value === "Top-of-block" ? "text-success" : "text-foreground"
+        isHighlight(value) ? "text-success" : "text-foreground"
       } ${animated ? "animate-value-flash" : ""}`}
     >
       {value}
     </td>
   )
 }
+
+/* ── Mobile layout: stacked metric rows ── */
+
+function MobileCard({ trade }: { trade: TradeData }) {
+  return (
+    <div className="divide-y divide-border/50">
+      {metrics.map((m) => {
+        const fastVal = getVal(trade.fast, m.key)
+        const uniVal = getVal(trade.uniswap, m.key)
+        const oneVal = getVal(trade.oneinch, m.key)
+        return (
+          <div key={m.key} className="px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                {m.label}
+                {m.showTooltip && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-muted-foreground/40 text-[9px] text-muted-foreground cursor-help">
+                        ?
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[220px] text-xs">
+                      mev is value typically extracted from trades — Fast recovers it and returns it
+                      to you.
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </span>
+              <span
+                className={`font-mono font-bold text-sm ${
+                  isHighlight(fastVal) ? "text-success" : "text-foreground"
+                }`}
+              >
+                {fastVal}
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground/50 text-right mt-0.5">
+              vs {uniVal} Uni · {oneVal} 1inch
+            </p>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ── Desktop layout: full comparison table ── */
+
+function DesktopTable({ trade }: { trade: TradeData }) {
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border text-muted-foreground text-xs">
+          <th className="text-left px-5 py-3 font-medium">Metric</th>
+          <th className="text-right px-4 py-3 font-medium w-[28%] bg-primary/[0.03]">
+            <span className="text-primary font-semibold">Fast</span>
+          </th>
+          <th className="text-right px-4 py-3 font-medium" colSpan={2}>
+            <span className="text-muted-foreground/70">Baseline</span>
+            <span className="text-muted-foreground/50 ml-1 text-[10px]">
+              (Uniswap / aggregators)
+            </span>
+          </th>
+        </tr>
+        <tr className="border-b border-border/50 text-muted-foreground text-[10px]">
+          <th></th>
+          <th className="bg-primary/[0.03]"></th>
+          <th className="text-right px-4 py-1 font-normal">Uniswap</th>
+          <th className="text-right px-4 py-1 font-normal">1inch</th>
+        </tr>
+      </thead>
+      <tbody>
+        {metrics.map((m) => {
+          const fastVal = getVal(trade.fast, m.key)
+          const uniVal = getVal(trade.uniswap, m.key)
+          const oneVal = getVal(trade.oneinch, m.key)
+          const shouldHighlight = m.key === "mev" || m.key === "output" || m.key === "blockPosition"
+          return (
+            <tr key={m.key} className="border-b border-border/50 last:border-0">
+              <td className="px-5 py-3 text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  {m.label}
+                  {m.showTooltip && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-muted-foreground/40 text-[9px] text-muted-foreground cursor-help">
+                          ?
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[220px] text-xs">
+                        mev is value typically extracted from trades — Fast recovers it and returns
+                        it to you.
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+              </td>
+              <ValueCell value={fastVal} highlight={shouldHighlight && isHighlight(fastVal)} />
+              <td className="text-right px-4 py-3 font-mono text-muted-foreground">{uniVal}</td>
+              <td className="text-right px-4 py-3 font-mono text-muted-foreground">{oneVal}</td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
+/* ── TradeCard: switches layout at sm breakpoint ── */
 
 function TradeCard({ trade }: { trade: TradeData }) {
   const [copied, setCopied] = useState(false)
@@ -177,78 +284,25 @@ function TradeCard({ trade }: { trade: TradeData }) {
   }
 
   return (
-    <div className="min-w-[340px] md:min-w-0 bg-card border border-border rounded-xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-border">
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="px-4 sm:px-5 py-4 border-b border-border">
         <span className="font-sora font-semibold text-sm text-foreground">{trade.label}</span>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-muted-foreground text-xs">
-              <th className="text-left px-5 py-3 font-medium">Metric</th>
-              <th className="text-right px-4 py-3 font-medium w-[30%] bg-primary/[0.03]">
-                <span className="text-primary font-semibold">Fast</span>
-              </th>
-              <th className="text-right px-4 py-3 font-medium" colSpan={2}>
-                <span className="text-muted-foreground/70">Baseline</span>
-                <span className="text-muted-foreground/50 ml-1 text-[10px]">
-                  (Uniswap / aggregators)
-                </span>
-              </th>
-            </tr>
-            <tr className="border-b border-border/50 text-muted-foreground text-[10px]">
-              <th></th>
-              <th className="bg-primary/[0.03]"></th>
-              <th className="text-right px-4 py-1 font-normal">Uniswap</th>
-              <th className="text-right px-4 py-1 font-normal">1inch</th>
-            </tr>
-          </thead>
-          <tbody>
-            {metricLabels.map((metric) => {
-              const fastVal = getValue(trade.fast, metric)
-              const uniVal = getValue(trade.uniswap, metric)
-              const oneVal = getValue(trade.oneinch, metric)
-              const shouldHighlight =
-                metric === "mev recovered (returned to you)" ||
-                metric === "Output" ||
-                metric === "Block position"
-              return (
-                <tr key={metric} className="border-b border-border/50 last:border-0">
-                  <td className="px-5 py-3 text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                      {metric}
-                      {metric === "mev recovered (returned to you)" && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-muted-foreground/40 text-[9px] text-muted-foreground cursor-help">
-                              ?
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[220px] text-xs">
-                            mev is value typically extracted from trades — Fast recovers it and
-                            returns it to you.
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-                  </td>
-                  <ValueCell
-                    value={fastVal}
-                    highlight={
-                      shouldHighlight && (isPositive(fastVal) || fastVal === "Top-of-block")
-                    }
-                  />
-                  <td className="text-right px-4 py-3 font-mono text-muted-foreground">{uniVal}</td>
-                  <td className="text-right px-4 py-3 font-mono text-muted-foreground">{oneVal}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+
+      {/* Mobile: stacked rows */}
+      <div className="sm:hidden">
+        <MobileCard trade={trade} />
       </div>
 
-      <div className="px-5 py-3 bg-primary/5 border-t border-primary/20 flex items-center justify-between gap-3">
-        <p className="text-xs font-medium text-primary">{trade.advantage}</p>
+      {/* Desktop: full table */}
+      <div className="hidden sm:block">
+        <DesktopTable trade={trade} />
+      </div>
+
+      <div className="px-4 sm:px-5 py-3 bg-primary/5 border-t border-primary/20 flex items-center justify-between gap-2">
+        <p className="text-[11px] sm:text-xs font-medium text-primary leading-tight">
+          {trade.advantage}
+        </p>
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
@@ -274,6 +328,8 @@ function TradeCard({ trade }: { trade: TradeData }) {
   )
 }
 
+/* ── Section: vertical stack on mobile, 2-col grid on md ── */
+
 const Comparison = () => {
   const [showAll, setShowAll] = useState(false)
   const visibleTrades = showAll ? trades : trades.slice(0, 2)
@@ -285,21 +341,19 @@ const Comparison = () => {
       </h2>
 
       <p className="text-sm text-muted-foreground/70 text-center mb-2 max-w-lg mx-auto">
-        Execution quality depends on where your trade lands in the block — not just routing.
+        Execution quality depends on where your trade lands in the block.
       </p>
 
       <div className="max-w-xl mx-auto mb-10 mt-6 px-4 py-3 rounded-lg bg-primary/[0.06] border border-primary/10 text-center">
         <p className="text-sm text-foreground/80">
-          If your typical swap is ~$10,000, you would have recovered{" "}
-          <span className="font-semibold text-success">~$40–$60 more</span> using Fast.
+          On a ~$10,000 swap, Fast recovers{" "}
+          <span className="font-semibold text-success">~$40–$60 more</span> than Uniswap.
         </p>
       </div>
 
-      <div className="flex md:grid md:grid-cols-2 gap-4 overflow-x-auto pb-4 md:pb-0 snap-x snap-mandatory md:snap-none -mx-4 px-4 md:mx-0 md:px-0">
+      <div className="flex flex-col md:grid md:grid-cols-2 gap-4">
         {visibleTrades.map((trade) => (
-          <div key={trade.label} className="snap-start shrink-0 w-[85vw] md:w-auto">
-            <TradeCard trade={trade} />
-          </div>
+          <TradeCard key={trade.label} trade={trade} />
         ))}
       </div>
 
@@ -307,7 +361,7 @@ const Comparison = () => {
         <div className="text-center mt-6">
           <button
             onClick={() => setShowAll(true)}
-            className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
+            className="text-sm text-primary hover:text-primary/80 font-medium transition-colors py-2 px-4"
           >
             Show more trades ↓
           </button>

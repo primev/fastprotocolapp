@@ -5,7 +5,7 @@ const Hero = () => {
   return (
     <section className="relative flex flex-col items-center justify-center px-4 pt-12 pb-16 md:pt-20 md:pb-20 text-center">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-primary/5 rounded-full blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(800px,150vw)] h-[min(600px,120vw)] bg-primary/5 rounded-full blur-[120px]" />
       </div>
 
       <h1 className="font-sora font-extrabold text-3xl sm:text-5xl md:text-6xl lg:text-7xl leading-[1.05] tracking-tight max-w-4xl relative z-10">
@@ -22,8 +22,12 @@ const Hero = () => {
         Based on real Ethereum mainnet swap data vs Uniswap and aggregators
       </p>
 
-      <div className="flex flex-col sm:flex-row gap-3 mt-8 relative z-10">
-        <Button size="lg" className="text-base px-8 py-6 font-semibold rounded-lg" asChild>
+      <div className="flex flex-col sm:flex-row gap-3 mt-8 relative z-10 w-full sm:w-auto">
+        <Button
+          size="lg"
+          className="text-base px-8 py-6 font-semibold rounded-lg w-full sm:w-auto"
+          asChild
+        >
           <Link href="/">
             Start Swap <span aria-hidden="true">→</span>
           </Link>
@@ -31,7 +35,7 @@ const Hero = () => {
         <Button
           variant="outline"
           size="lg"
-          className="text-base px-8 py-6 font-medium rounded-lg border-border hover:border-primary/50"
+          className="text-base px-8 py-6 font-medium rounded-lg border-border hover:border-primary/50 w-full sm:w-auto"
           asChild
         >
           <a href="#comparison">View comparison</a>

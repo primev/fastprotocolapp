@@ -25,7 +25,7 @@ const WhyItWorks = () => {
         Why Fast outperforms
       </h2>
 
-      <div className="grid sm:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {cards.map((card) => (
           <div
             key={card.title}

@@ -46,7 +46,8 @@ export function EarlyAccessForm({ initialWalletAddress }: EarlyAccessFormProps) 
     else if (!isAddress(walletAddress.trim())) next.walletAddress = "Invalid wallet address"
     if (email?.trim() && !EMAIL_REGEX.test(email.trim())) next.email = "Invalid email address"
     // At least one contact method
-    const hasContact = xHandle?.trim() || discordHandle?.trim() || (email?.trim() && EMAIL_REGEX.test(email.trim()))
+    const hasContact =
+      xHandle?.trim() || discordHandle?.trim() || (email?.trim() && EMAIL_REGEX.test(email.trim()))
     if (!hasContact) next.contact = "Provide at least one: X handle, Discord, or email"
     setErrors(next)
     return Object.keys(next).length === 0
@@ -157,15 +158,16 @@ export function EarlyAccessForm({ initialWalletAddress }: EarlyAccessFormProps) 
             </div>
 
             <p className="text-sm text-muted-foreground rounded-lg border border-primary/15 bg-primary/5 px-3 py-2">
-              Provide at least one way to reach you — we&apos;ll use it to let you know when you&apos;re in.
+              Provide at least one way to reach you — we&apos;ll use it to let you know when
+              you&apos;re in.
             </p>
 
-            {errors.contact && (
-              <p className="text-sm text-destructive">{errors.contact}</p>
-            )}
+            {errors.contact && <p className="text-sm text-destructive">{errors.contact}</p>}
 
             <div className="space-y-2">
-              <Label htmlFor="x">X handle <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Label htmlFor="x">
+                X handle <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
               <Input
                 id="x"
                 placeholder="@username"
@@ -178,7 +180,9 @@ export function EarlyAccessForm({ initialWalletAddress }: EarlyAccessFormProps) 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="discord">Discord handle <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Label htmlFor="discord">
+                Discord handle <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
               <Input
                 id="discord"
                 placeholder="username#1234 or username"
@@ -193,7 +197,9 @@ export function EarlyAccessForm({ initialWalletAddress }: EarlyAccessFormProps) 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Label htmlFor="email">
+                Email <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
               <Input
                 id="email"
                 type="email"
