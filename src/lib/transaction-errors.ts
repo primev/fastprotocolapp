@@ -81,7 +81,9 @@ export function buildRevertMessage(receipt: TransactionReceipt, rawDbRecord?: un
     }
   }
 
-  const parts = [`Transaction reverted on-chain (tx: ${short}, block: ${block}, gas used: ${gasUsed})`]
+  const parts = [
+    `Transaction reverted on-chain (tx: ${short}, block: ${block}, gas used: ${gasUsed})`,
+  ]
   if (reason) parts.push(`Reason: ${reason}`)
   return parts.join("\n")
 }
