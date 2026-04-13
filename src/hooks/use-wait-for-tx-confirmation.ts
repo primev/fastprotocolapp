@@ -189,7 +189,8 @@ export function useWaitForTxConfirmation({
             if (mcStatus === "failed") {
               hasConfirmedRef.current = true
               abortController.abort()
-              const e = new Error("Transaction was dropped by the network.")
+              const short = `${hash.slice(0, 6)}…${hash.slice(-4)}`
+              const e = new Error(`Transaction ${short} was dropped by the network.`)
               setError(e)
               onErrorRef.current?.(e)
             } else if (mcStatus === "confirmed") {
@@ -296,7 +297,8 @@ export function useWaitForTxConfirmation({
             hasConfirmedRef.current = true
             abortController.abort()
             clearInterval(dbPollInterval)
-            const e = new Error("Transaction was dropped by the network.")
+            const short = `${hash.slice(0, 6)}…${hash.slice(-4)}`
+              const e = new Error(`Transaction ${short} was dropped by the network.`)
             setError(e)
             onErrorRef.current?.(e)
             return
