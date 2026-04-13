@@ -36,7 +36,9 @@ describe("buildRevertMessage", () => {
   })
 
   it("includes statusReason from rawDbRecord when present", () => {
-    const msg = buildRevertMessage(fakeReceipt, { statusReason: "barter minReturn (100) < user required (200)" })
+    const msg = buildRevertMessage(fakeReceipt, {
+      statusReason: "barter minReturn (100) < user required (200)",
+    })
     expect(msg).toContain("barter minReturn")
   })
 
@@ -111,7 +113,9 @@ describe("getTransactionErrorMessage", () => {
   })
 
   it("genuine network error surfaces the actual error after the prefix", () => {
-    const err = new Error("HttpRequestError: Request to https://fastrpc.mev-commit.xyz failed (status 503)")
+    const err = new Error(
+      "HttpRequestError: Request to https://fastrpc.mev-commit.xyz failed (status 503)"
+    )
     const msg = getTransactionErrorMessage(err)
     expect(msg.startsWith("Network error: ")).toBe(true)
     expect(msg).toContain("503")
