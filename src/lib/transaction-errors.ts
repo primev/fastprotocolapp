@@ -63,6 +63,30 @@ export class RPCError extends Error {
 }
 
 /**
+ * Builds a human-readable message from a reverted transaction receipt.
+ */
+export function buildRevertMessage(receipt: TransactionReceipt, rawDbRecord?: unknown): string {
+  const hash = receipt.transactionHash
+  const short = hash ? `${hash.slice(0, 10)}…${hash.slice(-8)}` : "unknown"
+  const block = receipt.blockNumber != null ? String(receipt.blockNumber) : "unknown"
+  const gasUsed = receipt.gasUsed != null ? String(receipt.gasUsed) : "unknown"
+
+  let reason = ""
+  if (rawDbRecord != null && typeof rawDbRecord === "object") {
+    const rec = rawDbRecord as Record<string, unknown>
+    if (typeof rec.statusReason === "string" && rec.statusReason) {
+      reason = rec.statusReason
+    } else if (typeof rec.revertReason === "string" && rec.revertReason) {
+      reason = rec.revertReason
+    }
+  }
+
+  const parts = [`Transaction reverted on-chain (tx: ${short}, block: ${block}, gas used: ${gasUsed})`]
+  if (reason) parts.push(`Reason: ${reason}`)
+  return parts.join("\n")
+}
+
+/**
  * Shared logic to map complex error strings to human-readable summaries.
  */
 function mapErrorMessage(error: unknown): string | null {
@@ -87,6 +111,12 @@ function mapErrorMessage(error: unknown): string | null {
     (message.includes("barter") || message.includes("api key"))
   ) {
     return "Barter API key invalid or missing."
+  }
+
+  // RPCError with a receipt is an on-chain revert, not a network issue — let
+  // the actual message (from buildRevertMessage) flow through unmodified.
+  if (error instanceof RPCError && error.receipt) {
+    return null
   }
 
   if (
@@ -134,9 +164,11 @@ export function getTransactionErrorMessage(error: unknown): string {
 
   const mapped = mapErrorMessage(error)
   if (mapped) {
-    return mapped === "Network error"
-      ? "Network error: Unable to connect to the blockchain. Please check your internet connection or RPC settings."
-      : mapped
+    if (mapped === "Network error") {
+      const raw = error instanceof Error ? error.message : String(error)
+      return `Network error: ${raw}`
+    }
+    return mapped
   }
 
   return error instanceof Error ? error.message : String(error)

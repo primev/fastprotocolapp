@@ -6,7 +6,7 @@ import { fetchFastTxStatus } from "@/lib/fast-tx-status"
 import { fetchTransactionReceiptFromDb } from "@/lib/transaction-receipt-utils"
 import { fetchCommitmentStatus } from "@/lib/fast-rpc-status"
 import { getTxConfirmationTimeoutMs } from "@/lib/tx-config"
-import { RPCError } from "@/lib/transaction-errors"
+import { RPCError, buildRevertMessage } from "@/lib/transaction-errors"
 
 /**
  * Adaptive polling: starts fast to catch sub-second preconfirmations,
@@ -113,7 +113,7 @@ export function useWaitForTxConfirmation({
     try {
       if (receipt.status === "reverted") {
         hasConfirmedRef.current = true
-        const e = new RPCError("RPC Error", receipt)
+        const e = new RPCError(buildRevertMessage(receipt), receipt)
         setError(e)
         onErrorRef.current?.(e)
         return
@@ -238,7 +238,11 @@ export function useWaitForTxConfirmation({
             hasConfirmedRef.current = true
             abortController.abort()
             clearInterval(dbPollInterval)
-            const e = new RPCError("RPC Error", rpcResult.receipt, rpcResult.rawResult)
+            const e = new RPCError(
+              buildRevertMessage(rpcResult.receipt, rpcResult.rawResult),
+              rpcResult.receipt,
+              rpcResult.rawResult
+            )
             setError(e)
             onErrorRef.current?.(e)
             return
