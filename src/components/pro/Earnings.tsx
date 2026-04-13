@@ -28,7 +28,7 @@ const Earnings = () => {
             Based on the trade improvements shown above.
           </p>
           <p className="text-[10px] text-muted-foreground/50 mt-1">
-            Conservative estimate based on recent swaps.
+            Conservative estimate based on real swap data.
           </p>
           <p className="text-[10px] text-muted-foreground/50 mt-1">
             Most traders lose value due to execution ordering — this estimate reflects value

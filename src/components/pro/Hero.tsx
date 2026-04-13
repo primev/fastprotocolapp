@@ -19,7 +19,7 @@ const Hero = () => {
       </p>
 
       <p className="mt-2 text-xs text-muted-foreground/60 relative z-10">
-        Verified against live swaps vs Uniswap and aggregators
+        Based on real Ethereum mainnet swap data vs Uniswap and aggregators
       </p>
 
       <div className="flex flex-col sm:flex-row gap-3 mt-8 relative z-10">
@@ -34,7 +34,7 @@ const Hero = () => {
           className="text-base px-8 py-6 font-medium rounded-lg border-border hover:border-primary/50"
           asChild
         >
-          <a href="#comparison">View live comparison</a>
+          <a href="#comparison">View comparison</a>
         </Button>
       </div>
 

@@ -315,8 +315,8 @@ const Comparison = () => {
       )}
 
       <p className="text-center text-xs text-muted-foreground/80 mt-8 max-w-xl mx-auto leading-relaxed">
-        Based on recent mainnet swaps routed through Fast vs baseline routing (Uniswap /
-        aggregators). Results reflect observed execution, not simulations.
+        Based on real Ethereum mainnet swap data comparing Fast execution vs baseline routing
+        (Uniswap / aggregators).
       </p>
       <p className="text-center text-[10px] text-muted-foreground/40 mt-2 max-w-md mx-auto">
         Research shows a majority of swaps are impacted by execution ordering.

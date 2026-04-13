@@ -34,7 +34,7 @@ const LiveMetrics = () => {
           ))}
         </div>
         <p className="text-[10px] text-muted-foreground/40">
-          Based on recent performance — not simulated routing.
+          Based on real mainnet swap data.
         </p>
       </div>
     </div>
