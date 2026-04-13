@@ -28,6 +28,8 @@ const RPC_CONCURRENCY = 5
  */
 const FALLBACK_GAS_LIMIT = 450_000
 const FALLBACK_GAS_USED = 180_000
+/** Fallback median surplus rate (0.68% from 2026-04-08 sample). */
+const FALLBACK_SURPLUS_RATE = 0.0068
 
 // ---------------------------------------------------------------------------
 // Auth helper
@@ -243,6 +245,62 @@ async function computeGasAverages(): Promise<{ gasLimitAvg: number; gasUsedAvg: 
 }
 
 // ---------------------------------------------------------------------------
+// Surplus rate computation
+// ---------------------------------------------------------------------------
+
+/**
+ * Computes the median surplus rate from recent processed FastSwap transactions.
+ *
+ * Surplus rate = surplus_eth / output_in_eth for each swap. The median is
+ * used (rather than mean) for robustness against outliers — a few high-surplus
+ * swaps shouldn't inflate the estimate for typical users.
+ *
+ * @returns The median surplus rate as a decimal (e.g. 0.0068 = 0.68%),
+ *          or FALLBACK_SURPLUS_RATE if insufficient data.
+ */
+async function computeMedianSurplusRate(): Promise<number> {
+  const client = getAnalyticsClient()
+
+  const rows = await client.execute("fastswap/get-surplus-rates", {})
+
+  if (rows.length === 0) {
+    console.warn(
+      "[cron/miles-estimate-gas] No surplus rate data returned — using fallback"
+    )
+    return FALLBACK_SURPLUS_RATE
+  }
+
+  const rates = rows
+    .map((row) => Number(row[0]))
+    .filter((r) => Number.isFinite(r) && r > 0)
+    .sort((a, b) => a - b)
+
+  if (rates.length === 0) {
+    console.warn("[cron/miles-estimate-gas] No valid surplus rates — using fallback")
+    return FALLBACK_SURPLUS_RATE
+  }
+
+  const mid = Math.floor(rates.length / 2)
+  const median =
+    rates.length % 2 === 0 ? (rates[mid - 1] + rates[mid]) / 2 : rates[mid]
+
+  // Round to 6 decimal places to avoid floating point noise in Edge Config
+  const rounded = Math.round(median * 1e6) / 1e6
+
+  console.log(
+    `[cron/miles-estimate-gas] surplusRate — count: ${rates.length}  ` +
+      `p10: ${(rates[Math.floor(rates.length * 0.1)] * 100).toFixed(2)}%  ` +
+      `p25: ${(rates[Math.floor(rates.length * 0.25)] * 100).toFixed(2)}%  ` +
+      `p50: ${(median * 100).toFixed(2)}%  ` +
+      `p75: ${(rates[Math.floor(rates.length * 0.75)] * 100).toFixed(2)}%  ` +
+      `p90: ${(rates[Math.floor(rates.length * 0.9)] * 100).toFixed(2)}%  ` +
+      `mean: ${((rates.reduce((a, r) => a + r, 0) / rates.length) * 100).toFixed(2)}%`
+  )
+
+  return rounded
+}
+
+// ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
 
@@ -273,10 +331,14 @@ export async function GET(request: Request) {
 
   try {
     // --- Step 2: Fetch the new values ----------------------------------------
-    const { gasLimitAvg, gasUsedAvg } = await computeGasAverages()
+    const [gasAverages, surplusRate] = await Promise.all([
+      computeGasAverages(),
+      computeMedianSurplusRate(),
+    ])
+    const { gasLimitAvg, gasUsedAvg } = gasAverages
 
     console.log(
-      `[cron/miles-estimate-gas] Computed averages: gasLimit=${gasLimitAvg}, gasUsed=${gasUsedAvg}`
+      `[cron/miles-estimate-gas] Computed: gasLimit=${gasLimitAvg}, gasUsed=${gasUsedAvg}, surplusRate=${(surplusRate * 100).toFixed(2)}%`
     )
 
     // --- Step 3: Write to Edge Config ---------------------------------------
@@ -295,6 +357,11 @@ export async function GET(request: Request) {
         key: "miles_estimate_gas_used_average",
         value: gasUsedAvg,
       },
+      {
+        operation: "upsert",
+        key: "miles_estimate_surplus_rate",
+        value: surplusRate,
+      },
     ])
 
     console.log(
@@ -308,6 +375,7 @@ export async function GET(request: Request) {
       updated: {
         gasLimitAverage: gasLimitAvg,
         gasUsedAverage: gasUsedAvg,
+        surplusRate,
       },
       vercelResponse: result,
     })

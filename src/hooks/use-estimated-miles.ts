@@ -14,19 +14,11 @@ const MILES_PER_ETH = 100_000
 /** How often to refresh bid estimate from FastRPC (ms) — roughly 1 block */
 const BID_ESTIMATE_POLL_MS = 12_000
 /**
- * Historical median of `surplus_eth / output_in_eth` across recent processed
- * `eth_weth` swaps in the fastswap_miles DB. Used as the MEV pot estimate
- * instead of the user's slippage tolerance, because real captured surplus is
- * not bounded by slippage — bidders find backruns beyond the slippage envelope
- * and return them to the user.
- *
- * Sampled 2026-04-08 from 654 swaps over the prior 30 days:
- *   p10 0.51% · p25 0.56% · p50 0.68% · p75 2.05% · p90 2.11% · mean 1.20%
- *
- * Median chosen for robustness against outliers; Math.floor on the final
- * miles value adds a downward bias so users aren't over-promised.
+ * Fallback median surplus rate — used until Edge Config value is fetched.
+ * Updated monthly by the miles-estimate-gas cron job from 30-day median of
+ * `surplus_eth / output_in_eth` across processed eth_weth swaps.
  */
-const HISTORICAL_SURPLUS_RATE = 0.0068
+const DEFAULT_SURPLUS_RATE = 0.0068
 
 interface UseEstimatedMilesParams {
   amountOut: string
@@ -52,13 +44,14 @@ export function useEstimatedMiles({
   const [priorityFee, setPriorityFee] = useState<bigint | null>(null)
   const [avgGasLimit, setAvgGasLimit] = useState<bigint>(DEFAULT_AVG_GAS_LIMIT)
   const [avgGasUsed, setAvgGasUsed] = useState<bigint>(DEFAULT_AVG_GAS_USED)
+  const [surplusRate, setSurplusRate] = useState(DEFAULT_SURPLUS_RATE)
 
-  // Fetch average gas estimates from Edge Config (updated monthly by cron).
+  // Fetch gas estimates and surplus rate from Edge Config (updated monthly by cron).
   // Runs on mount — not gated on `enabled` so data is ready before the first quote arrives.
   useEffect(() => {
     let cancelled = false
 
-    const fetchGasEstimate = async () => {
+    const fetchEstimates = async () => {
       try {
         const res = await fetch("/api/config/gas-estimate")
         if (!res.ok) return
@@ -70,13 +63,16 @@ export function useEstimatedMiles({
           if (typeof data.gasUsedEstimate === "number" && data.gasUsedEstimate > 0) {
             setAvgGasUsed(BigInt(data.gasUsedEstimate))
           }
+          if (typeof data.surplusRate === "number" && data.surplusRate > 0) {
+            setSurplusRate(data.surplusRate)
+          }
         }
       } catch (err) {
-        console.warn("[useEstimatedMiles] Failed to fetch gas estimate:", err)
+        console.warn("[useEstimatedMiles] Failed to fetch estimates:", err)
       }
     }
 
-    fetchGasEstimate()
+    fetchEstimates()
     return () => {
       cancelled = true
     }
@@ -125,10 +121,12 @@ export function useEstimatedMiles({
   const baseFeeRef = useRef<bigint | null>(null)
   const avgGasLimitRef = useRef<bigint>(DEFAULT_AVG_GAS_LIMIT)
   const avgGasUsedRef = useRef<bigint>(DEFAULT_AVG_GAS_USED)
+  const surplusRateRef = useRef(DEFAULT_SURPLUS_RATE)
   priorityFeeRef.current = priorityFee
   baseFeeRef.current = baseFeePerGas
   avgGasLimitRef.current = avgGasLimit
   avgGasUsedRef.current = avgGasUsed
+  surplusRateRef.current = surplusRate
 
   // Track last successful miles so transient states don't flash null.
   const lastMilesRef = useRef<number | null>(null)
@@ -163,10 +161,9 @@ export function useEstimatedMiles({
       outputInEth = (parsedAmountOut * toTokenPrice) / ethPrice
     }
 
-    // MEV pot in ETH = historical median surplus rate × outputInEth.
-    // Replaces the previous `slippage% × outputInEth` model, which structurally
-    // underpredicted because real surplus is not bounded by slippage tolerance.
-    const slippageAmountEth = HISTORICAL_SURPLUS_RATE * outputInEth
+    // MEV pot in ETH = median surplus rate (from Edge Config) × outputInEth.
+    const curSurplusRate = surplusRateRef.current
+    const slippageAmountEth = curSurplusRate * outputInEth
 
     // Bid cost: priority fee × avg gas limit (bid = priorityFee × txn.Gas())
     const bidCostEth = Number(curPriorityFee * curAvgGasLimit) / 1e18
@@ -193,8 +190,8 @@ export function useEstimatedMiles({
           ? `    outputInEth = ${parsedAmountOut} (native ETH output)\n`
           : `    outputInEth = ${parsedAmountOut} × $${toTokenPrice?.toFixed(2)} / $${ethPrice?.toFixed(2)} = ${outputInEth.toFixed(6)} ETH\n`) +
         `\n` +
-        `  Step 2: MEV pot (historical median surplus rate = ${(HISTORICAL_SURPLUS_RATE * 100).toFixed(2)}% of output)\n` +
-        `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${HISTORICAL_SURPLUS_RATE} = ${slippageAmountEth.toFixed(8)} ETH\n` +
+        `  Step 2: MEV pot (median surplus rate = ${(curSurplusRate * 100).toFixed(2)}% of output)\n` +
+        `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${curSurplusRate} = ${slippageAmountEth.toFixed(8)} ETH\n` +
         `\n` +
         `  Step 3: Bid cost (FastRPC bid estimate × avgGasLimit from Edge Config)\n` +
         `    bidCostEth = ${curPriorityFee.toString()} wei × ${curAvgGasLimit.toString()} gasLimit / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +

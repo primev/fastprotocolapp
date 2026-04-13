@@ -555,6 +555,22 @@ ORDER BY block_timestamp DESC
 LIMIT :limit
 `.trim()
 
+// Median surplus rate for miles estimation.
+// Computes surplus_eth / output_in_eth for processed eth_weth swaps over the
+// last 30 days. Only includes swaps with positive surplus and output to avoid
+// division by zero. Returns individual ratios so the caller can compute median.
+export const GET_FASTSWAP_SURPLUS_RATES = `
+SELECT
+  surplus_eth / (CAST(user_amt_out AS DOUBLE) / 1e18) AS surplus_rate
+FROM mevcommit_57173.fastswap_miles
+WHERE processed = 1
+  AND surplus_eth > 0
+  AND CAST(user_amt_out AS DOUBLE) > 0
+  AND swap_type = 'eth_weth'
+  AND block_timestamp >= NOW() - INTERVAL 30 DAY
+ORDER BY block_timestamp DESC
+`.trim()
+
 // FastSwap miles domain
 // Recent FastSwap transactions with miles/surplus for a specific user address.
 // Used by the dashboard swap history table. Includes both processed=1 (finalized)
@@ -625,6 +641,7 @@ export const QUERIES = {
   // L1 transactions domain
   "l1/get-recent-swap-tx-hashes": GET_RECENT_L1_SWAP_TX_HASHES,
   "fastswap/get-recent-tx-hashes": GET_RECENT_FASTSWAP_TX_HASHES,
+  "fastswap/get-surplus-rates": GET_FASTSWAP_SURPLUS_RATES,
 
   // FastSwap miles domain
   "fastswap/get-user-recent-swaps": GET_USER_RECENT_SWAPS,

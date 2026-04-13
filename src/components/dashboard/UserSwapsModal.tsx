@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useUserSwaps } from "@/hooks/use-user-swaps"
+import { useSurplusRate } from "@/hooks/use-surplus-rate"
 import { SwapsTableBody } from "./user-swaps-parts"
 
 type Props = {
@@ -81,6 +82,7 @@ function UserSwapsModalBody({ address }: { address: string }) {
     page,
     pageSize: MODAL_PAGE_SIZE,
   })
+  const surplusRate = useSurplusRate()
 
   const { totalPages, total } = pagination
 
@@ -121,7 +123,7 @@ function UserSwapsModalBody({ address }: { address: string }) {
             No Fast Swaps yet. Make your first swap to start earning miles.
           </div>
         ) : (
-          <SwapsTableBody swaps={swaps} />
+          <SwapsTableBody swaps={swaps} surplusRate={surplusRate} />
         )}
       </div>
 

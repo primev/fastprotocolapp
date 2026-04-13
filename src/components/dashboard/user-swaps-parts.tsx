@@ -116,18 +116,18 @@ export function SwapSide({
 }
 
 /**
- * Conservative miles estimate for pending rows. Uses the same historical
- * surplus rate as the swap UI estimator (0.68% median from recent swaps)
- * and the 90% user share / 100k miles-per-ETH constants.
+ * Conservative miles estimate for pending rows. Uses the surplus rate
+ * (from Edge Config, updated monthly by cron) and the 90% user share /
+ * 100k miles-per-ETH constants.
  *
  * This is a rough floor — actual miles are computed post-settlement and
  * will overwrite this value once processed.
  */
-const HISTORICAL_SURPLUS_RATE = 0.0068
+const DEFAULT_SURPLUS_RATE = 0.0068
 const USER_MEV_SHARE = 0.9
 const MILES_PER_ETH = 100_000
 
-function estimateMiles(row: UserSwapRow): number | null {
+function estimateMiles(row: UserSwapRow, surplusRate: number): number | null {
   if (!row.amountOut) return null
   const parsed = parseFloat(row.amountOut)
   if (!parsed || parsed <= 0) return null
@@ -138,7 +138,7 @@ function estimateMiles(row: UserSwapRow): number | null {
   const outSymbol = row.tokenOut.symbol.toUpperCase()
   if (outSymbol !== "ETH" && outSymbol !== "WETH") return null
 
-  const mevPot = HISTORICAL_SURPLUS_RATE * parsed
+  const mevPot = surplusRate * parsed
   const userMev = mevPot * USER_MEV_SHARE
   const miles = Math.floor(userMev * MILES_PER_ETH)
   return miles > 0 ? miles : null
@@ -153,10 +153,10 @@ function estimateMiles(row: UserSwapRow): number | null {
  *   2. Local calculation from output amount (ETH/WETH only)
  *   3. "TBD" if neither is available
  */
-export function MilesCell({ row }: { row: UserSwapRow }) {
+export function MilesCell({ row, surplusRate = DEFAULT_SURPLUS_RATE }: { row: UserSwapRow; surplusRate?: number }) {
   if (!row.processed) {
     const stashed = getEstimatedMilesForHash(row.txHash)
-    const est = stashed ?? estimateMiles(row)
+    const est = stashed ?? estimateMiles(row, surplusRate)
     if (est != null && est > 0) {
       return (
         <Badge variant="outline" className="text-muted-foreground font-normal">
@@ -212,7 +212,7 @@ export function StatusCell({ row }: { row: UserSwapRow }) {
  * dashboard card and the full-history modal so columns and formatting
  * stay in lockstep.
  */
-export function SwapsTableBody({ swaps }: { swaps: UserSwapRow[] }) {
+export function SwapsTableBody({ swaps, surplusRate }: { swaps: UserSwapRow[]; surplusRate?: number }) {
   return (
     <Table>
       <TableHeader>
@@ -275,7 +275,7 @@ export function SwapsTableBody({ swaps }: { swaps: UserSwapRow[] }) {
               </span>
             </TableCell>
             <TableCell className="text-right px-2 md:px-4">
-              <MilesCell row={row} />
+              <MilesCell row={row} surplusRate={surplusRate} />
             </TableCell>
             <TableCell className="text-right hidden md:table-cell px-4">
               <a
