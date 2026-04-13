@@ -1,3 +1,5 @@
+"use client"
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { flushSync } from "react-dom"
 import useEmblaCarousel from "embla-carousel-react"

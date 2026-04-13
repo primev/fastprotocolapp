@@ -46,6 +46,7 @@ import { useEthPathGasEstimate } from "@/hooks/use-eth-path-gas-estimate"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import { useSwapToastStore } from "@/stores/swapToastStore"
 import { refetchMiles } from "@/hooks/use-user-points"
+import { notifySwapSubmitted } from "@/lib/swap-events"
 
 const numberFlowStyle = {
   "--number-flow-char-gap": "-0.5px",
@@ -116,7 +117,7 @@ interface SwapConfirmationModalProps {
 interface InfoRowProps {
   label: string
   value: React.ReactNode
-  tooltip?: string
+  tooltip?: React.ReactNode
   valueClassName?: string
 }
 
@@ -422,11 +423,13 @@ function SwapConfirmationModal({
       }
       if (isWrap) {
         const hash = await wrap()
+        notifySwapSubmitted(hash, estimatedMiles)
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
         onCloseAfterSuccess()
         onOpenChange(false)
       } else if (isUnwrap) {
         const hash = await unwrap()
+        notifySwapSubmitted(hash, estimatedMiles)
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
         onCloseAfterSuccess()
         onOpenChange(false)
@@ -439,6 +442,10 @@ function SwapConfirmationModal({
             onOpenChange(false) // Close modal immediately; toast takes over
           },
         })
+        // Fire the swap-submitted event with the final (real) tx hash so
+        // the dashboard table starts polling for its fastswap_miles row
+        // regardless of whether the user is currently viewing it.
+        notifySwapSubmitted(hash, estimatedMiles)
         if (pendingPlaceholder) {
           updateToastHash(pendingPlaceholder, hash)
         } else {
@@ -906,13 +913,27 @@ function SwapConfirmationModal({
                             />
                           </span>
                         ) : (
-                          <span className="text-gray-500">Swap too small</span>
+                          <span className="text-gray-500">TBD</span>
                         )
                       }
                       tooltip={
-                        estimatedMiles > 0
-                          ? "Estimated Fast Miles earned from MEV redistribution on this swap"
-                          : "This swap's slippage value doesn't cover transaction costs, so no miles are earned. Try a larger amount."
+                        estimatedMiles > 0 ? (
+                          "Estimated Fast Miles earned from MEV redistribution on this swap"
+                        ) : (
+                          <>
+                            We are unable to show a miles estimate at this time. You may continue to
+                            earn miles as your swap executes. See{" "}
+                            <a
+                              href="/learn/miles#about-the-miles-estimate"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline underline-offset-2 text-[#3898FF] hover:text-[#5aa9ff]"
+                            >
+                              Learn
+                            </a>{" "}
+                            for more info.
+                          </>
+                        )
                       }
                       valueClassName={estimatedMiles > 0 ? "text-[#3898FF]" : "text-gray-500"}
                     />

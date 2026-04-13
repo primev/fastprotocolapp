@@ -3,14 +3,30 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { RPC_ENDPOINT } from "@/lib/network-config"
 
-/** Fallback average gas used by FastSwap transactions */
-const DEFAULT_AVG_GAS = 450_000n
+/** Fallback average gas limit for bid cost calculation (priorityFee × gasLimit) */
+const DEFAULT_AVG_GAS_LIMIT = 450_000n
+/** Fallback average gas used for gas cost calculation on permit path (baseFee × gasUsed) */
+const DEFAULT_AVG_GAS_USED = 180_000n
 /** User receives 90% of captured MEV */
 const USER_MEV_SHARE = 0.9
 /** 100,000 miles per 1 ETH (0.00001 ETH per mile) */
 const MILES_PER_ETH = 100_000
 /** How often to refresh bid estimate from FastRPC (ms) — roughly 1 block */
 const BID_ESTIMATE_POLL_MS = 12_000
+/**
+ * Historical median of `surplus_eth / output_in_eth` across recent processed
+ * `eth_weth` swaps in the fastswap_miles DB. Used as the MEV pot estimate
+ * instead of the user's slippage tolerance, because real captured surplus is
+ * not bounded by slippage — bidders find backruns beyond the slippage envelope
+ * and return them to the user.
+ *
+ * Sampled 2026-04-08 from 654 swaps over the prior 30 days:
+ *   p10 0.51% · p25 0.56% · p50 0.68% · p75 2.05% · p90 2.11% · mean 1.20%
+ *
+ * Median chosen for robustness against outliers; Math.floor on the final
+ * miles value adds a downward bias so users aren't over-promised.
+ */
+const HISTORICAL_SURPLUS_RATE = 0.0068
 
 interface UseEstimatedMilesParams {
   amountOut: string
@@ -34,9 +50,10 @@ export function useEstimatedMiles({
   enabled,
 }: UseEstimatedMilesParams): { estimatedMiles: number | null } {
   const [priorityFee, setPriorityFee] = useState<bigint | null>(null)
-  const [avgGas, setAvgGas] = useState<bigint>(DEFAULT_AVG_GAS)
+  const [avgGasLimit, setAvgGasLimit] = useState<bigint>(DEFAULT_AVG_GAS_LIMIT)
+  const [avgGasUsed, setAvgGasUsed] = useState<bigint>(DEFAULT_AVG_GAS_USED)
 
-  // Fetch average gas estimate from Edge Config (updated monthly by cron).
+  // Fetch average gas estimates from Edge Config (updated monthly by cron).
   // Runs on mount — not gated on `enabled` so data is ready before the first quote arrives.
   useEffect(() => {
     let cancelled = false
@@ -46,8 +63,13 @@ export function useEstimatedMiles({
         const res = await fetch("/api/config/gas-estimate")
         if (!res.ok) return
         const data = await res.json()
-        if (!cancelled && typeof data.gasEstimate === "number" && data.gasEstimate > 0) {
-          setAvgGas(BigInt(data.gasEstimate))
+        if (!cancelled) {
+          if (typeof data.gasEstimate === "number" && data.gasEstimate > 0) {
+            setAvgGasLimit(BigInt(data.gasEstimate))
+          }
+          if (typeof data.gasUsedEstimate === "number" && data.gasUsedEstimate > 0) {
+            setAvgGasUsed(BigInt(data.gasUsedEstimate))
+          }
         }
       } catch (err) {
         console.warn("[useEstimatedMiles] Failed to fetch gas estimate:", err)
@@ -101,10 +123,12 @@ export function useEstimatedMiles({
   // (amountOut, slippage), not on background 12s gas fee ticks.
   const priorityFeeRef = useRef<bigint | null>(null)
   const baseFeeRef = useRef<bigint | null>(null)
-  const avgGasRef = useRef<bigint>(DEFAULT_AVG_GAS)
+  const avgGasLimitRef = useRef<bigint>(DEFAULT_AVG_GAS_LIMIT)
+  const avgGasUsedRef = useRef<bigint>(DEFAULT_AVG_GAS_USED)
   priorityFeeRef.current = priorityFee
   baseFeeRef.current = baseFeePerGas
-  avgGasRef.current = avgGas
+  avgGasLimitRef.current = avgGasLimit
+  avgGasUsedRef.current = avgGasUsed
 
   // Track last successful miles so transient states don't flash null.
   const lastMilesRef = useRef<number | null>(null)
@@ -121,15 +145,12 @@ export function useEstimatedMiles({
     const normalizedAmountOut = amountOut?.replace(/,/g, "") ?? ""
     const curPriorityFee = priorityFeeRef.current
     const curBaseFee = baseFeeRef.current
-    const curAvgGas = avgGasRef.current
+    const curAvgGasLimit = avgGasLimitRef.current
+    const curAvgGasUsed = avgGasUsedRef.current
     if (curPriorityFee == null || curBaseFee == null) return null
 
     const parsedAmountOut = parseFloat(normalizedAmountOut)
     if (!parsedAmountOut || parsedAmountOut <= 0) return 0
-
-    // Parse slippage — if transient/invalid, show 0 miles
-    const parsedSlippage = parseFloat(slippage ?? "0")
-    if (isNaN(parsedSlippage) || parsedSlippage <= 0) return 0
 
     // Convert output amount to ETH
     let outputInEth: number
@@ -142,14 +163,16 @@ export function useEstimatedMiles({
       outputInEth = (parsedAmountOut * toTokenPrice) / ethPrice
     }
 
-    // Slippage amount in ETH = what MEV can be captured from
-    const slippageAmountEth = (parsedSlippage / 100) * outputInEth
+    // MEV pot in ETH = historical median surplus rate × outputInEth.
+    // Replaces the previous `slippage% × outputInEth` model, which structurally
+    // underpredicted because real surplus is not bounded by slippage tolerance.
+    const slippageAmountEth = HISTORICAL_SURPLUS_RATE * outputInEth
 
-    // Bid cost: priority fee (percentile from Edge Config) × avg gas (from Edge Config) / 1e18
-    const bidCostEth = Number(curPriorityFee * curAvgGas) / 1e18
+    // Bid cost: priority fee × avg gas limit (bid = priorityFee × txn.Gas())
+    const bidCostEth = Number(curPriorityFee * curAvgGasLimit) / 1e18
 
-    // Gas cost: only deducted on permit path (relayer pays)
-    const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGas) / 1e18 : 0
+    // Gas cost: only deducted on permit path (relayer pays actual gas used, not limit)
+    const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGasUsed) / 1e18 : 0
 
     // Sweep overhead: non-ETH output requires a sweep tx (batched fastswap).
     // 1.5x multiplier approximates pro-rata share assuming avg batch of ~3 txs.
@@ -163,21 +186,21 @@ export function useEstimatedMiles({
     const miles = netMevEth > 0 ? Math.floor(userMevEth * MILES_PER_ETH) : 0
 
     console.log(
-      `[useEstimatedMiles] ${miles} miles | slippage=${parsedSlippage}% | ${isPermitPath ? "permit" : "ETH"} path\n` +
+      `[useEstimatedMiles] ${miles} miles | ${isPermitPath ? "permit" : "ETH"} path\n` +
         `\n` +
         `  Step 1: Convert output to ETH\n` +
         (isEthOutput
           ? `    outputInEth = ${parsedAmountOut} (native ETH output)\n`
           : `    outputInEth = ${parsedAmountOut} × $${toTokenPrice?.toFixed(2)} / $${ethPrice?.toFixed(2)} = ${outputInEth.toFixed(6)} ETH\n`) +
         `\n` +
-        `  Step 2: MEV opportunity (slippage tolerance = ${parsedSlippage}%)\n` +
-        `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${parsedSlippage}% = ${slippageAmountEth.toFixed(8)} ETH\n` +
+        `  Step 2: MEV pot (historical median surplus rate = ${(HISTORICAL_SURPLUS_RATE * 100).toFixed(2)}% of output)\n` +
+        `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${HISTORICAL_SURPLUS_RATE} = ${slippageAmountEth.toFixed(8)} ETH\n` +
         `\n` +
-        `  Step 3: Bid cost (FastRPC bid estimate × avgGas from Edge Config)\n` +
-        `    bidCostEth = ${curPriorityFee.toString()} wei × ${curAvgGas.toString()} gas / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
+        `  Step 3: Bid cost (FastRPC bid estimate × avgGasLimit from Edge Config)\n` +
+        `    bidCostEth = ${curPriorityFee.toString()} wei × ${curAvgGasLimit.toString()} gasLimit / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
         `\n` +
-        `  Step 4: Gas cost${isPermitPath ? " (relayer pays on permit path)" : " (user pays on ETH path = 0)"}\n` +
-        `    gasCostEth = ${isPermitPath ? `${curBaseFee.toString()} wei × ${curAvgGas.toString()} gas / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
+        `  Step 4: Gas cost${isPermitPath ? " (relayer pays actual gasUsed on permit path)" : " (user pays on ETH path = 0)"}\n` +
+        `    gasCostEth = ${isPermitPath ? `${curBaseFee.toString()} wei × ${curAvgGasUsed.toString()} gasUsed / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
         (!isEthOutput
           ? `\n  Step 4b: Sweep overhead (non-ETH output, ${sweepMultiplier}x multiplier)\n` +
             `    totalBidCost = ${bidCostEth.toFixed(8)} × ${sweepMultiplier} = ${totalBidCost.toFixed(8)} ETH\n` +

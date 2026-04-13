@@ -40,7 +40,18 @@ import { OneTimeTasksSection } from "@/components/dashboard/OneTimeTasksSection"
 import { SBTGatingModal } from "@/components/modals/SBTGatingModal"
 import { TransactionFeedbackModal } from "@/components/modals/TransactionFeedbackModal"
 import { ReferralModal } from "@/components/modals/ReferralModal"
+import dynamic from "next/dynamic"
 import { EcosystemSetCarousel } from "@/components/dashboard/EcosystemSetsCarousel"
+
+// Client-only: UserSwapsTable depends on wagmi state (address, isConnected)
+// that differs between server and client. Rendering it on the server produces
+// HTML that the client immediately disagrees with, causing a cascading hydration
+// error that unmounts the component entirely. `ssr: false` avoids the issue by
+// deferring the first render to the client — no server HTML, no mismatch.
+const UserSwapsTable = dynamic(
+  () => import("@/components/dashboard/UserSwapsTable").then((m) => m.UserSwapsTable),
+  { ssr: false }
+)
 
 import type { TaskName } from "@/hooks/use-dashboard-tasks"
 
@@ -204,6 +215,8 @@ const DashboardContent = () => {
                     />
                   </div>
                 </div>
+
+                <UserSwapsTable address={address} isConnected={isConnected} />
 
                 <EcosystemSetCarousel />
 

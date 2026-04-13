@@ -2,9 +2,11 @@
 
 import React, { useMemo } from "react"
 import NumberFlow from "@number-flow/react"
+import { Info } from "lucide-react"
 // Utils & Hooks
 import { cn } from "@/lib/utils"
 import { QuoteResult, getPriceImpactSeverity, formatPriceImpact } from "@/hooks/use-swap-quote"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**
  * Isolated countdown badge - only this re-renders when timeLeft updates (every second),
@@ -166,7 +168,33 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
                     </span>
                   </>
                 ) : (
-                  <span className="text-gray-500">No miles</span>
+                  // Estimator is a conservative lower bound. "0" misleads
+                  // users into thinking no miles are available, so we show
+                  // "TBD" + tooltip pointing to the learn article. Kept in
+                  // the same slot so no height is added to the swap card.
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 text-gray-500 cursor-help">
+                          TBD miles
+                          <Info className="h-3 w-3" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[260px] text-xs">
+                        We are unable to show a miles estimate at this time. You may continue to
+                        earn miles as your swap executes. See{" "}
+                        <a
+                          href="/learn/miles#about-the-miles-estimate"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline underline-offset-2 text-[#3898FF] hover:text-[#5aa9ff]"
+                        >
+                          Learn
+                        </a>{" "}
+                        for more info.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
             )}

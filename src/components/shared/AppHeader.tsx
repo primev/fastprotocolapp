@@ -169,7 +169,16 @@ export const AppHeader = ({
           {FEATURE_FLAGS.show_miles_estimate && (
             <Badge
               variant="outline"
-              className="h-10 px-3 text-sm border-primary/50 hidden sm:flex items-center"
+              className={cn(
+                "h-10 px-3 text-sm border-primary/50 hidden sm:flex items-center",
+                !pathname?.startsWith("/dashboard") &&
+                  "cursor-pointer hover:bg-primary/10 transition-colors"
+              )}
+              onClick={() => {
+                if (!pathname?.startsWith("/dashboard")) {
+                  router.push("/dashboard")
+                }
+              }}
             >
               <Award className="w-4 h-4 mr-2 text-primary" />
               <NumberFlow

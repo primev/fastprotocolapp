@@ -75,6 +75,30 @@ This means your miles for small ERC-20 output swaps may appear later — potenti
 - **Swap size matters**: Very small swaps (especially to ERC-20 tokens) may not generate enough mev for immediate miles crediting.
 - **ETH output is faster**: Swaps with ETH as the output token don't require a token sweep, so miles process more quickly.
 
+## About the miles estimate
+
+Before you swap, Fast Protocol shows an estimated miles amount in the swap interface. This estimate is a **conservative lower bound**, not a guarantee or a ceiling.
+
+### Why the estimate can show "TBD"
+
+The miles an individual swap earns depends on factors the UI can't know in advance — market conditions at execution time, the mev opportunity your swap creates, and gas costs. Because the estimate runs before any of that is known, the UI deliberately errs on the low side to avoid over-promising.
+
+For some swaps, the conservative calculation can't confidently predict a number, so the UI shows **TBD** (to be determined). **This does not mean the swap will earn zero miles.** In practice, many swaps that show TBD go on to earn miles once the swap settles on-chain.
+
+### What to trust instead
+
+- The **estimate** is a directional signal. Treat it as a floor, not a forecast.
+- The **actual miles earned** are computed from real on-chain activity after the swap settles.
+- Your **dashboard swap history** shows the finalized miles for each transaction once processing completes. This is the authoritative number.
+
+If you see TBD or a low estimate and still want to swap, go ahead — the real number is computed post-settlement and may be higher.
+
+### Why not just show a bigger estimate?
+
+Over-predicting miles would be worse than under-predicting. If the estimate consistently showed more miles than users actually earned, trust would collapse. The conservative approach means users are sometimes pleasantly surprised, and never disappointed by inflated predictions.
+
+As we gather more data from real swaps, the estimator becomes more accurate. The tradeoff is intentional: accuracy improves with volume, and the cost of being wrong is paid in caution rather than exaggeration.
+
 ## Miles and mev rewards
 
 Miles work alongside [mev rewards](/learn/mev-rewards) — they're complementary systems, not alternatives.
