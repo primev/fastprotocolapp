@@ -264,9 +264,7 @@ async function computeMedianSurplusRate(): Promise<number> {
   const rows = await client.execute("fastswap/get-surplus-rates", {})
 
   if (rows.length === 0) {
-    console.warn(
-      "[cron/miles-estimate-gas] No surplus rate data returned — using fallback"
-    )
+    console.warn("[cron/miles-estimate-gas] No surplus rate data returned — using fallback")
     return FALLBACK_SURPLUS_RATE
   }
 
@@ -281,8 +279,7 @@ async function computeMedianSurplusRate(): Promise<number> {
   }
 
   const mid = Math.floor(rates.length / 2)
-  const median =
-    rates.length % 2 === 0 ? (rates[mid - 1] + rates[mid]) / 2 : rates[mid]
+  const median = rates.length % 2 === 0 ? (rates[mid - 1] + rates[mid]) / 2 : rates[mid]
 
   // Round to 6 decimal places to avoid floating point noise in Edge Config
   const rounded = Math.round(median * 1e6) / 1e6

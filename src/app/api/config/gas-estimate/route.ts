@@ -20,9 +20,7 @@ export async function GET() {
         gasEstimate: typeof gasLimit === "number" && gasLimit > 0 ? gasLimit : DEFAULT_GAS_LIMIT,
         gasUsedEstimate: typeof gasUsed === "number" && gasUsed > 0 ? gasUsed : DEFAULT_GAS_USED,
         surplusRate:
-          typeof surplusRate === "number" && surplusRate > 0
-            ? surplusRate
-            : DEFAULT_SURPLUS_RATE,
+          typeof surplusRate === "number" && surplusRate > 0 ? surplusRate : DEFAULT_SURPLUS_RATE,
       },
       { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } }
     )

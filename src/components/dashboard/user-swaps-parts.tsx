@@ -153,7 +153,13 @@ function estimateMiles(row: UserSwapRow, surplusRate: number): number | null {
  *   2. Local calculation from output amount (ETH/WETH only)
  *   3. "TBD" if neither is available
  */
-export function MilesCell({ row, surplusRate = DEFAULT_SURPLUS_RATE }: { row: UserSwapRow; surplusRate?: number }) {
+export function MilesCell({
+  row,
+  surplusRate = DEFAULT_SURPLUS_RATE,
+}: {
+  row: UserSwapRow
+  surplusRate?: number
+}) {
   if (!row.processed) {
     const stashed = getEstimatedMilesForHash(row.txHash)
     const est = stashed ?? estimateMiles(row, surplusRate)
@@ -212,7 +218,13 @@ export function StatusCell({ row }: { row: UserSwapRow }) {
  * dashboard card and the full-history modal so columns and formatting
  * stay in lockstep.
  */
-export function SwapsTableBody({ swaps, surplusRate }: { swaps: UserSwapRow[]; surplusRate?: number }) {
+export function SwapsTableBody({
+  swaps,
+  surplusRate,
+}: {
+  swaps: UserSwapRow[]
+  surplusRate?: number
+}) {
   return (
     <Table>
       <TableHeader>
