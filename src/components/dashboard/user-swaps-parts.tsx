@@ -18,6 +18,7 @@
 import Image from "next/image"
 import { ArrowRight, ExternalLink, Info } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   Table,
   TableBody,
@@ -26,8 +27,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { UserSwapRow } from "@/hooks/use-user-swaps"
+import { getEstimatedMilesForHash } from "@/lib/swap-events"
 
 export const ETHERSCAN_TX_BASE = "https://etherscan.io/tx/"
 
@@ -93,42 +94,79 @@ export function SwapSide({
   amount: string | null
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap tabular-nums">
+    <span className="inline-flex items-center gap-1 md:gap-1.5 whitespace-nowrap tabular-nums">
       {token.logoURI ? (
         <Image
           src={token.logoURI}
           alt={token.symbol}
           width={16}
           height={16}
-          className="rounded-full"
+          className="rounded-full shrink-0"
           unoptimized
         />
       ) : (
-        <span className="inline-block w-4 h-4 rounded-full bg-muted" />
+        <span className="inline-block w-4 h-4 rounded-full bg-muted shrink-0" />
       )}
       <span className={token.unknown ? "text-muted-foreground" : ""}>
-        {formatAmountInline(amount)} {token.symbol}
+        <span className="text-xs md:text-sm">{formatAmountInline(amount)}</span>
+        <span className="hidden md:inline"> {token.symbol}</span>
       </span>
     </span>
   )
 }
 
 /**
- * Miles column renderer. Handles three states:
- *   1. `processed=false`  → "Processing" badge (polling will update)
- *   2. `processed=true && miles > 0` → "+{miles} miles" (primary colour)
- *   3. `processed=true && miles == 0` → "0 miles" (muted)
+ * Conservative miles estimate for pending rows. Uses the same historical
+ * surplus rate as the swap UI estimator (0.68% median from recent swaps)
+ * and the 90% user share / 100k miles-per-ETH constants.
  *
- * Note: `row.miles` is the pre-fee value submitted for the swap. A 2%
- * referral fee is deducted before crediting the user's visible balance,
- * which is why row totals may sum higher than the header total. The
- * tooltip in {@link MilesDiscrepancyInfo} explains this to users.
+ * This is a rough floor — actual miles are computed post-settlement and
+ * will overwrite this value once processed.
+ */
+const HISTORICAL_SURPLUS_RATE = 0.0068
+const USER_MEV_SHARE = 0.9
+const MILES_PER_ETH = 100_000
+
+function estimateMiles(row: UserSwapRow): number | null {
+  if (!row.amountOut) return null
+  const parsed = parseFloat(row.amountOut)
+  if (!parsed || parsed <= 0) return null
+
+  // For ETH/WETH output, amountOut is already in ETH.
+  // For ERC-20 output we'd need a price conversion — skip and return null
+  // since we don't have token prices here.
+  const outSymbol = row.tokenOut.symbol.toUpperCase()
+  if (outSymbol !== "ETH" && outSymbol !== "WETH") return null
+
+  const mevPot = HISTORICAL_SURPLUS_RATE * parsed
+  const userMev = mevPot * USER_MEV_SHARE
+  const miles = Math.floor(userMev * MILES_PER_ETH)
+  return miles > 0 ? miles : null
+}
+
+/**
+ * Miles column renderer. Shows estimated miles (with ~ prefix) while
+ * pending, and the real finalized value once processed.
+ *
+ * Estimate priority:
+ *   1. Stashed estimate from the swap UI (via sessionStorage, survives navigation)
+ *   2. Local calculation from output amount (ETH/WETH only)
+ *   3. "TBD" if neither is available
  */
 export function MilesCell({ row }: { row: UserSwapRow }) {
   if (!row.processed) {
+    const stashed = getEstimatedMilesForHash(row.txHash)
+    const est = stashed ?? estimateMiles(row)
+    if (est != null && est > 0) {
+      return (
+        <Badge variant="outline" className="text-muted-foreground font-normal">
+          ~{est.toLocaleString()} miles
+        </Badge>
+      )
+    }
     return (
-      <Badge variant="outline" className="font-normal">
-        Processing
+      <Badge variant="outline" className="text-muted-foreground font-normal">
+        TBD
       </Badge>
     )
   }
@@ -147,6 +185,29 @@ export function MilesCell({ row }: { row: UserSwapRow }) {
 }
 
 /**
+ * Status indicator dot. Yellow pulsing dot for pending settlement,
+ * solid green dot for settled. The column header tooltip explains
+ * the color meanings.
+ */
+export function StatusCell({ row }: { row: UserSwapRow }) {
+  const settled = row.processed
+
+  return (
+    <span
+      className="relative inline-flex h-2.5 w-2.5"
+      aria-label={settled ? "Settled" : "Pending settlement"}
+    >
+      {!settled && <span className="absolute inset-0 rounded-full bg-yellow-400/60 animate-ping" />}
+      <span
+        className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+          settled ? "bg-emerald-400" : "bg-yellow-400"
+        }`}
+      />
+    </span>
+  )
+}
+
+/**
  * Shared table body — the actual rows + columns. Used by both the inline
  * dashboard card and the full-history modal so columns and formatting
  * stay in lockstep.
@@ -156,29 +217,67 @@ export function SwapsTableBody({ swaps }: { swaps: UserSwapRow[] }) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Time</TableHead>
-          <TableHead>Swap</TableHead>
-          <TableHead className="text-right">Miles</TableHead>
-          <TableHead className="text-right">Tx</TableHead>
+          <TableHead className="text-xs md:text-sm px-2 md:px-4">Time</TableHead>
+          <TableHead className="text-xs md:text-sm px-2 md:px-4">Swap</TableHead>
+          <TableHead className="text-right text-xs md:text-sm px-2 md:px-4">
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-1 cursor-help">
+                    Miles
+                    <Info className="h-3.5 w-3.5 text-muted-foreground hidden md:inline" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                  Your total miles from Fast Swaps, FastRPC, and Referrals
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </TableHead>
+          <TableHead className="text-right hidden md:table-cell px-4">Tx</TableHead>
+          <TableHead className="text-center w-6 md:w-10 px-1 md:px-4">
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-1 cursor-help">
+                    <span className="hidden md:inline">Status</span>
+                    <Info className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex h-2 w-2 rounded-full bg-yellow-400 shrink-0" />
+                      <span>Pending settlement</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
+                      <span>Settled on-chain</span>
+                    </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {swaps.map((row) => (
           <TableRow key={row.txHash}>
-            <TableCell className="text-muted-foreground whitespace-nowrap">
+            <TableCell className="text-muted-foreground whitespace-nowrap text-xs md:text-sm px-2 md:px-4">
               {formatRelativeTime(row.blockTimestamp)}
             </TableCell>
-            <TableCell>
+            <TableCell className="px-2 md:px-4">
               <span className="inline-flex items-center">
                 <SwapSide token={row.tokenIn} amount={row.amountIn} />
-                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground mx-3" />
+                <ArrowRight className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground mx-1.5 md:mx-3 shrink-0" />
                 <SwapSide token={row.tokenOut} amount={row.amountOut} />
               </span>
             </TableCell>
-            <TableCell className="text-right">
+            <TableCell className="text-right px-2 md:px-4">
               <MilesCell row={row} />
             </TableCell>
-            <TableCell className="text-right">
+            <TableCell className="text-right hidden md:table-cell px-4">
               <a
                 href={`${ETHERSCAN_TX_BASE}${row.txHash}`}
                 target="_blank"
@@ -190,37 +289,12 @@ export function SwapsTableBody({ swaps }: { swaps: UserSwapRow[] }) {
                 <ExternalLink className="h-3 w-3" />
               </a>
             </TableCell>
+            <TableCell className="text-center px-1 md:px-4">
+              <StatusCell row={row} />
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
     </Table>
-  )
-}
-
-/**
- * Small info icon + tooltip surfacing the row-total vs. header-total
- * discrepancy. The pill on both the table card and the modal is the
- * pre-fee sum of swap miles; the header balance has a 2% referral fee
- * deducted and can also include non-swap credits (referrals, tasks).
- */
-export function MilesDiscrepancyInfo() {
-  return (
-    <TooltipProvider delayDuration={150}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            aria-label="How miles totals are calculated"
-            className="inline-flex items-center text-muted-foreground hover:text-foreground"
-          >
-            <Info className="h-3.5 w-3.5" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-[300px] text-xs">
-          This total is the sum of miles credited across all your Fast Swaps, shown after a 2%
-          referral fee is deducted (if applicable).
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
   )
 }

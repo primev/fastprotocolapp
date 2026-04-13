@@ -79,19 +79,19 @@ This means your miles for small ERC-20 output swaps may appear later — potenti
 
 Before you swap, Fast Protocol shows an estimated miles amount in the swap interface. This estimate is a **conservative lower bound**, not a guarantee or a ceiling.
 
-### Why the estimate can read zero
+### Why the estimate can show "TBD"
 
-The miles an individual swap earns depends on factors the UI can't know in advance — the exact backrun profit a block builder extracts, market conditions at execution time, and how efficiently the mev is captured. Because the estimate runs before any of that is known, the UI deliberately errs on the low side to avoid over-promising.
+The miles an individual swap earns depends on factors the UI can't know in advance — market conditions at execution time, the mev opportunity your swap creates, and gas costs. Because the estimate runs before any of that is known, the UI deliberately errs on the low side to avoid over-promising.
 
-For some swaps, the conservative calculation rounds down to zero. **This does not mean the swap will earn zero miles.** It means the estimator can't confidently predict a number above zero given what it knows right now. In practice, many swaps that show a zero estimate go on to earn miles once the swap settles on-chain and the actual mev captured is measured.
+For some swaps, the conservative calculation can't confidently predict a number, so the UI shows **TBD** (to be determined). **This does not mean the swap will earn zero miles.** In practice, many swaps that show TBD go on to earn miles once the swap settles on-chain.
 
 ### What to trust instead
 
 - The **estimate** is a directional signal. Treat it as a floor, not a forecast.
-- The **actual miles earned** are computed from real on-chain activity after the swap settles, and reflect the true mev captured by the backrun.
+- The **actual miles earned** are computed from real on-chain activity after the swap settles.
 - Your **dashboard swap history** shows the finalized miles for each transaction once processing completes. This is the authoritative number.
 
-If you see a zero or low estimate and still want to swap, go ahead — the real number is computed post-settlement and may be higher.
+If you see TBD or a low estimate and still want to swap, go ahead — the real number is computed post-settlement and may be higher.
 
 ### Why not just show a bigger estimate?
 

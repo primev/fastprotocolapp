@@ -68,11 +68,14 @@ function writePending(entries: PendingEntry[]): void {
 
 /**
  * Notify subscribers that a swap has been submitted. Pass the final tx
- * hash (post-submit). Fires a window event for live listeners AND queues
- * the hash in sessionStorage so a listener that mounts later (e.g. after
- * navigation) can still pick it up.
+ * hash (post-submit) and optionally the pre-swap estimated miles so the
+ * dashboard table can show an estimate while the row is pending.
+ *
+ * Fires a window event for live listeners AND queues the hash in
+ * sessionStorage so a listener that mounts later (e.g. after navigation)
+ * can still pick it up.
  */
-export function notifySwapSubmitted(hash: string): void {
+export function notifySwapSubmitted(hash: string, estimatedMiles?: number | null): void {
   if (typeof window === "undefined") return
   if (!hash || typeof hash !== "string") return
 
@@ -81,6 +84,12 @@ export function notifySwapSubmitted(hash: string): void {
   const filtered = entries.filter((e) => e.hash.toLowerCase() !== hash.toLowerCase())
   filtered.push({ hash, submittedAt: Date.now() })
   writePending(filtered)
+
+  // Stash the estimated miles separately (longer TTL) so the dashboard
+  // table can display them while the row is pending settlement.
+  if (estimatedMiles != null && estimatedMiles > 0) {
+    stashEstimatedMiles(hash, estimatedMiles)
+  }
 
   window.dispatchEvent(new CustomEvent<{ hash: string }>(EVENT_NAME, { detail: { hash } }))
 }
@@ -92,6 +101,72 @@ export function notifySwapSubmitted(hash: string): void {
  */
 export function getPendingSwapHashes(): string[] {
   return readPending().map((e) => e.hash)
+}
+
+// ---------------------------------------------------------------------------
+// Estimated miles stash — separate from the pending hash queue so it
+// survives longer (miles can take minutes to settle, well past the 2-min
+// pending hash expiry).
+// ---------------------------------------------------------------------------
+
+const MILES_STASH_KEY = "fast:estimated-miles"
+/** Keep stashed estimates for 30 minutes — plenty of time for settlement. */
+const MILES_STASH_EXPIRY_MS = 30 * 60 * 1000
+
+type MilesStashEntry = {
+  hash: string
+  miles: number
+  at: number
+}
+
+function readMilesStash(): MilesStashEntry[] {
+  if (typeof window === "undefined") return []
+  try {
+    const raw = window.sessionStorage.getItem(MILES_STASH_KEY)
+    if (!raw) return []
+    const entries = JSON.parse(raw) as MilesStashEntry[]
+    if (!Array.isArray(entries)) return []
+    const now = Date.now()
+    return entries.filter((e) => e && now - e.at < MILES_STASH_EXPIRY_MS)
+  } catch {
+    return []
+  }
+}
+
+function writeMilesStash(entries: MilesStashEntry[]): void {
+  if (typeof window === "undefined") return
+  try {
+    window.sessionStorage.setItem(MILES_STASH_KEY, JSON.stringify(entries))
+  } catch {}
+}
+
+/**
+ * Stash the pre-swap estimated miles for a tx hash so the dashboard
+ * table can display it while the row is pending.
+ */
+export function stashEstimatedMiles(hash: string, miles: number): void {
+  if (!hash || miles <= 0) return
+  const entries = readMilesStash().filter((e) => e.hash.toLowerCase() !== hash.toLowerCase())
+  entries.push({ hash, miles, at: Date.now() })
+  writeMilesStash(entries)
+}
+
+/**
+ * Look up the pre-swap estimated miles for a given tx hash.
+ */
+export function getEstimatedMilesForHash(hash: string): number | null {
+  if (!hash) return null
+  const entry = readMilesStash().find((e) => e.hash.toLowerCase() === hash.toLowerCase())
+  return entry?.miles ?? null
+}
+
+/**
+ * Remove a stashed estimate once real miles are finalized.
+ */
+export function clearEstimatedMiles(hash: string): void {
+  if (!hash) return
+  const entries = readMilesStash().filter((e) => e.hash.toLowerCase() !== hash.toLowerCase())
+  writeMilesStash(entries)
 }
 
 /**

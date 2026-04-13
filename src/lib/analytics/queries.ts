@@ -544,6 +544,17 @@ ORDER BY MAX(p.l1_timestamp) DESC
 LIMIT :limit
 `.trim()
 
+// FastSwap-specific tx hashes for gas estimation.
+// Uses fastswap_miles instead of processed_l1_txns_v2 so gas averages
+// reflect actual FastSwap transactions, not arbitrary L1 swaps.
+export const GET_RECENT_FASTSWAP_TX_HASHES = `
+SELECT tx_hash
+FROM mevcommit_57173.fastswap_miles
+WHERE processed = 1
+ORDER BY block_timestamp DESC
+LIMIT :limit
+`.trim()
+
 // FastSwap miles domain
 // Recent FastSwap transactions with miles/surplus for a specific user address.
 // Used by the dashboard swap history table. Includes both processed=1 (finalized)
@@ -613,6 +624,7 @@ export const QUERIES = {
 
   // L1 transactions domain
   "l1/get-recent-swap-tx-hashes": GET_RECENT_L1_SWAP_TX_HASHES,
+  "fastswap/get-recent-tx-hashes": GET_RECENT_FASTSWAP_TX_HASHES,
 
   // FastSwap miles domain
   "fastswap/get-user-recent-swaps": GET_USER_RECENT_SWAPS,

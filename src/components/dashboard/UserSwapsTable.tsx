@@ -3,11 +3,9 @@
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUserSwaps } from "@/hooks/use-user-swaps"
-import { MilesDiscrepancyInfo, SwapsTableBody } from "./user-swaps-parts"
+import { SwapsTableBody } from "./user-swaps-parts"
 import { UserSwapsModal } from "./UserSwapsModal"
 
 type Props = {
@@ -33,7 +31,7 @@ export function UserSwapsTable({ address, isConnected }: Props) {
   // This component is loaded via next/dynamic with ssr: false, so it only
   // ever runs on the client. No mounted guard needed — wagmi state is
   // immediately available and there's no server HTML to mismatch.
-  const { swaps, totalMiles, isLoading, error } = useUserSwaps(address, {
+  const { swaps, isLoading, error } = useUserSwaps(address, {
     page: 1,
     pageSize: RECENT_LIMIT,
   })
@@ -45,7 +43,6 @@ export function UserSwapsTable({ address, isConnected }: Props) {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <h2 className="text-lg font-semibold">Your Fast Swaps</h2>
-              <MilesDiscrepancyInfo />
             </div>
             <p className="text-sm text-muted-foreground">
               Your {RECENT_LIMIT} most recent swaps with per-transaction miles and status.
@@ -54,21 +51,6 @@ export function UserSwapsTable({ address, isConnected }: Props) {
           <div className="flex items-center gap-3 shrink-0">
             {isLoading && swaps.length > 0 ? (
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            ) : null}
-            {isConnected ? (
-              <TooltipProvider delayDuration={150}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/20 text-sm px-3 py-1 cursor-help">
-                      {totalMiles.toLocaleString()} miles
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[240px] text-xs">
-                    Total miles across all your Fast Swaps, shown before a 2% referral fee is
-                    deducted (if applicable).
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
             ) : null}
           </div>
         </div>

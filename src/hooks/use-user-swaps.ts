@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
   clearPendingSwapHash,
+  clearEstimatedMiles,
   getPendingSwapHashes,
   subscribeSwapSubmitted,
 } from "@/lib/swap-events"
@@ -195,9 +196,10 @@ export function useUserSwaps(
         hasPendingRef.current = nextPending.size > 0
 
         // If any awaited tx hash has just appeared in the rows, stop
-        // tracking it: cancel its timeout and remove from the pending
-        // queue. Subsequent polls can rely on the normal "has pending"
-        // signal to keep refreshing until the row is processed.
+        // actively awaiting it (cancel timeout, remove from awaiting set).
+        // The sessionStorage entry is kept alive so MilesCell can read the
+        // stashed estimatedMiles while the row is still pending. It gets
+        // cleaned up below once the row transitions to processed.
         if (awaitingHashesRef.current.size > 0 && json.swaps.length > 0) {
           const seen = new Set(json.swaps.map((s) => s.txHash.toLowerCase()))
           for (const hash of Array.from(awaitingHashesRef.current)) {
@@ -208,8 +210,17 @@ export function useUserSwaps(
                 clearTimeout(timer)
                 awaitingTimeoutsRef.current.delete(hash)
               }
-              clearPendingSwapHash(hash)
             }
+          }
+        }
+
+        // Clear sessionStorage entries for hashes that are now processed —
+        // the stashed estimatedMiles is no longer needed once real miles
+        // have been finalized.
+        for (const s of json.swaps) {
+          if (s.processed) {
+            clearPendingSwapHash(s.txHash)
+            clearEstimatedMiles(s.txHash)
           }
         }
       } catch (err) {
@@ -264,12 +275,12 @@ export function useUserSwaps(
       if (awaitingHashesRef.current.has(hash)) return
       awaitingHashesRef.current.add(hash)
 
-      // Auto-expire the await after the timeout budget; clears queue entry
-      // so sessionStorage doesn't leak stale hashes across sessions.
+      // Auto-expire the await after the timeout budget. The sessionStorage
+      // entry is left intact so MilesCell can still read the stashed
+      // estimatedMiles — it expires naturally via readPending()'s EXPIRY_MS.
       const timer = setTimeout(() => {
         awaitingHashesRef.current.delete(hash)
         awaitingTimeoutsRef.current.delete(hash)
-        clearPendingSwapHash(hash)
       }, AWAITING_TIMEOUT_MS)
       awaitingTimeoutsRef.current.set(hash, timer)
 

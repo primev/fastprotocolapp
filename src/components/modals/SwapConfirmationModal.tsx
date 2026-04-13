@@ -423,13 +423,13 @@ function SwapConfirmationModal({
       }
       if (isWrap) {
         const hash = await wrap()
-        notifySwapSubmitted(hash)
+        notifySwapSubmitted(hash, estimatedMiles)
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
         onCloseAfterSuccess()
         onOpenChange(false)
       } else if (isUnwrap) {
         const hash = await unwrap()
-        notifySwapSubmitted(hash)
+        notifySwapSubmitted(hash, estimatedMiles)
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
         onCloseAfterSuccess()
         onOpenChange(false)
@@ -445,7 +445,7 @@ function SwapConfirmationModal({
         // Fire the swap-submitted event with the final (real) tx hash so
         // the dashboard table starts polling for its fastswap_miles row
         // regardless of whether the user is currently viewing it.
-        notifySwapSubmitted(hash)
+        notifySwapSubmitted(hash, estimatedMiles)
         if (pendingPlaceholder) {
           updateToastHash(pendingPlaceholder, hash)
         } else {

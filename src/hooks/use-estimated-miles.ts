@@ -3,8 +3,10 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { RPC_ENDPOINT } from "@/lib/network-config"
 
-/** Fallback average gas used by FastSwap transactions */
-const DEFAULT_AVG_GAS = 450_000n
+/** Fallback average gas limit for bid cost calculation (priorityFee × gasLimit) */
+const DEFAULT_AVG_GAS_LIMIT = 450_000n
+/** Fallback average gas used for gas cost calculation on permit path (baseFee × gasUsed) */
+const DEFAULT_AVG_GAS_USED = 180_000n
 /** User receives 90% of captured MEV */
 const USER_MEV_SHARE = 0.9
 /** 100,000 miles per 1 ETH (0.00001 ETH per mile) */
@@ -48,9 +50,10 @@ export function useEstimatedMiles({
   enabled,
 }: UseEstimatedMilesParams): { estimatedMiles: number | null } {
   const [priorityFee, setPriorityFee] = useState<bigint | null>(null)
-  const [avgGas, setAvgGas] = useState<bigint>(DEFAULT_AVG_GAS)
+  const [avgGasLimit, setAvgGasLimit] = useState<bigint>(DEFAULT_AVG_GAS_LIMIT)
+  const [avgGasUsed, setAvgGasUsed] = useState<bigint>(DEFAULT_AVG_GAS_USED)
 
-  // Fetch average gas estimate from Edge Config (updated monthly by cron).
+  // Fetch average gas estimates from Edge Config (updated monthly by cron).
   // Runs on mount — not gated on `enabled` so data is ready before the first quote arrives.
   useEffect(() => {
     let cancelled = false
@@ -60,8 +63,13 @@ export function useEstimatedMiles({
         const res = await fetch("/api/config/gas-estimate")
         if (!res.ok) return
         const data = await res.json()
-        if (!cancelled && typeof data.gasEstimate === "number" && data.gasEstimate > 0) {
-          setAvgGas(BigInt(data.gasEstimate))
+        if (!cancelled) {
+          if (typeof data.gasEstimate === "number" && data.gasEstimate > 0) {
+            setAvgGasLimit(BigInt(data.gasEstimate))
+          }
+          if (typeof data.gasUsedEstimate === "number" && data.gasUsedEstimate > 0) {
+            setAvgGasUsed(BigInt(data.gasUsedEstimate))
+          }
         }
       } catch (err) {
         console.warn("[useEstimatedMiles] Failed to fetch gas estimate:", err)
@@ -115,10 +123,12 @@ export function useEstimatedMiles({
   // (amountOut, slippage), not on background 12s gas fee ticks.
   const priorityFeeRef = useRef<bigint | null>(null)
   const baseFeeRef = useRef<bigint | null>(null)
-  const avgGasRef = useRef<bigint>(DEFAULT_AVG_GAS)
+  const avgGasLimitRef = useRef<bigint>(DEFAULT_AVG_GAS_LIMIT)
+  const avgGasUsedRef = useRef<bigint>(DEFAULT_AVG_GAS_USED)
   priorityFeeRef.current = priorityFee
   baseFeeRef.current = baseFeePerGas
-  avgGasRef.current = avgGas
+  avgGasLimitRef.current = avgGasLimit
+  avgGasUsedRef.current = avgGasUsed
 
   // Track last successful miles so transient states don't flash null.
   const lastMilesRef = useRef<number | null>(null)
@@ -135,7 +145,8 @@ export function useEstimatedMiles({
     const normalizedAmountOut = amountOut?.replace(/,/g, "") ?? ""
     const curPriorityFee = priorityFeeRef.current
     const curBaseFee = baseFeeRef.current
-    const curAvgGas = avgGasRef.current
+    const curAvgGasLimit = avgGasLimitRef.current
+    const curAvgGasUsed = avgGasUsedRef.current
     if (curPriorityFee == null || curBaseFee == null) return null
 
     const parsedAmountOut = parseFloat(normalizedAmountOut)
@@ -157,11 +168,11 @@ export function useEstimatedMiles({
     // underpredicted because real surplus is not bounded by slippage tolerance.
     const slippageAmountEth = HISTORICAL_SURPLUS_RATE * outputInEth
 
-    // Bid cost: priority fee (percentile from Edge Config) × avg gas (from Edge Config) / 1e18
-    const bidCostEth = Number(curPriorityFee * curAvgGas) / 1e18
+    // Bid cost: priority fee × avg gas limit (bid = priorityFee × txn.Gas())
+    const bidCostEth = Number(curPriorityFee * curAvgGasLimit) / 1e18
 
-    // Gas cost: only deducted on permit path (relayer pays)
-    const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGas) / 1e18 : 0
+    // Gas cost: only deducted on permit path (relayer pays actual gas used, not limit)
+    const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGasUsed) / 1e18 : 0
 
     // Sweep overhead: non-ETH output requires a sweep tx (batched fastswap).
     // 1.5x multiplier approximates pro-rata share assuming avg batch of ~3 txs.
@@ -185,11 +196,11 @@ export function useEstimatedMiles({
         `  Step 2: MEV pot (historical median surplus rate = ${(HISTORICAL_SURPLUS_RATE * 100).toFixed(2)}% of output)\n` +
         `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${HISTORICAL_SURPLUS_RATE} = ${slippageAmountEth.toFixed(8)} ETH\n` +
         `\n` +
-        `  Step 3: Bid cost (FastRPC bid estimate × avgGas from Edge Config)\n` +
-        `    bidCostEth = ${curPriorityFee.toString()} wei × ${curAvgGas.toString()} gas / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
+        `  Step 3: Bid cost (FastRPC bid estimate × avgGasLimit from Edge Config)\n` +
+        `    bidCostEth = ${curPriorityFee.toString()} wei × ${curAvgGasLimit.toString()} gasLimit / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
         `\n` +
-        `  Step 4: Gas cost${isPermitPath ? " (relayer pays on permit path)" : " (user pays on ETH path = 0)"}\n` +
-        `    gasCostEth = ${isPermitPath ? `${curBaseFee.toString()} wei × ${curAvgGas.toString()} gas / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
+        `  Step 4: Gas cost${isPermitPath ? " (relayer pays actual gasUsed on permit path)" : " (user pays on ETH path = 0)"}\n` +
+        `    gasCostEth = ${isPermitPath ? `${curBaseFee.toString()} wei × ${curAvgGasUsed.toString()} gasUsed / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
         (!isEthOutput
           ? `\n  Step 4b: Sweep overhead (non-ETH output, ${sweepMultiplier}x multiplier)\n` +
             `    totalBidCost = ${bidCostEth.toFixed(8)} × ${sweepMultiplier} = ${totalBidCost.toFixed(8)} ETH\n` +

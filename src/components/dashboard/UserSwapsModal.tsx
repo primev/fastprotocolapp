@@ -9,9 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUserSwaps } from "@/hooks/use-user-swaps"
 import { SwapsTableBody } from "./user-swaps-parts"
 
@@ -79,7 +77,7 @@ export function UserSwapsModal({ open, onOpenChange, address }: Props) {
  */
 function UserSwapsModalBody({ address }: { address: string }) {
   const [page, setPage] = useState(1)
-  const { swaps, pagination, totalMiles, isLoading, error } = useUserSwaps(address, {
+  const { swaps, pagination, isLoading, error } = useUserSwaps(address, {
     page,
     pageSize: MODAL_PAGE_SIZE,
   })
@@ -92,24 +90,9 @@ function UserSwapsModalBody({ address }: { address: string }) {
         <p className="text-xs text-muted-foreground">
           {total > 0 ? `${total.toLocaleString()} swaps` : ""}
         </p>
-        <div className="flex items-center gap-2">
-          {isLoading && swaps.length > 0 ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : null}
-          <TooltipProvider delayDuration={150}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/20 text-sm px-3 py-1 cursor-help">
-                  {totalMiles.toLocaleString()} miles
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[240px] text-xs">
-                Total miles across all your Fast Swaps, shown before a 2% referral fee is deducted
-                (if applicable).
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
+        {isLoading && swaps.length > 0 ? (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        ) : null}
       </div>
 
       {/*
