@@ -116,23 +116,12 @@ export function SwapToast({ hash }: { hash: string }) {
     return () => document.removeEventListener("mousedown", handler)
   }, [hash, toast, collapse, removeToast])
 
-  if (!toast) return null
-
-  const isPending = toast.status === "pending"
-  const isPreConfirmed = toast.status === "preconfirmed"
-  const isConfirmed = toast.status === "confirmed"
-  const isFailed = toast.status === "failed"
-  const settled = isPreConfirmed || isConfirmed
-  const explorerUrl = effectiveHash
-    ? `${FAST_PROTOCOL_NETWORK.blockExplorerUrls[0]}tx/${effectiveHash}`
-    : null
-  const elapsedSec =
-    toast.preconfirmedAt && toast.createdAt
-      ? ((toast.preconfirmedAt - toast.createdAt) / 1000).toFixed(1)
-      : null
-
   // Pre-warm the OG image CDN as soon as preconfirmation is detected,
   // so it's cached by the time the user taps Share and X's crawler fetches it.
+  const elapsedSec =
+    toast?.preconfirmedAt && toast?.createdAt
+      ? ((toast.preconfirmedAt - toast.createdAt) / 1000).toFixed(1)
+      : null
   const ogWarmedRef = useRef(false)
   useEffect(() => {
     if (elapsedSec && !ogWarmedRef.current) {
@@ -143,6 +132,17 @@ export function SwapToast({ hash }: { hash: string }) {
       }
     }
   }, [elapsedSec])
+
+  if (!toast) return null
+
+  const isPending = toast.status === "pending"
+  const isPreConfirmed = toast.status === "preconfirmed"
+  const isConfirmed = toast.status === "confirmed"
+  const isFailed = toast.status === "failed"
+  const settled = isPreConfirmed || isConfirmed
+  const explorerUrl = effectiveHash
+    ? `${FAST_PROTOCOL_NETWORK.blockExplorerUrls[0]}tx/${effectiveHash}`
+    : null
 
   // ── Failed ────────────────────────────────────────────────────────
   if (isFailed) {

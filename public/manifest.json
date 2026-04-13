@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "Fast Protocol",
   "short_name": "Fast",
   "description": "Sub-second swaps on Ethereum powered by preconfirmations",

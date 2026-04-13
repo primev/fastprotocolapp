@@ -176,7 +176,7 @@ const IndexPage = ({
   }, [isConnected, address, tokenId, isLoadingTokenId, router])
 
   return (
-    <div className="relative h-screen flex flex-col overflow-hidden bg-background">
+    <div className="relative h-dvh flex flex-col overflow-hidden bg-background">
       <AnimatedBackground />
       <div className="relative z-10 w-full px-4 flex-1 flex flex-col justify-between py-4 sm:py-6 tablet:py-8 lg:py-6">
         <div className="max-w-6xl mx-auto w-full text-center flex-1 flex flex-col justify-between">

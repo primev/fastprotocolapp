@@ -68,9 +68,16 @@ export function useSwapForm(allTokens: Token[]) {
   // --- BALANCES LOGIC ---
 
   const refreshBalances = useCallback(async () => {
-    await queryClient.invalidateQueries({
-      queryKey: ["balance", { address, chainId }],
-    })
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ["balance", { address, chainId }],
+      }),
+      // Also refresh the token selector's "Your tokens" list so it reflects
+      // post-swap balances without waiting for the 30s staleTime.
+      queryClient.invalidateQueries({
+        queryKey: ["held-tokens", chainId, address],
+      }),
+    ])
   }, [address, chainId, queryClient])
 
   const resetFormAfterSuccess = useCallback(() => {
@@ -204,7 +211,15 @@ export function useSwapForm(allTokens: Token[]) {
 
   const effectiveSlippage = settings.slippage
 
-  const quoteEnabled = !isSwitching && !!amount && !!fromToken && !!toToken && !isWrapUnwrap
+  const parsedAmount = parseFloat(amount?.replace(/,/g, "") || "")
+  const quoteEnabled =
+    !isSwitching &&
+    !!amount &&
+    !isNaN(parsedAmount) &&
+    parsedAmount > 0 &&
+    !!fromToken &&
+    !!toToken &&
+    !isWrapUnwrap
 
   const {
     quote,
@@ -282,10 +297,12 @@ export function useSwapForm(allTokens: Token[]) {
   // useEffect in useQuote and lags one render cycle behind slippage changes.
   const computedMinAmountOut = useMemo(() => {
     if (isWrapUnwrap || !displayQuote || !toToken) return null
-    const userSlippage = parseFloat(effectiveSlippage || "0")
-    const barterFloor = barterShortfallPct > 0 ? barterShortfallPct + 0.5 : 0
+    if (typeof displayQuote.amountOut !== "bigint") return null
+    const userSlippage = Number(parseFloat(effectiveSlippage || "0")) || 0
+    const barterFloor = Number(barterShortfallPct) > 0 ? Number(barterShortfallPct) + 0.5 : 0
     const appliedSlippage = Math.min(2.0, Math.max(userSlippage, barterFloor))
-    const slippageBps = BigInt(Math.floor(appliedSlippage * 100))
+    const bps = Math.floor(appliedSlippage * 100)
+    const slippageBps = BigInt(Number.isFinite(bps) ? bps : 0)
     const limit = (displayQuote.amountOut * (10000n - slippageBps)) / 10000n
     return formatUnits(limit, toToken.decimals)
   }, [isWrapUnwrap, displayQuote, toToken, effectiveSlippage, barterShortfallPct])

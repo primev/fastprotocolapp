@@ -176,6 +176,8 @@ export function useSwapConfirmation({
       gas: bufferedGas,
     })
 
+    // Fire after wallet signs — timer should measure submission→preconfirmation,
+    // not include wallet interaction time.
     options?.onPendingHash?.(txHash)
     setHash(txHash)
     setIsSubmitting(false)

@@ -60,6 +60,16 @@ const nextConfig = {
         hostname: 'raw.githubusercontent.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'icons.llamao.fi',
+        pathname: '/icons/tokens/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'tokens.1inch.io',
+        pathname: '/**',
+      },
     ],
   },
 };

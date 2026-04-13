@@ -41,9 +41,13 @@ export function SwapForm() {
     form.toToken?.address?.toLowerCase() === ZERO_ADDRESS.toLowerCase() ||
     form.toToken?.address?.toLowerCase() === WETH_ADDRESS.toLowerCase()
 
+  // Only use the quote's output for miles if the user has entered an amount.
+  // After resetFormAfterSuccess, amount is "" but displayQuote may linger.
   const milesAmountOut = form.isWrapUnwrap
     ? form.amount
-    : form.displayQuote?.amountOutFormatted || form.amount
+    : form.amount && form.displayQuote?.amountOutFormatted
+      ? form.displayQuote.amountOutFormatted
+      : form.amount
 
   const { estimatedMiles: rawEstimatedMiles } = useEstimatedMiles({
     amountOut: milesAmountOut,
@@ -53,7 +57,12 @@ export function SwapForm() {
     isEthOutput,
     baseFeePerGas,
     isPermitPath: !!isPermitPath && !form.isWrapUnwrap,
-    enabled: !form.isWrapUnwrap && !!form.displayQuote && !!form.fromToken && !!form.toToken,
+    enabled:
+      !form.isWrapUnwrap &&
+      !!form.amount &&
+      !!form.displayQuote &&
+      !!form.fromToken &&
+      !!form.toToken,
   })
 
   // Keep estimation behind the feature flag for UI, but always log to console
@@ -209,15 +218,8 @@ export function SwapForm() {
         open={isFromSelectorOpen}
         onOpenChange={setIsFromSelectorOpen}
         selectedToken={form.fromToken?.symbol}
-        excludeToken={form.toToken?.symbol}
-        customTokens={{}}
-        onAddCustomToken={() => {}}
-        onSelectToken={(sym) => {
-          const token = allTokens.find((t) => t.symbol === sym)
-          if (token) {
-            form.setFromToken(token)
-          }
-        }}
+        excludeAddress={form.toToken?.address?.toLowerCase()}
+        onSelectToken={(token) => form.setFromToken(token)}
       />
 
       {/* To Token Selector Modal */}
@@ -225,15 +227,8 @@ export function SwapForm() {
         open={isToSelectorOpen}
         onOpenChange={setIsToSelectorOpen}
         selectedToken={form.toToken?.symbol}
-        excludeToken={form.fromToken?.symbol}
-        customTokens={{}}
-        onAddCustomToken={() => {}}
-        onSelectToken={(sym) => {
-          const token = allTokens.find((t) => t.symbol === sym)
-          if (token) {
-            form.setToToken(token)
-          }
-        }}
+        excludeAddress={form.fromToken?.address?.toLowerCase()}
+        onSelectToken={(token) => form.setToToken(token)}
       />
 
       {form.fromToken && form.toToken && (
@@ -254,7 +249,7 @@ export function SwapForm() {
           amountOut={
             form.isWrapUnwrap ? form.amount : form.displayQuote?.amountOutFormatted || form.amount
           }
-          minAmountOut={form.isWrapUnwrap ? form.amount : form.computedMinAmountOut || form.amount}
+          minAmountOut={form.isWrapUnwrap ? form.amount : form.computedMinAmountOut || ""}
           slippageLimitFormatted={
             form.isWrapUnwrap
               ? form.amount
