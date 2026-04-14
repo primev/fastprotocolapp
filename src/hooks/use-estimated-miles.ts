@@ -15,7 +15,7 @@ const MILES_PER_ETH = 100_000
 const BID_ESTIMATE_POLL_MS = 12_000
 /**
  * Fallback median surplus rate — used until Edge Config value is fetched.
- * Updated monthly by the miles-estimate-gas cron job from 30-day median of
+ * Updated daily by the miles-estimate-gas cron job from 30-day median of
  * `surplus_eth / output_in_eth` across processed eth_weth swaps.
  */
 const DEFAULT_SURPLUS_RATE = 0.0068
@@ -46,7 +46,7 @@ export function useEstimatedMiles({
   const [avgGasUsed, setAvgGasUsed] = useState<bigint>(DEFAULT_AVG_GAS_USED)
   const [surplusRate, setSurplusRate] = useState(DEFAULT_SURPLUS_RATE)
 
-  // Fetch gas estimates and surplus rate from Edge Config (updated monthly by cron).
+  // Fetch gas estimates and surplus rate from Edge Config (updated daily by cron).
   // Runs on mount — not gated on `enabled` so data is ready before the first quote arrives.
   useEffect(() => {
     let cancelled = false
