@@ -555,18 +555,23 @@ ORDER BY block_timestamp DESC
 LIMIT :limit
 `.trim()
 
-// Median surplus rate for miles estimation.
-// Computes surplus_eth / output_in_eth for processed eth_weth swaps over the
-// last 30 days. Only includes swaps with positive surplus and output to avoid
-// division by zero. Returns individual ratios so the caller can compute median.
+// Surplus rate samples for miles estimation.
+// Computes `surplus / user_amt_out` — both columns are in the SAME output-token
+// units (smallest denomination), so decimals cancel and the ratio is dimensionless.
+// That lets us sample across all swap types (eth_weth AND erc20→erc20) without
+// per-token decimals handling. The previous version divided by 1e18, which only
+// worked for ETH/WETH output and silently excluded all erc20 swaps — about 58%
+// of production volume.
+// Only includes swaps with positive surplus and output to avoid division by zero.
+// Returns individual ratios so the caller can compute a percentile (p25 in the
+// consumer, not median — see route handler for rationale).
 export const GET_FASTSWAP_SURPLUS_RATES = `
 SELECT
-  surplus_eth / (CAST(user_amt_out AS DOUBLE) / 1e18) AS surplus_rate
+  CAST(surplus AS DOUBLE) / CAST(user_amt_out AS DOUBLE) AS surplus_rate
 FROM mevcommit_57173.fastswap_miles
 WHERE processed = 1
-  AND surplus_eth > 0
+  AND CAST(surplus AS DOUBLE) > 0
   AND CAST(user_amt_out AS DOUBLE) > 0
-  AND swap_type = 'eth_weth'
   AND block_timestamp >= NOW() - INTERVAL 30 DAY
 ORDER BY block_timestamp DESC
 `.trim()

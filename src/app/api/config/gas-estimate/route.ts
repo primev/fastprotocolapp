@@ -5,7 +5,7 @@ export const runtime = "edge"
 
 const DEFAULT_GAS_LIMIT = 450_000
 const DEFAULT_GAS_USED = 180_000
-const DEFAULT_SURPLUS_RATE = 0.0068
+const DEFAULT_SURPLUS_RATE = 0.0056
 
 export async function GET() {
   try {
