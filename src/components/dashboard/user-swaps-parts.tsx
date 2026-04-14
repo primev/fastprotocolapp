@@ -115,29 +115,78 @@ export function SwapSide({
   )
 }
 
-/**
- * Conservative miles estimate for pending rows. Uses the surplus rate
- * (from Edge Config, updated daily by cron) and the 90% user share /
- * 100k miles-per-ETH constants.
- *
- * This is a rough floor — actual miles are computed post-settlement and
- * will overwrite this value once processed.
- */
 const DEFAULT_SURPLUS_RATE = 0.0056
 const USER_MEV_SHARE = 0.9
 const MILES_PER_ETH = 100_000
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
+/**
+ * Proxy for bid_cost on pending rows. The indexer writes surplus and gas_cost
+ * immediately but leaves bid_cost NULL until the sweep finalizer runs, so the
+ * dashboard can't read the realized value.
+ *
+ * Set to p75 of realized bid_cost across processed rows since 2026-04-08 (the
+ * day the bid-cost reduction landed). That picks a slightly-conservative
+ * constant: it over-estimates cost vs. the median, which under-promises miles,
+ * matching the same under-promise philosophy the cron uses for surplus rate.
+ *
+ * Post-fix distribution (n=745): p25=3.01e-5, p50=3.38e-5, p75=3.95e-5,
+ * p95=5.38e-5. Tight enough that a single constant is fine.
+ */
+const ESTIMATED_BID_COST_ETH = 0.00004
+
+/**
+ * Miles estimate for a pending row.
+ *
+ * Preferred path: the indexer has already written realized `surplus` and
+ * `gas_cost` to the row (it populates these the moment the tx is seen), so we
+ * can compute the miles the finalizer will eventually award — not a population
+ * prior, actual per-tx math. Only `bid_cost` is NULL until finalize, and we
+ * proxy it with the post-fix p75 constant above.
+ *
+ * Fallback: if `surplus` isn't populated yet (rare race window between tx
+ * submission and the indexer catching up), or the output is a non-ETH token
+ * we can't convert here without a price oracle, fall back to the old
+ * `surplusRate × amountOut × 0.9 × 100k` population-prior estimate.
+ *
+ * Returns null when even the fallback can't produce something meaningful;
+ * the caller renders "TBD" in that case.
+ */
 function estimateMiles(row: UserSwapRow, surplusRate: number): number | null {
   if (!row.amountOut) return null
+
+  // Dashboard only handles ETH-output rows in the realized path because
+  // surplus is in output-token units and we'd need a token price to convert
+  // it to ETH for the math below. ERC20-output pending rows stay as TBD.
+  const outSymbol = row.tokenOut.symbol.toUpperCase()
+  const isEthOut = outSymbol === "ETH" || outSymbol === "WETH"
+  if (!isEthOut) return null
+
+  // Preferred: realized on-chain values.
+  if (row.surplus != null && row.gasCost != null) {
+    const surplusNum = Number(row.surplus)
+    const gasNum = Number(row.gasCost)
+    if (Number.isFinite(surplusNum) && surplusNum > 0 && Number.isFinite(gasNum) && gasNum >= 0) {
+      const surplusEth = surplusNum / 1e18
+
+      // Native-ETH input: user paid L1 gas out of their own wallet, not out of
+      // the swap output, so miles math doesn't subtract it (matches the UI
+      // estimator's ETH-path branch and the finalizer's behavior).
+      // ERC20 (Permit2) input: relayer paid gas, subtract it.
+      const isEthInput = row.tokenIn.address.toLowerCase() === ZERO_ADDRESS
+      const gasCostEth = isEthInput ? 0 : gasNum / 1e18
+
+      const netMev = surplusEth - ESTIMATED_BID_COST_ETH - gasCostEth
+      if (netMev <= 0) return 0
+      const userMev = netMev * USER_MEV_SHARE
+      return Math.floor(userMev * MILES_PER_ETH)
+    }
+  }
+
+  // Fallback: population prior × displayed output. Same as the pre-change
+  // formula — used only when realized surplus/gas aren't available yet.
   const parsed = parseFloat(row.amountOut)
   if (!parsed || parsed <= 0) return null
-
-  // For ETH/WETH output, amountOut is already in ETH.
-  // For ERC-20 output we'd need a price conversion — skip and return null
-  // since we don't have token prices here.
-  const outSymbol = row.tokenOut.symbol.toUpperCase()
-  if (outSymbol !== "ETH" && outSymbol !== "WETH") return null
-
   const mevPot = surplusRate * parsed
   const userMev = mevPot * USER_MEV_SHARE
   const miles = Math.floor(userMev * MILES_PER_ETH)

@@ -590,6 +590,8 @@ SELECT
   output_token,
   input_amount,
   user_amt_out,
+  surplus,
+  gas_cost,
   surplus_eth,
   miles,
   processed
