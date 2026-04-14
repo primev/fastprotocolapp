@@ -28,6 +28,8 @@ interface UseBarterValidationReturn {
   shortfallPct: number
   /** True while validation hasn't completed for current inputs (debounce + fetch) */
   isValidating: boolean
+  /** Barter's routed output amount (wei). Undefined until first successful fetch for current inputs. */
+  barterAmountOut: bigint | undefined
 }
 
 /**
@@ -49,6 +51,7 @@ export function useBarterValidation({
   const [amountTooSmall, setAmountTooSmall] = useState(false)
   const [shortfallPct, setShortfallPct] = useState(0)
   const [settled, setSettled] = useState(true)
+  const [barterAmountOut, setBarterAmountOut] = useState<bigint | undefined>(undefined)
   const requestIdRef = useRef(0)
 
   // quoteGeneration is included so a requote that returns the same amountOut still triggers re-validation
@@ -62,6 +65,7 @@ export function useBarterValidation({
     if (!enabled || !fromToken || !toToken || !amountOut || amountOut === 0n) {
       setAmountTooSmall(false)
       setShortfallPct(0)
+      setBarterAmountOut(undefined)
       setSettled(true)
       lastSettledKeyRef.current = ""
       requestIdRef.current++
@@ -72,6 +76,7 @@ export function useBarterValidation({
     if (!sellClean || parseFloat(sellClean) <= 0) {
       setAmountTooSmall(false)
       setShortfallPct(0)
+      setBarterAmountOut(undefined)
       setSettled(true)
       lastSettledKeyRef.current = ""
       requestIdRef.current++
@@ -83,6 +88,7 @@ export function useBarterValidation({
     setSettled(false)
     setAmountTooSmall(false)
     setShortfallPct(0)
+    setBarterAmountOut(undefined)
     const currentRequest = ++requestIdRef.current
 
     const timer = setTimeout(async () => {
@@ -102,6 +108,7 @@ export function useBarterValidation({
         const shortfall =
           amountOut > 0n ? Number(((amountOut - barterOut) * 10000n) / amountOut) / 100 : 0
 
+        setBarterAmountOut(barterOut)
         setShortfallPct(Math.max(0, shortfall))
         setAmountTooSmall(shortfall > MAX_SLIPPAGE_PCT)
       } catch {
@@ -120,5 +127,5 @@ export function useBarterValidation({
     }
   }, [fromToken, toToken, amountOut, sellAmount, quoteGeneration, enabled, inputKey])
 
-  return { amountTooSmall, shortfallPct, isValidating: !settled }
+  return { amountTooSmall, shortfallPct, isValidating: !settled, barterAmountOut }
 }

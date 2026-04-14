@@ -18,9 +18,11 @@ import {
 } from "@/lib/weth-utils"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import { isStablecoin } from "@/lib/stablecoins"
-import { formatAmountByTokenType } from "@/lib/utils"
+import { formatAmountByTokenType, formatTokenAmount } from "@/lib/utils"
 import { useSwapSlippage } from "@/hooks/use-swap-slippage"
 import { useBarterValidation } from "@/hooks/use-barter-validation"
+import { useQuoteGuardConfig } from "@/hooks/use-quote-guard-config"
+import { isQuoteGuardTriggered, computeQuoteGuardFloor } from "@/lib/quote-guard"
 import { usePageActive } from "@/hooks/use-page-active"
 import { Token } from "@/types/swap"
 import { DEFAULT_ETH_TOKEN } from "@/components/swap/TokenSelectorModal"
@@ -276,10 +278,12 @@ export function useSwapForm(allTokens: Token[]) {
   // Skip when user has insufficient balance — no point quoting an unexecutable swap.
   const hasSufficientBalance =
     fromBalanceValue > 0 && parseFloat(amount?.replace(/,/g, "") || "0") <= fromBalanceValue
+  const { divergenceThresholdPct, treasuryMarginPct } = useQuoteGuardConfig()
   const {
     amountTooSmall: barterAmountTooSmall,
     shortfallPct: barterShortfallPct,
     isValidating: isBarterValidating,
+    barterAmountOut,
   } = useBarterValidation({
     fromToken,
     toToken,
@@ -289,15 +293,39 @@ export function useSwapForm(allTokens: Token[]) {
     enabled: !isWrapUnwrap && !!displayQuote && hasSufficientBalance,
   })
 
+  // Guard trigger: Barter's routed output exceeds the Uniswap single-hop quote by more than
+  // the configured threshold. Indicates the Uniswap quote is not representative of execution
+  // (e.g. thin direct pool, multihop routing would fill materially better). When triggered, the
+  // protective floor is anchored on Barter minus a configurable treasury margin instead of the
+  // Uniswap-derived slippageLimit — preventing surplus leakage to treasury on these cases.
+  const quoteGuardTriggered = useMemo(() => {
+    const uniswapAmountOut =
+      displayQuote && typeof displayQuote.amountOut === "bigint"
+        ? displayQuote.amountOut
+        : undefined
+    return isQuoteGuardTriggered(uniswapAmountOut, barterAmountOut, divergenceThresholdPct)
+  }, [displayQuote, barterAmountOut, divergenceThresholdPct])
+
   // Compute minAmountOut inline from current slippage + observed barter shortfall.
   // Uses the larger of user slippage and barter shortfall (+0.1% buffer), capped at 2%,
   // so the minAmountOut is always achievable by barter on first click.
+  //
+  // When quoteGuardTriggered, the floor is derived from Barter's routed output minus the
+  // configured treasury margin instead of the Uniswap quote — the Uniswap number isn't a
+  // trustworthy anchor for user protection when routing diverges beyond the divergence
+  // threshold.
   //
   // Intentionally NOT derived from displayQuote.slippageLimit, which is updated inside a
   // useEffect in useQuote and lags one render cycle behind slippage changes.
   const computedMinAmountOut = useMemo(() => {
     if (isWrapUnwrap || !displayQuote || !toToken) return null
     if (typeof displayQuote.amountOut !== "bigint") return null
+
+    if (quoteGuardTriggered && barterAmountOut) {
+      const limit = computeQuoteGuardFloor(barterAmountOut, treasuryMarginPct)
+      return formatUnits(limit, toToken.decimals)
+    }
+
     const userSlippage = Number(parseFloat(effectiveSlippage || "0")) || 0
     const barterFloor = Number(barterShortfallPct) > 0 ? Number(barterShortfallPct) + 0.5 : 0
     const appliedSlippage = Math.min(2.0, Math.max(userSlippage, barterFloor))
@@ -305,7 +333,29 @@ export function useSwapForm(allTokens: Token[]) {
     const slippageBps = BigInt(Number.isFinite(bps) ? bps : 0)
     const limit = (displayQuote.amountOut * (10000n - slippageBps)) / 10000n
     return formatUnits(limit, toToken.decimals)
-  }, [isWrapUnwrap, displayQuote, toToken, effectiveSlippage, barterShortfallPct])
+  }, [
+    isWrapUnwrap,
+    displayQuote,
+    toToken,
+    effectiveSlippage,
+    barterShortfallPct,
+    quoteGuardTriggered,
+    barterAmountOut,
+    treasuryMarginPct,
+  ])
+
+  // Display-side override for "You receive" / "Expected output" so the Minimum received row
+  // never exceeds the Expected row when the guard triggers (Barter-derived floor with
+  // Uniswap-derived expected would invert). When the guard fires, surface Barter's routed
+  // output as the expected amount across the UI.
+  const displayedAmountOutFormatted = useMemo(() => {
+    if (!displayQuote) return undefined
+    if (!quoteGuardTriggered || !barterAmountOut || !toToken) {
+      return displayQuote.amountOutFormatted
+    }
+    const amountOutNum = parseFloat(formatUnits(barterAmountOut, toToken.decimals))
+    return formatTokenAmount(amountOutNum, toToken.symbol ?? "", undefined, toToken.address ?? "")
+  }, [displayQuote, quoteGuardTriggered, barterAmountOut, toToken])
 
   // --- Minimum "Calculating..." display time ---
   // The combined validating signal (quote loading OR barter validating) must stay true
@@ -527,6 +577,8 @@ export function useSwapForm(allTokens: Token[]) {
     isLoadingToBalance,
     activeQuote,
     displayQuote,
+    displayedAmountOutFormatted,
+    quoteGuardTriggered,
     computedMinAmountOut,
     isQuoteLoading,
     quoteError,
