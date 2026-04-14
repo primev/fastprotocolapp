@@ -284,6 +284,7 @@ export function useSwapForm(allTokens: Token[]) {
     shortfallPct: barterShortfallPct,
     isValidating: isBarterValidating,
     barterAmountOut,
+    barterUnavailable,
   } = useBarterValidation({
     fromToken,
     toToken,
@@ -596,6 +597,7 @@ export function useSwapForm(allTokens: Token[]) {
     setSwappedQuote,
     hasNoLiquidity,
     barterAmountTooSmall,
+    barterUnavailable,
     isBarterValidating: debouncedValidating,
     gasEstimate: isWrapUnwrap ? wrapUnwrapGasEstimate : (displayQuote?.gasEstimate ?? null),
     ethPrice: ethPrice ?? null,

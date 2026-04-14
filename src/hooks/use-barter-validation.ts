@@ -8,6 +8,22 @@ import type { Token } from "@/types/swap"
 
 const DEBOUNCE_MS = 300
 const MAX_SLIPPAGE_PCT = 2.0
+/**
+ * Delay before retrying a failed `/route` call within the same validation cycle.
+ * Chosen short enough that a single transient blip (one 500 response, one TCP
+ * reset) is absorbed without any UI flicker — the retry finishes inside the
+ * same implicit loading window. Long enough to avoid hammering Barter on a
+ * sustained outage.
+ */
+const RETRY_DELAY_MS = 800
+/**
+ * Consecutive errors (initial attempt + retries) required to flip
+ * `barterUnavailable` to true. At 2 we absorb a single blip but block on a real
+ * outage quickly — the caller gates swap submission on this flag, and leaving
+ * it off would let users sign intents with a Uniswap-anchored floor on pairs
+ * where the quote-guard needs Barter to fire correctly.
+ */
+const UNAVAILABLE_ERROR_THRESHOLD = 2
 
 interface UseBarterValidationParams {
   fromToken: Token | undefined
@@ -30,12 +46,23 @@ interface UseBarterValidationReturn {
   isValidating: boolean
   /** Barter's routed output amount (wei). Undefined until first successful fetch for current inputs. */
   barterAmountOut: bigint | undefined
+  /**
+   * True when Barter's /route endpoint has failed for the current inputs at least
+   * UNAVAILABLE_ERROR_THRESHOLD times in a row. Callers should block swap submission
+   * while this is true — without Barter data the quote-guard can't fire, which on
+   * thin-pool pairs re-introduces the surplus-leak bug the guard was added to fix.
+   */
+  barterUnavailable: boolean
 }
 
 /**
  * Validates that Barter can route the current swap within the max slippage cap.
  * Calls Barter's /route endpoint with the sell amount, compares the returned
  * outputAmount against the Uniswap quote, and flags when the shortfall exceeds 2%.
+ *
+ * Errors from `/route` are retried once within the same validation cycle. If the
+ * retry also fails, `barterUnavailable` flips so the caller can block the swap
+ * button until the next successful validation clears it.
  *
  * `isValidating` stays true from when inputs change until the result arrives,
  * covering both the debounce period and the network request — no flicker gap.
@@ -52,6 +79,7 @@ export function useBarterValidation({
   const [shortfallPct, setShortfallPct] = useState(0)
   const [settled, setSettled] = useState(true)
   const [barterAmountOut, setBarterAmountOut] = useState<bigint | undefined>(undefined)
+  const [barterUnavailable, setBarterUnavailable] = useState(false)
   const requestIdRef = useRef(0)
 
   // quoteGeneration is included so a requote that returns the same amountOut still triggers re-validation
@@ -66,6 +94,7 @@ export function useBarterValidation({
       setAmountTooSmall(false)
       setShortfallPct(0)
       setBarterAmountOut(undefined)
+      setBarterUnavailable(false)
       setSettled(true)
       lastSettledKeyRef.current = ""
       requestIdRef.current++
@@ -77,6 +106,7 @@ export function useBarterValidation({
       setAmountTooSmall(false)
       setShortfallPct(0)
       setBarterAmountOut(undefined)
+      setBarterUnavailable(false)
       setSettled(true)
       lastSettledKeyRef.current = ""
       requestIdRef.current++
@@ -89,20 +119,26 @@ export function useBarterValidation({
     setAmountTooSmall(false)
     setShortfallPct(0)
     setBarterAmountOut(undefined)
+    // Do NOT reset barterUnavailable here — if we're in an outage, leaving it true
+    // across input changes avoids "swap button enables for 300ms then blocks again"
+    // flicker. Successful validation below clears it.
     const currentRequest = ++requestIdRef.current
 
-    const timer = setTimeout(async () => {
-      try {
-        const source =
-          fromToken.address === ZERO_ADDRESS
-            ? (WETH_ADDRESS as `0x${string}`)
-            : (fromToken.address as `0x${string}`)
-        const target = toToken.address as `0x${string}`
-        const sellAmtWei = parseUnits(sellClean, fromToken.decimals).toString()
+    const source =
+      fromToken.address === ZERO_ADDRESS
+        ? (WETH_ADDRESS as `0x${string}`)
+        : (fromToken.address as `0x${string}`)
+    const target = toToken.address as `0x${string}`
+    const sellAmtWei = parseUnits(sellClean, fromToken.decimals).toString()
 
+    let cancelled = false
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
+
+    const attempt = async (consecutiveFailures: number): Promise<void> => {
+      try {
         const route = await fetchBarterRoute(source, target, sellAmtWei)
 
-        if (currentRequest !== requestIdRef.current) return
+        if (cancelled || currentRequest !== requestIdRef.current) return
 
         const barterOut = BigInt(route.outputAmount)
         const shortfall =
@@ -111,21 +147,50 @@ export function useBarterValidation({
         setBarterAmountOut(barterOut)
         setShortfallPct(Math.max(0, shortfall))
         setAmountTooSmall(shortfall > MAX_SLIPPAGE_PCT)
+        setBarterUnavailable(false)
+        setSettled(true)
       } catch {
-        // Network errors should NOT flip the flag — keep whatever state we
-        // had before so the UI doesn't flicker "swap too small" on transient
-        // failures.  The next successful validation will set the correct value.
-      } finally {
-        if (currentRequest === requestIdRef.current) {
+        if (cancelled || currentRequest !== requestIdRef.current) return
+
+        const failures = consecutiveFailures + 1
+        if (failures >= UNAVAILABLE_ERROR_THRESHOLD) {
+          // Sustained outage — block the swap button, clear any stale Barter data,
+          // and mark settled so the UI stops spinning.
+          setBarterAmountOut(undefined)
+          setAmountTooSmall(false)
+          setShortfallPct(0)
+          setBarterUnavailable(true)
           setSettled(true)
+          return
         }
+
+        // First failure — silently retry once. Keep `settled=false` so the swap
+        // button stays in the loading state and doesn't briefly enable on a
+        // transient blip.
+        retryTimer = setTimeout(() => {
+          if (!cancelled && currentRequest === requestIdRef.current) {
+            void attempt(failures)
+          }
+        }, RETRY_DELAY_MS)
       }
+    }
+
+    const debounceTimer = setTimeout(() => {
+      void attempt(0)
     }, DEBOUNCE_MS)
 
     return () => {
-      clearTimeout(timer)
+      cancelled = true
+      clearTimeout(debounceTimer)
+      if (retryTimer) clearTimeout(retryTimer)
     }
   }, [fromToken, toToken, amountOut, sellAmount, quoteGeneration, enabled, inputKey])
 
-  return { amountTooSmall, shortfallPct, isValidating: !settled, barterAmountOut }
+  return {
+    amountTooSmall,
+    shortfallPct,
+    isValidating: !settled,
+    barterAmountOut,
+    barterUnavailable,
+  }
 }
