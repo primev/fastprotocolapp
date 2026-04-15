@@ -30,7 +30,7 @@ import { useDashboardTab } from "../DashboardTabContext"
 import { SBTDisplayCard } from "@/components/dashboard/SBTDisplayCard"
 import { ReferralsCard } from "@/components/dashboard/ReferralsCard"
 import { OneTimeTasksAccordion } from "@/components/dashboard/OneTimeTasksAccordion"
-import { SwapEarnAccordion } from "@/components/dashboard/SwapEarnAccordion"
+// import { SwapEarnAccordion } from "@/components/dashboard/SwapEarnAccordion"
 import { UserMetricsSection } from "@/components/dashboard/UserMetricsSection"
 import { PointsHUD } from "@/components/dashboard/PointsHUD"
 import { WeeklyTasksSection } from "@/components/dashboard/WeeklyTasksSection"
@@ -164,7 +164,7 @@ const DashboardContent = () => {
   return (
     <>
       {/* Announcement Banner - dashboard specific, rendered in page content */}
-      <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all">
+      {/* <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all">
         <div className="container mx-auto px-4 py-1 text-center">
           <p className="text-primary-foreground text-sm">
             🎉 You&apos;re all set. Make your first Fast swap on these{" "}
@@ -177,7 +177,7 @@ const DashboardContent = () => {
             .
           </p>
         </div>
-      </div>
+      </div> */}
 
       {/* Content Area - layout provides paddingTop for header */}
       <div className="container mx-auto px-4 sm:px-4 py-4">
@@ -232,7 +232,7 @@ const DashboardContent = () => {
                   onEmailTaskClick={() => emailDialog.setShowEmailDialog(true)}
                 />
 
-                <SwapEarnAccordion />
+                {/* <SwapEarnAccordion /> */}
 
                 <hr />
                 <UserMetricsSection address={address} />
