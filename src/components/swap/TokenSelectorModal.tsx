@@ -219,10 +219,7 @@ const TokenSelectorModalComponent = ({
   // Require a known USD price AND value ≥ threshold. Search results still use
   // the full heldTokens list so users can find anything by name or address.
   const visibleHeld = useMemo(
-    () =>
-      (heldTokens ?? []).filter(
-        (h) => h.usdPrice != null && h.usdValue >= DUST_USD_THRESHOLD
-      ),
+    () => (heldTokens ?? []).filter((h) => h.usdPrice != null && h.usdValue >= DUST_USD_THRESHOLD),
     [heldTokens]
   )
 
