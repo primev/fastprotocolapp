@@ -115,6 +115,14 @@ export function SwapSide({
   )
 }
 
+/**
+ * Conservative miles estimate for pending rows. Uses the surplus rate
+ * (from Edge Config, updated daily by cron) and the 90% user share /
+ * 100k miles-per-ETH constants.
+ *
+ * This is a rough floor — actual miles are computed post-settlement and
+ * will overwrite this value once processed.
+ */
 const DEFAULT_SURPLUS_RATE = 0.0056
 const USER_MEV_SHARE = 0.9
 const MILES_PER_ETH = 100_000

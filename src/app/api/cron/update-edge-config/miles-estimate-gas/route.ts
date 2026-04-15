@@ -327,7 +327,7 @@ async function computeSurplusRateEstimate(): Promise<number> {
  * 4. Returns a JSON summary of the result.
  *
  * ### Schedule
- * Configured in `vercel.json` to run at 00:00 UTC on the 1st of every month.
+ * Configured in `vercel.json` to run daily at 00:00 UTC.
  * Can also be triggered manually from the Vercel Dashboard → Cron Jobs tab.
  */
 export async function GET(request: Request) {

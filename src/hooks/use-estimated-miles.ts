@@ -48,7 +48,7 @@ export function useEstimatedMiles({
   const [avgGasUsed, setAvgGasUsed] = useState<bigint>(DEFAULT_AVG_GAS_USED)
   const [surplusRate, setSurplusRate] = useState(DEFAULT_SURPLUS_RATE)
 
-  // Fetch gas estimates and surplus rate from Edge Config (updated monthly by cron).
+  // Fetch gas estimates and surplus rate from Edge Config (updated daily by cron).
   // Runs on mount — not gated on `enabled` so data is ready before the first quote arrives.
   useEffect(() => {
     let cancelled = false
