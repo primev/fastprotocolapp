@@ -1,9 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useAccount } from "wagmi"
-import {
-  useFuulMilesLeaderboard,
-  findUserMilesEntry,
-} from "@/hooks/use-fuul-miles-leaderboard"
 import { REFETCH_MILES_EVENT, refetchMiles } from "@/lib/miles-events"
 import { getPendingSwapHashes, subscribeSwapSubmitted } from "@/lib/swap-events"
 
@@ -24,11 +20,11 @@ export function useUserPoints(): UseUserPointsReturn {
   const [payoutPoints, setPayoutPoints] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Subscribe to the shared Fuul miles leaderboard so the header value
-  // always matches the user's row on the leaderboard. The leaderboard
-  // hook also refetches itself on REFETCH_MILES_EVENT.
-  const { data: milesData, isLoading: isMilesLoading } = useFuulMilesLeaderboard()
-  const leaderboardEntry = findUserMilesEntry(milesData, address)
+  // The header reads from /payouts/totals/{address}, the per-user Fuul
+  // endpoint that updates as soon as Fuul indexes the settlement. The
+  // leaderboard data is computed on a slower cadence by Fuul, so we let
+  // the badge update first and the leaderboard table catch up afterward
+  // (both share refetch-user-miles, so they refresh in the same cycle).
 
   const fetchPoints = useCallback((addr: string) => {
     let cancelled = false
@@ -76,7 +72,7 @@ export function useUserPoints(): UseUserPointsReturn {
 
   // Track the latest points value so the post-swap poller can detect a
   // change without re-subscribing on every render.
-  const points = leaderboardEntry ? leaderboardEntry.points : payoutPoints
+  const points = payoutPoints
   const latestPointsRef = useRef(points)
   useEffect(() => {
     latestPointsRef.current = points
@@ -132,5 +128,5 @@ export function useUserPoints(): UseUserPointsReturn {
     }
   }, [address, startPolling, stopPolling])
 
-  return { points, isLoading: isLoading || isMilesLoading }
+  return { points, isLoading }
 }
