@@ -30,6 +30,7 @@ import {
 import { formatCurrency, formatNumber } from "@/lib/utils"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
+import { useFuulMilesLeaderboard } from "@/hooks/use-fuul-miles-leaderboard"
 import {
   TIER_THRESHOLDS,
   getTierFromVolume,
@@ -98,49 +99,28 @@ export const LeaderboardTable = ({
 
   const [leaderboardMode, setLeaderboardMode] = useState<"volume" | "miles" | "stats">("miles")
 
-  // Single fetch for all Fuul leaderboard data (miles + referral cards)
-  const [milesLeaderboard, setMilesLeaderboard] = useState<
-    { wallet: string; points: number; referrals: number; rank: number }[]
-  >([])
-  const [referralData, setReferralData] = useState<{
+  // Shared Fuul miles leaderboard query. Listens for `refetch-user-miles`
+  // events so that when a swap transitions from pending → processed the
+  // miles tables refresh automatically, and the AppHeader stays in sync.
+  const { data: fuulMilesData, isLoading: isMilesLoading } = useFuulMilesLeaderboard()
+  const milesLeaderboard = useMemo(() => fuulMilesData?.entries ?? [], [fuulMilesData?.entries])
+  const totalParticipants = fuulMilesData?.totalParticipants ?? 0
+  const totalMiles = fuulMilesData?.totalMiles ?? 0
+  const referralData = useMemo<{
     byPoints: ReferralLeaderEntry[]
     byRefs: ReferralLeaderEntry[]
-  } | null>(null)
-  const [isMilesLoading, setIsMilesLoading] = useState(false)
-  // Server-provided totals (covers ALL participants, not just page 1)
-  const [totalParticipants, setTotalParticipants] = useState(0)
-  const [totalMiles, setTotalMiles] = useState(0)
-  useEffect(() => {
-    setIsMilesLoading(true)
-    fetch("/api/fuul/leaderboard?limit=100&page=1&sort=miles")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (!json) return
-        const entries: { wallet: string; points: number; referrals: number; rank: number }[] =
-          json.entries ||
-          json.byPoints?.map((e: ReferralLeaderEntry, i: number) => ({ ...e, rank: i + 1 })) ||
-          []
-        setMilesLeaderboard(entries)
-        // Use server-provided totals (computed from full dataset)
-        if (json.totalParticipants != null) setTotalParticipants(json.totalParticipants)
-        else setTotalParticipants(entries.length)
-        if (json.totalMiles != null) setTotalMiles(json.totalMiles)
-        else
-          setTotalMiles(entries.reduce((sum: number, e: { points: number }) => sum + e.points, 0))
-        // Derive referral card data from the same dataset
-        const byPoints = [...entries]
-          .sort((a, b) => b.points - a.points)
-          .slice(0, 10)
-          .map((e, i) => ({ ...e, rank: i + 1 }))
-        const byRefs = [...entries]
-          .sort((a, b) => b.referrals - a.referrals)
-          .slice(0, 10)
-          .map((e, i) => ({ ...e, rank: i + 1 }))
-        setReferralData({ byPoints, byRefs })
-      })
-      .catch(() => {})
-      .finally(() => setIsMilesLoading(false))
-  }, [])
+  } | null>(() => {
+    if (!milesLeaderboard.length) return null
+    const byPoints = [...milesLeaderboard]
+      .sort((a, b) => b.points - a.points)
+      .slice(0, 10)
+      .map((e, i) => ({ ...e, rank: i + 1 }))
+    const byRefs = [...milesLeaderboard]
+      .sort((a, b) => b.referrals - a.referrals)
+      .slice(0, 10)
+      .map((e, i) => ({ ...e, rank: i + 1 }))
+    return { byPoints, byRefs }
+  }, [milesLeaderboard])
 
   // Find user in miles leaderboard
   const userMilesEntry = useMemo(() => {
