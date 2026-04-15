@@ -92,6 +92,7 @@ interface SwapInterfaceProps {
   isUnwrap: boolean
   hasNoLiquidity: boolean
   barterAmountTooSmall: boolean
+  barterUnavailable: boolean
   isBarterValidating: boolean
   estimatedMiles?: number | null
 }
@@ -153,6 +154,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
     isUnwrap,
     hasNoLiquidity,
     barterAmountTooSmall,
+    barterUnavailable,
     isBarterValidating,
   } = props
 
@@ -263,6 +265,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         insufficientBalance={insufficientBalance}
         hasNoLiquidity={hasNoLiquidity}
         barterAmountTooSmall={barterAmountTooSmall}
+        barterUnavailable={barterUnavailable}
         isBarterValidating={isBarterValidating}
         isWrap={isWrap}
         isUnwrap={isUnwrap}

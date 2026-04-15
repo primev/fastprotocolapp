@@ -203,9 +203,17 @@ export function SwapToast({ hash }: { hash: string }) {
         className="relative w-[360px] overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-red-500/30 animate-in fade-in slide-in-from-right-5 duration-300"
       >
         <div className="relative p-4 flex items-center gap-4">
-          <div className="h-11 w-11 shrink-0 rounded-full bg-red-500/10 flex items-center justify-center">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              removeToast(hash)
+            }}
+            className="h-11 w-11 shrink-0 rounded-full bg-red-500/10 hover:bg-red-500/20 flex items-center justify-center transition-colors"
+            aria-label="Dismiss"
+          >
             <X className="h-5 w-5 text-red-400" />
-          </div>
+          </button>
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium text-red-400">{title}</span>
             {subtitle && (
@@ -221,17 +229,6 @@ export function SwapToast({ hash }: { hash: string }) {
             className="px-3 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-400 text-xs font-semibold transition-colors whitespace-nowrap"
           >
             Details
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              removeToast(hash)
-            }}
-            className="text-neutral-600 hover:text-neutral-300 transition-colors p-1"
-            aria-label="Dismiss"
-          >
-            <X className="h-3 w-3" />
           </button>
         </div>
       </div>

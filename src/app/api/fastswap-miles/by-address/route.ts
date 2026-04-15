@@ -37,6 +37,10 @@ type ApiSwapRow = {
   tokenOut: ResolvedToken
   amountIn: string | null
   amountOut: string | null
+  /** Realized on-chain surplus in output-token smallest units (wei for ETH output). */
+  surplus: string | null
+  /** Realized L1 gas cost in wei. */
+  gasCost: string | null
   surplusEth: number | null
   miles: number | null
   processed: boolean
@@ -183,6 +187,8 @@ export async function GET(request: NextRequest) {
         tokenOut,
         amountIn: formatTokenAmount(row.inputAmount, tokenIn.decimals),
         amountOut: formatTokenAmount(row.userAmtOut, tokenOut.decimals),
+        surplus: row.surplus,
+        gasCost: row.gasCost,
         surplusEth: row.surplusEth,
         miles: row.miles,
         processed: row.processed,

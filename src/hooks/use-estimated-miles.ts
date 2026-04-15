@@ -14,11 +14,13 @@ const MILES_PER_ETH = 100_000
 /** How often to refresh bid estimate from FastRPC (ms) — roughly 1 block */
 const BID_ESTIMATE_POLL_MS = 12_000
 /**
- * Fallback median surplus rate — used until Edge Config value is fetched.
- * Updated daily by the miles-estimate-gas cron job from 30-day median of
- * `surplus_eth / output_in_eth` across processed eth_weth swaps.
+ * Fallback surplus rate — used until Edge Config value is fetched.
+ * Updated daily by the miles-estimate-gas cron job: p25 of
+ * `surplus / user_amt_out` across all processed swaps (both eth_weth and
+ * erc20→erc20) over the last 30 days. p25 rather than p50 because the
+ * realized distribution is bimodal — see the cron for rationale.
  */
-const DEFAULT_SURPLUS_RATE = 0.0068
+const DEFAULT_SURPLUS_RATE = 0.0056
 
 interface UseEstimatedMilesParams {
   amountOut: string
@@ -172,8 +174,15 @@ export function useEstimatedMiles({
     const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGasUsed) / 1e18 : 0
 
     // Sweep overhead: non-ETH output requires a sweep tx (batched fastswap).
-    // 1.5x multiplier approximates pro-rata share assuming avg batch of ~3 txs.
-    const sweepMultiplier = isEthOutput ? 1 : 1.5
+    // 2.5x is a conservative proxy — batches are effectively size-1 at current
+    // volume, so each user eats the whole sweep gas share. Daily p50 of
+    // realized (bid + overhead) / bid varies widely (0.9–2.9 over the last
+    // 10 days), so any fixed multiplier is a bandaid. 2.5 covers the median
+    // of "bad" days (p50 ≈ 1.9) while staying tolerable on cheap days.
+    // TODO: replace with an Edge Config-driven sweep overhead term computed
+    // from `surplus_eth - net_profit_eth - bid_cost` on recent finalized rows
+    // — same pattern as `miles_estimate_surplus_rate`.
+    const sweepMultiplier = isEthOutput ? 1 : 2.5
     const totalBidCost = bidCostEth * sweepMultiplier
     const totalGasCost = gasCostEth * sweepMultiplier
 

@@ -45,8 +45,8 @@ export function SwapForm() {
   // After resetFormAfterSuccess, amount is "" but displayQuote may linger.
   const milesAmountOut = form.isWrapUnwrap
     ? form.amount
-    : form.amount && form.displayQuote?.amountOutFormatted
-      ? form.displayQuote.amountOutFormatted
+    : form.amount && form.displayedAmountOutFormatted
+      ? form.displayedAmountOutFormatted
       : form.amount
 
   const { estimatedMiles: rawEstimatedMiles } = useEstimatedMiles({
@@ -163,7 +163,7 @@ export function SwapForm() {
             ? form.amount
             : form.editingSide === "buy"
               ? form.amount
-              : form.displayQuote?.amountOutFormatted || ""
+              : form.displayedAmountOutFormatted || ""
         }
         toBalance={form.toBalance}
         toBalanceValue={form.toBalanceValue}
@@ -174,9 +174,7 @@ export function SwapForm() {
         buyInputRef={buyInputRef}
         // Action Props
         amount={form.amount}
-        outputAmount={
-          form.isWrapUnwrap ? form.amount : form.displayQuote?.amountOutFormatted || "0"
-        }
+        outputAmount={form.isWrapUnwrap ? form.amount : form.displayedAmountOutFormatted || "0"}
         setAmount={form.setAmount}
         editingSide={form.editingSide}
         setEditingSide={form.setEditingSide}
@@ -209,6 +207,7 @@ export function SwapForm() {
         isUnwrap={form.isUnwrap || false}
         hasNoLiquidity={form.hasNoLiquidity}
         barterAmountTooSmall={form.barterAmountTooSmall}
+        barterUnavailable={form.barterUnavailable}
         isBarterValidating={form.isBarterValidating}
         estimatedMiles={estimatedMiles}
       />
@@ -247,7 +246,7 @@ export function SwapForm() {
               : form.amount
           }
           amountOut={
-            form.isWrapUnwrap ? form.amount : form.displayQuote?.amountOutFormatted || form.amount
+            form.isWrapUnwrap ? form.amount : form.displayedAmountOutFormatted || form.amount
           }
           minAmountOut={form.isWrapUnwrap ? form.amount : form.computedMinAmountOut || ""}
           slippageLimitFormatted={

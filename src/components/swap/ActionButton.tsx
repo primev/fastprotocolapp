@@ -33,6 +33,7 @@ interface ActionButtonProps {
   insufficientBalance: boolean
   hasNoLiquidity: boolean
   barterAmountTooSmall: boolean
+  barterUnavailable: boolean
   isBarterValidating: boolean
   isWrap: boolean
   isUnwrap: boolean
@@ -47,6 +48,7 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
   insufficientBalance,
   hasNoLiquidity,
   barterAmountTooSmall,
+  barterUnavailable,
   isBarterValidating,
   isWrap,
   isUnwrap,
@@ -213,6 +215,18 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
             </DialogContent>
           </Dialog>
         </>
+      ) : barterUnavailable ? (
+        // Case: Barter /route unreachable after retry — block the swap because
+        // without Barter data the quote-guard can't anchor the floor, and thin
+        // pools would silently fall back to the Uniswap-only floor (the exact
+        // case the guard was added to fix). Clears automatically on next
+        // successful validation (re-triggered by the 15s requote tick).
+        <Button
+          disabled
+          className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-amber-500/10 text-amber-400 cursor-not-allowed border border-amber-500/20"
+        >
+          Route unavailable — retrying
+        </Button>
       ) : barterAmountTooSmall ? (
         // Case: Amount too small for Barter to route within max slippage
         <Button

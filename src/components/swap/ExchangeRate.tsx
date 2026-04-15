@@ -110,12 +110,12 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
 
   return (
     <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-xl bg-white/5 border border-white/5 px-3 py-2 sm:px-4 sm:py-3 transition-all duration-300 ease-in-out">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2 text-xs text-muted-foreground">
         {/* LEFT SECTION: EXCHANGE RATE & LIVE STATUS */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between sm:justify-start gap-2 whitespace-nowrap">
           <span
             className={cn(
-              "text-gray-400 font-medium inline-flex items-center gap-1",
+              "text-gray-400 font-medium inline-flex items-center gap-1 whitespace-nowrap",
               isQuoteLoading && "opacity-80"
             )}
           >
@@ -154,7 +154,7 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
 
         {/* RIGHT SECTION: MILES ESTIMATE / PRICE IMPACT */}
         {!isWrapUnwrap && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between sm:justify-start gap-2 whitespace-nowrap">
             {estimatedMiles != null && (
               <div className="flex items-center gap-1.5">
                 {estimatedMiles > 0 ? (
@@ -163,7 +163,7 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
                       <div className="h-1.5 w-1.5 rounded-full bg-[#3898FF] animate-pulse" />
                       <div className="absolute h-1.5 w-1.5 rounded-full bg-[#3898FF] animate-ping opacity-75" />
                     </div>
-                    <span className="font-semibold text-[#3898FF]">
+                    <span className="font-semibold text-[#3898FF] whitespace-nowrap">
                       ~{estimatedMiles.toLocaleString("en-US")} miles
                     </span>
                   </>
