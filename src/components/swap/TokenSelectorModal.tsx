@@ -137,8 +137,8 @@ export const DEFAULT_ETH_TOKEN: Token = {
 const SEARCH_DEBOUNCE_MS = 150
 const BARTER_SEARCH_CAP = 50
 /** Hide held tokens worth less than this (USD) from the default "Your tokens"
- * list so the section isn't crowded with dust. Unpriced tokens (usdPrice==null)
- * are always shown since we can't judge their value. */
+ * list so the section isn't crowded with dust. Unpriced tokens are also hidden
+ * — if we can't confirm value ≥ threshold, treat it as dust. */
 const DUST_USD_THRESHOLD = 0.1
 
 const TokenSelectorModalComponent = ({
@@ -215,13 +215,13 @@ const TokenSelectorModalComponent = ({
   }, [open])
 
   // Held tokens minus dust: applied to the default "Your tokens" section so it
-  // doesn't fill up with sub-$0.10 balances. Unpriced tokens stay since we
-  // can't judge their value. Search results still use the full heldTokens list
-  // so users can find their dust by name or address if they need to.
+  // doesn't fill up with sub-$0.10 balances or unpriced tokens (airdrop junk).
+  // Require a known USD price AND value ≥ threshold. Search results still use
+  // the full heldTokens list so users can find anything by name or address.
   const visibleHeld = useMemo(
     () =>
       (heldTokens ?? []).filter(
-        (h) => h.usdPrice == null || h.usdValue >= DUST_USD_THRESHOLD
+        (h) => h.usdPrice != null && h.usdValue >= DUST_USD_THRESHOLD
       ),
     [heldTokens]
   )
