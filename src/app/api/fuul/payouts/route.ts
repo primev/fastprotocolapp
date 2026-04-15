@@ -22,7 +22,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const url = `${FUUL_TOTALS_URL}/${encodeURIComponent(address)}`
+    // Fuul stores/keys addresses in lowercase (their leaderboard endpoint
+    // returns lowercase wallets). A checksummed mixed-case lookup against
+    // /payouts/totals/{address} 404s even when the wallet has credits, so
+    // always normalize before hitting Fuul.
+    const url = `${FUUL_TOTALS_URL}/${encodeURIComponent(address.toLowerCase())}`
 
     const response = await fetch(url, {
       method: "GET",
@@ -33,12 +37,6 @@ export async function GET(request: NextRequest) {
     })
 
     if (!response.ok) {
-      // 404 just means Fuul has no payout record for this address yet —
-      // either the wallet has never been credited, or the most recent
-      // settlement hasn't been indexed by Fuul's ETL yet. Treat as 0.
-      if (response.status === 404) {
-        return NextResponse.json({ success: true, data: null, totalPoints: 0 }, { status: 200 })
-      }
       const errorText = await response.text()
       console.error("Fuul API error:", response.status, errorText)
       return NextResponse.json(
