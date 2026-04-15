@@ -33,6 +33,10 @@ export type UserSwapRow = {
   }
   amountIn: string | null
   amountOut: string | null
+  /** Realized on-chain surplus in output-token smallest units (wei for ETH output). */
+  surplus: string | null
+  /** Realized L1 gas cost in wei. */
+  gasCost: string | null
   surplusEth: number | null
   miles: number | null
   processed: boolean

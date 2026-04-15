@@ -28,8 +28,8 @@ const RPC_CONCURRENCY = 5
  */
 const FALLBACK_GAS_LIMIT = 450_000
 const FALLBACK_GAS_USED = 180_000
-/** Fallback median surplus rate (0.68% from 2026-04-08 sample). */
-const FALLBACK_SURPLUS_RATE = 0.0068
+/** Fallback p25 surplus rate (0.56% from 2026-04-14 all-swap sample). */
+const FALLBACK_SURPLUS_RATE = 0.0056
 
 // ---------------------------------------------------------------------------
 // Auth helper
@@ -249,16 +249,24 @@ async function computeGasAverages(): Promise<{ gasLimitAvg: number; gasUsedAvg: 
 // ---------------------------------------------------------------------------
 
 /**
- * Computes the median surplus rate from recent processed FastSwap transactions.
+ * Computes the p25 surplus rate from recent processed FastSwap transactions.
  *
- * Surplus rate = surplus_eth / output_in_eth for each swap. The median is
- * used (rather than mean) for robustness against outliers — a few high-surplus
- * swaps shouldn't inflate the estimate for typical users.
+ * Surplus rate = surplus / user_amt_out — both in the same output-token units,
+ * so the ratio is decimal-agnostic and comparable across eth_weth and
+ * erc20→erc20 swaps. See GET_FASTSWAP_SURPLUS_RATES for the query.
  *
- * @returns The median surplus rate as a decimal (e.g. 0.0068 = 0.68%),
+ * We use p25 (not the median) because the realized distribution of rates is
+ * strongly bimodal: one cluster of ~0.5–0.6% for larger swaps and another of
+ * ~2–2.1% for smaller swaps, with very few observations in between. The median
+ * sits in the gap at ~0.9–1.25% — mathematically correct but not representative
+ * of any individual user's experience. p25 aligns with the large-swap cluster
+ * and under-promises for small-swap users (they earn more than estimated, which
+ * is the desired UX direction). A proper size-bucketed estimator is a follow-up.
+ *
+ * @returns The p25 surplus rate as a decimal (e.g. 0.0056 = 0.56%),
  *          or FALLBACK_SURPLUS_RATE if insufficient data.
  */
-async function computeMedianSurplusRate(): Promise<number> {
+async function computeSurplusRateEstimate(): Promise<number> {
   const client = getAnalyticsClient()
 
   const rows = await client.execute("fastswap/get-surplus-rates", {})
@@ -278,17 +286,20 @@ async function computeMedianSurplusRate(): Promise<number> {
     return FALLBACK_SURPLUS_RATE
   }
 
-  const mid = Math.floor(rates.length / 2)
-  const median = rates.length % 2 === 0 ? (rates[mid - 1] + rates[mid]) / 2 : rates[mid]
+  const p25Index = Math.floor(rates.length * 0.25)
+  const p25 = rates[p25Index]
 
   // Round to 6 decimal places to avoid floating point noise in Edge Config
-  const rounded = Math.round(median * 1e6) / 1e6
+  const rounded = Math.round(p25 * 1e6) / 1e6
+
+  const mid = Math.floor(rates.length / 2)
+  const p50 = rates.length % 2 === 0 ? (rates[mid - 1] + rates[mid]) / 2 : rates[mid]
 
   console.log(
     `[cron/miles-estimate-gas] surplusRate — count: ${rates.length}  ` +
       `p10: ${(rates[Math.floor(rates.length * 0.1)] * 100).toFixed(2)}%  ` +
-      `p25: ${(rates[Math.floor(rates.length * 0.25)] * 100).toFixed(2)}%  ` +
-      `p50: ${(median * 100).toFixed(2)}%  ` +
+      `p25: ${(p25 * 100).toFixed(2)}% (chosen)  ` +
+      `p50: ${(p50 * 100).toFixed(2)}%  ` +
       `p75: ${(rates[Math.floor(rates.length * 0.75)] * 100).toFixed(2)}%  ` +
       `p90: ${(rates[Math.floor(rates.length * 0.9)] * 100).toFixed(2)}%  ` +
       `mean: ${((rates.reduce((a, r) => a + r, 0) / rates.length) * 100).toFixed(2)}%`
@@ -330,7 +341,7 @@ export async function GET(request: Request) {
     // --- Step 2: Fetch the new values ----------------------------------------
     const [gasAverages, surplusRate] = await Promise.all([
       computeGasAverages(),
-      computeMedianSurplusRate(),
+      computeSurplusRateEstimate(),
     ])
     const { gasLimitAvg, gasUsedAvg } = gasAverages
 

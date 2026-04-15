@@ -14,11 +14,13 @@ const MILES_PER_ETH = 100_000
 /** How often to refresh bid estimate from FastRPC (ms) — roughly 1 block */
 const BID_ESTIMATE_POLL_MS = 12_000
 /**
- * Fallback median surplus rate — used until Edge Config value is fetched.
- * Updated monthly by the miles-estimate-gas cron job from 30-day median of
- * `surplus_eth / output_in_eth` across processed eth_weth swaps.
+ * Fallback surplus rate — used until Edge Config value is fetched.
+ * Updated daily by the miles-estimate-gas cron job: p25 of
+ * `surplus / user_amt_out` across all processed swaps (both eth_weth and
+ * erc20→erc20) over the last 30 days. p25 rather than p50 because the
+ * realized distribution is bimodal — see the cron for rationale.
  */
-const DEFAULT_SURPLUS_RATE = 0.0068
+const DEFAULT_SURPLUS_RATE = 0.0056
 
 interface UseEstimatedMilesParams {
   amountOut: string

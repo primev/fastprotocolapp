@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react"
 
-const DEFAULT_SURPLUS_RATE = 0.0068
+const DEFAULT_SURPLUS_RATE = 0.0056
 
 /**
- * Fetches the median surplus rate from Edge Config (updated monthly by cron).
- * Returns the default fallback until the fetch completes.
+ * Fetches the surplus rate from Edge Config (p25 across all processed swaps,
+ * updated daily by cron). Returns the default fallback until the fetch completes.
  */
 export function useSurplusRate(): number {
   const [rate, setRate] = useState(DEFAULT_SURPLUS_RATE)

@@ -15,6 +15,15 @@ export type UserRecentSwapRow = {
   outputToken: string | null
   inputAmount: string | null
   userAmtOut: string | null
+  /**
+   * Realized on-chain surplus in the output token's smallest unit, as a decimal
+   * string. Populated by the indexer when the tx is observed; used by the
+   * dashboard to compute per-row miles estimates for pending rows without
+   * waiting for the sweep finalizer.
+   */
+  surplus: string | null
+  /** Realized L1 gas cost in wei, as a decimal string. Populated by the indexer. */
+  gasCost: string | null
   surplusEth: number | null
   miles: number | null
   processed: boolean
@@ -64,10 +73,12 @@ function mapRow(row: unknown[]): UserRecentSwapRow {
     outputToken: row[4] != null ? String(row[4]) : null,
     inputAmount: row[5] != null ? String(row[5]) : null,
     userAmtOut: row[6] != null ? String(row[6]) : null,
-    surplusEth: row[7] != null && Number.isFinite(Number(row[7])) ? Number(row[7]) : null,
-    miles: row[8] != null && Number.isFinite(Number(row[8])) ? Number(row[8]) : null,
+    surplus: row[7] != null ? String(row[7]) : null,
+    gasCost: row[8] != null ? String(row[8]) : null,
+    surplusEth: row[9] != null && Number.isFinite(Number(row[9])) ? Number(row[9]) : null,
+    miles: row[10] != null && Number.isFinite(Number(row[10])) ? Number(row[10]) : null,
     // StarRocks returns booleans as 0/1 — coerce both to JS boolean.
-    processed: row[9] === true || row[9] === 1 || row[9] === "1",
+    processed: row[11] === true || row[11] === 1 || row[11] === "1",
   }
 }
 
