@@ -31,6 +31,7 @@ import { formatCurrency, formatNumber } from "@/lib/utils"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
 import { useFuulMilesLeaderboard } from "@/hooks/use-fuul-miles-leaderboard"
+import { useUserPoints } from "@/hooks/use-user-points"
 import {
   TIER_THRESHOLDS,
   getTierFromVolume,
@@ -122,19 +123,36 @@ export const LeaderboardTable = ({
     return { byPoints, byRefs }
   }, [milesLeaderboard])
 
+  // AppHeader badge value (per-user Fuul totals — updates faster than the
+  // leaderboard dataset). When the leaderboard hasn't caught up yet we
+  // surface the header value as the floor for the connected user's row
+  // so the leaderboard never shows a smaller number than the badge.
+  const { points: headerPoints } = useUserPoints()
+
   // Find user in miles leaderboard
   const userMilesEntry = useMemo(() => {
     if (!userAddr || !milesLeaderboard.length) return null
     const trimmed = trimWalletAddress(userAddr.toLowerCase())
-    return milesLeaderboard.find((e) => e.wallet === trimmed) ?? null
-  }, [userAddr, milesLeaderboard])
+    const found = milesLeaderboard.find((e) => e.wallet === trimmed) ?? null
+    if (!found) return null
+    if (headerPoints > found.points) {
+      return { ...found, points: headerPoints }
+    }
+    return found
+  }, [userAddr, milesLeaderboard, headerPoints])
 
-  // Wallet-to-miles lookup for volume leaderboard rows
+  // Wallet-to-miles lookup for volume leaderboard rows. Override the
+  // connected user's entry with the AppHeader value when it's higher.
   const milesByWallet = useMemo(() => {
     const map = new Map<string, number>()
     for (const e of milesLeaderboard) map.set(e.wallet, e.points)
+    if (userAddr && headerPoints > 0) {
+      const trimmed = trimWalletAddress(userAddr.toLowerCase())
+      const current = map.get(trimmed) ?? 0
+      if (headerPoints > current) map.set(trimmed, headerPoints)
+    }
     return map
-  }, [milesLeaderboard])
+  }, [milesLeaderboard, userAddr, headerPoints])
 
   // Next rank miles (person above user)
   const nextMilesRankEntry = useMemo(() => {
