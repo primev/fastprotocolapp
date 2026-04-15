@@ -136,6 +136,10 @@ export const DEFAULT_ETH_TOKEN: Token = {
 
 const SEARCH_DEBOUNCE_MS = 150
 const BARTER_SEARCH_CAP = 50
+/** Hide held tokens worth less than this (USD) from the default "Your tokens"
+ * list so the section isn't crowded with dust. Unpriced tokens are also hidden
+ * — if we can't confirm value ≥ threshold, treat it as dust. */
+const DUST_USD_THRESHOLD = 0.1
 
 const TokenSelectorModalComponent = ({
   open,
@@ -210,13 +214,23 @@ const TokenSelectorModalComponent = ({
     }
   }, [open])
 
+  // Held tokens minus dust: applied to the default "Your tokens" section so it
+  // doesn't fill up with sub-$0.10 balances or unpriced tokens (airdrop junk).
+  // Require a known USD price AND value ≥ threshold. Search results still use
+  // the full heldTokens list so users can find anything by name or address.
+  const visibleHeld = useMemo(
+    () => (heldTokens ?? []).filter((h) => h.usdPrice != null && h.usdValue >= DUST_USD_THRESHOLD),
+    [heldTokens]
+  )
+
   // Default view: short curated blue-chip list minus anything in Your tokens.
+  // Dedup against the visible held list so a dust-hidden token (e.g. tiny USDC
+  // balance) still shows up in Popular rather than disappearing entirely.
   const defaultPopular = useMemo(() => {
-    const held = heldTokens ?? []
-    if (held.length === 0) return popularTokens
-    const heldSet = new Set(held.map((h) => h.token.address.toLowerCase()))
+    if (visibleHeld.length === 0) return popularTokens
+    const heldSet = new Set(visibleHeld.map((h) => h.token.address.toLowerCase()))
     return popularTokens.filter((t) => !heldSet.has(t.address.toLowerCase()))
-  }, [popularTokens, heldTokens])
+  }, [popularTokens, visibleHeld])
 
   // Search view: full 344-entry curated list minus held, still filtered below.
   const searchCurated = useMemo(() => {
@@ -240,6 +254,12 @@ const TokenSelectorModalComponent = ({
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [heldTokens, q, excludeAddrLower]
+  )
+
+  // Default "Your tokens" list: held minus dust and minus the excluded side.
+  const defaultHeld: HeldToken[] = useMemo(
+    () => visibleHeld.filter((h) => h.token.address.toLowerCase() !== excludeAddrLower),
+    [visibleHeld, excludeAddrLower]
   )
 
   const filteredCurated = useMemo(
@@ -329,7 +349,7 @@ const TokenSelectorModalComponent = ({
       filteredCurated.length > 0 ||
       barterMatches.length > 0 ||
       pastedBarterToken !== null
-    : filteredHeld.length > 0 || filteredRecent.length > 0 || defaultPopular.length > 0
+    : defaultHeld.length > 0 || filteredRecent.length > 0 || defaultPopular.length > 0
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -450,14 +470,14 @@ const TokenSelectorModalComponent = ({
             ) : (
               // Default view: Your tokens + Recent searches + Popular tokens.
               <>
-                {filteredHeld.length > 0 && (
+                {defaultHeld.length > 0 && (
                   <section>
                     <SectionHeader
                       icon={<Coins className="h-4 w-4" />}
                       label="Your tokens"
-                      count={filteredHeld.length}
+                      count={defaultHeld.length}
                     />
-                    {filteredHeld.map((h) => (
+                    {defaultHeld.map((h) => (
                       <TokenRow
                         key={`held-${h.token.address}`}
                         token={h.token}
@@ -515,7 +535,7 @@ const TokenSelectorModalComponent = ({
                     ))}
                   </section>
                 )}
-                {isLoadingHeld && filteredHeld.length === 0 && address && (
+                {isLoadingHeld && defaultHeld.length === 0 && address && (
                   <p className="px-3 py-2 text-xs text-muted-foreground">Loading your balances…</p>
                 )}
               </>
