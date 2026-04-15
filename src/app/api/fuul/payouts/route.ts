@@ -22,7 +22,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const url = `${FUUL_TOTALS_URL}/${encodeURIComponent(address)}`
+    // Fuul stores/keys addresses in lowercase (their leaderboard endpoint
+    // returns lowercase wallets). A checksummed mixed-case lookup against
+    // /payouts/totals/{address} 404s even when the wallet has credits, so
+    // always normalize before hitting Fuul.
+    const url = `${FUUL_TOTALS_URL}/${encodeURIComponent(address.toLowerCase())}`
 
     const response = await fetch(url, {
       method: "GET",

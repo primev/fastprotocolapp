@@ -174,11 +174,15 @@ export function useEstimatedMiles({
     const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGasUsed) / 1e18 : 0
 
     // Sweep overhead: non-ETH output requires a sweep tx (batched fastswap).
-    // 2.2x multiplier derived from realized (bid + overhead) / bid on processed
-    // ETH→ERC20 rows — median ratio is ~1.21, so total deduction ≈ 2.2x bid.
-    // Batches are effectively size-1 at current volume, so each user eats the
-    // whole sweep gas share instead of the ~3-tx pro-rata the old 1.5x assumed.
-    const sweepMultiplier = isEthOutput ? 1 : 2.2
+    // 2.5x is a conservative proxy — batches are effectively size-1 at current
+    // volume, so each user eats the whole sweep gas share. Daily p50 of
+    // realized (bid + overhead) / bid varies widely (0.9–2.9 over the last
+    // 10 days), so any fixed multiplier is a bandaid. 2.5 covers the median
+    // of "bad" days (p50 ≈ 1.9) while staying tolerable on cheap days.
+    // TODO: replace with an Edge Config-driven sweep overhead term computed
+    // from `surplus_eth - net_profit_eth - bid_cost` on recent finalized rows
+    // — same pattern as `miles_estimate_surplus_rate`.
+    const sweepMultiplier = isEthOutput ? 1 : 2.5
     const totalBidCost = bidCostEth * sweepMultiplier
     const totalGasCost = gasCostEth * sweepMultiplier
 
