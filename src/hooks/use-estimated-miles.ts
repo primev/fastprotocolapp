@@ -174,8 +174,11 @@ export function useEstimatedMiles({
     const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGasUsed) / 1e18 : 0
 
     // Sweep overhead: non-ETH output requires a sweep tx (batched fastswap).
-    // 1.5x multiplier approximates pro-rata share assuming avg batch of ~3 txs.
-    const sweepMultiplier = isEthOutput ? 1 : 1.5
+    // 2.2x multiplier derived from realized (bid + overhead) / bid on processed
+    // ETH→ERC20 rows — median ratio is ~1.21, so total deduction ≈ 2.2x bid.
+    // Batches are effectively size-1 at current volume, so each user eats the
+    // whole sweep gas share instead of the ~3-tx pro-rata the old 1.5x assumed.
+    const sweepMultiplier = isEthOutput ? 1 : 2.2
     const totalBidCost = bidCostEth * sweepMultiplier
     const totalGasCost = gasCostEth * sweepMultiplier
 
