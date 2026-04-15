@@ -142,7 +142,16 @@ export function useWaitForTxConfirmation({
     hasConfirmedRef.current = true
     if (abortRef.current) abortRef.current.abort()
 
-    const e = receiptError instanceof Error ? receiptError : new Error(String(receiptError))
+    // If wagmi reports a dropped/replaced transaction, surface the full hash
+    // so users can look it up. Wagmi's own message doesn't always include it.
+    const raw = receiptError instanceof Error ? receiptError.message : String(receiptError)
+    const mentionsDropped = /drop|replac/i.test(raw)
+    const e =
+      mentionsDropped && hash
+        ? new Error(`Transaction ${hash} was dropped by the network.`)
+        : receiptError instanceof Error
+          ? receiptError
+          : new Error(String(receiptError))
     setError(e)
     onErrorRef.current?.(e)
   }, [hash, receiptError])
@@ -189,7 +198,7 @@ export function useWaitForTxConfirmation({
             if (mcStatus === "failed") {
               hasConfirmedRef.current = true
               abortController.abort()
-              const e = new Error("Transaction was dropped by the network.")
+              const e = new Error(`Transaction ${hash} was dropped by the network.`)
               setError(e)
               onErrorRef.current?.(e)
             } else if (mcStatus === "confirmed") {
@@ -296,7 +305,7 @@ export function useWaitForTxConfirmation({
             hasConfirmedRef.current = true
             abortController.abort()
             clearInterval(dbPollInterval)
-            const e = new Error("Transaction was dropped by the network.")
+            const e = new Error(`Transaction ${hash} was dropped by the network.`)
             setError(e)
             onErrorRef.current?.(e)
             return

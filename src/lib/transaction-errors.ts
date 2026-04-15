@@ -121,6 +121,13 @@ function mapErrorMessage(error: unknown): string | null {
     return null
   }
 
+  // Dropped transactions have their own hash-bearing message that must pass
+  // through unmodified. Check before the generic network heuristic below
+  // since the message contains the word "network".
+  if (message.includes("was dropped by the network")) {
+    return null
+  }
+
   if (
     message.includes("failed to fetch") ||
     message.includes("rpc") ||
