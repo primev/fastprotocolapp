@@ -12,8 +12,8 @@ import { useSwapForm } from "@/hooks/use-swap-form"
 import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 import { useEstimatedMiles } from "@/hooks/use-estimated-miles"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
-import { PRO_MODE_MIN_USD } from "@/lib/pro-mode"
 import { playPreconfirmSound } from "@/lib/preconfirm-sound"
+import { useProThreshold } from "@/hooks/use-pro-threshold"
 
 import { SwapInterface } from "./SwapInterface"
 
@@ -107,6 +107,7 @@ export function SwapForm() {
   const [isToSelectorOpen, setIsToSelectorOpen] = useState(false)
 
   // ------- Pro Mode (top 10% block placement) -------
+  const proMinUsd = useProThreshold()
   const [proManualOverride, setProManualOverride] = useState<boolean | null>(null)
   const [proJustActivated, setProJustActivated] = useState(false)
 
@@ -117,7 +118,7 @@ export function SwapForm() {
       : 0
 
   const proEligible = !!isPermitPath && !form.isWrapUnwrap && FEATURE_FLAGS.pro_mode
-  const proAutoOn = proEligible && sellUsdValue >= PRO_MODE_MIN_USD
+  const proAutoOn = proEligible && sellUsdValue >= proMinUsd
 
   // Reset manual override when crossing the threshold so the auto-trigger
   // fires fresh each time.
@@ -129,7 +130,7 @@ export function SwapForm() {
     }
   }, [proAutoOn])
 
-  const meetsThreshold = sellUsdValue >= PRO_MODE_MIN_USD
+  const meetsThreshold = sellUsdValue >= proMinUsd
   const isProMode =
     proEligible &&
     meetsThreshold &&
