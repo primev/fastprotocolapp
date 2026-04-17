@@ -118,7 +118,7 @@ export function SwapForm() {
       : 0
 
   const proEligible = !!isPermitPath && !form.isWrapUnwrap && FEATURE_FLAGS.pro_mode
-  const proAutoOn = proEligible && sellUsdValue >= proMinUsd
+  const proAutoOn = proEligible && Math.round(sellUsdValue) >= proMinUsd
 
   // Reset manual override when crossing the threshold so the auto-trigger
   // fires fresh each time.
@@ -130,7 +130,7 @@ export function SwapForm() {
     }
   }, [proAutoOn])
 
-  const meetsThreshold = sellUsdValue >= proMinUsd
+  const meetsThreshold = Math.round(sellUsdValue) >= proMinUsd
   const isProMode =
     proEligible &&
     meetsThreshold &&
