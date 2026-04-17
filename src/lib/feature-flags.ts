@@ -8,6 +8,8 @@ export const FEATURE_FLAGS = {
   swapPrivateMode: true,
   /** When true, show estimated Fast Miles earned on the swap form and confirmation modal. */
   show_miles_estimate: true,
+  /** When true, enables Pro mode (top 10% block placement) toggle on the swap interface. */
+  pro_mode: true,
   /** When true, the quote hook always returns no liquidity, forcing the "This trade cannot be completed right now" button and "Why am I seeing this?" explainer link to appear for any token pair. Set to false for production. */
   test_no_liquidity: false,
   /** When true, show referral counts on the Miles leaderboard (sub-text under wallets, "Your Referrals" stat, progress line) and show the Referral Leaders card on the stats page. Set to false to hide until Fuul attribution data is verified accurate. */

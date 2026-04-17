@@ -97,6 +97,8 @@ interface SwapConfirmationModalProps {
   approveTokenSymbol?: string
   /** Estimated Fast Miles earned from this swap */
   estimatedMiles?: number | null
+  /** Whether Pro mode (top 10% block placement) is active for this swap */
+  isProMode?: boolean
   /** Called with the recommended slippage when a barter slippage error is detected. */
   onRetryWithSlippage?: (slippage: string) => void
   /** When true, immediately execute the swap on open (skip review). Used by toast retry flow. */
@@ -132,8 +134,8 @@ function InfoRow({ label, value, tooltip, valueClassName }: InfoRowProps) {
               <TooltipTrigger asChild>
                 <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
               </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[200px] bg-[#1c2128] border-white/10">
-                <p className="text-xs text-gray-300">{tooltip}</p>
+              <TooltipContent side="top" className="max-w-[280px] bg-[#1c2128] border-white/10">
+                <p className="text-xs text-gray-300 leading-relaxed">{tooltip}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -210,6 +212,7 @@ function SwapConfirmationModal({
   onApprove,
   approveTokenSymbol,
   estimatedMiles: estimatedMilesLive,
+  isProMode: isProModeLive = false,
   onRetryWithSlippage,
   autoExecute = false,
   onAutoExecuteConsumed,
@@ -236,6 +239,7 @@ function SwapConfirmationModal({
     fromTokenPrice: number | null | undefined
     toTokenPrice: number | null | undefined
     estimatedMiles: number | null | undefined
+    isProMode: boolean
   } | null>(null)
   const wasOpenRef = useRef(open)
 
@@ -258,6 +262,7 @@ function SwapConfirmationModal({
       fromTokenPrice: fromTokenPriceLive,
       toTokenPrice: toTokenPriceLive,
       estimatedMiles: estimatedMilesLive,
+      isProMode: isProModeLive,
     }
   } else if (!open && wasOpenRef.current) {
     // Modal just closed — clear snapshot
@@ -282,6 +287,7 @@ function SwapConfirmationModal({
   const fromTokenPrice = snapshotRef.current?.fromTokenPrice ?? fromTokenPriceLive
   const toTokenPrice = snapshotRef.current?.toTokenPrice ?? toTokenPriceLive
   const estimatedMiles = snapshotRef.current?.estimatedMiles ?? estimatedMilesLive
+  const isProMode = snapshotRef.current?.isProMode ?? isProModeLive
   // --- EXTERNAL HOOKS ---
   const { chain: signerChain, isConnected } = useAccount()
 
@@ -323,6 +329,7 @@ function SwapConfirmationModal({
     minAmountOut,
     slippage,
     deadline,
+    proMode: isProMode,
     onSuccess: () => {
       setClearSwapState(true)
       if (refreshBalances) {
@@ -899,6 +906,33 @@ function SwapConfirmationModal({
                         : "Estimated gas fee for this transaction"
                     }
                   />
+                  {isProMode && (
+                    <InfoRow
+                      label="Execution"
+                      value={<span className="text-primary font-semibold">Pro — Top 10%</span>}
+                      tooltip={
+                        <>
+                          Guarantees your transaction lands in the top 10% of the block, reducing
+                          reordering slippage from MEV bots.
+                          <br />
+                          <br />
+                          <span className="text-gray-400">
+                            Available for swaps ≥ $250 USD. Smaller trades receive standard block
+                            placement.
+                          </span>
+                          <br />
+                          <a
+                            href="/learn/pro-swaps"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary hover:text-primary/80 underline underline-offset-2"
+                          >
+                            Learn how Pro works →
+                          </a>
+                        </>
+                      }
+                    />
+                  )}
                   {!isWrap && !isUnwrap && estimatedMiles != null && (
                     <InfoRow
                       label="Est. miles earned"

@@ -95,6 +95,12 @@ interface SwapInterfaceProps {
   barterUnavailable: boolean
   isBarterValidating: boolean
   estimatedMiles?: number | null
+
+  // Pro Mode
+  isProMode: boolean
+  proEligible: boolean
+  proJustActivated: boolean
+  onTogglePro: () => void
 }
 
 export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
@@ -160,6 +166,11 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
 
   return (
     <div className="relative z-10 w-full max-w-[500px] px-2 sm:px-0 mx-auto">
+      {/* Pro Mode auto-engage flash */}
+      {props.proJustActivated && (
+        <div className="absolute inset-0 rounded-2xl bg-primary/10 animate-pro-flash pointer-events-none z-30" />
+      )}
+
       {/* 1. HEADER & SETTINGS 
           Handles the "Swap" title and the configuration popover.
           Lazy-loaded to reduce initial TBT.
@@ -172,6 +183,10 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         internalDeadline={internalDeadline}
         setInternalDeadline={setInternalDeadline}
         isMounted={isMounted}
+        isProMode={props.isProMode}
+        proEligible={props.proEligible}
+        proJustActivated={props.proJustActivated}
+        onTogglePro={props.onTogglePro}
       />
 
       {/* 2. CORE SWAP CARDS
@@ -179,6 +194,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
       */}
       <div className="relative flex flex-col">
         <SellCard
+          isProMode={props.isProMode}
           fromToken={fromToken}
           amount={
             editingSide === "buy"
@@ -206,7 +222,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         />
 
         <div className="relative h-4 flex items-center justify-center shrink-0 z-20">
-          <SwitchButton handleSwitch={handleSwitch} />
+          <SwitchButton handleSwitch={handleSwitch} isProMode={props.isProMode} />
         </div>
 
         <BuyCard
@@ -271,6 +287,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         isUnwrap={isUnwrap}
         handleSwapClick={handleSwapClick}
         isNonceLoading={isNonceLoading}
+        isProMode={props.isProMode}
       />
 
       <RewardsBadge />

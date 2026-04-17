@@ -152,7 +152,7 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
           />
         </div>
 
-        {/* RIGHT SECTION: MILES ESTIMATE / PRICE IMPACT */}
+        {/* RIGHT SECTION: PRO BADGE / MILES ESTIMATE / PRICE IMPACT */}
         {!isWrapUnwrap && (
           <div className="flex items-center justify-between sm:justify-start gap-2 whitespace-nowrap">
             {estimatedMiles != null && (

@@ -12,6 +12,8 @@ import { useSwapForm } from "@/hooks/use-swap-form"
 import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 import { useEstimatedMiles } from "@/hooks/use-estimated-miles"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
+import { PRO_MODE_MIN_USD } from "@/lib/pro-mode"
+import { playPreconfirmSound } from "@/lib/preconfirm-sound"
 
 import { SwapInterface } from "./SwapInterface"
 
@@ -103,6 +105,57 @@ export function SwapForm() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isFromSelectorOpen, setIsFromSelectorOpen] = useState(false)
   const [isToSelectorOpen, setIsToSelectorOpen] = useState(false)
+
+  // ------- Pro Mode (top 10% block placement) -------
+  const [proManualOverride, setProManualOverride] = useState<boolean | null>(null)
+  const [proJustActivated, setProJustActivated] = useState(false)
+
+  const sellAmountNum = parseFloat(form.amount || "0")
+  const sellUsdValue =
+    !isNaN(sellAmountNum) && sellAmountNum > 0 && form.fromPrice && form.fromPrice > 0
+      ? sellAmountNum * form.fromPrice
+      : 0
+
+  const proEligible = !!isPermitPath && !form.isWrapUnwrap && FEATURE_FLAGS.pro_mode
+  const proAutoOn = proEligible && sellUsdValue >= PRO_MODE_MIN_USD
+
+  // Reset manual override when crossing the threshold so the auto-trigger
+  // fires fresh each time.
+  const prevProAutoOn = useRef(proAutoOn)
+  useEffect(() => {
+    if (prevProAutoOn.current !== proAutoOn) {
+      prevProAutoOn.current = proAutoOn
+      setProManualOverride(null)
+    }
+  }, [proAutoOn])
+
+  const meetsThreshold = sellUsdValue >= PRO_MODE_MIN_USD
+  const isProMode =
+    proEligible &&
+    meetsThreshold &&
+    proManualOverride !== false &&
+    (proManualOverride === true || proAutoOn)
+
+  // Flash animation when Pro auto-engages
+  const prevIsProMode = useRef(isProMode)
+  useEffect(() => {
+    if (isProMode && !prevIsProMode.current && proManualOverride === null) {
+      setProJustActivated(true)
+      playPreconfirmSound()
+      const t = setTimeout(() => setProJustActivated(false), 1500)
+      return () => clearTimeout(t)
+    }
+    prevIsProMode.current = isProMode
+  }, [isProMode, proManualOverride])
+
+  const handleTogglePro = () => {
+    if (!proEligible || !meetsThreshold) return
+    if (isProMode) {
+      setProManualOverride(false)
+    } else {
+      setProManualOverride(true)
+    }
+  }
 
   // Input Refs
   const sellInputRef = useRef<HTMLInputElement>(null)
@@ -210,6 +263,11 @@ export function SwapForm() {
         barterUnavailable={form.barterUnavailable}
         isBarterValidating={form.isBarterValidating}
         estimatedMiles={estimatedMiles}
+        // Pro Mode
+        isProMode={isProMode}
+        proEligible={proEligible}
+        proJustActivated={proJustActivated}
+        onTogglePro={handleTogglePro}
       />
 
       {/* From Token Selector Modal */}
@@ -284,6 +342,7 @@ export function SwapForm() {
           }}
           autoExecute={autoExecuteSwap}
           onAutoExecuteConsumed={() => setAutoExecuteSwap(false)}
+          isProMode={isProMode}
         />
       )}
     </div>

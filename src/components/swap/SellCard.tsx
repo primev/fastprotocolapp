@@ -22,6 +22,7 @@ import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import { TokenAvatar } from "@/components/swap/TokenAvatar"
 
 interface SellCardProps {
+  isProMode?: boolean
   // Token & Balance Data
   fromToken: Token | null
   amount: string
@@ -52,6 +53,7 @@ interface SellCardProps {
 }
 
 const SellCardComponent: React.FC<SellCardProps> = ({
+  isProMode = false,
   fromToken,
   amount,
   sellDisplayValue,
@@ -125,7 +127,16 @@ const SellCardComponent: React.FC<SellCardProps> = ({
   }
 
   return (
-    <div className="group rounded-[14px] sm:rounded-[16px] bg-[#161b22] border border-white/5 px-3 py-2.5 sm:px-5 sm:py-4">
+    <div className="group relative rounded-[14px] sm:rounded-[16px] bg-[#161b22] border border-white/5 px-3 py-2.5 sm:px-5 sm:py-4">
+      {isProMode && (
+        <div
+          className="absolute top-0 left-[5%] right-[5%] pointer-events-none rounded-b-full bg-gradient-to-r from-transparent from-5% via-pink-500/70 to-transparent to-95%"
+          style={{
+            height: "2.5px",
+            maskImage: "radial-gradient(ellipse 50% 100% at 50% 0%, black 0%, transparent 100%)",
+          }}
+        />
+      )}
       {/* Header: Label and Balance Information */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2 sm:gap-3">

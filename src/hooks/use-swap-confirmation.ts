@@ -9,6 +9,7 @@ import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import { FASTSWAP_API_BASE } from "@/lib/network-config"
+import { TOP_OF_BLOCK_PERCENTILE } from "@/lib/pro-mode"
 import { fetchEthPathTxAndEstimate } from "@/lib/eth-path-tx"
 import type { Token } from "@/types/swap"
 
@@ -20,6 +21,8 @@ interface UseSwapConfirmationParams {
   slippage: string
   deadline: number
   onSuccess?: () => void
+  /** When true, routes the permit-path submission through the Pro endpoint (top 10% block placement). */
+  proMode?: boolean
 }
 
 /** Options for confirmSwap. Used by Permit path to show toast before relayer returns. */
@@ -41,6 +44,7 @@ export function useSwapConfirmation({
   slippage,
   deadline,
   onSuccess,
+  proMode,
 }: UseSwapConfirmationParams) {
   const { isConnected, address } = useAccount()
   const publicClient = usePublicClient({ chainId: mainnet.id })
@@ -229,9 +233,10 @@ export function useSwapConfirmation({
       nonce: intentData.intent.nonce.toString(),
       signature: intentData.signature,
       slippage: (parseFloat(slippage || "0.5") || 0.5).toFixed(1),
+      ...(proMode ? { topPercentile: TOP_OF_BLOCK_PERCENTILE } : {}),
     }
 
-    // Call FastRPC directly — CORS allows it, skip Vercel serverless proxy
+    // Call FastRPC directly — CORS allows it, skip Vercel serverless proxy.
     const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

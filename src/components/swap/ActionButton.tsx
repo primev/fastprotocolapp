@@ -39,6 +39,7 @@ interface ActionButtonProps {
   isUnwrap: boolean
   handleSwapClick: () => void
   isNonceLoading?: boolean
+  isProMode?: boolean
 }
 
 const ActionButtonComponent: React.FC<ActionButtonProps> = ({
@@ -54,6 +55,7 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
   isUnwrap,
   handleSwapClick,
   isNonceLoading = false,
+  isProMode = false,
 }) => {
   const { status } = useAccount()
   const { isPreApproved, isLoading: isWhitelistLoading } = useGateStatus()
@@ -263,7 +265,7 @@ const ActionButtonComponent: React.FC<ActionButtonProps> = ({
           onClick={handleSwapClick}
           className="w-full h-12 sm:h-[54px] rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg bg-gradient-to-r from-pink-500 to-primary hover:opacity-90 transition-all active:scale-[0.98]"
         >
-          {isWrap ? "Wrap" : isUnwrap ? "Unwrap" : "Swap"}
+          {isWrap ? "Wrap" : isUnwrap ? "Unwrap" : isProMode ? "Swap (Pro)" : "Swap"}
         </Button>
       )}
     </div>
