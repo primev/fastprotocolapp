@@ -98,7 +98,9 @@ export const LeaderboardTable = ({
 
   const totalVol = useMemo(() => swapVolumeUsd ?? null, [swapVolumeUsd])
 
-  const [leaderboardMode, setLeaderboardMode] = useState<"volume" | "miles" | "stats">("miles")
+  const [leaderboardMode, setLeaderboardMode] = useState<"volume" | "miles" | "stats">(
+    FEATURE_FLAGS.show_miles_estimate ? "miles" : "volume"
+  )
 
   // Shared Fuul miles leaderboard query. Listens for `refetch-user-miles`
   // events so that when a swap transitions from pending → processed the
@@ -393,16 +395,18 @@ export const LeaderboardTable = ({
           <div className="flex flex-col shrink-0">
             <div className="flex items-center gap-2 mb-1">
               <div className="flex items-center bg-white/[0.04] border border-white/10 rounded-full p-0.5">
-                <button
-                  onClick={() => setLeaderboardMode("miles")}
-                  className={`px-3.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full transition-all ${
-                    leaderboardMode === "miles"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground/50 hover:text-muted-foreground/80"
-                  }`}
-                >
-                  Miles
-                </button>
+                {FEATURE_FLAGS.show_miles_estimate && (
+                  <button
+                    onClick={() => setLeaderboardMode("miles")}
+                    className={`px-3.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full transition-all ${
+                      leaderboardMode === "miles"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground/50 hover:text-muted-foreground/80"
+                    }`}
+                  >
+                    Miles
+                  </button>
+                )}
                 <button
                   onClick={() => setLeaderboardMode("volume")}
                   className={`px-3.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full transition-all ${
@@ -2281,8 +2285,11 @@ interface ReferralLeaderEntry {
   referrals: number
 }
 
-const REFERRAL_TABS = ["Total Refs", "Miles"] as const
-type ReferralTab = (typeof REFERRAL_TABS)[number]
+const ALL_REFERRAL_TABS = ["Total Refs", "Miles"] as const
+type ReferralTab = (typeof ALL_REFERRAL_TABS)[number]
+const REFERRAL_TABS: readonly ReferralTab[] = FEATURE_FLAGS.show_miles_estimate
+  ? ALL_REFERRAL_TABS
+  : ["Total Refs"]
 
 const REFERRAL_TAB_TO_LABEL: Record<ReferralTab, string> = {
   "Total Refs": "REFERRALS",
@@ -2356,10 +2363,12 @@ const ReferralLeadersCard = ({
               <p>
                 <span className="font-bold text-foreground">Total Refs</span> — Most referrals made
               </p>
-              <p>
-                <span className="font-bold text-foreground">Miles</span> — Most miles earned from
-                referrals
-              </p>
+              {FEATURE_FLAGS.show_miles_estimate && (
+                <p>
+                  <span className="font-bold text-foreground">Miles</span> — Most miles earned from
+                  referrals
+                </p>
+              )}
             </TooltipContent>
           </Tooltip>
         </div>
