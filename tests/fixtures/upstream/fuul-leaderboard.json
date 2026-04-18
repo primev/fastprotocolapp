@@ -1,0 +1,23 @@
+{
+  "results": [
+    {
+      "address": "0xabc1111111111111111111111111111111111111",
+      "user_identifier": "0xabc1111111111111111111111111111111111111",
+      "user_identifier_type": "evm_address",
+      "total_amount": 1234.5,
+      "total_attributions": 42,
+      "rank": 1,
+      "affiliate_code": "CODE42",
+      "referred_users": 7
+    },
+    {
+      "address": "0xdef2222222222222222222222222222222222222",
+      "user_identifier": "0xdef2222222222222222222222222222222222222",
+      "user_identifier_type": "evm_address",
+      "total_amount": 999,
+      "total_attributions": 10,
+      "rank": 2
+    }
+  ],
+  "total_results": 2
+}

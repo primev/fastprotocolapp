@@ -1,0 +1,6 @@
+{
+  "outputWithGasAmount": "1000000000000000000",
+  "gasEstimation": 210000,
+  "transactionFee": "420000000000000",
+  "gasPrice": "20000000000"
+}
