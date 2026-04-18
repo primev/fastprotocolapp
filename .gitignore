@@ -28,6 +28,10 @@ dist-ssr
 # Compiler files
 cache/
 out/
+*.tsbuildinfo
+
+# Bun (project uses npm — bun.lockb should not be committed)
+bun.lockb
 
 # Ignores development broadcast logs
 !/broadcast
