@@ -48,3 +48,6 @@ bun.lockb
 .mcp.json
 .claude/settings.local.json
 
+# Worktree / agent harness config (local, not shared)
+.superset/
+
