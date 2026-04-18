@@ -3,6 +3,7 @@ import { z } from "zod"
 import { env } from "@/env/server"
 import { parseSearchParams } from "@/lib/api/parse"
 import { walletAddressSchema } from "@/lib/api/schemas"
+import { fuulPayoutsTotalsSchema } from "@/lib/api/upstream"
 
 const FUUL_TOTALS_URL = "https://api.fuul.xyz/api/v1/payouts/totals"
 
@@ -41,17 +42,26 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      const data = await response.json()
+      const rawData = await response.json()
 
       // Fuul has returned points under several keys over time (`total_points`,
-      // `total_payouts`, `total`, `points`). The fallback chain exists so a
-      // field rename upstream doesn't silently zero-out the UI.
-      let totalPoints = 0
-      if (data?.total_points != null) totalPoints = Number(data.total_points)
-      else if (typeof data === "number") totalPoints = data
-      else if (data?.total_payouts != null) totalPoints = Number(data.total_payouts)
-      else if (data?.total != null) totalPoints = Number(data.total)
-      else if (data?.points != null) totalPoints = Number(data.points)
+      // `total_payouts`, `total`, `points`). The schema below coerces each
+      // candidate into a number and leaves the rest optional; the fallback
+      // chain below then picks the first that's defined, keeping legacy
+      // field renames from silently zero-ing the UI.
+      const parsed = fuulPayoutsTotalsSchema.safeParse(
+        typeof rawData === "number" ? { total_points: rawData } : rawData
+      )
+      if (!parsed.success) {
+        console.error("Fuul payouts shape drift:", parsed.error.issues)
+        return NextResponse.json(
+          { error: "Unexpected response shape from Fuul API" },
+          { status: 502 }
+        )
+      }
+
+      const data = parsed.data
+      const totalPoints = data.total_points ?? data.total_payouts ?? data.total ?? data.points ?? 0
 
       return NextResponse.json({ success: true, data, totalPoints }, { status: 200 })
     } catch (parseError) {

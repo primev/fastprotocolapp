@@ -4,6 +4,10 @@ import { env } from "@/env/server"
 import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/config/constants"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import { parseSearchParams } from "@/lib/api/parse"
+import { fuulLeaderboardResponseSchema } from "@/lib/api/upstream"
+import type { z as zType } from "zod"
+
+type FuulLeaderboardEntry = zType.infer<typeof fuulLeaderboardResponseSchema>["results"][number]
 
 // page=0 means "non-paginated card preview" (returns both sorts); page≥1
 // means "paginated mode" (returns one sort at a time). We keep that
@@ -22,17 +26,6 @@ const FUUL_FETCH_TIMEOUT = 8_000 // 8 seconds — fail fast if Fuul is slow
 // Cache is kept even after stale so it can serve as a fallback when Fuul is unreachable.
 let rawCache: { data: NormalizedEntry[]; timestamp: number } | null = null
 
-interface FuulLeaderboardEntry {
-  address: string
-  user_identifier: string
-  user_identifier_type: string
-  total_amount: number
-  total_attributions: number
-  rank: number
-  affiliate_code?: string
-  referred_users?: number
-}
-
 interface NormalizedEntry {
   wallet: string
   points: number
@@ -46,7 +39,7 @@ interface NormalizedEntry {
 async function fetchFuulPage(
   fuulApiKey: string,
   page: number
-): Promise<{ results: FuulLeaderboardEntry[]; total_results: number } | null> {
+): Promise<zType.infer<typeof fuulLeaderboardResponseSchema> | null> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), FUUL_FETCH_TIMEOUT)
 
@@ -73,7 +66,16 @@ async function fetchFuulPage(
       return null
     }
 
-    return await response.json()
+    // Validate upstream shape before handing it to the cache. Treat a schema
+    // failure exactly like a network failure: return null so the caller
+    // serves the stale cache instead of corrupting the in-memory state.
+    const raw = await response.json()
+    const parsed = fuulLeaderboardResponseSchema.safeParse(raw)
+    if (!parsed.success) {
+      console.error(`[fuul/leaderboard] Fuul API shape drift (page ${page}):`, parsed.error.issues)
+      return null
+    }
+    return parsed.data
   } catch (error) {
     clearTimeout(timeoutId)
     const reason = error instanceof Error && error.name === "AbortError" ? "timeout" : "network"

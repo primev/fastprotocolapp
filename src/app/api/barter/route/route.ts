@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { parseJson } from "@/lib/api/parse"
+import { barterRouteResponseSchema } from "@/lib/api/upstream"
 
 const BARTER_API_BASE = "https://api2.eth.barterswap.xyz"
 
@@ -41,31 +42,33 @@ export async function POST(request: NextRequest) {
       }),
     })
 
-    const data = await resp.json()
+    const rawData = await resp.json()
 
     if (!resp.ok) {
-      const msg = data?.error ?? data?.message ?? `Barter API error (${resp.status})`
+      const msg = rawData?.error ?? rawData?.message ?? `Barter API error (${resp.status})`
       return NextResponse.json({ error: msg }, { status: resp.status })
     }
 
-    const outputAmount = data?.outputWithGasAmount
-    const gasEstimation = data?.gasEstimation
-    const transactionFee = data?.transactionFee
-    const gasPrice = data?.gasPrice
-
-    if (outputAmount == null || gasEstimation == null) {
+    // Upstream-shape guard: a Barter response without outputWithGasAmount or
+    // gasEstimation is unpriceable. The schema requires both; if either is
+    // missing we return 502 so the UI shows a real error instead of
+    // silently quoting undefined.
+    const parsedResp = barterRouteResponseSchema.safeParse(rawData)
+    if (!parsedResp.success) {
+      console.error("Barter route shape drift:", parsedResp.error.issues)
       return NextResponse.json(
         { error: "Barter API error. Invalid route response." },
-        { status: 500 }
+        { status: 502 }
       )
     }
+    const data = parsedResp.data
 
     const response: Record<string, unknown> = {
-      outputAmount: String(outputAmount),
-      gasEstimation: Number(gasEstimation),
+      outputAmount: String(data.outputWithGasAmount),
+      gasEstimation: Number(data.gasEstimation),
     }
-    if (transactionFee != null) response.transactionFee = String(transactionFee)
-    if (gasPrice != null) response.gasPrice = String(gasPrice)
+    if (data.transactionFee != null) response.transactionFee = String(data.transactionFee)
+    if (data.gasPrice != null) response.gasPrice = String(data.gasPrice)
 
     return NextResponse.json(response)
   } catch (error) {
