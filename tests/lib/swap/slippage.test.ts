@@ -40,6 +40,13 @@ describe("validateSlippage — examples", () => {
     expect(validateSlippage("1.0")).toBe(1.0)
     expect(validateSlippage("25")).toBe(25)
   })
+
+  it("distinguishes '0' (zero slippage) from invalid input (default)", () => {
+    // Killer for the `num < 0` → `num <= 0` mutant: `validateSlippage("0")`
+    // must pass through as 0, not fall back to the default 0.5. A user
+    // who types 0% slippage means it — we must not silently widen.
+    expect(validateSlippage("0")).toBe(0)
+  })
 })
 
 describe("validateSlippage — properties", () => {

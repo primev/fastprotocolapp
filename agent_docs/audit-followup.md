@@ -22,6 +22,41 @@ Delete or update entries as they land.
 
 ## Outstanding — pick up from here
 
+### Testing layers — status snapshot
+
+| Layer | Status | Command |
+|---|---|---|
+| Unit / example | ✅ | `npm run test:run` |
+| Property / fuzz (fast-check) | ✅ | `npm run test:run` |
+| Integration (pg-mem real SQL) | ✅ (one route; others blocked by window-fn gap) | `npm run test:run` |
+| Cross-module invariants | ✅ | `npm run test:run` |
+| ABI drift | ✅ | `npm run test:run` |
+| EIP-712 encoding + Permit2 DOMAIN_SEPARATOR | ✅ | `npm run test:run` |
+| Upstream API contracts (+ runtime guards) | ✅ | `npm run test:run` |
+| Hook tests (happy-dom + renderHook) | ✅ (one seed: `use-swap-slippage`) | `npm run test:run` |
+| **Fork tests (anvil + mainnet)** | ✅ | `FORK_RPC_URL=https://ethereum-rpc.publicnode.com npm run test:fork` |
+| **Mutation testing (Stryker)** | ✅ (96.3% on slippage module) | `npm run test:mutation` |
+
+For **fork tests**: gated on `FORK_RPC_URL` so the default suite never
+depends on public-RPC availability. Known-good endpoint is
+`https://ethereum-rpc.publicnode.com`; llamarpc intermittently serves
+non-archive blocks and fails anvil's fork init.
+
+For **mutation testing**: scoped to `src/lib/swap/slippage.ts` by
+design (full-repo runs take 10+ minutes). Widen the `mutate` glob in
+`stryker.config.json` as more modules earn property-test coverage. The
+one surviving mutant is an **equivalent mutation** (`num > 50` vs
+`num >= 50` at the boundary `num=50` — both branches produce 50), not
+a real test gap.
+
+### Seed more hook tests
+
+Pattern proven with `use-swap-slippage`. Highest-ROI next targets:
+- `use-quote-guard-config` — edge-config threshold reads
+- `use-balance-flash` — timing logic
+- `use-page-active` — visibility + idle detection
+- `use-waitlist-position` — fetcher + cache interaction
+
 ### pg-mem limitation: window functions
 
 `pg-mem` (the in-process Postgres we use for API-route integration tests)

@@ -51,3 +51,4 @@ bun.lockb
 # Worktree / agent harness config (local, not shared)
 .superset/
 
+.stryker-tmp/
