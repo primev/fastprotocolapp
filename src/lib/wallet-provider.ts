@@ -1,7 +1,18 @@
 /**
- * Get the currently active provider's name/identifier
- * Checks which wallet is actually active, not just installed
- * When multiple wallets are installed, checks which one is actually being used
+ * Returns the display name of the browser wallet that's actually active
+ * (not merely installed), or null if none is detected.
+ *
+ * Detection order matters. Several wallets impersonate others by setting
+ * multiple `is*` flags at once:
+ *   - Brave injects BOTH `isBraveWallet` and `isMetaMask` for dApp compat.
+ *   - Rabby injects `isMetaMask` too.
+ * So we must check in order of specificity: most-specific flag first
+ * (Brave → Rabby → MetaMask → Coinbase), otherwise a Brave user is
+ * rendered as "MetaMask" in the UI.
+ *
+ * EIP-1193 provides `window.ethereum`, but browsers with multiple
+ * injected wallets expose `window.ethereum.providers` (array) or
+ * even `window.ethereum` as an array directly — we handle both shapes.
  */
 export function getActiveProviderName(): string | null {
   if (typeof window === "undefined") return null
@@ -11,34 +22,34 @@ export function getActiveProviderName(): string | null {
 
   const provider = win.ethereum
 
-  // Check if it's an array - the first one is typically the active provider
+  // Shape 1: window.ethereum is itself an array. The first entry is the
+  // most-recently-active provider.
   if (Array.isArray(provider)) {
     const activeProvider = provider[0]
-    // Check Brave first to avoid misdetection
     if (activeProvider?.isBraveWallet) return "Brave Wallet"
     if (activeProvider?.isRabby) return "Rabby"
     if (activeProvider?.isMetaMask) return "MetaMask"
     if (activeProvider?.isCoinbaseWallet) return "Coinbase Wallet"
   }
 
-  // Check providers array - need to determine which is active
+  // Shape 2: window.ethereum.providers is an array; window.ethereum is still
+  // the current default provider, carrying its own `is*` flags.
   if (provider.providers && Array.isArray(provider.providers)) {
-    // Check which provider flags are set on the main provider object (check Brave first)
+    // First try flags directly on the default provider object.
     if (provider.isBraveWallet) return "Brave Wallet"
     if (provider.isRabby) return "Rabby"
     if (provider.isMetaMask) return "MetaMask"
     if (provider.isCoinbaseWallet) return "Coinbase Wallet"
 
-    // If no flags, check the first provider in the array (most recently active)
+    // No flags on the default? Fall back to the first entry in .providers.
     const firstProvider = provider.providers[0]
-    // Check Brave first to avoid misdetection
     if (firstProvider?.isBraveWallet) return "Brave Wallet"
     if (firstProvider?.isRabby) return "Rabby"
     if (firstProvider?.isMetaMask) return "MetaMask"
     if (firstProvider?.isCoinbaseWallet) return "Coinbase Wallet"
 
-    // Check all providers to find which one is actually active
-    // Look for the provider that matches the main provider object
+    // Last resort: walk the array and find the entry that's identity-equal
+    // to `provider` (i.e. the one EIP-1193 actually hands dapps).
     for (const p of provider.providers) {
       if (p === provider && p.isBraveWallet) return "Brave Wallet"
       if (p === provider && p.isRabby) return "Rabby"
@@ -47,7 +58,7 @@ export function getActiveProviderName(): string | null {
     }
   }
 
-  // Single provider - check wallet identifiers (check Brave first)
+  // Shape 3: single provider, just a plain object with flags.
   if (provider.isBraveWallet) return "Brave Wallet"
   if (provider.isRabby) return "Rabby"
   if (provider.isMetaMask) return "MetaMask"

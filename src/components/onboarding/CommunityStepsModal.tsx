@@ -13,7 +13,7 @@ import { Twitter, MessageCircle, Send, Mail } from "lucide-react"
 import { toast } from "sonner"
 import type { BaseStep } from "@/hooks/use-onboarding-steps"
 import { getCompletedCommunitySteps, saveOnboardingStepToStorage } from "@/lib/onboarding-utils"
-import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL, TWITTER_INVITE_URL } from "@/lib/constants"
+import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL, TWITTER_INVITE_URL } from "@/lib/config/constants"
 
 interface CommunityStepsModalProps {
   open: boolean

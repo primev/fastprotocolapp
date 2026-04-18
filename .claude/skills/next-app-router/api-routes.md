@@ -6,46 +6,77 @@ Routes live under `src/app/api/<name>/route.ts`. Each file exports HTTP-method-n
 
 Existing endpoints (see `agent_docs/architecture.md` for the full list):
 
-`analytics`, `barter`, `config`, `cron`, `early-access`, `fast-tx-status`, `fastswap`, `fastswap-miles`, `feedback`, `fuul`, `gate`, `hyperliquid`, `og`, `token-price`, `tokens`, `transaction-status`, `user-community-activity`, `user-onboarding`, `users`, `waitlist`, `whitelist`.
+`analytics`, `barter`, `config`, `cron`, `early-access`, `fast-tx-status`,
+`fastswap`, `fastswap-miles`, `feedback`, `fuul`, `gate`, `hyperliquid`, `og`,
+`token-price`, `tokens`, `transaction-status`, `user-community-activity`,
+`user-onboarding`, `users`, `waitlist`, `whitelist`.
 
-## Pattern
+## Pattern — always use the Zod helpers in `@/lib/api`
 
 ```ts
-// src/app/api/example/route.ts
-import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
-import { env } from '@/env/server'
+// src/app/api/example/[id]/route.ts
+import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
+import { env } from "@/env/server"
+import { parseJson, parseParams, parseSearchParams } from "@/lib/api/parse"
+import { walletAddressSchema, txHashSchema } from "@/lib/api/schemas"
 
-const bodySchema = z.object({ /* ... */ })
+const paramsSchema = z.object({ id: walletAddressSchema })
+const bodySchema = z.object({ txhash: txHashSchema, status: z.enum(["ok", "err"]) })
 
-export async function POST(req: NextRequest) {
-  const parsed = bodySchema.safeParse(await req.json())
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid' }, { status: 400 })
-  }
-  // ... do the thing
-  return NextResponse.json({ ok: true })
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const p = await parseParams(params, paramsSchema)
+  if (p instanceof NextResponse) return p
+
+  const body = await parseJson(request, bodySchema)
+  if (body instanceof NextResponse) return body
+
+  // `p.id` and `body` are fully typed here — p.id is already lower-cased.
+  return NextResponse.json({ ok: true, id: p.id })
 }
 ```
 
+### Why the `T | NextResponse` return, not a discriminated union
+
+Our tsconfig runs with `strictNullChecks: false`, which breaks the narrowing
+we need to reach `.response` after `if (!parsed.ok)`. Returning
+`T | NextResponse` lets callers narrow via `instanceof NextResponse`, which
+works regardless of strictness. The helper comment in
+`src/lib/api/parse.ts` documents this in full.
+
 ## Rules
 
-1. Validate inputs with Zod.
+1. **Validate every caller input with Zod** — body, search params, dynamic
+   segments. Shared primitives live in `@/lib/api/schemas`; compose
+   route-specific shapes next to the handler.
 2. Return JSON via `NextResponse.json(...)`; set status explicitly.
 3. Use `env` from `@/env/server` for secrets — never `process.env`.
-4. For responses that should be cached, set `export const revalidate = <seconds>` or use `NextResponse` cache headers.
+4. For responses that should be cached, set `export const revalidate = <seconds>`
+   or use `NextResponse` cache headers. Set `"Cache-Control": "no-store"` for
+   near-live data (see `api/fastswap-miles/by-address/route.ts`).
 5. For streaming or non-JSON responses, use `Response` / `ReadableStream`.
 6. Long-running work → background queue, not an API route. Vercel has timeout limits.
 
 ## Cron / scheduled routes
 
-`src/app/api/cron/` exists for Vercel Cron. Protect with a bearer token from env — never leave cron endpoints unauthenticated.
+`src/app/api/cron/` exists for Vercel Cron. Protect with a bearer token from
+env — never leave cron endpoints unauthenticated.
 
 ## Error logging
 
-Use the project analytics helpers in `src/lib/analytics-server.ts` for server-side events. Don't `console.error` secrets into production logs.
+Use the project analytics helpers in `src/lib/analytics-server.ts` for
+server-side events. Don't `console.error` secrets into production logs.
 
 ## Verification
 
 - `npm run build` catches type errors across the server boundary.
-- Test the endpoint with `curl` before claiming complete: `curl -X POST http://localhost:3000/api/<name> -H 'Content-Type: application/json' -d '{...}'`.
+- The `post-edit-build.sh` hook runs build automatically when you edit
+  `src/app/api/**`, `src/middleware.ts`, `next.config.mjs`, `src/env/**`,
+  or `src/actions/**`.
+- Test the endpoint with `curl` before claiming complete:
+  `curl -X POST http://localhost:3000/api/<name> -H 'Content-Type: application/json' -d '{...}'`.
+- If the route has a colocated test under `tests/api/<name>.test.ts`,
+  the `post-edit-test.sh` hook runs it automatically on save.

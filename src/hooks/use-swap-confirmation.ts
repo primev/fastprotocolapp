@@ -7,9 +7,9 @@ import { mainnet } from "wagmi/chains"
 import { parseUnits, formatUnits } from "viem"
 import { useSwapIntent } from "@/hooks/use-swap-intent"
 import { usePermit2Nonce } from "@/hooks/use-permit2-nonce"
-import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
-import { FASTSWAP_API_BASE } from "@/lib/network-config"
-import { fetchEthPathTxAndEstimate } from "@/lib/eth-path-tx"
+import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap/constants"
+import { FASTSWAP_API_BASE } from "@/lib/config/network"
+import { fetchEthPathTxAndEstimate } from "@/lib/swap/eth-path-tx"
 import type { Token } from "@/types/swap"
 
 interface UseSwapConfirmationParams {

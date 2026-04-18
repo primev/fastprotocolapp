@@ -1,43 +1,36 @@
 import "server-only"
 import { NextRequest, NextResponse } from "next/server"
-import { pool } from "@/lib/fast-db"
+import { z } from "zod"
+import { pool } from "@/lib/settlement/db"
+import { parseJson, parseParams } from "@/lib/api/parse"
+import { walletAddressSchema } from "@/lib/api/schemas"
 
-function isValidWalletAddress(address: string): boolean {
-  return /^0x[a-fA-F0-9]{40}$/.test(address)
-}
+const paramsSchema = z.object({ wallet_address: walletAddressSchema })
 
-async function getValidatedWalletAddress(
-  params: Promise<{ wallet_address: string }>
-): Promise<{ address: string } | { error: NextResponse }> {
-  const { wallet_address } = await params
-
-  if (!wallet_address) {
-    return {
-      error: NextResponse.json({ error: "Wallet address is required" }, { status: 400 }),
-    }
-  }
-
-  if (!isValidWalletAddress(wallet_address)) {
-    return {
-      error: NextResponse.json({ error: "Invalid wallet address format" }, { status: 400 }),
-    }
-  }
-
-  return { address: wallet_address.toLowerCase() }
-}
+// Body shape for POST. `activity` accepts the string "true" as a legacy
+// holdover — we normalize to boolean at parse time so downstream SQL
+// never sees strings.
+const postBodySchema = z.object({
+  entity: z.string().trim().min(1, "entity is required and must be a non-empty string"),
+  activity: z
+    .union([z.boolean(), z.literal("true"), z.literal("false")])
+    .transform((v) => v === true || v === "true"),
+  chainId: z.number().int().nullable().optional(),
+})
 
 /**
  * GET /api/user-community-activity/[wallet_address]
- * Returns the latest activity per entity for the user (e.g. ecosystem set verifications).
+ * Returns the latest activity per entity for the user.
  */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ wallet_address: string }> }
 ) {
-  try {
-    const result = await getValidatedWalletAddress(params)
-    if ("error" in result) return result.error
+  const parsed = await parseParams(params, paramsSchema)
+  if (parsed instanceof NextResponse) return parsed
+  const address = parsed.wallet_address
 
+  try {
     const { rows } = await pool.query(
       `SELECT entity, activity
        FROM (
@@ -47,7 +40,7 @@ export async function GET(
          WHERE user_address = $1
        ) sub
        WHERE rn = 1`,
-      [result.address]
+      [address]
     )
 
     const activities: Record<string, boolean> = {}
@@ -64,36 +57,30 @@ export async function GET(
 
 /**
  * POST /api/user-community-activity/[wallet_address]
- * Save or update one entity's activity. Body: { entity: string, activity: boolean, chainId?: number }
+ * Save or update one entity's activity for the user.
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ wallet_address: string }> }
 ) {
+  const parsedParams = await parseParams(params, paramsSchema)
+  if (parsedParams instanceof NextResponse) return parsedParams
+  const address = parsedParams.wallet_address
+
+  const body = await parseJson(request, postBodySchema)
+  if (body instanceof NextResponse) return body
+
   try {
-    const result = await getValidatedWalletAddress(params)
-    if ("error" in result) return result.error
-
-    const body = await request.json()
-    const entity = typeof body?.entity === "string" ? body.entity.trim() : null
-    const activity = body?.activity === true || body?.activity === "true"
-    const chainId =
-      typeof body?.chainId === "number" && Number.isInteger(body.chainId) ? body.chainId : null
-
-    if (!entity) {
-      return NextResponse.json(
-        { error: "entity is required and must be a non-empty string" },
-        { status: 400 }
-      )
-    }
-
     await pool.query(
       `INSERT INTO user_activity (user_address, entity, activity, chainid)
        VALUES ($1, $2, $3, $4)`,
-      [result.address, entity, activity, chainId]
+      [address, body.entity, body.activity, body.chainId ?? null]
     )
 
-    return NextResponse.json({ ok: true, entity, activity, chainId }, { status: 201 })
+    return NextResponse.json(
+      { ok: true, entity: body.entity, activity: body.activity, chainId: body.chainId ?? null },
+      { status: 201 }
+    )
   } catch (err) {
     console.error("Error saving user community activity:", err)
     return NextResponse.json({ error: "Database operation failed" }, { status: 500 })

@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
-import { getBaseUrl } from "@/lib/site-config"
+import { getBaseUrl } from "@/lib/config/site"
 
 export const metadata: Metadata = {
   title: {

@@ -5,7 +5,7 @@
 
 import type { Address } from "viem"
 import type { PublicClient } from "viem"
-import { FASTSWAP_API_BASE } from "@/lib/network-config"
+import { FASTSWAP_API_BASE } from "@/lib/config/network"
 
 export interface EthPathTxParams {
   outputToken: string

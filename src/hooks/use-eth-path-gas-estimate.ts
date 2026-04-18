@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from "react"
 import { useAccount, usePublicClient } from "wagmi"
 import { parseUnits } from "viem"
 import { mainnet } from "wagmi/chains"
-import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
-import { fetchEthPathTxAndEstimate } from "@/lib/eth-path-tx"
+import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap/constants"
+import { fetchEthPathTxAndEstimate } from "@/lib/swap/eth-path-tx"
 import type { Token } from "@/types/swap"
 
 /**

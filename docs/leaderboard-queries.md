@@ -1,5 +1,12 @@
 # Leaderboard Queries Reference
 
+> **Audience: humans + analytics engineers.** This is the SQL reference — the
+> contracts between the UI and the leaderboard tables. Agent-facing guidance
+> for editing leaderboard UI lives in
+> [`.claude/skills/leaderboard-miles/`](../.claude/skills/leaderboard-miles/).
+> Agents editing the analytics services in `src/lib/analytics/` can and should
+> consult this file for query shape and tier definitions.
+
 All leaderboard data comes from `mevcommit_57173.processed_l1_txns_v2` (Trino/Presto) except referrals which use the external Fuul API.
 
 Wallet addresses are always lowercased. Volumes use `COALESCE(..., 0)` for null safety. Timestamps are UTC.

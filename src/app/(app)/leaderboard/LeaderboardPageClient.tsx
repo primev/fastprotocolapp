@@ -9,7 +9,7 @@ import {
   type LeaderboardData,
 } from "@/hooks/use-leaderboard-data"
 import { usePrefetchDashboard } from "@/hooks/use-prefetch-dashboard"
-import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/constants"
+import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/config/constants"
 // Components
 import { LeaderboardTable } from "@/components/dashboard/LeaderboardTable"
 

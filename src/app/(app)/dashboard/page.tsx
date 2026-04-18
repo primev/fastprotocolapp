@@ -42,7 +42,7 @@ import { TransactionFeedbackModal } from "@/components/modals/TransactionFeedbac
 import { ReferralModal } from "@/components/modals/ReferralModal"
 import dynamic from "next/dynamic"
 import { EcosystemSetCarousel } from "@/components/dashboard/EcosystemSetsCarousel"
-import { FEATURE_FLAGS } from "@/lib/feature-flags"
+import { FEATURE_FLAGS } from "@/lib/config/feature-flags"
 
 // Client-only: UserSwapsTable depends on wagmi state (address, isConnected)
 // that differs between server and client. Rendering it on the server produces

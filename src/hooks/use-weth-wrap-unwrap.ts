@@ -9,9 +9,9 @@ import {
   useEstimateGas,
 } from "wagmi"
 import { parseUnits, type TransactionReceipt } from "viem"
-import { WETH_ADDRESS } from "@/lib/swap-constants"
-import { WETH_ABI } from "@/lib/weth-abi"
-import { isWrapOperation, isUnwrapOperation } from "@/lib/weth-utils"
+import { WETH_ADDRESS } from "@/lib/swap/constants"
+import { WETH_ABI } from "@/lib/tokens/weth-abi"
+import { isWrapOperation, isUnwrapOperation } from "@/lib/tokens/weth-utils"
 import { mainnet } from "wagmi/chains"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
 import { GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"

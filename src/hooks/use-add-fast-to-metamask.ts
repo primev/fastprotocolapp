@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { toast } from "sonner"
-import { NETWORK_CONFIG } from "@/lib/network-config"
+import { NETWORK_CONFIG } from "@/lib/config/network"
 
 export interface UseAddFastToMetamaskReturn {
   isProcessing: boolean

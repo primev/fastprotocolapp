@@ -1,56 +1,48 @@
 import { NextRequest, NextResponse } from "next/server"
-import { env } from "@/env/server"
-import { isAddress } from "viem"
-
-interface IdentifyUserPayload {
-  identifier: string
-  identifierType: "evm_address" | "solana_address" | "xrpl_address"
-  trackingId: string
-  accountChainId?: number
-}
+import { z } from "zod"
+import { parseJson } from "@/lib/api/parse"
 
 const FUUL_API_URL = "https://api.fuul.xyz/api/v1/events"
 
+// Fuul accepts three identifier types, but only evm_address is in use today.
+// We still accept all three so a future wiring change doesn't need a schema
+// migration — just a codepath addition.
+const identifyUserSchema = z.object({
+  identifier: z.string().min(1, "identifier is required"),
+  identifierType: z.enum(["evm_address", "solana_address", "xrpl_address"]),
+  trackingId: z.string().min(1, "trackingId is required"),
+  accountChainId: z.number().int().optional(),
+})
+
 export async function POST(request: NextRequest) {
+  const body = await parseJson(request, identifyUserSchema)
+  if (body instanceof NextResponse) return body
+
   try {
-    const body: IdentifyUserPayload = await request.json()
-
-    // Validate required fields
-    if (!body.identifier || !body.trackingId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
-    }
-
-    // Get Fuul API key from environment
     const fuulApiKey = process.env.FUUL_API_KEY
     if (!fuulApiKey) {
       console.error("FUUL_API_KEY not configured")
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
     }
 
-    // Prepare payload for Fuul API (no signature fields needed for backend authentication)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fuulPayload: any = {
-      metadata: {
-        tracking_id: body.trackingId,
-      },
+      metadata: { tracking_id: body.trackingId },
       name: "connect_wallet",
       user: {
         identifier: body.identifier,
-        identifier_type: "evm_address",
+        // Fuul's field name is snake_case; we translate here so the client
+        // contract stays camelCase throughout the app.
+        identifier_type: body.identifierType,
       },
     }
-
-    // Add account_chain_id only if provided (for smart contract wallets)
     if (body.accountChainId !== undefined) {
       fuulPayload.account_chain_id = body.accountChainId
     }
 
-    // Make request to Fuul API
     const response = await fetch(FUUL_API_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${fuulApiKey}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${fuulApiKey}` },
       body: JSON.stringify(fuulPayload),
     })
 
@@ -63,30 +55,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Handle empty responses (204 No Content or empty body)
+    // Fuul returns 204 for success — we normalize to a JSON success shape
+    // so clients don't need to special-case empty bodies.
     if (response.status === 204 || !response.body) {
       return NextResponse.json({ success: true })
     }
 
-    // Only parse JSON if response has content
     try {
       const data = await response.json()
       return NextResponse.json({ success: true, data }, { status: 200 })
-    } catch (parseError) {
-      // If JSON parsing fails but response was OK, still return success
+    } catch {
       console.warn("Fuul API returned non-JSON response, but status was OK")
       return NextResponse.json({ success: true }, { status: 200 })
     }
   } catch (error) {
     console.error("Error identifying user with Fuul:", error)
-
     if (error instanceof Error) {
       return NextResponse.json(
         { error: "Failed to identify user", details: error.message },
         { status: 500 }
       )
     }
-
     return NextResponse.json({ error: "Failed to identify user" }, { status: 500 })
   }
 }

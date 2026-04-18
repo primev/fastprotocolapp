@@ -1,5 +1,9 @@
 # Transaction confirmation flow (TL;DR)
 
+> **Audience: humans.** Agent-facing guidance lives in
+> [`.claude/skills/web3-wallet/tx-confirmation.md`](../.claude/skills/web3-wallet/tx-confirmation.md).
+> This file is a quick flow summary for product/support.
+
 Two sources race to confirm a swap tx: **Fast RPC** (polled via `eth_getTransactionReceipt`) and **Wagmi** (on-chain receipt). The flow is robust to status flipping from success to failed before finality.
 
 ## Flow

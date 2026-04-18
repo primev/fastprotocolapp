@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { isAddress } from "viem"
+import { z } from "zod"
 import { getSheetsClient } from "@/lib/google-sheets"
 import {
   getWaitlistSheetCache,
@@ -8,18 +8,20 @@ import {
   getWhitelistSheetCache,
   setWhitelistSheetCache,
 } from "@/lib/waitlist-sheet-cache"
+import { parseJson } from "@/lib/api/parse"
+import { walletAddressSchema } from "@/lib/api/schemas"
 
 const WAITLIST_RANGE = "'Swap Waitlist'!A:G"
 const WHITELIST_RANGE = "'Swap Whitelist'!A:G"
 
-interface EarlyAccessPayload {
-  wallet_address: string
-  x_handle: string
-  discord_handle: string
-  email: string
-}
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// Zod replaces the earlier chain of imperative nullish checks. `trim()` runs
+// before length/format validation so whitespace-only input is rejected.
+const earlyAccessSchema = z.object({
+  wallet_address: walletAddressSchema,
+  x_handle: z.string().trim().min(1, "X handle is required"),
+  discord_handle: z.string().trim().min(1, "Discord handle is required"),
+  email: z.string().trim().email("Invalid email address"),
+})
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchWaitlistRows(sheets: any, spreadsheetId: string): Promise<string[][]> {
@@ -42,44 +44,20 @@ async function fetchWhitelistRows(sheets: any, spreadsheetId: string): Promise<s
 }
 
 export async function POST(request: NextRequest) {
+  const body = await parseJson(request, earlyAccessSchema)
+  if (body instanceof NextResponse) return body
+
   try {
-    const body: EarlyAccessPayload = await request.json()
-
-    const { wallet_address, x_handle, discord_handle, email } = body
-
-    if (!wallet_address?.trim()) {
-      return NextResponse.json({ error: "Wallet address is required" }, { status: 400 })
-    }
-    if (!isAddress(wallet_address.trim())) {
-      return NextResponse.json({ error: "Invalid wallet address" }, { status: 400 })
-    }
-    if (!x_handle?.trim()) {
-      return NextResponse.json({ error: "X handle is required" }, { status: 400 })
-    }
-    if (!discord_handle?.trim()) {
-      return NextResponse.json({ error: "Discord handle is required" }, { status: 400 })
-    }
-    if (!email?.trim()) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 })
-    }
-    if (!EMAIL_REGEX.test(email.trim())) {
-      return NextResponse.json({ error: "Invalid email address" }, { status: 400 })
-    }
-
     const { sheets, spreadsheetId } = await getSheetsClient()
-    const wallet = wallet_address.trim()
-    const normalized = wallet.toLowerCase().trim()
+    const wallet = body.wallet_address // already lower-cased by walletAddressSchema
 
-    // Fetch both sheets in parallel, using server-side caches
     const [waitlistRows, whitelistRows] = await Promise.all([
       fetchWaitlistRows(sheets, spreadsheetId).catch(() => [] as string[][]),
       fetchWhitelistRows(sheets, spreadsheetId).catch(() => [] as string[][]),
     ])
 
-    const alreadyOnWaitlist = waitlistRows.some(
-      (row) => row[1]?.trim().toLowerCase() === normalized
-    )
-    const hasAccess = whitelistRows.some((row) => row[0]?.trim().toLowerCase() === normalized)
+    const alreadyOnWaitlist = waitlistRows.some((row) => row[1]?.trim().toLowerCase() === wallet)
+    const hasAccess = whitelistRows.some((row) => row[0]?.trim().toLowerCase() === wallet)
 
     if (alreadyOnWaitlist) {
       return NextResponse.json(
@@ -99,16 +77,15 @@ export async function POST(request: NextRequest) {
           [
             timestamp,
             wallet,
-            x_handle.trim(),
-            discord_handle.trim(),
-            email.trim(),
+            body.x_handle,
+            body.discord_handle,
+            body.email,
             hasAccess ? "TRUE" : "FALSE",
           ],
         ],
       },
     })
 
-    // Bust the server cache so the next status fetch reflects the new row
     invalidateWaitlistSheetCache()
 
     return NextResponse.json({ ok: true, approved: hasAccess }, { status: 200 })

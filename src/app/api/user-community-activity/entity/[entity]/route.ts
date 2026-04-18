@@ -1,36 +1,39 @@
 import "server-only"
 import { NextRequest, NextResponse } from "next/server"
-import { pool } from "@/lib/fast-db"
+import { z } from "zod"
+import { pool } from "@/lib/settlement/db"
+import { parseParams, parseSearchParams } from "@/lib/api/parse"
+
+const paramsSchema = z.object({
+  entity: z.string().trim().min(1, "Entity is required"),
+})
+// Optional chainId filter; we coerce because it arrives as a string.
+const querySchema = z.object({
+  chainId: z.coerce.number().int().optional(),
+})
 
 /**
  * GET /api/user-community-activity/entity/[entity]
- * Returns all users who have verified activity for the given entity.
- * Query params: chainId (optional)
+ * Returns all users who have activity records for the given entity.
+ * Optional `?chainId=` filter narrows to a specific chain.
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ entity: string }> }
 ) {
+  const parsedParams = await parseParams(params, paramsSchema)
+  if (parsedParams instanceof NextResponse) return parsedParams
+  const { entity } = parsedParams
+
+  const parsedQuery = parseSearchParams(request, querySchema)
+  if (parsedQuery instanceof NextResponse) return parsedQuery
+  const { chainId } = parsedQuery
+
   try {
-    const { entity } = await params
-    const entityTrimmed = typeof entity === "string" ? entity.trim() : ""
-
-    if (!entityTrimmed) {
-      return NextResponse.json({ error: "Entity is required" }, { status: 400 })
-    }
-
-    const { searchParams } = new URL(request.url)
-    const chainIdParam = searchParams.get("chainId")
-    const chainId = chainIdParam !== null && chainIdParam !== "" ? parseInt(chainIdParam, 10) : null
-
-    const values: unknown[] = [entityTrimmed]
+    const values: unknown[] = [entity]
     let paramIndex = 2
-
-    const chainFilter =
-      chainId !== null && !Number.isNaN(chainId) ? `AND chainid = $${paramIndex++}` : ""
-    if (chainId !== null && !Number.isNaN(chainId)) {
-      values.push(chainId)
-    }
+    const chainFilter = chainId !== undefined ? `AND chainid = $${paramIndex++}` : ""
+    if (chainId !== undefined) values.push(chainId)
 
     const { rows } = await pool.query(
       `SELECT user_address, activity, chainid, created_at

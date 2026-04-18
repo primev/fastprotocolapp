@@ -44,6 +44,22 @@ This directory configures Claude Code for the Fast Protocol App. Nothing here is
 4. **Subagents as firewalls.** Reading many files happens in a subagent, not the parent context.
 5. **Verification is a first-class primitive.** `/verify` is the single most important command here.
 
+## Doc layer convention — one source of truth per topic
+
+To prevent drift, the three doc surfaces have **non-overlapping roles**:
+
+| Layer | Audience | Role | Loads |
+|---|---|---|---|
+| `.claude/skills/` | agents | HOW-TO — patterns, do/don't, code snippets | on relevance |
+| `agent_docs/` | agents | MAP — pointers to code + cross-links to skills | on demand |
+| `docs/` | humans | NARRATIVE — UX behavior, SQL reference, product flow | banner-gated |
+
+Rules:
+- Each topic has exactly one authoritative home. Others link, they don't duplicate.
+- `docs/*.md` files carry an "Audience: humans" banner at the top pointing to the authoritative skill or agent_doc.
+- Moving a skill or splitting a module → update `agent_docs/architecture.md`
+  first (it's the map), then skill cross-links, then any `docs/` pointers.
+
 ## Editing
 
 - Adding a skill → use `/new-skill <name>`, which invokes `skill-creator`.

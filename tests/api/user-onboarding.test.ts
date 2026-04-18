@@ -5,7 +5,7 @@ import {
   VALID_WALLET,
   INVALID_WALLET,
   EMPTY_WALLET,
-} from "@/test/utils/mock-next-request"
+} from "../utils/mock-next-request"
 
 // Mock server-only (it throws in non-server environments)
 vi.mock("server-only", () => ({}))
@@ -16,14 +16,14 @@ const { mockQuery } = vi.hoisted(() => ({
 }))
 
 // Mock the database pool
-vi.mock("@/lib/fast-db", () => ({
+vi.mock("@/lib/settlement/db", () => ({
   pool: {
     query: mockQuery,
   },
 }))
 
 // Import route handlers AFTER mocks are set up
-import { GET, POST, PUT } from "./route"
+import { GET, POST, PUT } from "@/app/api/user-onboarding/[wallet_address]/route"
 
 // Sample user data for tests
 const mockUserData = {
@@ -52,7 +52,8 @@ describe("user-onboarding API route", () => {
       const json = await response.json()
 
       expect(response.status).toBe(400)
-      expect(json.error).toBe("Wallet address is required")
+      expect(json.error).toBe("Invalid request")
+      expect(json.issues[0].path).toBe("wallet_address")
     })
 
     it("returns 400 for invalid wallet address format", async () => {
@@ -63,7 +64,8 @@ describe("user-onboarding API route", () => {
       const json = await response.json()
 
       expect(response.status).toBe(400)
-      expect(json.error).toBe("Invalid wallet address format")
+      expect(json.error).toBe("Invalid request")
+      expect(json.issues[0].path).toBe("wallet_address")
     })
 
     it("returns 404 when user not found", async () => {
@@ -120,7 +122,8 @@ describe("user-onboarding API route", () => {
       const json = await response.json()
 
       expect(response.status).toBe(400)
-      expect(json.error).toBe("Wallet address is required")
+      expect(json.error).toBe("Invalid request")
+      expect(json.issues[0].path).toBe("wallet_address")
     })
 
     it("returns 400 for invalid wallet address format", async () => {
@@ -131,7 +134,8 @@ describe("user-onboarding API route", () => {
       const json = await response.json()
 
       expect(response.status).toBe(400)
-      expect(json.error).toBe("Invalid wallet address format")
+      expect(json.error).toBe("Invalid request")
+      expect(json.issues[0].path).toBe("wallet_address")
     })
 
     it("creates new user with defaults when user does not exist (201)", async () => {
@@ -297,7 +301,8 @@ describe("user-onboarding API route", () => {
       const json = await response.json()
 
       expect(response.status).toBe(400)
-      expect(json.error).toBe("Wallet address is required")
+      expect(json.error).toBe("Invalid request")
+      expect(json.issues[0].path).toBe("wallet_address")
     })
 
     it("returns 400 for invalid wallet address format", async () => {
@@ -308,7 +313,8 @@ describe("user-onboarding API route", () => {
       const json = await response.json()
 
       expect(response.status).toBe(400)
-      expect(json.error).toBe("Invalid wallet address format")
+      expect(json.error).toBe("Invalid request")
+      expect(json.issues[0].path).toBe("wallet_address")
     })
 
     it("upserts user with all provided values", async () => {

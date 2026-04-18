@@ -7,8 +7,8 @@ import {
   PERMIT2_ADDRESS,
   FAST_SETTLEMENT_ADDRESS,
   INTENT_DEADLINE_MINUTES,
-} from "@/lib/swap-constants"
-import { INTENT_WITNESS_TYPE_STRING, GET_SWAP_INTENT_TYPES } from "@/lib/permit2-utils"
+} from "@/lib/swap/constants"
+import { INTENT_WITNESS_TYPE_STRING, GET_SWAP_INTENT_TYPES } from "@/lib/swap/permit2-utils"
 import type { SwapIntent, PermitTransferFrom } from "@/types/swap"
 
 /**

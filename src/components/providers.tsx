@@ -9,7 +9,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { Toaster as Sonner } from "@/components/ui/sonner"
 import { SwapToastContainer } from "@/components/swap/SwapToastContainer"
 import { config } from "@/lib/wagmi"
-import { loadBarterSupportedTokens } from "@/lib/barter-supported-tokens"
+import { loadBarterSupportedTokens } from "@/lib/tokens/barter-supported-tokens"
 import { mainnet } from "wagmi/chains"
 import "@rainbow-me/rainbowkit/styles.css"
 

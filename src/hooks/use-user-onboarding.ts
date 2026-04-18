@@ -1,16 +1,11 @@
 import { useState, useEffect, useCallback } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { useUserOnboardingData } from "./use-dashboard-data"
+import { useUserOnboardingData, type UserOnboardingData } from "./use-dashboard-data"
 
-export type UserOnboardingData = {
-  connect_wallet_completed: boolean
-  setup_rpc_completed: boolean
-  mint_sbt_completed: boolean
-  x_completed: boolean
-  telegram_completed: boolean
-  discord_completed: boolean
-  email_completed: boolean
-}
+// Re-export the canonical shape so existing imports from `./use-user-onboarding`
+// keep working. The type is owned by use-dashboard-data.ts — that's where the
+// API response is actually parsed, which makes it the natural source of truth.
+export type { UserOnboardingData }
 
 export interface UseUserOnboardingReturn {
   userOnboarding: UserOnboardingData | null

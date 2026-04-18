@@ -6,7 +6,7 @@ import {
   clearEstimatedMiles,
   getPendingSwapHashes,
   subscribeSwapSubmitted,
-} from "@/lib/swap-events"
+} from "@/lib/swap/events"
 import { refetchMiles } from "@/hooks/use-user-points"
 
 /**

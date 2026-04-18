@@ -11,7 +11,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { isStablecoin } from "@/lib/stablecoins"
+import { isStablecoin } from "@/lib/tokens/stablecoins"
 import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
@@ -36,17 +36,17 @@ import {
   getTransactionShortMessage,
   parseBarterSlippageError,
   RPCError,
-} from "@/lib/transaction-errors"
+} from "@/lib/settlement/transaction-errors"
 import { useAccount } from "wagmi"
 import { mainnet } from "wagmi/chains"
 import { useTokenPrice } from "@/hooks/use-token-price"
-import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
+import { DEFAULT_ETH_PRICE_USD } from "@/lib/config/constants"
 import { GAS_LIMIT_MULTIPLIER, ETH_PATH_DISPLAY_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
 import { useEthPathGasEstimate } from "@/hooks/use-eth-path-gas-estimate"
-import { ZERO_ADDRESS } from "@/lib/swap-constants"
+import { ZERO_ADDRESS } from "@/lib/swap/constants"
 import { useSwapToastStore } from "@/stores/swapToastStore"
 import { refetchMiles } from "@/hooks/use-user-points"
-import { notifySwapSubmitted } from "@/lib/swap-events"
+import { notifySwapSubmitted } from "@/lib/swap/events"
 
 const numberFlowStyle = {
   "--number-flow-char-gap": "-0.5px",

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Copy, Check, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { FAST_PROTOCOL_NETWORK } from "@/lib/network-config"
+import { FAST_PROTOCOL_NETWORK } from "@/lib/config/network"
 
 interface BrowserWalletStepsProps {
   walletName?: string

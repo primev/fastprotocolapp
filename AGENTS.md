@@ -59,18 +59,26 @@ From recent git history: conventional-ish commits — `feat(scope): …`, `fix(s
 ## Structure at a glance
 
 ```
-src/app/         App Router routes + api/ (~20 endpoints)
+src/app/         App Router routes + api/ (~20 endpoints; user input validated
+                 via @/lib/api/parse + @/lib/api/schemas — Zod)
 src/components/  React components by domain (swap, dashboard, claim, etc.)
-src/hooks/       Custom hooks (50+); see agent_docs/architecture.md
-src/lib/         Utilities, wagmi config, swap logic, contract configs, ABIs
+src/hooks/       Custom hooks (~50); full-barrel index at src/hooks/index.ts
+src/lib/         Folderized by domain:
+                   api/          parseJson / parseSearchParams / parseParams + schemas
+                   tokens/       ERC-20/WETH ABIs, token list, resolver, stablecoins
+                   swap/         swap engine, quote-guard, permit2, eth-path, barter
+                   settlement/   Fast RPC status, tx errors, tx config, DB pool
+                   config/       site, network, leaderboard, feature-flags, constants
+                   analytics/    SQL services + query registry (unchanged)
+                 Top-level: wagmi.ts, wallet-provider.ts, contract-config.tsx, utils.ts
 src/env/         t3-oss env validation (server.ts)
 src/stores/      Zustand stores (currently just swapToastStore)
 src/actions/     Server actions
-src/test/        Vitest setup + utils
+tests/           Top-level test tree mirroring src/ (see tests/README.md)
 contracts/       Solidity (Foundry) — edit with care
-contracts-abi/   Extracted ABI types used by the app
-docs/            Human-facing deep-dives (leaderboard, miles, swap, tx, quote polling)
-agent_docs/      Reference layer for agents (progressive disclosure)
+contracts-abi/   Extracted ABI JSON consumed by src/lib/tokens/*-abi.ts
+docs/            Human-facing deep-dives (banner-gated; agents use skills instead)
+agent_docs/      Reference/map layer for agents (progressive disclosure)
 .claude/         Claude Code skills, subagents, commands, hooks, settings
 ```
 

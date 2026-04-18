@@ -6,8 +6,8 @@
 import { createPublicClient, http, type Address } from "viem"
 import { mainnet } from "wagmi/chains"
 import { parseUnits } from "viem"
-import { WETH_ADDRESS, ZERO_ADDRESS } from "@/lib/swap-constants"
-import { FALLBACK_RPC_ENDPOINT } from "@/lib/network-config"
+import { WETH_ADDRESS, ZERO_ADDRESS } from "@/lib/swap/constants"
+import { FALLBACK_RPC_ENDPOINT } from "@/lib/config/network"
 import { WETH_ABI } from "./weth-abi"
 import type { Token } from "@/types/swap"
 

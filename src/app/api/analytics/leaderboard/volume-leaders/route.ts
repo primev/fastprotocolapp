@@ -6,7 +6,7 @@ import {
 } from "@/lib/analytics/services/leaderboard.service"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import { AnalyticsClientError } from "@/lib/analytics/client"
-import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/constants"
+import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/config/constants"
 
 // In-memory cache
 const cache = new Map<string, { data: unknown; timestamp: number }>()

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { useAccount } from "wagmi"
-import { FEATURE_FLAGS } from "@/lib/feature-flags"
+import { FEATURE_FLAGS } from "@/lib/config/feature-flags"
 import { fetchWaitlistList } from "@/lib/gate-data"
 
 const WAITLIST_STALE_TIME_MS = 5 * 60 * 1000

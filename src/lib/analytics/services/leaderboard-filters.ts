@@ -1,4 +1,4 @@
-import { TIER_THRESHOLDS } from "@/lib/constants"
+import { TIER_THRESHOLDS } from "@/lib/config/constants"
 
 /**
  * Returns the USD volume bounds for a given tier filter.

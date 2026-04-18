@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { getArticlesByCategory } from "@/lib/learn"
 import { ArticleCard } from "@/components/learn/ArticleCard"
-import { getBaseUrl } from "@/lib/site-config"
+import { getBaseUrl } from "@/lib/config/site"
 
 export const metadata: Metadata = {
   title: "Learn — Fast Protocol",

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import { useAccount } from "wagmi"
-import { NETWORK_CONFIG } from "@/lib/network-config"
+import { NETWORK_CONFIG } from "@/lib/config/network"
 
 export interface UseNetworkInstallationReturn {
   isInstalling: boolean

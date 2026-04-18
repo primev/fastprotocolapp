@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Check, Copy } from "lucide-react"
-import { FAST_PROTOCOL_NETWORK } from "@/lib/network-config"
+import { FAST_PROTOCOL_NETWORK } from "@/lib/config/network"
 
 interface NetworkDetail {
   label: string

@@ -1,5 +1,5 @@
 /** Swap-related addresses and config */
-import { STABLECOIN_SYMBOLS as STABLECOIN_SYMBOLS_LIST } from "@/lib/stablecoins"
+import { STABLECOIN_SYMBOLS as STABLECOIN_SYMBOLS_LIST } from "@/lib/tokens/stablecoins"
 
 export const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const
 export const FAST_SETTLEMENT_ADDRESS = "0x084C0EC7f5C0585195c1c713ED9f06272F48cB45" as const

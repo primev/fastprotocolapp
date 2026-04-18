@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
-import { isAddress } from "viem"
+import { z } from "zod"
 import { getUserRecentSwaps } from "@/lib/analytics/services/fastswap.service"
-import tokenList from "@/lib/token-list.json"
-import { ZERO_ADDRESS } from "@/lib/swap-constants"
+import tokenList from "@/lib/tokens/token-list.json"
+import { ZERO_ADDRESS } from "@/lib/swap/constants"
 import type { Token } from "@/types/swap"
+import { parseSearchParams } from "@/lib/api/parse"
+import { walletAddressSchema } from "@/lib/api/schemas"
+
+// Page/size have server-side clamps so a caller can't request enormous slabs:
+// page defaults to 1 and must be positive; pageSize defaults to 25 and caps at 100.
+const querySchema = z.object({
+  address: walletAddressSchema,
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(25),
+})
 
 /**
  * Force per-request execution — users expect near-live data after a swap,
@@ -143,33 +153,11 @@ function formatTokenAmount(raw: string | null, decimals: number): string | null 
  *   - `processed = true`  → show `miles` (may be 0 for unprofitable swaps)
  */
 export async function GET(request: NextRequest) {
+  const parsed = parseSearchParams(request, querySchema)
+  if (parsed instanceof NextResponse) return parsed
+  const { address, page, pageSize } = parsed
+
   try {
-    const { searchParams } = new URL(request.url)
-    const address = searchParams.get("address")
-    const pageParam = searchParams.get("page")
-    const pageSizeParam = searchParams.get("pageSize")
-
-    if (!address || !isAddress(address)) {
-      return NextResponse.json(
-        { error: "Valid address query parameter is required" },
-        { status: 400 }
-      )
-    }
-
-    let page = 1
-    if (pageParam) {
-      const parsed = parseInt(pageParam, 10)
-      if (Number.isFinite(parsed) && parsed > 0) page = parsed
-    }
-
-    let pageSize = 25
-    if (pageSizeParam) {
-      const parsed = parseInt(pageSizeParam, 10)
-      if (Number.isFinite(parsed) && parsed > 0) {
-        pageSize = Math.min(parsed, 100)
-      }
-    }
-
     const result = await getUserRecentSwaps(address, page, pageSize)
 
     const swaps: ApiSwapRow[] = result.rows.map((row) => {

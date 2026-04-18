@@ -1,5 +1,10 @@
 # Quote polling & idle detection
 
+> **Audience: humans.** Agent-facing guidance is in
+> [`.claude/skills/defi-swap/quote-polling.md`](../.claude/skills/defi-swap/quote-polling.md).
+> This file explains the user-observable behavior; the skill explains how to
+> modify it.
+
 The swap UI polls for fresh quotes every 15 seconds (Uniswap V3 Quoter + Barter validation). To avoid wasting RPC and Barter API calls when the user isn't actively using the page, polling pauses automatically and resumes with a fresh quote when the user returns.
 
 ## Detection methods

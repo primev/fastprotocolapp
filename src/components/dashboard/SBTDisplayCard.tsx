@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Check, ChevronRight } from "lucide-react"
 import { SocialIcon } from "react-social-icons"
 import { NFT_NAME, NFT_DESCRIPTION } from "@/lib/contract-config"
-import { OPENSEA_URL } from "@/lib/constants"
+import { OPENSEA_URL } from "@/lib/config/constants"
 
 const SBT_VIDEO_ASSET_URL = process.env.NEXT_PUBLIC_R2_BASE_URL
 

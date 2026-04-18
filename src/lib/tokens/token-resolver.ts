@@ -5,7 +5,7 @@
 
 import type { Address } from "viem"
 import type { Token } from "@/types/swap"
-import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
+import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap/constants"
 
 /**
  * Resolve token address for quoting

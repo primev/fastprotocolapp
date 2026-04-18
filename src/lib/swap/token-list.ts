@@ -1,6 +1,6 @@
-import tokenList from "@/lib/token-list.json"
+import tokenList from "@/lib/tokens/token-list.json"
 import type { Token } from "@/types/swap"
-import { POPULAR_TOKEN_ADDRESSES, SUGGESTED_CHIP_SYMBOLS } from "@/lib/popular-tokens"
+import { POPULAR_TOKEN_ADDRESSES, SUGGESTED_CHIP_SYMBOLS } from "@/lib/tokens/popular-tokens"
 
 /**
  * Build the three token lists rendered by the selector. `excludeAddress`

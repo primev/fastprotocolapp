@@ -15,14 +15,14 @@ import {
   isUnwrapOperation,
   estimateWrapGas,
   estimateUnwrapGas,
-} from "@/lib/weth-utils"
-import { ZERO_ADDRESS } from "@/lib/swap-constants"
-import { isStablecoin } from "@/lib/stablecoins"
+} from "@/lib/tokens/weth-utils"
+import { ZERO_ADDRESS } from "@/lib/swap/constants"
+import { isStablecoin } from "@/lib/tokens/stablecoins"
 import { formatAmountByTokenType, formatTokenAmount } from "@/lib/utils"
 import { useSwapSlippage } from "@/hooks/use-swap-slippage"
 import { useBarterValidation } from "@/hooks/use-barter-validation"
 import { useQuoteGuardConfig } from "@/hooks/use-quote-guard-config"
-import { isQuoteGuardTriggered, computeQuoteGuardFloor } from "@/lib/quote-guard"
+import { isQuoteGuardTriggered, computeQuoteGuardFloor } from "@/lib/swap/quote-guard"
 import { usePageActive } from "@/hooks/use-page-active"
 import { Token } from "@/types/swap"
 import { DEFAULT_ETH_TOKEN } from "@/components/swap/TokenSelectorModal"

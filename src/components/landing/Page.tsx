@@ -21,7 +21,7 @@ import { SocialIcon } from "react-social-icons"
 import { AnimatedBackground } from "@/components/AnimatedBackground"
 import { useAddFastToMetamask } from "@/hooks/use-add-fast-to-metamask"
 import Marquee from "react-fast-marquee"
-import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL, TWITTER_INVITE_URL } from "@/lib/constants"
+import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL, TWITTER_INVITE_URL } from "@/lib/config/constants"
 
 const socialLinks = [
   { name: "Discord", network: "discord", url: DISCORD_INVITE_URL },

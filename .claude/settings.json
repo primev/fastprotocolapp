@@ -10,15 +10,26 @@
       "Bash(npm run typecheck)",
       "Bash(npm run format)",
       "Bash(npm run format:check)",
+      "Bash(npm run build)",
       "Bash(npx tsc --noEmit)",
       "Bash(npx tsc --noEmit:*)",
+      "Bash(npx vitest run)",
+      "Bash(npx vitest run:*)",
+      "Bash(npx next build)",
+      "Bash(npx next lint)",
       "Bash(git status)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git show:*)",
       "Bash(git branch:*)",
+      "Bash(git stash:*)",
+      "Bash(git add:*)",
       "Bash(ls:*)",
       "Bash(cat:*)",
+      "Bash(wc:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(cp:*)",
       "Bash(node -v)",
       "Bash(npm -v)",
       "Bash(.claude/hooks/*.sh)"
@@ -46,6 +57,14 @@
           {
             "type": "command",
             "command": ".claude/hooks/post-edit-typecheck.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-edit-test.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-edit-build.sh"
           }
         ]
       }

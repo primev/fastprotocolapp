@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { createPublicClient, http, type Address } from "viem"
 import { mainnet } from "wagmi/chains"
-import { FALLBACK_RPC_ENDPOINT, RPC_ENDPOINT } from "@/lib/network-config"
+import { FALLBACK_RPC_ENDPOINT, RPC_ENDPOINT } from "@/lib/config/network"
 
 export interface UseReadOnlyContractCallProps {
   contractAddress: string

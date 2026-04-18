@@ -1,4 +1,4 @@
-import { getUniswapTokenList } from "@/lib/swap-server"
+import { getUniswapTokenList } from "@/lib/swap/server"
 import { NextResponse } from "next/server"
 
 /**

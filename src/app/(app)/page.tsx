@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { SITE_URL } from "@/lib/site-config"
+import { SITE_URL } from "@/lib/config/site"
 import { SwapOrLandingGate } from "./SwapOrLandingGate"
 
 export const metadata: Metadata = {

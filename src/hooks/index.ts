@@ -1,30 +1,61 @@
-// Network setup hooks
-export {
-  useNetworkInstallation,
-  type UseNetworkInstallationReturn,
-} from "./use-network-installation"
-export { useRPCTest, type UseRPCTestReturn } from "./use-rpc-test"
+// Barrel export for every hook in this directory.
+//
+// Why: the previous barrel re-exported only 9 of 50 hooks, so agents and
+// humans who trusted `@/hooks` silently missed most of the surface and fell
+// back to deep imports like `@/hooks/use-swap-quote`. A complete barrel makes
+// `@/hooks` the single discoverable entry point and lets re-orgs happen
+// without cascading import updates.
+//
+// Keep sorted alphabetically so diffs stay small when hooks are added.
 
-// Wallet hooks
-export { useWalletInfo, type UseWalletInfoReturn } from "./use-wallet-info"
-export { useGateStatus, type GateStatusData } from "./use-gate-status"
-
-// Onboarding hooks
-export {
-  useOnboardingSteps,
-  type UseOnboardingStepsReturn,
-  type Step,
-  type BaseStep,
-} from "./use-onboarding-steps"
-export { useEmailCapture, type UseEmailCaptureReturn } from "./use-email-capture"
-export {
-  useSmartAccountDetection,
-  type UseSmartAccountDetectionReturn,
-} from "./use-smart-account-detection"
-export { useRPCSetup, type UseRPCSetupReturn } from "./use-rpc-setup"
-export { useWalletConnection, type UseWalletConnectionReturn } from "./use-wallet-connection"
-export { useMinting, type UseMintingReturn } from "./use-minting"
-
-// Other hooks
-export { useToast } from "./use-toast"
-export { useIsMobile } from "./use-mobile"
+export * from "./use-accepted-invite"
+export * from "./use-add-fast-to-metamask"
+export * from "./use-affiliate-code"
+export * from "./use-balance-flash"
+export * from "./use-barter-validation"
+export * from "./use-broadcast-gas-price"
+export * from "./use-dashboard-data"
+export * from "./use-dashboard-tasks"
+export * from "./use-email-capture"
+export * from "./use-email-dialog"
+export * from "./use-estimated-miles"
+export * from "./use-eth-path-gas-estimate"
+export * from "./use-fuul-miles-leaderboard"
+export * from "./use-gate-status"
+export * from "./use-genesis-sbt"
+export * from "./use-leaderboard-data"
+export * from "./use-minting"
+export * from "./use-mobile"
+export * from "./use-network-installation"
+export * from "./use-onboarding-steps"
+export * from "./use-page-active"
+export * from "./use-page-prefetch"
+export * from "./use-permit2-allowance"
+export * from "./use-permit2-nonce"
+export * from "./use-prefetch-dashboard"
+export * from "./use-quote-guard-config"
+export * from "./use-read-only-contract-call"
+export * from "./use-recent-tokens"
+export * from "./use-rpc-setup"
+export * from "./use-rpc-test"
+export * from "./use-smart-account-detection"
+export * from "./use-surplus-rate"
+export * from "./use-swap-confirmation"
+export * from "./use-swap-form"
+export * from "./use-swap-intent"
+export * from "./use-swap-quote"
+export * from "./use-swap-slippage"
+export * from "./use-toast"
+export * from "./use-token-balances"
+export * from "./use-token-price"
+export * from "./use-user-onboarding"
+export * from "./use-user-points"
+export * from "./use-user-swaps"
+export * from "./use-wait-for-tx-confirmation"
+export * from "./use-waitlist"
+export * from "./use-waitlist-position"
+export * from "./use-wallet-connection"
+export * from "./use-wallet-info"
+export * from "./use-wallet-provider"
+export * from "./use-weth-wrap-unwrap"
+export * from "./use-whitelist"

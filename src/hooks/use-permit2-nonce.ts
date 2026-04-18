@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useAccount } from "wagmi"
 import { createPublicClient, http } from "viem"
 import { mainnet } from "wagmi/chains"
-import { PERMIT2_ADDRESS } from "@/lib/swap-constants"
-import { FALLBACK_RPC_ENDPOINT } from "@/lib/network-config"
+import { PERMIT2_ADDRESS } from "@/lib/swap/constants"
+import { FALLBACK_RPC_ENDPOINT } from "@/lib/config/network"
 
 const PERMIT2_ABI = [
   {

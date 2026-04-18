@@ -18,7 +18,7 @@ import { useBalanceFlash } from "@/hooks/use-balance-flash"
 import { Token } from "@/types/swap"
 import { QuoteResult } from "@/hooks/use-swap-quote"
 import { UseBalanceReturnType } from "wagmi"
-import { ZERO_ADDRESS } from "@/lib/swap-constants"
+import { ZERO_ADDRESS } from "@/lib/swap/constants"
 import { TokenAvatar } from "@/components/swap/TokenAvatar"
 
 interface SellCardProps {

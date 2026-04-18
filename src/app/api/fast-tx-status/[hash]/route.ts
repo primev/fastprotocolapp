@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { getAnalyticsClient } from "@/lib/analytics/client"
+import { parseParams } from "@/lib/api/parse"
+import { txHashSchema } from "@/lib/api/schemas"
+
+const paramsSchema = z.object({ hash: txHashSchema })
 
 /**
  * Queries mctransactions for a swap's preconfirmation status.
@@ -7,13 +12,11 @@ import { getAnalyticsClient } from "@/lib/analytics/client"
  * Note: DB stores "pre-confirmed" — normalized to "preconfirmed" by the client-side fetcher.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ hash: string }> }) {
+  const parsed = await parseParams(params, paramsSchema)
+  if (parsed instanceof NextResponse) return parsed
+  const { hash } = parsed
+
   try {
-    const { hash } = await params
-
-    if (!hash) {
-      return NextResponse.json({ status: null, error: "Hash required" }, { status: 400 })
-    }
-
     const client = getAnalyticsClient()
     const rows = await client.executeRaw(
       `SELECT status FROM mctransactions WHERE lower(hash) = lower(:hash) LIMIT 1`,

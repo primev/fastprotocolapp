@@ -10,7 +10,7 @@ import {
   trimWalletAddress,
 } from "@/lib/analytics/services/leaderboard-transform"
 import { AnalyticsClientError } from "@/lib/analytics/client"
-import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/constants"
+import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/config/constants"
 
 // In-memory cache for leaderboard data
 const cache = new Map<string, { data: any; timestamp: number }>()

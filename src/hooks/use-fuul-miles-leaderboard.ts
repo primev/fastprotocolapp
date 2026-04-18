@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
-import { LEADERBOARD_CACHE_STALE_TIME, LEADERBOARD_CACHE_GC_TIME } from "@/lib/constants"
+import { LEADERBOARD_CACHE_STALE_TIME, LEADERBOARD_CACHE_GC_TIME } from "@/lib/config/constants"
 import { REFETCH_MILES_EVENT } from "@/lib/miles-events"
 
 export interface FuulMilesEntry {

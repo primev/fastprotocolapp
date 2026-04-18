@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { AnimatePresence } from "motion/react"
 import { useSwapToastStore } from "@/stores/swapToastStore"
 import { SwapToast } from "./SwapToast"
-import { FEATURE_FLAGS, TEST_SWAP_TOAST_PLACEHOLDER } from "@/lib/feature-flags"
+import { FEATURE_FLAGS, TEST_SWAP_TOAST_PLACEHOLDER } from "@/lib/config/feature-flags"
 
 export function SwapToastContainer() {
   const toasts = useSwapToastStore((s) => s.toasts)

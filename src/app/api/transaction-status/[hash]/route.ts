@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { env } from "@/env/server"
+import { parseParams } from "@/lib/api/parse"
+import { txHashSchema } from "@/lib/api/schemas"
+
+const paramsSchema = z.object({ hash: txHashSchema })
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ hash: string }> }) {
+  const parsed = await parseParams(params, paramsSchema)
+  if (parsed instanceof NextResponse) return parsed
+  const { hash } = parsed
+
   try {
-    const { hash } = await params
-
-    if (!hash) {
-      return NextResponse.json(
-        { success: false, error: "Transaction hash is required" },
-        { status: 400 }
-      )
-    }
-
     const apiToken = env.FAST_RPC_API_TOKEN || ""
 
     const response = await fetch(`https://fastrpc.mev-commit.xyz/status/${hash}`, {

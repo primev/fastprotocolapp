@@ -24,7 +24,7 @@
 
 import { getAddress } from "viem"
 import { mainnet } from "wagmi/chains"
-import { ZERO_ADDRESS } from "@/lib/swap-constants"
+import { ZERO_ADDRESS } from "@/lib/swap/constants"
 import type { Token } from "@/types/swap"
 
 const NATIVE_ETH_ICON = "https://token-icons.s3.amazonaws.com/eth.png"

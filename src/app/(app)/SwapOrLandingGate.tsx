@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAccount } from "wagmi"
-import { FEATURE_FLAGS } from "@/lib/feature-flags"
+import { FEATURE_FLAGS } from "@/lib/config/feature-flags"
 import { useGateStatus, getCachedApproval } from "@/hooks/use-gate-status"
 import { useGateView } from "./GateViewContext"
 import { Hero } from "@/components/swap/HeroSection"

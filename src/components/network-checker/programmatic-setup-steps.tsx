@@ -2,7 +2,7 @@
 
 import { AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { METAMASK_VIDEO_URL } from "@/lib/constants"
+import { METAMASK_VIDEO_URL } from "@/lib/config/constants"
 import { useNetworkInstallation } from "@/hooks/use-network-installation"
 
 export function ProgrammaticSetupSteps() {

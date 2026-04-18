@@ -1,5 +1,10 @@
 # Swap interface: user-facing states & messages
 
+> **Audience: humans.** For agents, the authoritative swap-engine guide lives in
+> [`.claude/skills/defi-swap/`](../.claude/skills/defi-swap/). This file is a
+> reference for product/QA on every user-visible string in the swap UI; don't
+> treat it as load-bearing for code behavior.
+
 Reference for every state, message, and visual cue a user may encounter in the swap UI.
 
 ---

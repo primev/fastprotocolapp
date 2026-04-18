@@ -1,6 +1,6 @@
 import { createPublicClient, http, type Address } from "viem"
 import { mainnet } from "wagmi/chains"
-import { RPC_ENDPOINT, FALLBACK_RPC_ENDPOINT } from "@/lib/network-config"
+import { RPC_ENDPOINT, FALLBACK_RPC_ENDPOINT } from "@/lib/config/network"
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "@/lib/contract-config"
 
 /**

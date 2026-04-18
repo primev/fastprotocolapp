@@ -1,21 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
-import { isAddress } from "viem"
+import { z } from "zod"
 import { getSheetsClient } from "@/lib/google-sheets"
 import { getWaitlistSheetCache, setWaitlistSheetCache } from "@/lib/waitlist-sheet-cache"
+import { parseSearchParams } from "@/lib/api/parse"
+import { walletAddressSchema } from "@/lib/api/schemas"
 
 const WAITLIST_RANGE = "'Swap Waitlist'!A:G"
+const querySchema = z.object({ address: walletAddressSchema })
 
 export async function GET(request: NextRequest) {
+  const parsed = parseSearchParams(request, querySchema)
+  if (parsed instanceof NextResponse) return parsed
+  const address = parsed.address // already lower-cased
+
   try {
-    const { searchParams } = new URL(request.url)
-    const address = searchParams.get("address")
-
-    if (!address || !isAddress(address)) {
-      return NextResponse.json({ error: "Valid address required" }, { status: 400 })
-    }
-
     let rows = getWaitlistSheetCache()
-
     if (!rows) {
       const { sheets, spreadsheetId } = await getSheetsClient()
       const result = await sheets.spreadsheets.values.get({ spreadsheetId, range: WAITLIST_RANGE })
@@ -23,19 +22,15 @@ export async function GET(request: NextRequest) {
       setWaitlistSheetCache(rows)
     }
 
-    const normalizedInput = address.toLowerCase().trim()
-
     const match = rows.find((row) => {
       const cell = row[1]?.trim().toLowerCase()
-      return cell && cell === normalizedInput
+      return cell && cell === address
     })
+    if (!match) return NextResponse.json({ onWaitlist: false }, { status: 200 })
 
-    if (!match) {
-      return NextResponse.json({ onWaitlist: false }, { status: 200 })
-    }
-
+    // Col F (index 5) carries approved-for-whitelist. The legacy sheet used
+    // both "TRUE" and "1" as truthy values — keep both checks for back-compat.
     const hasAccess = match[5]?.toString().toUpperCase() === "TRUE" || match[5]?.toString() === "1"
-
     return NextResponse.json({ onWaitlist: true, hasAccess }, { status: 200 })
   } catch (error) {
     console.error("Waitlist check error:", error)

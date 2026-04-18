@@ -1,6 +1,6 @@
 import "server-only"
 import { NextRequest, NextResponse } from "next/server"
-import { pool } from "@/lib/fast-db"
+import { pool } from "@/lib/settlement/db"
 
 /**
  * GET /api/user-community-activity/stats

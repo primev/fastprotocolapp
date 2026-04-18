@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useMemo, useEffect } from "react"
-import { ZERO_ADDRESS } from "@/lib/swap-constants"
+import { ZERO_ADDRESS } from "@/lib/swap/constants"
 import type { Token } from "@/types/swap"
 import {
   Dialog,
@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Search, Coins, Sparkles, Clock } from "lucide-react"
 import { useRecentTokens } from "@/hooks/use-recent-tokens"
 import { cn } from "@/lib/utils"
-import { getTokenLists } from "@/lib/swap-logic/token-list"
+import { getTokenLists } from "@/lib/swap/token-list"
 import { isValidAddress } from "@/lib/utils"
 import { useAccount, useChainId } from "wagmi"
 import {
@@ -28,7 +28,7 @@ import {
   loadBarterSupportedTokens,
   getBarterMap,
   barterEntryToToken,
-} from "@/lib/barter-supported-tokens"
+} from "@/lib/tokens/barter-supported-tokens"
 import { TokenAvatar } from "@/components/swap/TokenAvatar"
 
 // Token Selector Modal

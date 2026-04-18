@@ -10,7 +10,7 @@
  * Addresses are lowercased for O(1) `Set` membership checks.
  */
 
-import { ZERO_ADDRESS } from "@/lib/swap-constants"
+import { ZERO_ADDRESS } from "@/lib/swap/constants"
 
 /** Addresses are canonical Ethereum mainnet, lowercased. */
 export const POPULAR_TOKEN_ADDRESSES: string[] = [

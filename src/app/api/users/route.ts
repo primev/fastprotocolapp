@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { pool } from "@/lib/fast-db"
+import { pool } from "@/lib/settlement/db"
 
 export async function GET() {
   try {

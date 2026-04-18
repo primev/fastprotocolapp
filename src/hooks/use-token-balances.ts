@@ -4,9 +4,9 @@ import { useQuery } from "@tanstack/react-query"
 import { useBalance } from "wagmi"
 import { formatUnits } from "viem"
 import { mainnet } from "wagmi/chains"
-import { ZERO_ADDRESS } from "@/lib/swap-constants"
+import { ZERO_ADDRESS } from "@/lib/swap/constants"
 import type { Token } from "@/types/swap"
-import { loadBarterSupportedTokens, barterEntryToToken } from "@/lib/barter-supported-tokens"
+import { loadBarterSupportedTokens, barterEntryToToken } from "@/lib/tokens/barter-supported-tokens"
 
 // Canonical WETH address — used as the CoinGecko lookup key for native ETH.
 const WETH_ADDRESS = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"

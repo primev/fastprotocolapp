@@ -7,7 +7,7 @@ import {
   getTransactionFullMessage,
   getTransactionErrorMessage,
   getTransactionErrorTitle,
-} from "../transaction-errors"
+} from "@/lib/settlement/transaction-errors"
 
 const fakeReceipt: TransactionReceipt = {
   transactionHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",

@@ -1,5 +1,10 @@
 # Fast Miles Estimation
 
+> **Audience: humans.** Agent-facing guidance (feature flag wiring, tier logic,
+> code pointers) is in
+> [`.claude/skills/leaderboard-miles/`](../.claude/skills/leaderboard-miles/).
+> This file documents the formula and UI placement for product/QA.
+
 Estimated miles are calculated pre-swap to show users how many Fast Miles they will earn. The estimate is displayed in the swap form (RewardsBadge) and the confirmation modal.
 
 Gated by `FEATURE_FLAGS.show_miles_estimate`.

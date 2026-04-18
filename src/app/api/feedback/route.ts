@@ -1,29 +1,27 @@
 import { NextRequest, NextResponse } from "next/server"
-import { env } from "@/env/server"
+import { z } from "zod"
+import { parseJson } from "@/lib/api/parse"
+import { walletAddressSchema, txHashSchema } from "@/lib/api/schemas"
 
-interface FeedbackPayload {
-  timestamp: string
-  wallet_address: string
-  tx_type: string
-  status: "yes" | "average" | "no"
-  txhash?: string
-}
+// Body schema lives here (not in the shared schemas file) because the shape
+// is route-specific — only the feedback sheet consumes these five columns.
+//
+// Note: an older version of this route had a mismatch between the TS type
+// (`"yes" | "average" | "no"`) and the runtime check (`"slow" | "normal" |
+// "fast"`). Zod eliminates the duplication.
+const feedbackSchema = z.object({
+  timestamp: z.string().min(1, "timestamp is required"),
+  wallet_address: walletAddressSchema,
+  tx_type: z.string().min(1, "tx_type is required"),
+  status: z.enum(["slow", "normal", "fast"]),
+  txhash: txHashSchema.optional(),
+})
 
 export async function POST(request: NextRequest) {
+  const body = await parseJson(request, feedbackSchema)
+  if (body instanceof NextResponse) return body
+
   try {
-    const body: FeedbackPayload = await request.json()
-
-    // Validate required fields
-    if (!body.timestamp || !body.wallet_address || !body.tx_type || !body.status) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
-    }
-
-    // Validate status enum
-    if (!["slow", "normal", "fast"].includes(body.status)) {
-      return NextResponse.json({ error: "Invalid status value" }, { status: 400 })
-    }
-
-    // Get Google Sheets configuration from environment
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID
     const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
     const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n")
@@ -33,11 +31,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
     }
 
-    // Import googleapis dynamically (only on server)
     let googleModule
     try {
       googleModule = await import("googleapis")
-    } catch (error) {
+    } catch {
       console.error("googleapis package not installed. Run: npm install googleapis")
       return NextResponse.json(
         { error: "Server configuration error: googleapis not installed" },
@@ -47,24 +44,21 @@ export async function POST(request: NextRequest) {
 
     const { google } = googleModule
 
-    // Create JWT client for service account
     const auth = new google.auth.JWT({
       email: serviceAccountEmail,
       key: privateKey,
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     })
-
     const sheets = google.sheets({ version: "v4", auth })
 
-    // Append row to the sheet
-    // Sheet has headers: timestamp, wallet_address, tx_type, status, txhash
+    // Sheet columns in order: timestamp, wallet_address, tx_type, status, txhash
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: "'Speed Feedback'!A:E", // Adjust range as needed
+      range: "'Speed Feedback'!A:E",
       valueInputOption: "USER_ENTERED",
       requestBody: {
         values: [
-          [body.timestamp, body.wallet_address, body.tx_type, body.status, body.txhash || ""],
+          [body.timestamp, body.wallet_address, body.tx_type, body.status, body.txhash ?? ""],
         ],
       },
     })
@@ -75,8 +69,6 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error("Error submitting feedback:", error)
-
-    // Provide more specific error messages
     if (error instanceof Error) {
       if (error.message.includes("credentials")) {
         return NextResponse.json({ error: "Authentication failed" }, { status: 500 })
@@ -88,7 +80,6 @@ export async function POST(request: NextRequest) {
         )
       }
     }
-
     return NextResponse.json({ error: "Failed to submit feedback" }, { status: 500 })
   }
 }

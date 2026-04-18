@@ -1,7 +1,7 @@
 "use client"
 
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { DASHBOARD_CACHE_STALE_TIME, DASHBOARD_CACHE_GC_TIME } from "@/lib/constants"
+import { DASHBOARD_CACHE_STALE_TIME, DASHBOARD_CACHE_GC_TIME } from "@/lib/config/constants"
 
 export type UserOnboardingData = {
   connect_wallet_completed: boolean

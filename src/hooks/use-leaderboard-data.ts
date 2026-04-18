@@ -5,8 +5,8 @@ import {
   LEADERBOARD_CACHE_STALE_TIME,
   LEADERBOARD_CACHE_GC_TIME,
   DEFAULT_LEADERBOARD_POLL_INTERVAL,
-} from "@/lib/constants"
-import { getLeaderboardPollIntervalMs } from "@/lib/leaderboard-config"
+} from "@/lib/config/constants"
+import { getLeaderboardPollIntervalMs } from "@/lib/config/leaderboard"
 
 interface LeaderboardEntry {
   rank: number

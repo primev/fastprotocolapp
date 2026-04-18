@@ -14,7 +14,7 @@
  */
 
 import type { Token } from "@/types/swap"
-import curatedTokenList from "@/lib/token-list.json"
+import curatedTokenList from "@/lib/tokens/token-list.json"
 
 export interface BarterTokenEntry {
   address: string

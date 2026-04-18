@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { isAddress } from "viem"
+import { z } from "zod"
 import { getSheetsClient } from "@/lib/google-sheets"
 import {
   getWaitlistSheetCache,
@@ -7,6 +7,8 @@ import {
   getWhitelistSheetCache,
   setWhitelistSheetCache,
 } from "@/lib/waitlist-sheet-cache"
+import { parseSearchParams } from "@/lib/api/parse"
+import { walletAddressSchema } from "@/lib/api/schemas"
 
 const WAITLIST_RANGE = "'Swap Waitlist'!A:G"
 // address(A), listA(B), listB(C), listC(D), priority(E), acceptedInvite(F), swapCount(G)
@@ -21,6 +23,8 @@ const EMPTY_RESPONSE = {
   total: 0,
 }
 
+const querySchema = z.object({ address: walletAddressSchema })
+
 async function fetchWaitlistRows(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sheets: any,
@@ -28,11 +32,7 @@ async function fetchWaitlistRows(
 ): Promise<string[][]> {
   const cached = getWaitlistSheetCache()
   if (cached) return cached
-
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: WAITLIST_RANGE,
-  })
+  const result = await sheets.spreadsheets.values.get({ spreadsheetId, range: WAITLIST_RANGE })
   const rows = (result.data.values ?? []) as string[][]
   setWaitlistSheetCache(rows)
   return rows
@@ -45,11 +45,7 @@ async function fetchWhitelistRows(
 ): Promise<string[][]> {
   const cached = getWhitelistSheetCache()
   if (cached) return cached
-
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: WHITELIST_RANGE,
-  })
+  const result = await sheets.spreadsheets.values.get({ spreadsheetId, range: WHITELIST_RANGE })
   const rows = (result.data.values ?? []) as string[][]
   setWhitelistSheetCache(rows)
   return rows
@@ -57,48 +53,40 @@ async function fetchWhitelistRows(
 
 /**
  * Single consolidated endpoint that returns all gate status in one call.
- *
- * Replaces the need for separate calls to:
- *   /api/whitelist/list
- *   /api/waitlist/list
- *   /api/waitlist/position
- *   /api/waitlist/accept-invite (GET)
+ * Replaces separate /api/whitelist/list, /api/waitlist/list,
+ * /api/waitlist/position, and /api/waitlist/accept-invite GET calls.
  */
 export async function GET(request: NextRequest) {
+  const parsed = parseSearchParams(request, querySchema)
+  if (parsed instanceof NextResponse) return parsed
+  const address = parsed.address // already lower-cased
+
   try {
-    const { searchParams } = new URL(request.url)
-    const address = searchParams.get("address")
-
-    if (!address || !isAddress(address)) {
-      return NextResponse.json({ error: "Valid address required" }, { status: 400 })
-    }
-
     const { sheets, spreadsheetId } = await getSheetsClient()
-    const normalized = address.toLowerCase().trim()
 
-    // Fetch both sheets in parallel, using server-side caches
     const [waitlistRows, whitelistRows] = await Promise.all([
       fetchWaitlistRows(sheets, spreadsheetId),
       fetchWhitelistRows(sheets, spreadsheetId),
     ])
 
-    // Check whitelist — col A = address, col F (index 5) = acceptedInvite
-    const whitelistMatch = whitelistRows.find((row) => row[0]?.trim().toLowerCase() === normalized)
+    // Whitelist: col A = address, col F (index 5) = acceptedInvite
+    const whitelistMatch = whitelistRows.find((row) => row[0]?.trim().toLowerCase() === address)
     const whitelisted = Boolean(whitelistMatch)
     const acceptedInvite = whitelistMatch?.[5]?.trim().toUpperCase() === "TRUE"
 
-    // Check waitlist — filter to valid wallet rows for position counting
+    // Waitlist: filter to rows that look like real wallet entries before
+    // counting position, so the index matches what the user sees in the UI.
     const walletRows = waitlistRows.filter((row) => {
       const cell = row[1]?.trim().toLowerCase()
       return cell && cell.startsWith("0x")
     })
 
     const total = walletRows.length
-    const waitlistIndex = walletRows.findIndex((row) => row[1]?.trim().toLowerCase() === normalized)
+    const waitlistIndex = walletRows.findIndex((row) => row[1]?.trim().toLowerCase() === address)
     const onWaitlist = waitlistIndex !== -1
     const position = onWaitlist ? waitlistIndex + 1 : null
 
-    // Column F (index 5) = approved on waitlist (promoted from waitlist)
+    // Col F (index 5) = approved (promoted from waitlist to whitelist)
     const approved = onWaitlist
       ? walletRows[waitlistIndex]?.[5]?.trim().toUpperCase() === "TRUE"
       : false
@@ -109,6 +97,8 @@ export async function GET(request: NextRequest) {
     )
   } catch (error) {
     console.error("Gate status error:", error)
+    // Degrade gracefully — an unreachable sheet shouldn't block the UI,
+    // so we return the "empty gate" state instead of a 5xx.
     return NextResponse.json(EMPTY_RESPONSE, { status: 200 })
   }
 }

@@ -29,7 +29,7 @@ import {
 } from "lucide-react"
 import { formatCurrency, formatNumber } from "@/lib/utils"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
-import { FEATURE_FLAGS } from "@/lib/feature-flags"
+import { FEATURE_FLAGS } from "@/lib/config/feature-flags"
 import { useFuulMilesLeaderboard } from "@/hooks/use-fuul-miles-leaderboard"
 import { useUserPoints } from "@/hooks/use-user-points"
 import {
@@ -38,7 +38,8 @@ import {
   getTierMetadata,
   getNextTier,
   TESTING_VOLUME_MULTIPLIER,
-} from "@/lib/constants"
+} from "@/lib/config/constants"
+import { LEADERBOARD_PAGE_SIZE as PAGE_SIZE, buildPageNumbers } from "./leaderboard/paginate"
 
 interface LeaderboardEntry {
   wallet: string
@@ -1357,31 +1358,10 @@ const LeaderboardRow = ({
 
 // ─── Paginated All Leaders Modal ─────────────────────────────────────────────
 
-const PAGE_SIZE = 25
-
 interface PaginatedModalEntry {
   rank: number
   wallet: string
   [key: string]: unknown
-}
-
-/** Build page number array with ellipsis: [1, '...', 4, 5, 6, '...', 20] */
-function buildPageNumbers(current: number, total: number): (number | "...")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const pages: (number | "...")[] = []
-  // Always show first page
-  pages.push(1)
-  // Left ellipsis
-  if (current > 3) pages.push("...")
-  // Window around current
-  const start = Math.max(2, current - 1)
-  const end = Math.min(total - 1, current + 1)
-  for (let i = start; i <= end; i++) pages.push(i)
-  // Right ellipsis
-  if (current < total - 2) pages.push("...")
-  // Always show last page
-  pages.push(total)
-  return pages
 }
 
 interface PaginatedLeaderboardModalProps {

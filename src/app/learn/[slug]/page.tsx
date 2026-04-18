@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import { getArticle, getArticleWithHtml, getArticleSlugs, getAllArticles } from "@/lib/learn"
 import { ArticleCard } from "@/components/learn/ArticleCard"
-import { getBaseUrl } from "@/lib/site-config"
+import { getBaseUrl } from "@/lib/config/site"
 
 export function generateStaticParams() {
   return getArticleSlugs().map((slug) => ({ slug }))

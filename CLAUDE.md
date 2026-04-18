@@ -55,7 +55,14 @@ Definitions in [`.claude/commands/`](./.claude/commands/).
 
 ## Hooks (active — expect surprise feedback)
 
-- **PostToolUse (Edit|Write)** runs `npx tsc --noEmit` when a `.ts`/`.tsx` file was touched. Silent on success; prints errors and exits non-zero on failure.
+- **PostToolUse (Edit|Write|MultiEdit)** runs three hooks in sequence, each
+  silent on success:
+  - `post-edit-typecheck.sh` — `npx tsc --noEmit` on any `.ts`/`.tsx` edit.
+  - `post-edit-test.sh` — runs `tests/<mirror>.test.*` if one exists for the
+    edited file (or the edited file is itself a test).
+  - `post-edit-build.sh` — runs `next build` only when the edit touches
+    `src/app/api/**`, `src/middleware.ts`, `next.config.mjs`, `src/env/**`,
+    or `src/actions/**`. Degrades to a notice if `.env.local` isn't populated.
 - **Stop** runs `npm run format:check`. Prints non-conforming files if any.
 
 If a hook complains, fix it before declaring the task complete.

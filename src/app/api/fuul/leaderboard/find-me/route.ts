@@ -1,30 +1,35 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
+import { parseSearchParams } from "@/lib/api/parse"
+import { walletAddressSchema } from "@/lib/api/schemas"
+
+const querySchema = z.object({
+  wallet: walletAddressSchema,
+  sort: z.enum(["miles", "payouts"]).default("miles"),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+})
 
 /**
  * GET /api/fuul/leaderboard/find-me?wallet=0x...&sort=miles&pageSize=25
  *
  * Finds a wallet in the fuul leaderboard and returns which page they appear on.
- * Fetches all pages from the main endpoint to search the complete dataset.
+ * Paginates through the internal endpoint to search the complete dataset.
  */
 export async function GET(request: NextRequest) {
+  const parsed = parseSearchParams(request, querySchema)
+  if (parsed instanceof NextResponse) return parsed
+  const { wallet, sort, pageSize } = parsed
+
   try {
-    const { searchParams } = new URL(request.url)
-    const wallet = searchParams.get("wallet")
-    const sort = searchParams.get("sort") || "miles"
-    const pageSize = Math.min(Math.max(parseInt(searchParams.get("pageSize") || "25", 10), 1), 100)
-
-    if (!wallet) {
-      return NextResponse.json({ error: "wallet parameter is required" }, { status: 400 })
-    }
-
-    const trimmedWallet = trimWalletAddress(wallet.toLowerCase())
+    const trimmedWallet = trimWalletAddress(wallet)
     const origin = request.nextUrl.origin
 
-    // Paginate through the internal endpoint to find the wallet
     let currentPage = 1
     let globalIdx = 0
 
+    // Unbounded-looking loop is bounded by the inner break on empty entries
+    // and by the `currentPage >= totalPages` check at the tail.
     while (true) {
       const res = await fetch(
         `${origin}/api/fuul/leaderboard?limit=100&page=${currentPage}&sort=${sort}`

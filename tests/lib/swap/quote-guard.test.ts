@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { isQuoteGuardTriggered, computeQuoteGuardFloor } from "../quote-guard"
+import { isQuoteGuardTriggered, computeQuoteGuardFloor } from "@/lib/swap/quote-guard"
 
 describe("isQuoteGuardTriggered", () => {
   it("fires on the $47 DAI→WBTC case (206% divergence at 25% threshold)", () => {

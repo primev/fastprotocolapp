@@ -1,4 +1,4 @@
-import { DEFAULT_LEADERBOARD_POLL_INTERVAL } from "@/lib/constants"
+import { DEFAULT_LEADERBOARD_POLL_INTERVAL } from "@/lib/config/constants"
 
 let cachedPollIntervalMs: number | null = null
 

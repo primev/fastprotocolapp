@@ -4,7 +4,7 @@ import type { Metadata, Viewport } from "next"
 import { Providers } from "@/components/providers"
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
-import { getBaseUrl, SITE_URL } from "@/lib/site-config"
+import { getBaseUrl, SITE_URL } from "@/lib/config/site"
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register"
 import { InstallPrompt } from "@/components/pwa/install-prompt"
 

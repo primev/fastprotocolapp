@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
-import { isAddress } from "viem"
+import { z } from "zod"
 import { getSheetsClient } from "@/lib/google-sheets"
 import {
   getWhitelistSheetCache,
   setWhitelistSheetCache,
   invalidateWhitelistSheetCache,
 } from "@/lib/waitlist-sheet-cache"
+import { parseJson, parseSearchParams } from "@/lib/api/parse"
+import { walletAddressSchema } from "@/lib/api/schemas"
 
 // Swap Whitelist columns:
 // A: address, B: listA, C: listB, D: listC, E: priority, F: acceptedInvite, G: swapCount
 const WHITELIST_RANGE = "'Swap Whitelist'!A:G"
 const WHITELIST_SHEET = "Swap Whitelist"
+
+const querySchema = z.object({ address: walletAddressSchema })
+const bodySchema = z.object({ wallet_address: walletAddressSchema })
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchWhitelistRows(sheets: any, spreadsheetId: string): Promise<string[][]> {
@@ -22,51 +27,43 @@ async function fetchWhitelistRows(sheets: any, spreadsheetId: string): Promise<s
   return rows
 }
 
-/** Check whether a wallet has accepted their invite */
+/** Check whether a wallet has accepted their invite. */
 export async function GET(request: NextRequest) {
+  const parsed = parseSearchParams(request, querySchema)
+  if (parsed instanceof NextResponse) return parsed
+  const address = parsed.address // already lower-cased
+
   try {
-    const { searchParams } = new URL(request.url)
-    const address = searchParams.get("address")
-
-    if (!address || !isAddress(address)) {
-      return NextResponse.json({ error: "Valid address required" }, { status: 400 })
-    }
-
     const { sheets, spreadsheetId } = await getSheetsClient()
     const rows = await fetchWhitelistRows(sheets, spreadsheetId)
 
-    const normalizedInput = address.toLowerCase().trim()
-    const row = rows.find((r) => r[0]?.trim().toLowerCase() === normalizedInput)
+    const row = rows.find((r) => r[0]?.trim().toLowerCase() === address)
     const accepted = row?.[5]?.trim().toUpperCase() === "TRUE"
 
     return NextResponse.json({ accepted }, { status: 200 })
   } catch (error) {
     console.error("Accept invite check error:", error)
+    // Fail soft — the accept-invite banner can re-resolve later.
     return NextResponse.json({ accepted: false }, { status: 200 })
   }
 }
 
-/** Mark a wallet as having accepted their invite (sets col F = TRUE on Swap Whitelist) */
+/** Mark a wallet as having accepted their invite (sets col F = TRUE on Swap Whitelist). */
 export async function POST(request: NextRequest) {
+  const body = await parseJson(request, bodySchema)
+  if (body instanceof NextResponse) return body
+  const address = body.wallet_address
+
   try {
-    const body = await request.json()
-    const { wallet_address } = body
-
-    if (!wallet_address || !isAddress(wallet_address)) {
-      return NextResponse.json({ error: "Valid wallet address required" }, { status: 400 })
-    }
-
     const { sheets, spreadsheetId } = await getSheetsClient()
     const rows = await fetchWhitelistRows(sheets, spreadsheetId)
 
-    const normalizedInput = wallet_address.toLowerCase().trim()
-    const rowIndex = rows.findIndex((r) => r[0]?.trim().toLowerCase() === normalizedInput)
-
+    const rowIndex = rows.findIndex((r) => r[0]?.trim().toLowerCase() === address)
     if (rowIndex === -1) {
       return NextResponse.json({ error: "Wallet not on whitelist" }, { status: 404 })
     }
 
-    // Update col F (acceptedInvite) on the Swap Whitelist sheet
+    // Google Sheets rows are 1-indexed.
     const sheetRow = rowIndex + 1
     await sheets.spreadsheets.values.update({
       spreadsheetId,

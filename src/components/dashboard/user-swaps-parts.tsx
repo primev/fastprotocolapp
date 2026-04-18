@@ -28,7 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { UserSwapRow } from "@/hooks/use-user-swaps"
-import { getEstimatedMilesForHash } from "@/lib/swap-events"
+import { getEstimatedMilesForHash } from "@/lib/swap/events"
 
 export const ETHERSCAN_TX_BASE = "https://etherscan.io/tx/"
 

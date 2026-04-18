@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { env } from "@/env/server"
-import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/constants"
+import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/config/constants"
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
+import { parseSearchParams } from "@/lib/api/parse"
+
+// page=0 means "non-paginated card preview" (returns both sorts); page≥1
+// means "paginated mode" (returns one sort at a time). We keep that
+// convention because the UI relies on it.
+const querySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(15),
+  page: z.coerce.number().int().min(0).default(0),
+  sort: z.enum(["miles", "refs", ""]).default(""),
+  refresh: z.literal("1").optional(),
+})
 
 const FUUL_LEADERBOARD_URL = "https://api.fuul.xyz/api/v1/payouts/leaderboard/points"
 const FUUL_FETCH_TIMEOUT = 8_000 // 8 seconds — fail fast if Fuul is slow
@@ -84,11 +96,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
     }
 
-    const { searchParams } = new URL(request.url)
-    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "15", 10), 1), 100)
-    const page = parseInt(searchParams.get("page") || "0", 10)
-    const sort = searchParams.get("sort") || ""
-    const forceRefresh = searchParams.get("refresh") === "1"
+    const parsedQuery = parseSearchParams(request, querySchema)
+    if (parsedQuery instanceof NextResponse) return parsedQuery
+    const { limit, page, sort, refresh } = parsedQuery
+    const forceRefresh = refresh === "1"
 
     // Refresh cache if stale, missing, or explicitly requested
     const isStale =
@@ -180,6 +191,10 @@ export async function GET(request: NextRequest) {
     if (rawCache) {
       console.warn("[fuul/leaderboard] Serving stale cache after unexpected error")
       const allEntries = rawCache.data
+      // In the error path we can't rely on the parsed query from earlier
+      // (we may have thrown before it resolved), so re-read raw search
+      // params with lenient defaults — the goal here is to salvage a
+      // response, not to enforce validation.
       const { searchParams } = new URL(request.url)
       const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "15", 10), 1), 100)
       const page = parseInt(searchParams.get("page") || "0", 10)

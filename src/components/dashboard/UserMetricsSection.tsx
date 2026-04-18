@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { TrendingUp, ArrowUpRight, Coins } from "lucide-react"
 import { formatNumber } from "@/lib/utils"
-import { FEATURE_FLAGS } from "@/lib/feature-flags"
+import { FEATURE_FLAGS } from "@/lib/config/feature-flags"
 import { useUserAnalyticsData } from "@/hooks/use-dashboard-data"
 
 interface UserMetricsSectionProps {

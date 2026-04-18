@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next"
-import { getBaseUrl } from "@/lib/site-config"
+import { getBaseUrl } from "@/lib/config/site"
 import { getAllArticles } from "@/lib/learn"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

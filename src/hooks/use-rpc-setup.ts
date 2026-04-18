@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Connector } from "wagmi"
 import { toast } from "sonner"
-import { NETWORK_CONFIG } from "@/lib/network-config"
+import { NETWORK_CONFIG } from "@/lib/config/network"
 import { getProviderForConnector } from "@/lib/wallet-provider"
 import { isMetaMaskWallet } from "@/lib/onboarding-utils"
 import { UseRPCTestReturn } from "./use-rpc-test"

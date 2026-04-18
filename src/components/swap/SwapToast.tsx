@@ -14,11 +14,11 @@ import {
   isTransactionRejection,
   parseBarterSlippageError,
   RPCError,
-} from "@/lib/transaction-errors"
-import { FAST_PROTOCOL_NETWORK } from "@/lib/network-config"
+} from "@/lib/settlement/transaction-errors"
+import { FAST_PROTOCOL_NETWORK } from "@/lib/config/network"
 import { TokenPairIcon } from "./TokenPairIcon"
 import { PreconfirmCelebration, PreconfirmGlow } from "./PreconfirmCelebration"
-import { playPreconfirmSound } from "@/lib/preconfirm-sound"
+import { playPreconfirmSound } from "@/lib/settlement/preconfirm-sound"
 import { cn } from "@/lib/utils"
 
 const CONFIRMED_AUTO_DISMISS_MS = 6000

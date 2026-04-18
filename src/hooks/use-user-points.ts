@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useAccount } from "wagmi"
 import { REFETCH_MILES_EVENT, refetchMiles } from "@/lib/miles-events"
-import { getPendingSwapHashes, subscribeSwapSubmitted } from "@/lib/swap-events"
+import { getPendingSwapHashes, subscribeSwapSubmitted } from "@/lib/swap/events"
 
 export { REFETCH_MILES_EVENT, refetchMiles }
 

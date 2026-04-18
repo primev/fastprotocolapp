@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { toast } from "sonner"
 import type { UserOnboardingData } from "./use-user-onboarding"
-import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL } from "@/lib/constants"
+import { DISCORD_INVITE_URL, TELEGRAM_INVITE_URL } from "@/lib/config/constants"
 
 export type TaskName =
   | "Connect Wallet"

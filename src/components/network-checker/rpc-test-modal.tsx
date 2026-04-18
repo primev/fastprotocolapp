@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { AlertCircle, CheckCircle, XCircle, Loader2 } from "lucide-react"
 import { useRPCTest } from "@/hooks/use-rpc-test"
-import { FAST_PROTOCOL_NETWORK } from "@/lib/network-config"
+import { FAST_PROTOCOL_NETWORK } from "@/lib/config/network"
 import { Card } from "../ui/card"
 import { useSmartAccountDetection } from "../../hooks/use-smart-account-detection"
 import { SmartAccountModal } from "../onboarding/SmartAccountModal"

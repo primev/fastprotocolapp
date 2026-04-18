@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import type { Token } from "@/types/swap"
-import { tokenIconCandidates } from "@/lib/token-icons"
+import { tokenIconCandidates } from "@/lib/tokens/token-icons"
 import { resolveImageUrl } from "@/lib/utils"
 
 interface TokenAvatarProps {

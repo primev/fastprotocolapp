@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import type { TransactionReceipt } from "viem"
-import { fetchFastTxStatus } from "@/lib/fast-tx-status"
-import { fetchTransactionReceiptFromDb } from "@/lib/transaction-receipt-utils"
-import { fetchCommitmentStatus } from "@/lib/fast-rpc-status"
-import { getTxConfirmationTimeoutMs } from "@/lib/tx-config"
-import { RPCError, buildRevertMessage } from "@/lib/transaction-errors"
+import { fetchFastTxStatus } from "@/lib/settlement/tx-status"
+import { fetchTransactionReceiptFromDb } from "@/lib/settlement/transaction-receipt-utils"
+import { fetchCommitmentStatus } from "@/lib/settlement/rpc-status"
+import { getTxConfirmationTimeoutMs } from "@/lib/settlement/tx-config"
+import { RPCError, buildRevertMessage } from "@/lib/settlement/transaction-errors"
 
 /**
  * Adaptive polling: starts fast to catch sub-second preconfirmations,

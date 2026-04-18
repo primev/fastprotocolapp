@@ -1,31 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { env } from "@/env/server"
 import { getUserSwapVolume } from "@/lib/analytics/services/users.service"
 import { AnalyticsClientError } from "@/lib/analytics/client"
+import { parseParams } from "@/lib/api/parse"
+import { walletAddressSchema } from "@/lib/api/schemas"
 
-// Validate wallet address format
-function isValidWalletAddress(address: string): boolean {
-  return /^0x[a-fA-F0-9]{40}$/.test(address)
-}
+const paramsSchema = z.object({ address: walletAddressSchema })
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ address: string }> }
 ) {
+  const parsed = await parseParams(params, paramsSchema)
+  if (parsed instanceof NextResponse) return parsed
+  const normalizedAddress = parsed.address
+
   try {
-    const { address } = await params
-
-    if (!address) {
-      return NextResponse.json({ error: "Address is required" }, { status: 400 })
-    }
-
-    if (!isValidWalletAddress(address)) {
-      return NextResponse.json({ error: "Invalid address format" }, { status: 400 })
-    }
-
-    const normalizedAddress = address.toLowerCase()
-
-    // Get transaction counts from FastRPC API
     const fastRpcToken = env.FAST_RPC_API_TOKEN
     if (!fastRpcToken) {
       return NextResponse.json({ error: "Fast RPC API token not configured" }, { status: 500 })
@@ -55,7 +46,8 @@ export async function GET(
     const totalTxs = fastRpcData.txn_count || 0
     const swapTxs = fastRpcData.swap_count || 0
 
-    // Get swap volume from analytics database (ETH and USD)
+    // Analytics DB is best-effort — if it's down, we still return tx counts
+    // so the UI can render. Zero-volume is a valid fallback.
     let totalSwapVolEth = 0
     let totalSwapVolUsd = 0
     try {
@@ -70,12 +62,7 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({
-      totalTxs,
-      swapTxs,
-      totalSwapVolEth,
-      totalSwapVolUsd,
-    })
+    return NextResponse.json({ totalTxs, swapTxs, totalSwapVolEth, totalSwapVolUsd })
   } catch (error) {
     console.error("Error fetching user metrics:", error)
     return NextResponse.json({ error: "Failed to fetch user metrics" }, { status: 500 })

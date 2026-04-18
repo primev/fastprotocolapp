@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
-import { RPC_ENDPOINT } from "@/lib/network-config"
+import { RPC_ENDPOINT } from "@/lib/config/network"
 
 /** Fallback average gas limit for bid cost calculation (priorityFee × gasLimit) */
 const DEFAULT_AVG_GAS_LIMIT = 450_000n

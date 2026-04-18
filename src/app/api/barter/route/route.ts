@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
+import { parseJson } from "@/lib/api/parse"
 
 const BARTER_API_BASE = "https://api2.eth.barterswap.xyz"
 
+// Barter accepts source/target as token addresses and sellAmount as a
+// base-unit string. We don't constrain the format further here because
+// Barter itself will 400 on garbage — but we do enforce non-emptiness
+// so the proxy never sends a hollow request.
+const bodySchema = z.object({
+  source: z.string().min(1),
+  target: z.string().min(1),
+  sellAmount: z.union([z.string().min(1), z.number()]),
+})
+
 export async function POST(request: NextRequest) {
+  const parsed = await parseJson(request, bodySchema)
+  if (parsed instanceof NextResponse) return parsed
+  const { source, target, sellAmount } = parsed
+
   try {
-    const body = await request.json()
-    const { source, target, sellAmount } = body
-
-    if (!source || !target || !sellAmount) {
-      return NextResponse.json(
-        { error: "Missing required fields: source, target, sellAmount" },
-        { status: 400 }
-      )
-    }
-
     const apiKey = process.env.BARTER_API_KEY
     if (!apiKey) {
       return NextResponse.json({ error: "Barter API key invalid or missing." }, { status: 500 })

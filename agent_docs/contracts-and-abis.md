@@ -22,12 +22,22 @@ contracts-abi/
 ├── go.mod / go.sum / script.sh
 ```
 
-The web app consumes the JSON in `contracts-abi/abi/` — usually via typed bindings assembled in `src/lib/contract-config.tsx` and specialized files like:
+The web app consumes the JSON in `contracts-abi/abi/` — usually via typed
+bindings assembled in `src/lib/contract-config.tsx` and specialized files:
 
-- `src/lib/fast-settlement-v2-1.ts`
-- `src/lib/fast-settlement-v3-abi.ts`
-- `src/lib/weth-abi.ts`
-- `src/lib/erc20-abi.ts`
+- `src/lib/tokens/weth-abi.ts` — minimal WETH ABI (deposit/withdraw/balanceOf)
+- `src/lib/tokens/erc20-abi.ts` — generic ERC-20 interface
+- `src/types/swap.ts` — FastSettlementV3 struct types (`SwapIntent`, `SwapCall`,
+  `PermitTransferFrom`, `TokenPermissions`) that the swap flow uses to build
+  EIP-712 payloads before handing them to the FastSwap HTTP API.
+
+> The former standalone `src/lib/fast-settlement-v2-1.ts` and
+> `src/lib/fast-settlement-v3-abi.ts` modules were removed. They had no
+> runtime imports (the app talks to FastSwap via the HTTP proxy under
+> `src/app/api/fastswap`, not via direct contract calls). If you need to
+> recreate a direct-call path later, reach for viem's `getContract` against
+> the deployed address in `src/lib/config/network.ts` and the ABI JSON
+> under `contracts-abi/abi/`.
 
 ## When an ABI changes
 
@@ -42,7 +52,7 @@ Don't touch the files in `contracts-abi/` or the `*-abi.ts` wrappers. These are 
 
 ## Address resolution
 
-Contract addresses per chain live in `src/lib/contract-config.tsx` and `src/lib/network-config.ts`. Use these — never hardcode addresses in components or hooks.
+Contract addresses per chain live in `src/lib/contract-config.tsx` and `src/lib/config/network.ts`. Use these — never hardcode addresses in components or hooks.
 
 ## See also
 

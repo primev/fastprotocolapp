@@ -1,7 +1,7 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { MAJOR_ASSET_SYMBOLS } from "@/lib/swap-constants"
-import { isStablecoin as isStablecoinByAddress } from "@/lib/stablecoins"
+import { MAJOR_ASSET_SYMBOLS } from "@/lib/swap/constants"
+import { isStablecoin as isStablecoinByAddress } from "@/lib/tokens/stablecoins"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

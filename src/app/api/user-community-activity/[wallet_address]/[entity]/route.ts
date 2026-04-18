@@ -1,10 +1,14 @@
 import "server-only"
 import { NextRequest, NextResponse } from "next/server"
-import { pool } from "@/lib/fast-db"
+import { z } from "zod"
+import { pool } from "@/lib/settlement/db"
+import { parseParams } from "@/lib/api/parse"
+import { walletAddressSchema } from "@/lib/api/schemas"
 
-function isValidWalletAddress(address: string): boolean {
-  return /^0x[a-fA-F0-9]{40}$/.test(address)
-}
+const paramsSchema = z.object({
+  wallet_address: walletAddressSchema,
+  entity: z.string().trim().min(1, "Entity is required"),
+})
 
 /**
  * GET /api/user-community-activity/[wallet_address]/[entity]
@@ -14,24 +18,11 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ wallet_address: string; entity: string }> }
 ) {
+  const parsed = await parseParams(params, paramsSchema)
+  if (parsed instanceof NextResponse) return parsed
+  const { wallet_address: address, entity } = parsed
+
   try {
-    const { wallet_address, entity } = await params
-
-    if (!wallet_address) {
-      return NextResponse.json({ error: "Wallet address is required" }, { status: 400 })
-    }
-
-    if (!isValidWalletAddress(wallet_address)) {
-      return NextResponse.json({ error: "Invalid wallet address format" }, { status: 400 })
-    }
-
-    const entityTrimmed = typeof entity === "string" ? entity.trim() : ""
-    if (!entityTrimmed) {
-      return NextResponse.json({ error: "Entity is required" }, { status: 400 })
-    }
-
-    const address = wallet_address.toLowerCase()
-
     const { rows } = await pool.query(
       `SELECT entity, activity, chainid, created_at
        FROM (
@@ -41,7 +32,7 @@ export async function GET(
          WHERE user_address = $1 AND entity = $2
        ) sub
        WHERE rn = 1`,
-      [address, entityTrimmed]
+      [address, entity]
     )
 
     if (rows.length === 0) {
