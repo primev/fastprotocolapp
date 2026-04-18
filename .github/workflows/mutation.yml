@@ -1,0 +1,45 @@
+name: Mutation testing
+
+# Weekly Stryker run. NOT a PR gate — mutation score is a quality
+# signal, not a correctness gate. The goal is to surface test-suite
+# drift (mutants that start surviving when tests get weakened) without
+# blocking merges on edge-case equivalent mutations.
+#
+# Current scope: src/lib/swap/slippage.ts (configured in
+# stryker.config.json). Widen the `mutate` glob as more modules earn
+# property-test coverage.
+#
+# Output: HTML report under .stryker-tmp/reports/mutation/html/,
+# uploaded as a workflow artifact so reviewers can click through
+# surviving mutants without rerunning locally.
+
+on:
+  schedule:
+    # 12:00 UTC Mondays — start the week with a test-quality snapshot.
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: mutation-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  stryker:
+    name: Stryker
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run test:mutation
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: .stryker-tmp/reports/mutation/html/
+          retention-days: 30

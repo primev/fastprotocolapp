@@ -1,0 +1,52 @@
+name: Build
+
+# Path-gated Next.js build check. Only runs when the edit touches files
+# that can break at the server/client boundary (API routes, middleware,
+# env schemas, server actions, next.config). The default test suite
+# can't catch these — only `next build` can.
+#
+# Why `cp .env.example .env`: t3-oss env validation runs at build time
+# via jiti inside next.config.mjs. The example file ships Zod-valid
+# UUID placeholders, which is enough to satisfy the schema without
+# leaking any real secrets. If a new env var gets added that the
+# example doesn't cover, this workflow fails and forces the example
+# to stay current with server.ts.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/app/api/**"
+      - "src/middleware.ts"
+      - "src/env/**"
+      - "src/actions/**"
+      - "next.config.mjs"
+      - ".env.example"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/app/api/**"
+      - "src/middleware.ts"
+      - "src/env/**"
+      - "src/actions/**"
+      - "next.config.mjs"
+      - ".env.example"
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  next-build:
+    name: next build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Populate .env from example
+        run: cp .env.example .env
+      - run: npm run build

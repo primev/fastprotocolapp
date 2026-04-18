@@ -1,0 +1,46 @@
+name: Fork tests
+
+# Nightly anvil-forked-mainnet tests. NOT a PR gate: public RPCs flake,
+# and gating merges on a third-party's uptime is a bad trade. When this
+# fails, it's either (a) the RPC was down — rerun — or (b) our EIP-712
+# encoding genuinely drifted from what the on-chain Permit2 returns.
+# The second case is a real incident; the job's failure notification
+# is the canary.
+#
+# FORK_RPC_URL is stored as a repo secret. Known-good public endpoint:
+# https://ethereum-rpc.publicnode.com. Set it at
+# Settings → Secrets and variables → Actions.
+
+on:
+  schedule:
+    # 08:00 UTC daily — quiet hours for most public RPCs.
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: fork-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  fork:
+    name: Permit2 mainnet fork
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install Foundry (provides anvil)
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - run: npm ci
+      - name: Run fork tests
+        env:
+          FORK_RPC_URL: ${{ secrets.FORK_RPC_URL }}
+        run: |
+          if [ -z "$FORK_RPC_URL" ]; then
+            echo "::warning::FORK_RPC_URL secret is not set — fork tests will skip."
+          fi
+          npm run test:fork
