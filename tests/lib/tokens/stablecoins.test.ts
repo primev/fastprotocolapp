@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest"
+import fc from "fast-check"
 import { isStablecoin } from "@/lib/tokens/stablecoins"
 
 // isStablecoin drives display formatting (toFixed for stables vs toSignificant
@@ -46,6 +47,55 @@ describe("isStablecoin", () => {
     it("returns false for empty inputs", () => {
       expect(isStablecoin("")).toBe(false)
       expect(isStablecoin("", "")).toBe(false)
+    })
+  })
+
+  // ─── properties ────────────────────────────────────────────────────────────
+  //
+  // `isStablecoin` is on the hot render path (every row in the leaderboard
+  // and every token in the selector calls it). It MUST be total — a thrown
+  // exception from a rendering helper crashes the entire tree. Property
+  // tests below prove totality and a handful of algebraic invariants.
+
+  describe("invariants", () => {
+    it("is total — never throws on any string × (string | undefined)", () => {
+      fc.assert(
+        fc.property(fc.string(), fc.option(fc.string()), (addr, sym) => {
+          isStablecoin(addr, sym ?? undefined) // no throw
+          return true
+        })
+      )
+    })
+
+    it("always returns a boolean (never null/undefined/NaN/etc.)", () => {
+      fc.assert(
+        fc.property(fc.string(), fc.option(fc.string()), (addr, sym) => {
+          const out = isStablecoin(addr, sym ?? undefined)
+          return typeof out === "boolean"
+        })
+      )
+    })
+
+    it("is case-insensitive on the address argument", () => {
+      // We want `isStablecoin("0xABC…") === isStablecoin("0xabc…")`; otherwise
+      // the leaderboard renders the same token differently based on whichever
+      // casing the upstream service happens to hand us.
+      fc.assert(
+        fc.property(fc.string(), fc.option(fc.string()), (addr, sym) => {
+          return (
+            isStablecoin(addr, sym ?? undefined) ===
+            isStablecoin(addr.toLowerCase(), sym ?? undefined)
+          )
+        })
+      )
+    })
+
+    it("is case-insensitive on the symbol argument", () => {
+      fc.assert(
+        fc.property(fc.string(), fc.string(), (addr, sym) => {
+          return isStablecoin(addr, sym) === isStablecoin(addr, sym.toLowerCase())
+        })
+      )
     })
   })
 })

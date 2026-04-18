@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest"
+import fc from "fast-check"
 import {
   resolveTokenAddress,
   resolveTokenDecimals,
@@ -7,6 +8,7 @@ import {
 } from "@/lib/tokens/token-resolver"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap/constants"
 import type { Token } from "@/types/swap"
+import { validWalletAddress } from "../../utils/arbitraries"
 
 // These tests lock the ETH↔WETH substitution rule that drives Uniswap quoting.
 // The quoter ABI only understands ERC-20 addresses, so native ETH (which uses
@@ -105,5 +107,106 @@ describe("getTokenSymbol", () => {
   it("returns the symbol for a token object, or null if absent", () => {
     expect(getTokenSymbol(USDC)).toBe("USDC")
     expect(getTokenSymbol(null)).toBeNull()
+  })
+})
+
+// ─── properties ──────────────────────────────────────────────────────────────
+//
+// These lock the two load-bearing invariants of the resolver:
+//   1. Totality — no call path throws on any combination of inputs.
+//   2. The ETH-like → WETH substitution is exhaustive: whether the caller
+//      passes a Token with zero-address, a Token with symbol="ETH", or the
+//      bare string "ETH", the resolver emits WETH_ADDRESS. The Uniswap
+//      quoter cannot accept native ETH, so any leak of the zero address
+//      would produce silent "no liquidity" errors.
+
+function erc20TokenArb(): fc.Arbitrary<Token> {
+  return fc
+    .record({
+      address: validWalletAddress(),
+      symbol: fc.string({ minLength: 1, maxLength: 8 }),
+      decimals: fc.integer({ min: 0, max: 32 }),
+    })
+    .filter(
+      (t) => t.address !== ZERO_ADDRESS && t.symbol.toUpperCase() !== "ETH"
+    )
+    .map((t) => ({ ...t, name: t.symbol }) as Token)
+}
+
+describe("token-resolver — invariants", () => {
+  it("resolveTokenAddress is total (no throw for any token-shaped input)", () => {
+    fc.assert(
+      fc.property(fc.option(erc20TokenArb()), (token) => {
+        resolveTokenAddress(token ?? undefined)
+        return true
+      })
+    )
+    fc.assert(
+      fc.property(fc.option(fc.string()), (sym) => {
+        resolveTokenAddress(sym ?? undefined)
+        return true
+      })
+    )
+  })
+
+  it("any ETH-like input resolves to WETH_ADDRESS", () => {
+    // Three ways a caller expresses "native ETH":
+    //   - token object with zero address
+    //   - token object with symbol "ETH" (any case)
+    //   - bare string "ETH" (any case)
+    // All three must rewrite to WETH — otherwise the quoter gets garbage.
+    const ethish = fc.oneof(
+      fc.record({ address: fc.constant(ZERO_ADDRESS), symbol: fc.constant("ANY") }),
+      fc.record({
+        address: validWalletAddress(),
+        symbol: fc.constantFrom("ETH", "eth", "Eth"),
+      }),
+      fc.record({ address: fc.constant(ZERO_ADDRESS), symbol: fc.constant("ETH") })
+    )
+    fc.assert(
+      fc.property(ethish, (raw) => {
+        const token: Token = { ...raw, decimals: 18, name: "Ether" }
+        return resolveTokenAddress(token) === WETH_ADDRESS
+      })
+    )
+    fc.assert(
+      fc.property(fc.constantFrom("ETH", "eth", "Eth", "ETh"), (sym) => {
+        return resolveTokenAddress(sym) === WETH_ADDRESS
+      })
+    )
+  })
+
+  it("resolveTokenDecimals is total and defaults to 18 for nullish/missing inputs", () => {
+    fc.assert(
+      fc.property(fc.option(fc.string()), (sym) => {
+        const out = resolveTokenDecimals(sym ?? undefined)
+        return Number.isInteger(out) && out >= 0
+      })
+    )
+  })
+
+  it("isNativeETH is total and returns a boolean", () => {
+    fc.assert(
+      fc.property(fc.option(erc20TokenArb()), (token) => {
+        const out = isNativeETH(token ?? undefined)
+        return typeof out === "boolean"
+      })
+    )
+  })
+
+  it("isNativeETH(ETH-like) is always true", () => {
+    fc.assert(
+      fc.property(fc.constantFrom("ETH", "eth", "ETh"), (sym) => {
+        return isNativeETH(sym) === true
+      })
+    )
+  })
+
+  it("isNativeETH(real ERC-20) is always false", () => {
+    fc.assert(
+      fc.property(erc20TokenArb(), (token) => {
+        return isNativeETH(token) === false
+      })
+    )
   })
 })

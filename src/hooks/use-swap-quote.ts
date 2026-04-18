@@ -13,6 +13,7 @@ import {
 } from "@/lib/tokens/token-resolver"
 import type { Token } from "@/types/swap"
 import { FEATURE_FLAGS } from "@/lib/config/feature-flags"
+import { validateSlippage, slippageBpsFromPercent, computeSlippageLimit } from "@/lib/swap/slippage"
 
 // Uniswap V3 Quoter V2 on Ethereum mainnet
 const QUOTER_V2_ADDRESS = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e" as const
@@ -278,20 +279,10 @@ function createClient(rpcUrl: string) {
 }
 
 /**
- * Validate slippage input
- * @param slippage Raw slippage string
- * @returns Validated slippage percentage or default
- */
-function validateSlippage(slippage: string): number {
-  const num = parseFloat(slippage)
-  if (isNaN(num) || num < 0) return 0.5 // Default to 0.5%
-  if (num > 50) return 50 // Cap at 50%
-  return num
-}
-
-/**
  * Recalculate slippageLimit from existing quote amounts (no RPC call).
- * Used when only slippage changes - Market Price stays the same, Minimum Received updates instantly.
+ * Used when only slippage changes — Market Price stays the same and
+ * Minimum Received updates instantly. Core math lives in
+ * `@/lib/swap/slippage`; this shim just handles token formatting.
  */
 function recalculateSlippageLimit(
   quote: QuoteResult,
@@ -300,7 +291,7 @@ function recalculateSlippageLimit(
   tokenOut: Token,
   tokenList: Token[]
 ): { slippageLimit: bigint; slippageLimitFormatted: string } {
-  const slippageBps = BigInt(Math.floor(validateSlippage(slippage) * 100))
+  const slippageBps = slippageBpsFromPercent(validateSlippage(slippage))
   const tokenOutDecimals = resolveTokenDecimals(tokenOut, tokenList)
   const tokenInDecimals = resolveTokenDecimals(tokenIn, tokenList)
   const tokenOutSymbol = getTokenSymbol(tokenOut) || ""
@@ -309,8 +300,7 @@ function recalculateSlippageLimit(
   const tokenInAddr = tokenIn?.address ?? ""
 
   if (!quote.isMaxIn) {
-    // exactIn: minimum output we accept
-    const slippageLimit = (quote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
+    const slippageLimit = computeSlippageLimit(quote.amountOut, slippageBps, "exactIn")
     const slippageLimitFormatted = formatTokenAmount(
       parseFloat(formatUnits(slippageLimit, tokenOutDecimals)),
       tokenOutSymbol,
@@ -318,17 +308,15 @@ function recalculateSlippageLimit(
       tokenOutAddr
     )
     return { slippageLimit, slippageLimitFormatted }
-  } else {
-    // exactOut: maximum input we pay
-    const slippageLimit = (quote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
-    const slippageLimitFormatted = formatTokenAmount(
-      parseFloat(formatUnits(slippageLimit, tokenInDecimals)),
-      tokenInSymbol,
-      undefined,
-      tokenInAddr
-    )
-    return { slippageLimit, slippageLimitFormatted }
   }
+  const slippageLimit = computeSlippageLimit(quote.amountIn, slippageBps, "exactOut")
+  const slippageLimitFormatted = formatTokenAmount(
+    parseFloat(formatUnits(slippageLimit, tokenInDecimals)),
+    tokenInSymbol,
+    undefined,
+    tokenInAddr
+  )
+  return { slippageLimit, slippageLimitFormatted }
 }
 
 /**
@@ -624,17 +612,18 @@ export function useQuote({
       )
 
       // --- Slippage limit (worst-case value for contract + Details section) ---
-      // slippageLimit is passed to the contract and shown in the modal "Details" section.
+      // slippageLimit is passed to the contract and shown in the modal
+      // "Details" section. The math lives in @/lib/swap/slippage so it can be
+      // property-tested without React.
       const slippagePct = latestSlippageRef.current
-      const slippageBps = BigInt(Math.floor(validateSlippage(slippagePct) * 100))
+      const slippageBps = slippageBpsFromPercent(validateSlippage(slippagePct))
 
       let slippageLimit: bigint
       let slippageLimitFormatted: string
       let isMaxIn: boolean
 
       if (currentTradeType === "exactIn") {
-        // Minimum output we accept: amountOut * (1 - slippage/100). Format using tokenOut.
-        slippageLimit = (bestQuote.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000)
+        slippageLimit = computeSlippageLimit(bestQuote.amountOut, slippageBps, "exactIn")
         slippageLimitFormatted = formatTokenAmount(
           parseFloat(formatUnits(slippageLimit, tokenOutDecimals)),
           tokenOutSymbol,
@@ -643,8 +632,7 @@ export function useQuote({
         )
         isMaxIn = false
       } else {
-        // Maximum input we pay: amountIn * (1 + slippage/100). Format using tokenIn.
-        slippageLimit = (bestQuote.amountIn * (BigInt(10000) + slippageBps)) / BigInt(10000)
+        slippageLimit = computeSlippageLimit(bestQuote.amountIn, slippageBps, "exactOut")
         slippageLimitFormatted = formatTokenAmount(
           parseFloat(formatUnits(slippageLimit, tokenInDecimals)),
           tokenInSymbol,
