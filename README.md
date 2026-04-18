@@ -51,6 +51,17 @@ contracts/            # Solidity smart contracts (Foundry)
 - **Telegram**: [t.me/Fast_Protocol](https://t.me/Fast_Protocol)
 - **X (Twitter)**: [@Fast_Protocol](https://x.com/Fast_Protocol)
 
+## Working with AI agents
+
+This repo is instrumented for agentic development. Start here:
+
+- [`AGENTS.md`](./AGENTS.md) — portable spec (Claude Code, Codex, Cursor, Amp, Jules)
+- [`CLAUDE.md`](./CLAUDE.md) — Claude Code-specific additions
+- [`agent_docs/`](./agent_docs) — on-demand reference layer (stack, architecture, web3, env, testing, verification, glossary)
+- [`.claude/`](./.claude) — skills, subagents, slash commands, hooks
+
+In a fresh Claude Code session, run `/prime` to load the project mental model.
+
 ## License
 
 This project is licensed under the Business Source License 1.1. See [LICENSE](LICENSE) for details.

@@ -1,0 +1,51 @@
+# API routes
+
+## Layout
+
+Routes live under `src/app/api/<name>/route.ts`. Each file exports HTTP-method-named async functions.
+
+Existing endpoints (see `agent_docs/architecture.md` for the full list):
+
+`analytics`, `barter`, `config`, `cron`, `early-access`, `fast-tx-status`, `fastswap`, `fastswap-miles`, `feedback`, `fuul`, `gate`, `hyperliquid`, `og`, `token-price`, `tokens`, `transaction-status`, `user-community-activity`, `user-onboarding`, `users`, `waitlist`, `whitelist`.
+
+## Pattern
+
+```ts
+// src/app/api/example/route.ts
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { env } from '@/env/server'
+
+const bodySchema = z.object({ /* ... */ })
+
+export async function POST(req: NextRequest) {
+  const parsed = bodySchema.safeParse(await req.json())
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'invalid' }, { status: 400 })
+  }
+  // ... do the thing
+  return NextResponse.json({ ok: true })
+}
+```
+
+## Rules
+
+1. Validate inputs with Zod.
+2. Return JSON via `NextResponse.json(...)`; set status explicitly.
+3. Use `env` from `@/env/server` for secrets — never `process.env`.
+4. For responses that should be cached, set `export const revalidate = <seconds>` or use `NextResponse` cache headers.
+5. For streaming or non-JSON responses, use `Response` / `ReadableStream`.
+6. Long-running work → background queue, not an API route. Vercel has timeout limits.
+
+## Cron / scheduled routes
+
+`src/app/api/cron/` exists for Vercel Cron. Protect with a bearer token from env — never leave cron endpoints unauthenticated.
+
+## Error logging
+
+Use the project analytics helpers in `src/lib/analytics-server.ts` for server-side events. Don't `console.error` secrets into production logs.
+
+## Verification
+
+- `npm run build` catches type errors across the server boundary.
+- Test the endpoint with `curl` before claiming complete: `curl -X POST http://localhost:3000/api/<name> -H 'Content-Type: application/json' -d '{...}'`.
