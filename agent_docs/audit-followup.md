@@ -22,6 +22,23 @@ Delete or update entries as they land.
 
 ## Outstanding — pick up from here
 
+### pg-mem limitation: window functions
+
+`pg-mem` (the in-process Postgres we use for API-route integration tests)
+does not support `OVER (PARTITION BY ... ORDER BY ...)` window functions
+yet. The `user-community-activity` routes all read via `ROW_NUMBER() OVER`
+to pick the most-recent row per entity, so they can't be integration-tested
+in-process without a route refactor.
+
+Path forward: use `testcontainers` + a real Postgres container. Slower
+(~3s container startup per file) but supports the full SQL surface. Worth
+adding when we have more routes on window functions.
+
+Until then, the window-function routes are unit-tested via mocked
+`pool.query` — less thorough but not worse than no coverage.
+
+
+
 ### API routes not yet on Zod (29 remaining)
 
 Pattern: replace imperative `if (!x) return 400` with

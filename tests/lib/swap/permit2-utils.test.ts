@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import fc from "fast-check"
-import { hashTypedData, keccak256, toBytes } from "viem"
+import { hashDomain, hashTypedData, keccak256, toBytes } from "viem"
 import {
   INTENT_WITNESS_TYPE_STRING,
   GET_SWAP_INTENT_TYPES,
@@ -112,6 +112,72 @@ describe("INTENT_WITNESS_TYPE_STRING — contract coupling", () => {
     expect(hash).toMatchInlineSnapshot(
       `"0x42a3c5ff84f3c363ecd3e4c67c095aa17cfac2a704b64eeeddfa3cf0927f1e5f"`
     )
+  })
+})
+
+// ─── Domain separator ────────────────────────────────────────────────────────
+//
+// The EIP-712 domain separator encodes (name, chainId, verifyingContract).
+// The full GOLDEN hash below mixes domain and message — if only the message
+// were wrong, the message-level tests would catch it; if only the domain
+// were wrong, we'd need a fork or a dedicated snapshot to notice. This
+// isolates the domain so any drift (wrong chain, wrong Permit2 address,
+// or a name typo like "permit2") moves ONE hash, not two.
+
+describe("EIP-712 domain separator — Permit2 on mainnet", () => {
+  // `chainId` is a bigint here to satisfy viem's typed-data encoder (which
+  // wants `uint256` fields as bigints). The wire signature still uses the
+  // decimal integer form; this is a TS-side width choice only.
+  const DOMAIN = {
+    name: "Permit2",
+    chainId: 1n,
+    verifyingContract: PERMIT2_ADDRESS.toLowerCase() as `0x${string}`,
+  } as const
+
+  // Permit2's on-chain DOMAIN_SEPARATOR hashes these three fields in order
+  // (no `version`). Matching the field set here is load-bearing — missing
+  // `version` is a different typehash than including an empty one.
+  const DOMAIN_TYPES = {
+    EIP712Domain: [
+      { name: "name", type: "string" },
+      { name: "chainId", type: "uint256" },
+      { name: "verifyingContract", type: "address" },
+    ],
+  } as const
+
+  it("hashDomain(Permit2 mainnet) is a known bytes32", () => {
+    // This value is the EIP-712 domain separator the on-chain Permit2 at
+    // 0x000000000022D473030F116dDEE9F6B43aC78BA3 publishes as
+    // `DOMAIN_SEPARATOR()`. A hash mismatch means our signing domain
+    // would never match what the contract verifies against — every swap
+    // would revert silently in production.
+    const hash = hashDomain({ domain: DOMAIN, types: DOMAIN_TYPES })
+    expect(hash).toMatchInlineSnapshot(
+      `"0x866a5aba21966af95d6c7ab78eb2b2fc913915c28be3b9aa07cc04ff903e3f28"`
+    )
+  })
+
+  it("changing chainId moves the domain separator", () => {
+    // Sanity check that the hash is actually a function of chainId. If
+    // this were ever false, our cross-chain-safety story would be broken.
+    const mainnet = hashDomain({ domain: DOMAIN, types: DOMAIN_TYPES })
+    const other = hashDomain({
+      domain: { ...DOMAIN, chainId: 42161n },
+      types: DOMAIN_TYPES,
+    })
+    expect(mainnet).not.toBe(other)
+  })
+
+  it("changing verifyingContract moves the domain separator", () => {
+    const mainnet = hashDomain({ domain: DOMAIN, types: DOMAIN_TYPES })
+    const other = hashDomain({
+      domain: {
+        ...DOMAIN,
+        verifyingContract: "0x0000000000000000000000000000000000000001",
+      },
+      types: DOMAIN_TYPES,
+    })
+    expect(mainnet).not.toBe(other)
   })
 })
 
