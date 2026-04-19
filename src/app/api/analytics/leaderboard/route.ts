@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     // Transform leaderboard rows (USD from DB columns)
     // useTotalVolume=true means we use total_swap_vol_usd
-    let leaderboard = transformLeaderboardRows(
+    const leaderboard = transformLeaderboardRows(
       leaderboardRows,
       currentUserAddress,
       true // Use total volume
@@ -77,7 +77,6 @@ export async function GET(request: NextRequest) {
     // Find current user's position and add them if not in top 15
     let userPosition: number | null = null
     let userVolume: number | null = null
-    let userChange24h: number = 0
     let nextRankVolume: number | null = null
 
     if (currentUserAddress) {
@@ -85,7 +84,6 @@ export async function GET(request: NextRequest) {
       if (userInLeaderboard) {
         userPosition = userInLeaderboard.rank
         userVolume = userInLeaderboard.swapVolume24h
-        userChange24h = userInLeaderboard.change24h
         // Find next rank user from leaderboard if user is not #1
         if (userPosition > 1) {
           const nextRankUser = leaderboard.find((entry) => entry.rank === userPosition! - 1)
@@ -110,7 +108,6 @@ export async function GET(request: NextRequest) {
 
             userPosition = actualRank
             userVolume = userTotalSwapVolUsd
-            userChange24h = userChange24hPct
 
             if (userPosition > 1) {
               if (userPosition <= 15) {

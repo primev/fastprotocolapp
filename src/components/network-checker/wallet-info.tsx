@@ -41,7 +41,7 @@ export function WalletInfo({ title, size = "md", align = "center" }: WalletInfoP
         )}
         <span className={`${size === "sm" ? "text-sm" : ""} font-medium`}>{walletName}</span>
         <ConnectButton.Custom>
-          {({ account, openAccountModal, openChainModal }) => (
+          {({ openAccountModal, openChainModal }) => (
             <>
               <Button
                 variant="outline"

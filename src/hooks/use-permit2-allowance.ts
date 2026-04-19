@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import { parseUnits, maxUint256 } from "viem"
 import { mainnet } from "wagmi/chains"
 import { PERMIT2_ADDRESS, ZERO_ADDRESS } from "@/lib/swap/constants"

@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { useDisconnect, useChainId, useSwitchChain } from "wagmi"
+import { useChainId, useSwitchChain } from "wagmi"
 import { mainnet } from "wagmi/chains"
 import { toast } from "sonner"
 import { Connector } from "wagmi"

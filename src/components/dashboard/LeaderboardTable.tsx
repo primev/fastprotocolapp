@@ -4,7 +4,6 @@ import React, { useState, useMemo, useEffect, useCallback } from "react"
 import { useAccount } from "wagmi"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
@@ -78,7 +77,6 @@ export const LeaderboardTable = ({
   leaderboardData,
   statsData,
   isLoading: isLoadingProp = false,
-  isFetching: isFetchingProp = false,
 }: LeaderboardTableProps) => {
   // State Management - only for data not provided by React Query
   const { address: conn } = useAccount()
@@ -176,7 +174,7 @@ export const LeaderboardTable = ({
     }
 
     // Create adjusted leaderboard with user's adjusted volume
-    let adjusted = lbData.map((entry) => {
+    const adjusted = lbData.map((entry) => {
       if (entry.isCurrentUser) {
         return {
           ...entry,
@@ -278,7 +276,6 @@ export const LeaderboardTable = ({
   }, [adjustedUserVol])
   const nextTierMeta = useMemo(() => getTierMetadata(nextTierName.toLowerCase()), [nextTierName])
 
-  const [activeTab, setActiveTab] = useState("standings")
   const [tierFilter, setTierFilter] = useState<string>("all")
 
   // "All Leaders" modal state — Miles

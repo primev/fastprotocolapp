@@ -6,6 +6,7 @@ import onlyWarn from 'eslint-plugin-only-warn';
 import pluginNext from '@next/eslint-plugin-next';
 import pluginReact from 'eslint-plugin-react';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
+import unusedImports from 'eslint-plugin-unused-imports';
 
 /** @type {import("eslint").Linter.Config[]} */
 const baseConfig = [
@@ -56,6 +57,22 @@ const nextJsConfig = [
       // React scope no longer necessary with new JSX transform.
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
+    },
+  },
+  // Auto-fix for unused imports. `eslint --fix` deletes them — much faster
+  // than chasing `tsc --noEmit` TS6133 errors by hand. We pair this with
+  // the TypeScript `noUnusedLocals` / `noUnusedParameters` flags so unused
+  // destructured props / parameters still surface as typecheck errors (those
+  // need context-aware fixes, not auto-delete).
+  {
+    plugins: {
+      'unused-imports': unusedImports,
+    },
+    rules: {
+      // Turn off the stock no-unused-vars; unused-imports owns the import
+      // arm of it. We keep tsc's flags doing the rest.
+      '@typescript-eslint/no-unused-vars': 'off',
+      'unused-imports/no-unused-imports': 'warn',
     },
   },
   // API-route Zod-validation nudge. Fires on the 28 routes still using

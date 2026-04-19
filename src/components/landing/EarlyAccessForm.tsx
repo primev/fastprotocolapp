@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAccount } from "wagmi"
 import { isAddress } from "viem"
 import { toast } from "sonner"
 import { Zap } from "lucide-react"
@@ -23,8 +22,7 @@ interface EarlyAccessFormProps {
 
 export function EarlyAccessForm({ initialWalletAddress }: EarlyAccessFormProps) {
   const router = useRouter()
-  const { address } = useAccount()
-  const { invalidate: invalidateGate, setOnWaitlist } = useGateStatus()
+  const { invalidate: invalidateGate } = useGateStatus()
 
   const [walletAddress, setWalletAddress] = useState("")
   const [xHandle, setXHandle] = useState("")

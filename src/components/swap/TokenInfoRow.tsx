@@ -17,7 +17,6 @@ export default React.memo(function TokenInfoRow({
   tokenPrice,
   isLoadingPrice,
   isQuoteLoading = false,
-  side,
 }: TokenInfoRowProps) {
   // Store the last valid USD value in a Ref to persist across re-renders (same as exchange rate: never disappear on refetch)
   const lastValidUsdRef = useRef<number | null>(null)

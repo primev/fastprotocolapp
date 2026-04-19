@@ -11,7 +11,10 @@ const paramsSchema = z.object({ hash: txHashSchema })
  * Returns: "preconfirmed" | "confirmed" | "failed" | null (not found yet)
  * Note: DB stores "pre-confirmed" — normalized to "preconfirmed" by the client-side fetcher.
  */
-export async function GET(request: NextRequest, { params }: { params: Promise<{ hash: string }> }) {
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ hash: string }> }
+) {
   const parsed = await parseParams(params, paramsSchema)
   if (parsed instanceof NextResponse) return parsed
   const { hash } = parsed

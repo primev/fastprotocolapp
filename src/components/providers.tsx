@@ -44,13 +44,6 @@ function WalletDisconnectHandler(): null {
     localStorage.removeItem("smart-account-notification-acknowledged")
   }
 
-  // Helper function to refresh the page
-  const refreshPage = () => {
-    if (typeof window !== "undefined") {
-      window.location.reload()
-    }
-  }
-
   const { isConnected, address, chainId } = useAccount()
 
   // Prefetch the barter-supported tokens map as soon as the wallet connects on

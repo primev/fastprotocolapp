@@ -118,6 +118,7 @@
     "eslint-plugin-only-warn": "^1.1.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
     "fast-check": "^4.7.0",
     "globals": "^15.15.0",
     "happy-dom": "^20.9.0",

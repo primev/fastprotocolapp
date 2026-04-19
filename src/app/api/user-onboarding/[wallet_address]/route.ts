@@ -34,7 +34,7 @@ const onboardingBodySchema = z.object(
  * Read user onboarding data by wallet address.
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ wallet_address: string }> }
 ) {
   const parsed = await parseParams(params, paramsSchema)

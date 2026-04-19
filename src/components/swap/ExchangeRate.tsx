@@ -82,7 +82,7 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
    * We use useMemo here to ensure that severity calculations only
    * run when the actual quote data changes, keeping the component performant.
    */
-  const { priceImpact, severity, formattedImpact } = useMemo(() => {
+  const { formattedImpact } = useMemo(() => {
     // If we are in manual inversion, we usually want to hide or freeze the impact
     // because the impact of an inverted quote isn't 100% accurate until re-fetched.
     if (isManualInversion && !activeQuote) {

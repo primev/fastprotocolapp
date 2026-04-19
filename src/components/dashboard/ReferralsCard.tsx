@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { HoverBorderGradient } from "@/components/ui/hover-border-gradient"
-import { Copy, PlusIcon } from "lucide-react"
+import { Copy } from "lucide-react"
 import { FaXTwitter } from "react-icons/fa6"
 import { toast } from "sonner"
 
@@ -14,13 +14,7 @@ interface ReferralsCardProps {
   onOpenModal: () => void
 }
 
-export const ReferralsCard = ({
-  referralLink,
-  affiliateCode,
-  isLoadingCode,
-  isConnected,
-  onOpenModal,
-}: ReferralsCardProps) => {
+export const ReferralsCard = ({ referralLink, isConnected }: ReferralsCardProps) => {
   const copyReferralLink = () => {
     navigator.clipboard.writeText(referralLink)
     toast.success("Referral link copied to clipboard!")

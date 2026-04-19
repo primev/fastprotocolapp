@@ -9,7 +9,7 @@ import { walletAddressSchema } from "@/lib/api/schemas"
 const paramsSchema = z.object({ address: walletAddressSchema })
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ address: string }> }
 ) {
   const parsed = await parseParams(params, paramsSchema)

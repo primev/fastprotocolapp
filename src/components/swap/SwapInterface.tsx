@@ -137,7 +137,6 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
     address,
     insufficientBalance,
     isNonceLoading = false,
-    activeQuote,
     displayQuote,
     effectiveQuoteLoading,
     setSwappedQuote,

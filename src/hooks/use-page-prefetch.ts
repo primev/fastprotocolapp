@@ -67,7 +67,7 @@ export function usePagePrefetch() {
    * Debounced to prevent excessive prefetching on rapid hover events
    */
   const prefetchSwapPage = useCallback(
-    (address?: string | null) => {
+    (_address?: string | null) => {
       // Clear existing timeout
       if (swapPrefetchTimeoutRef.current) {
         clearTimeout(swapPrefetchTimeoutRef.current)

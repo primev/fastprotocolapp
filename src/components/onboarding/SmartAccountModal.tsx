@@ -5,7 +5,6 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, ArrowRight } from "lucide-react"
 
 interface SmartAccountModalProps {
@@ -28,11 +27,7 @@ const WhatIsSmartAccount = () => (
 
 /* ----------------------------- Main Component ----------------------------- */
 
-export const SmartAccountModal = ({
-  open,
-  onOpenChange,
-  onAcknowledged,
-}: SmartAccountModalProps) => {
+export const SmartAccountModal = ({ open, onAcknowledged }: SmartAccountModalProps) => {
   const [activeTab, setActiveTab] = useState("warning")
 
   const getTabMessage = () => {

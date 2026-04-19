@@ -3,7 +3,6 @@ import { useIsMobile } from "../hooks/use-mobile"
 
 export const AnimatedBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const mousePosRef = useRef({ x: 0, y: 0 })
   const isMobile = useIsMobile()
 
   // Energy flow line configuration (keep visual parity across devices)

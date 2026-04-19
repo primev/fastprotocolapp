@@ -9,10 +9,8 @@ import {
   ChevronRight,
   Loader2,
   Check,
-  X,
   HelpCircle,
   ExternalLink,
-  Trophy,
 } from "lucide-react"
 import { useAccount, useReadContracts } from "wagmi"
 import { erc721Abi, erc20Abi } from "viem"

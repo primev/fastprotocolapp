@@ -40,7 +40,6 @@ export function useSwapConfirmation({
   minAmountOut,
   slippage,
   deadline,
-  onSuccess,
 }: UseSwapConfirmationParams) {
   const { isConnected, address } = useAccount()
   const publicClient = usePublicClient({ chainId: mainnet.id })
@@ -86,15 +85,6 @@ export function useSwapConfirmation({
 
       const amountClean = amount.replace(/,/g, "")
       const inputAmtWei = parseUnits(amountClean, fromToken.decimals).toString()
-
-      const source =
-        fromToken.address === ZERO_ADDRESS
-          ? (WETH_ADDRESS as `0x${string}`)
-          : (fromToken.address as `0x${string}`)
-      const target =
-        toToken.address === ZERO_ADDRESS
-          ? (ZERO_ADDRESS as `0x${string}`)
-          : (toToken.address as `0x${string}`)
 
       try {
         // Use minAmountOut from Uniswap quote (already has slippage applied)

@@ -3,13 +3,8 @@
 import { useState, useEffect, useRef } from "react"
 import { useAccount } from "wagmi"
 import { useQueryClient } from "@tanstack/react-query"
-import {
-  useLeaderboardData,
-  useLeaderboardStats,
-  type LeaderboardData,
-} from "@/hooks/use-leaderboard-data"
+import { useLeaderboardData, useLeaderboardStats } from "@/hooks/use-leaderboard-data"
 import { usePrefetchDashboard } from "@/hooks/use-prefetch-dashboard"
-import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/config/constants"
 // Components
 import { LeaderboardTable } from "@/components/dashboard/LeaderboardTable"
 
@@ -65,7 +60,6 @@ export function LeaderboardPageClient({
     data: leaderboardData,
     isLoading: isLeaderboardLoading,
     isFetching: isLeaderboardFetching,
-    refetch: refetchLeaderboard,
   } = useLeaderboardData(
     address,
     // Strategy:

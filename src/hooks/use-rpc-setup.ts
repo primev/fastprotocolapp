@@ -36,7 +36,6 @@ export interface UseRPCSetupReturn {
 export function useRPCSetup({
   isConnected,
   connector,
-  walletStepCompleted,
   hasInitialized,
   updateStepStatus,
   rpcTest,

@@ -16,7 +16,6 @@ interface DashboardHeaderProps {
 }
 
 export const DashboardHeader = ({
-  points,
   isConnected,
   status,
   isMounted,

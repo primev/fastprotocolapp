@@ -37,7 +37,7 @@ export const TokenAvatar = React.memo(function TokenAvatar({
   const prevCandidatesRef = React.useRef(candidates)
   if (prevCandidatesRef.current !== candidates) {
     prevCandidatesRef.current = candidates
-    // eslint-disable-next-line react-hooks/rules-of-hooks
+
     if (index !== 0) setIndex(0)
   }
 

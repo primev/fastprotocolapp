@@ -4,7 +4,6 @@ import { useState } from "react"
 import Image from "next/image"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { useAccount } from "wagmi"
-import { Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -14,10 +13,8 @@ import {
   NetworkSetupDrawer,
   RPCTestModal,
 } from "@/components/network-checker"
-import { useRouter } from "next/navigation"
 
 const NetworkCheckerPage = () => {
-  const router = useRouter()
   const { isConnected } = useAccount()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isTestModalOpen, setIsTestModalOpen] = useState(false)
@@ -95,7 +92,7 @@ const NetworkCheckerPage = () => {
             {!isConnected ? (
               <div className="flex justify-center">
                 <ConnectButton.Custom>
-                  {({ account, chain, openConnectModal, mounted }) => {
+                  {({ openConnectModal }) => {
                     return (
                       <Button
                         variant="hero"

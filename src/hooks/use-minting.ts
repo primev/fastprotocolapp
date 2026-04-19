@@ -44,7 +44,6 @@ export function useMinting({
   const {
     data: receipt,
     isLoading: isConfirming,
-    isSuccess: isConfirmed,
     isError: isConfirmError,
     error: confirmError,
   } = useWaitForTransactionReceipt({ hash })

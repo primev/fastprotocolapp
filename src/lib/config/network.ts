@@ -3,7 +3,6 @@
  *
  * Network details for Ethereum Mainnet with Fast Protocol RPC
  */
-const alchemyApiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
 
 export const FAST_PROTOCOL_NETWORK = {
   chainId: 1,

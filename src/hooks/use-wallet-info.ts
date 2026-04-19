@@ -40,7 +40,7 @@ export function useWalletInfo(
     const updateWalletInfo = () => {
       const connectorId = connector?.id
       let name = connector?.name || null
-      let icon =
+      const icon =
         (connector as any)?.icon ||
         (connector as any)?.iconUrl ||
         (connector as any)?.logoUrl ||
@@ -92,7 +92,7 @@ export function useWalletInfo(
 
     const intervalId = setInterval(() => {
       let currentName = connector?.name || null
-      let currentIcon =
+      const currentIcon =
         (connector as any)?.icon ||
         (connector as any)?.iconUrl ||
         (connector as any)?.logoUrl ||

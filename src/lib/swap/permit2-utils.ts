@@ -14,7 +14,7 @@ export const INTENT_WITNESS_TYPE_STRING =
  * Returns the EIP-712 type definition for Permit2 + Witness
  * @param witnessTypeString - The witness type string (for future extensibility)
  */
-export const GET_SWAP_INTENT_TYPES = (witnessTypeString: string) => ({
+export const GET_SWAP_INTENT_TYPES = (_witnessTypeString: string) => ({
   PermitWitnessTransferFrom: [
     { name: "permitted", type: "TokenPermissions" },
     { name: "spender", type: "address" },

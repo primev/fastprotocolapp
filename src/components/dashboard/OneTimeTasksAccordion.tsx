@@ -27,7 +27,6 @@ interface OneTimeTasksAccordionProps {
 export const OneTimeTasksAccordion = ({
   tasks,
   hasInitialized,
-  userOnboarding,
   isConnected,
   address,
   accordionValue,

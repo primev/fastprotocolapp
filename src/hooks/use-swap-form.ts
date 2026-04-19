@@ -6,19 +6,17 @@ import { formatUnits } from "viem"
 import { useQueryClient } from "@tanstack/react-query"
 import { useQuote, type QuoteResult } from "@/hooks/use-swap-quote"
 import { useTokenPrice } from "@/hooks/use-token-price"
-import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
 import { usePermit2Allowance } from "@/hooks/use-permit2-allowance"
 import {
   isWrapUnwrapPair,
   isWrapOperation,
-  isUnwrapOperation,
   estimateWrapGas,
   estimateUnwrapGas,
 } from "@/lib/tokens/weth-utils"
 import { ZERO_ADDRESS } from "@/lib/swap/constants"
 import { isStablecoin } from "@/lib/tokens/stablecoins"
-import { formatAmountByTokenType, formatTokenAmount } from "@/lib/utils"
+import { formatTokenAmount } from "@/lib/utils"
 import { useSwapSlippage } from "@/hooks/use-swap-slippage"
 import { useBarterValidation } from "@/hooks/use-barter-validation"
 import { useQuoteGuardConfig } from "@/hooks/use-quote-guard-config"
@@ -65,7 +63,6 @@ export function useSwapForm(allTokens: Token[]) {
   const { price: fromPrice, isLoading: isLoadingFromPrice } = useTokenPrice(fromToken?.symbol || "")
   const { price: toPrice, isLoading: isLoadingToPrice } = useTokenPrice(toToken?.symbol || "")
   const { price: ethPrice } = useTokenPrice("ETH")
-  const { gasPriceGwei } = useBroadcastGasPrice()
 
   // --- BALANCES LOGIC ---
 

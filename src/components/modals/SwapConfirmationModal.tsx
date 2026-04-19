@@ -16,7 +16,6 @@ import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   X,
-  Loader2,
   RefreshCw,
   ChevronDown,
   Info,
@@ -198,7 +197,6 @@ function SwapConfirmationModal({
   ethPrice: ethPriceLive,
   fromTokenPrice: fromTokenPriceLive,
   toTokenPrice: toTokenPriceLive,
-  timeLeft,
   isLoading = false,
   refreshBalances,
   onCloseAfterSuccess,
@@ -208,7 +206,6 @@ function SwapConfirmationModal({
   isApprovalRejected = false,
   approvalTxHash,
   onApprove,
-  approveTokenSymbol,
   estimatedMiles: estimatedMilesLive,
   onRetryWithSlippage,
   autoExecute = false,

@@ -54,7 +54,7 @@ function handleFuulError(error: any): string {
 }
 
 export function useAffiliateCode(): UseAffiliateCodeReturn {
-  const { isConnected, address } = useAccount()
+  const { address } = useAccount()
   const { signMessageAsync } = useSignMessage()
   const [affiliateCode, setAffiliateCode] = useState<string | null>(null)
   const [referralLink, setReferralLink] = useState("")

@@ -2,13 +2,7 @@
 
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Check } from "lucide-react"
 import { NetworkDetailsTab } from "./NetworkDetailsTab"
@@ -27,7 +21,6 @@ export const AddRpcModal = ({
   onOpenChange,
   walletName,
   walletIcon,
-  isMetaMask,
   onComplete,
 }: AddRpcModalProps) => {
   return (

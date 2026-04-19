@@ -24,7 +24,6 @@ function alchemyMainnetUrl(): string | undefined {
   const apiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
   if (!apiKey) {
     if (process.env.NODE_ENV !== "production" && typeof window !== "undefined") {
-      // eslint-disable-next-line no-console
       console.warn(
         "[useHeldTokens] NEXT_PUBLIC_ALCHEMY_API_KEY is not set — held-token discovery is disabled."
       )
@@ -201,7 +200,7 @@ export function useHeldTokens(owner: `0x${string}` | undefined, chainId: number)
       const barterMapPromise = loadBarterSupportedTokens().catch((err) => {
         // If the barter map fails to load, we still want to show native ETH,
         // so swallow the error and return an empty map.
-        // eslint-disable-next-line no-console
+
         console.warn("[useHeldTokens] failed to load barter map:", err)
         return new Map()
       })
@@ -225,7 +224,6 @@ export function useHeldTokens(owner: `0x${string}` | undefined, chainId: number)
           pageKey = page.pageKey
         } while (pageKey !== undefined)
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.warn("[useHeldTokens] alchemy_getTokenBalances failed:", err)
       }
 

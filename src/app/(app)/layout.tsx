@@ -32,7 +32,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const [headerHeight, setHeaderHeight] = useState(75)
   const headerRef = useRef<HTMLDivElement>(null)
 
-  const { isConnected, status, connector, address } = useAccount()
+  const { isConnected, status, connector } = useAccount()
   const { connectors } = useConnect()
   const { walletName, walletIcon } = useWalletInfo(connector, isConnected)
   const rpcTest = useRPCTest()

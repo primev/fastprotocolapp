@@ -19,8 +19,6 @@ export const ClaimPageClient = ({
   initialTotalSupply,
   initialTransactions,
   initialSwapVolumeUsd,
-  initialEthPrice,
-  initialTotalPoints,
 }: ClaimPageClientProps) => {
   const router = useRouter()
 

@@ -79,7 +79,7 @@ export function DeFiProtocolsModal({
         </DialogHeader>
 
         <div className="space-y-3 mt-4">
-          {TOP_DEFI_PROTOCOLS.map((protocol, index) => (
+          {TOP_DEFI_PROTOCOLS.map((protocol, _index) => (
             <Card
               key={protocol.name}
               className="p-4 hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-all group"

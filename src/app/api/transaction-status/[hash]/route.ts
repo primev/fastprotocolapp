@@ -6,7 +6,10 @@ import { txHashSchema } from "@/lib/api/schemas"
 
 const paramsSchema = z.object({ hash: txHashSchema })
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ hash: string }> }) {
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ hash: string }> }
+) {
   const parsed = await parseParams(params, paramsSchema)
   if (parsed instanceof NextResponse) return parsed
   const { hash } = parsed

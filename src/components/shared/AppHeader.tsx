@@ -54,8 +54,6 @@ interface AppHeaderProps {
 
 export const AppHeader = ({
   isConnected,
-  status,
-  isMounted,
   isMetaMask,
   onAddNetwork,
   onRpcSetup,

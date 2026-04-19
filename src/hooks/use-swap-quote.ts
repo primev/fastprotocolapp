@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { createPublicClient, http, parseUnits, formatUnits, type Address } from "viem"
 import { mainnet } from "wagmi/chains"
-import { RPC_ENDPOINT, FALLBACK_RPC_ENDPOINT } from "@/lib/config/network"
+import { FALLBACK_RPC_ENDPOINT } from "@/lib/config/network"
 import { sanitizeAmountInput, formatTokenAmount } from "@/lib/utils"
 import { isStablecoin } from "@/lib/tokens/stablecoins"
 import {
@@ -17,15 +17,6 @@ import { validateSlippage, slippageBpsFromPercent, computeSlippageLimit } from "
 
 // Uniswap V3 Quoter V2 on Ethereum mainnet
 const QUOTER_V2_ADDRESS = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e" as const
-
-// Optimization: Memoize the client outside the hook to prevent recreation
-const publicClient = createPublicClient({
-  chain: mainnet,
-  transport: http(FALLBACK_RPC_ENDPOINT, {
-    batch: { wait: 50 }, // Increased from 20 to 50ms to group more fee-tier calls
-    fetchOptions: { cache: "no-store" },
-  }),
-})
 
 // Uniswap V3 Quoter ABI (supports both exact input and exact output)
 const QUOTER_ABI = [
@@ -408,7 +399,6 @@ export function useQuote({
   const prevTokenInRef = useRef<Token | undefined>(tokenIn)
   const prevTokenOutRef = useRef<Token | undefined>(tokenOut)
   const prevAmountInRef = useRef<string>(amountIn)
-  const prevSlippageRef = useRef<string>(slippage)
   const prevTradeTypeRef = useRef<TradeType>(tradeType)
 
   // Store latest values in refs so refetch can always access them
