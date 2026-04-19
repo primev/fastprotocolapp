@@ -1,28 +1,32 @@
 # Audit follow-up — remaining work
 
-Generated after the agentic-repo-design cleanup pass. This file lists items
-that appeared during the follow-up audit but were deferred for scope reasons.
-Delete or update entries as they land.
+This file tracks what's **done** and what's **left** for the
+agentic-repo-design effort. Update entries as they land; delete when
+they're no longer applicable.
 
-## Completed in the original pass
+---
 
+## ✅ Completed
+
+### Structural cleanup
 - Removed 570 LoC of dead `fast-settlement-v2-1.ts` / `v3-abi.ts` + the
   77-line dead `fetchQuote` in `src/hooks/use-swap-quote.ts`.
-- Folderized `src/lib/` into `tokens/ · swap/ · settlement/ · config/`.
+- Folderized `src/lib/` into `tokens/ · swap/ · settlement/ · config/ · api/`.
 - Rebuilt `src/hooks/index.ts` as a full `export *` barrel (was 9/52).
-- Built a clean top-level `tests/` directory mirroring `src/`. Moved the
-  3 existing tests; added 6 new ones. Now 100 tests across 9 files.
-- Created `src/lib/api/{parse,schemas}.ts` Zod validation helpers + tests.
-  Migrated **24 of 53** API routes to the new pattern.
-- Added two PostToolUse hooks (`post-edit-test.sh`, `post-edit-build.sh`).
-- Consolidated doc layers: `skills/` owns how-to, `agent_docs/` owns map,
-  `docs/` owns human-facing deep-dives (banner-gated).
-- Updated `AGENTS.md`, `CLAUDE.md`, and every skill that pointed at the
-  old flat `src/lib/` layout.
+- Moved tests to a clean top-level `tests/` mirroring `src/`.
+- Created `src/lib/api/{parse,schemas,upstream}.ts` Zod helpers +
+  upstream-response schemas; **24 of 52 API routes** on the new pattern.
+- Three-tier documentation convention (skills = how-to, agent_docs = map,
+  docs = human-facing banner-gated).
 
-## Outstanding — pick up from here
+### Verification infrastructure
+- PostToolUse hooks: typecheck, mirror-test-on-save, build-on-boundary-edit.
+- Stop hook: format:check.
+- Pre-commit guard rejecting staged changes under `.external/`.
+- CI workflows: `format`, `verify`, `build` (path-gated), `fork` (nightly),
+  `externals` (weekly), `mutation` (weekly).
 
-### Testing layers — status snapshot
+### Testing layers — all 10 wired
 
 | Layer | Status | Command |
 |---|---|---|
@@ -30,24 +34,85 @@ Delete or update entries as they land.
 | Property / fuzz (fast-check) | ✅ | `npm run test:run` |
 | Integration (pg-mem real SQL) | ✅ (one route; others blocked by window-fn gap) | `npm run test:run` |
 | Cross-module invariants | ✅ | `npm run test:run` |
-| ABI drift | ✅ | `npm run test:run` |
+| ABI shape + upstream drift | ✅ | `npm run test:run` + `npm run test:externals` |
 | EIP-712 encoding + Permit2 DOMAIN_SEPARATOR | ✅ | `npm run test:run` |
 | Upstream API contracts (+ runtime guards) | ✅ | `npm run test:run` |
 | Hook tests (happy-dom + renderHook) | ✅ (one seed: `use-swap-slippage`) | `npm run test:run` |
-| **Fork tests (anvil + mainnet)** | ✅ | `FORK_RPC_URL=https://ethereum-rpc.publicnode.com npm run test:fork` |
-| **Mutation testing (Stryker)** | ✅ (96.3% on slippage module) | `npm run test:mutation` |
+| Fork tests (anvil + mainnet) | ✅ | `FORK_RPC_URL=https://ethereum-rpc.publicnode.com npm run test:fork` |
+| Mutation testing (Stryker) | ✅ (96.3% on slippage module) | `npm run test:mutation` |
 
-For **fork tests**: gated on `FORK_RPC_URL` so the default suite never
-depends on public-RPC availability. Known-good endpoint is
-`https://ethereum-rpc.publicnode.com`; llamarpc intermittently serves
-non-archive blocks and fails anvil's fork init.
+### External workspaces pattern
+- `.claude/externals.json` declarative manifest + sync hook.
+- `/prime` and `/sync-externals` commands; `.external/` gitignored.
+- First external wired: `mev-commit` (sparse-checkout of 10 paths, 9MB).
+- Scope map in `agent_docs/external-mev-commit.md`.
+- `external-mev-commit` skill for WHEN-to-load signaling.
+- ABI drift test that diffs our local ABIs against the vendored upstream
+  copies when present.
 
-For **mutation testing**: scoped to `src/lib/swap/slippage.ts` by
-design (full-repo runs take 10+ minutes). Widen the `mutate` glob in
-`stryker.config.json` as more modules earn property-test coverage. The
-one surviving mutant is an **equivalent mutation** (`num > 50` vs
-`num >= 50` at the boundary `num=50` — both branches produce 50), not
-a real test gap.
+### Agent-velocity docs (latest batch)
+- `src/app/api/README.md` — 52-route discovery index, grouped by domain,
+  Zod-migration status per route.
+- `src/hooks/README.md` — 50-hook index grouped by concern.
+- `agent_docs/db-schema.md` — both app-owned Postgres tables documented,
+  routes that touch each, test-fixture source-of-truth pointer.
+- `INVARIANTS.md` at repo root — every load-bearing contract linked to
+  the test that enforces it.
+- ESLint rule warning on imperative validation in `src/app/api/**/route.ts`
+  (surfaces the 28 remaining routes when an agent opens them).
+- `tsconfig.json` now has `noImplicitAny: true`. Installed `@types/pg`
+  along the way.
+
+---
+
+## 🟡 Outstanding — pick up from here
+
+### Further strictness flips (incremental)
+Each is a separate, reviewable PR so the blast radius stays small.
+
+1. **`noUnusedLocals: true` / `noUnusedParameters: true`** — should be
+   small fallout now that `noImplicitAny` is on. Next up.
+2. **`strictNullChecks: true`** — the big one. Will surface any
+   place we treat `null`/`undefined` loosely. The `T | NextResponse`
+   pattern in `@/lib/api/parse` was chosen because strict-null is off;
+   once it's on, the discriminated-union form becomes usable again
+   (we'd rewrite parse.ts to return `{ ok: true; data } | { ok: false; response }`).
+3. **Full `strict: true`** — once the above land, the rest
+   (`strictFunctionTypes`, `strictBindCallApply`, etc.) should be
+   free.
+
+### API routes not yet on Zod (28 remaining)
+
+All flagged with ⚠️ in `src/app/api/README.md` and now surfaced by
+the ESLint rule. Migration recipe:
+`.claude/skills/next-app-router/api-routes.md`.
+
+User-input routes (higher priority):
+- `src/app/api/waitlist/{count,list}/route.ts`
+- `src/app/api/whitelist/{list,generate,check,convert-waitlist-to-whitelist,whitelist-swap-volume-holders}/route.ts`
+- `src/app/api/config/{fee-percentile,tx-timeout,gas-estimate,quote-guard,leaderboard-poll}/route.ts`
+- `src/app/api/analytics/leaderboard/{route,efficiency-leaders,rising-stars,volume-leaders}/route.ts`
+- `src/app/api/analytics/{transactions,swap-count,volume/swap,l1-swap-hashes}/route.ts`
+- `src/app/api/gate/warm/route.ts`
+- `src/app/api/og/preconfirm/{route.tsx,[time]/route.tsx}` (validate the `time` segment)
+- `src/app/api/cron/update-edge-config/miles-estimate-gas/route.ts` (bearer-token header)
+- `src/app/api/user-community-activity/{stats,entities}/route.ts`
+
+Input-free routes (Zod is cosmetic, low priority):
+- `src/app/api/users/route.ts` — lists users, no input
+- `src/app/api/tokens/route.ts` — returns the token list
+- `src/app/api/analytics/active-traders/route.ts` — parameterless GET
+- `src/app/api/analytics/eth-price/route.ts` — parameterless GET
+
+### God files — pending splits
+
+Documented under "Pending splits" in
+[`agent_docs/architecture.md`](./architecture.md). Split AFTER seeding
+component tests so regressions have an oracle.
+
+- `src/components/dashboard/LeaderboardTable.tsx` (~2700 LoC)
+- `src/components/modals/SwapConfirmationModal.tsx` (~1160 LoC)
+- `src/hooks/use-swap-form.ts` (~620 LoC)
 
 ### Seed more hook tests
 
@@ -57,99 +122,101 @@ Pattern proven with `use-swap-slippage`. Highest-ROI next targets:
 - `use-page-active` — visibility + idle detection
 - `use-waitlist-position` — fetcher + cache interaction
 
+### Component testing pattern
+
+`tests/components/` currently has only the pure `paginate.ts` helper.
+A second example — a real component with mocked wagmi — establishes
+the pattern so future tests are mechanical. Natural candidates:
+`SwapToast.tsx`, `AmountInput.tsx`, `TokenAvatar.tsx`.
+
 ### pg-mem limitation: window functions
 
-`pg-mem` (the in-process Postgres we use for API-route integration tests)
-does not support `OVER (PARTITION BY ... ORDER BY ...)` window functions
-yet. The `user-community-activity` routes all read via `ROW_NUMBER() OVER`
-to pick the most-recent row per entity, so they can't be integration-tested
-in-process without a route refactor.
+`pg-mem` does not support `OVER (PARTITION BY ... ORDER BY ...)`.
+The `user-community-activity` routes all read via `ROW_NUMBER() OVER`
+to pick the most-recent row per entity, so they can't be
+integration-tested in-process without a route refactor.
 
-Path forward: use `testcontainers` + a real Postgres container. Slower
-(~3s container startup per file) but supports the full SQL surface. Worth
-adding when we have more routes on window functions.
+Path forward: use `testcontainers` + a real Postgres container
+(~3s container startup per file, supports the full SQL surface).
+Worth adding when we have more routes on window functions.
 
 Until then, the window-function routes are unit-tested via mocked
 `pool.query` — less thorough but not worse than no coverage.
 
+---
 
+## 🟢 Lower priority / nice-to-have
 
-### API routes not yet on Zod (29 remaining)
+### Dev-server verification (`/verify-ui`)
 
-Pattern: replace imperative `if (!x) return 400` with
-`parseJson` / `parseSearchParams` / `parseParams` from `@/lib/api/parse`.
+`ui-verifier` subagent exists but the end-to-end flow isn't
+exercised. A one-shot slash command that boots dev, loads the three
+critical routes (`/`, `/dashboard`, `/claim`), and screenshots them
+would close the visual-regression gap without setting up Playwright CI.
 
-Most of these take an `address` query param and should use
-`walletAddressSchema`. Routes that take pagination should use
-`paginationSchema`. See
-[`.claude/skills/next-app-router/api-routes.md`](../.claude/skills/next-app-router/api-routes.md)
-for the full pattern.
+### Error taxonomy document
 
-User-input routes (higher priority):
-- `src/app/api/waitlist/{count,list}/route.ts`
-- `src/app/api/whitelist/{list,generate,check,convert-waitlist-to-whitelist,whitelist-swap-volume-holders}/route.ts`
-- `src/app/api/config/{fee-percentile,tx-timeout,gas-estimate,quote-guard,leaderboard-poll}/route.ts`
-- `src/app/api/analytics/leaderboard/{route,efficiency-leaders,rising-stars,volume-leaders}/route.ts`
-- `src/app/api/analytics/{transactions,swap-count,volume/swap,active-traders,l1-swap-hashes}/route.ts`
-- `src/app/api/gate/warm/route.ts`
-- `src/app/api/og/preconfirm/{route.tsx,[time]/route.tsx}` (validate the `time` segment)
-- `src/app/api/cron/update-edge-config/miles-estimate-gas/route.ts` (bearer-token header)
+Map every upstream error string in `.external/mev-commit/tools/preconf-rpc/`
+→ our normalized error class in `src/lib/settlement/transaction-errors.ts`
+→ the UI message shown to the user. Saves agents a 3-file trace on
+every error-handling bug.
 
-Input-free routes (lower priority, Zod is cosmetic):
-- `src/app/api/users/route.ts` — lists users, no input
-- `src/app/api/tokens/route.ts` — returns the token list
+### PR review automation
 
-### God files — pending splits
+`security-reviewer` subagent on every PR via a GitHub Action that
+posts a review comment. Nightly rather than per-PR to control cost.
 
-All three are documented under "Pending splits" in
-[`agent_docs/architecture.md`](./architecture.md). Split them AFTER seeding
-component tests so regressions have an oracle.
+### Dependabot
 
-- `src/components/dashboard/LeaderboardTable.tsx` (~2700 LoC) — extract
-  `VolumeLeadersCard`, `EfficiencyLeadersCard`, `ReferralLeadersCard`,
-  `RisingStarsCard`, `PaginatedLeaderboardModal`, `LeaderboardRow` into
-  `src/components/dashboard/leaderboard/`. The pure `paginate.ts` helper
-  is already extracted and tested — use it as the template.
-- `src/components/modals/SwapConfirmationModal.tsx` (~1160 LoC) — extract
-  intent-path sub-components (wrap / unwrap / approve+swap) and a
-  `useSwapConfirmationMachine` hook.
-- `src/hooks/use-swap-form.ts` (~620 LoC) — extract the quote-cache and
-  `computedMinAmountOut` math into sub-hooks/pure helpers first (both
-  testable without React).
+No dependency-update automation today. wagmi / viem / zod updates
+sneak up.
 
-### Type tightening
+### Performance budget
 
-`strict: false` + 54 `any` usages is the weakest layer of the codebase.
-Incremental path:
+No bundle-size monitoring, no TTFB target. Agents can silently
+regress perf with no feedback. `next build --profile` + a size-limit
+diff on PRs would help.
 
-1. Flip `noImplicitAny: true` in `tsconfig.json` and fix the fallout.
-2. Convert detection-layer `any` (especially `src/lib/wallet-provider.ts`,
-   8 occurrences) to `unknown` + narrowing; add suppression comments where
-   the EIP-1193 shape is genuinely dynamic.
-3. Revisit `strictNullChecks`. The `T | NextResponse` pattern in
-   `@/lib/api/parse` was chosen because strict-null is off; once it's on,
-   the discriminated-union form becomes usable again.
+### Accessibility baseline
 
-### Comment hygiene — remaining hotspots
+Zero a11y tests. `axe-core` in happy-dom is ~30 min to wire up.
 
-Sweeping pass covered `wallet-provider.ts` and the ref-plumbing in
-`use-swap-quote.ts`. Still worth a pass:
+### Recent-incidents ledger
 
-- `src/components/modals/SwapConfirmationModal.tsx` — three snapshot refs
-  (`live`, `snapshot`, `effective`). Add a WHY about when each tier wins.
-- `src/hooks/use-swap-form.ts` — the 40-line `minAmountOut` computation
-  mixes treasury margin with Barter floor. Inline the rules.
-- `src/lib/analytics/queries.ts` (662 LoC) — a second candidate for
-  split-and-document; SQL queries benefit from a sentence each about
-  invariants (table ordering, lowercased addresses, etc.).
+"Here are the 3 bugs shipped last quarter and what caused them."
+Powerful as a negative-example signal for agents. Requires discipline
+to maintain.
 
-### Test backlog (seed more oracles)
+### Widen Stryker scope
 
-Highest-ROI tests to add next:
+Currently mutates only `src/lib/swap/slippage.ts`. Add more modules
+as they earn property-test coverage — natural next targets:
+`src/lib/api/schemas.ts`, `src/lib/tokens/token-resolver.ts`,
+`src/components/dashboard/leaderboard/paginate.ts`.
 
-- `tests/hooks/use-swap-slippage.test.ts` — wrap the hook with
-  `@testing-library/react`'s `renderHook`; test the clamp/round logic.
-- `tests/lib/swap/permit2-utils.test.ts` — EIP-712 deadline + nonce math.
-- `tests/hooks/use-quote-guard-config.test.ts` — edge-config threshold reads.
-- `tests/components/dashboard/leaderboard/LeaderboardRow.test.tsx` — once
-  the row is extracted as a standalone component.
+### Extend `externals.json` to more upstreams
+
+Pattern is proven; adding a new external is a one-file manifest edit
++ skill + scope map. Candidates as they become relevant: `@fuul/sdk`
+source, the Uniswap V3 quoter ABI repo, a shared design-system repo.
+
+---
+
+## How this file stays honest
+
+When you finish one of the outstanding items, move it from the
+"Outstanding" section to the "Completed" section with a one-line
+summary. When a new gap surfaces, add it here with a clear ROI
+justification — not every followup deserves to live on this list.
+
+Priority order as of the last update:
+1. Finish API Zod migration (28 routes — mechanical, the ESLint rule
+   surfaces them).
+2. Flip `noUnusedLocals` + `noUnusedParameters`.
+3. Split `use-swap-form` math helpers (lowest-risk of the god-file
+   splits; pure extractions, easy oracle).
+4. Seed 2-3 more hook tests to derisk the god-file splits.
+5. `strictNullChecks: true` + rewrite `@/lib/api/parse` to the
+   discriminated-union shape.
+6. Component test pattern seed (SwapToast or AmountInput).
+7. Full god-file splits.
