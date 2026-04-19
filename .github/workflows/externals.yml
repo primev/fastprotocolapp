@@ -1,0 +1,48 @@
+name: Externals drift
+
+# Weekly canary: syncs every external workspace declared in
+# .claude/externals.json and runs the ABI drift test against the
+# current upstream. A failure here means our local ABIs diverged from
+# mev-commit — the signal to sync and regenerate our TypeScript
+# bindings. NOT a PR gate; drift caused by an unshipped upstream PR
+# shouldn't block merges on this side.
+
+on:
+  schedule:
+    # 14:00 UTC Mondays — same weekly slot as mutation testing.
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: externals-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    name: ABI drift vs upstream
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Ensure jq is installed
+        # jq is preinstalled on ubuntu-latest runners but we check
+        # explicitly so a future image change doesn't silently break.
+        run: jq --version
+      - run: npm ci
+      - name: Sync externals (clone + sparse checkout)
+        run: ./.claude/hooks/externals-sync.sh
+      - name: Run ABI drift test
+        run: npm run test:externals
+      - name: Record upstream SHA
+        if: always()
+        run: |
+          if [ -f .external/.manifest.lock.json ]; then
+            echo "### Externals state" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat .external/.manifest.lock.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi

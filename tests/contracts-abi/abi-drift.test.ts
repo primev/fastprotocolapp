@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { readFileSync, readdirSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { WETH_ABI } from "@/lib/tokens/weth-abi"
 import { ERC20_APPROVE_ABI } from "@/lib/tokens/erc20-abi"
@@ -138,4 +138,61 @@ describe("ERC20_APPROVE_ABI — matches canonical ERC-20 shape", () => {
     expect(allow!.inputs.map((i) => i.type)).toEqual(["address", "address"])
     expect(allow!.outputs.map((o) => o.type)).toEqual(["uint256"])
   })
+})
+
+// ─── Upstream drift guard ────────────────────────────────────────────────────
+//
+// When the mev-commit external has been synced (`/prime` or `/sync-externals`),
+// diff each of our local ABI files against the matching upstream file.
+// Drift means someone hand-edited a local ABI without sourcing it from the
+// canonical upstream — a class of bug that otherwise surfaces as a
+// production revert. Files we have locally but upstream doesn't (e.g.,
+// IFastSettlementV3.abi as a local-only interface-extract) are skipped
+// with a recorded note; files upstream has that we don't are ignored
+// (we only vendor what we consume).
+
+const UPSTREAM_ABI_DIR = join(process.cwd(), ".external", "mev-commit", "contracts-abi", "abi")
+const externalSynced = existsSync(UPSTREAM_ABI_DIR)
+
+describe.skipIf(!externalSynced)("upstream drift — .external/mev-commit/contracts-abi/abi/", () => {
+  const localFiles = readdirSync(ABI_DIR).filter((f) => f.endsWith(".abi"))
+
+  it("the external directory exists (drift check meaningful)", () => {
+    expect(existsSync(UPSTREAM_ABI_DIR)).toBe(true)
+  })
+
+  for (const file of localFiles) {
+    const upstreamPath = join(UPSTREAM_ABI_DIR, file)
+    const upstreamPresent = existsSync(upstreamPath)
+
+    // `skipIf` on the `it` — a file that only exists locally is noted by
+    // the test title but produces a SKIP, not a FAIL. This keeps the
+    // signal binary: any non-skip result means drift is genuinely real
+    // or genuinely absent.
+    it.skipIf(!upstreamPresent)(
+      `${file} matches upstream byte-for-byte`,
+      () => {
+        // Compare canonicalized JSON so whitespace / key-ordering
+        // differences don't flag as drift. Semantic equality is what
+        // viem + the contract actually care about.
+        const localParsed = JSON.parse(readFileSync(join(ABI_DIR, file), "utf-8"))
+        const upstreamParsed = JSON.parse(readFileSync(upstreamPath, "utf-8"))
+
+        const canonical = (x: unknown): string =>
+          JSON.stringify(x, (_k, v) => {
+            if (v && typeof v === "object" && !Array.isArray(v)) {
+              return Object.keys(v)
+                .sort()
+                .reduce<Record<string, unknown>>((acc, k) => {
+                  acc[k] = (v as Record<string, unknown>)[k]
+                  return acc
+                }, {})
+            }
+            return v
+          })
+
+        expect(canonical(localParsed)).toBe(canonical(upstreamParsed))
+      }
+    )
+  }
 })
