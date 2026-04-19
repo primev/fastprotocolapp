@@ -102,12 +102,23 @@ detection). Next-tier candidates when a god-file split needs coverage:
 - `use-swap-quote` — polling + cancellation
 - `use-rpc-test` — network-check state machine
 
-### Component testing pattern
+### Component testing pattern — ✅ seeded
 
-`tests/components/` currently has only the pure `paginate.ts` helper.
-A second example — a real component with mocked wagmi — establishes
-the pattern so future tests are mechanical. Natural candidates:
-`SwapToast.tsx`, `AmountInput.tsx`, `TokenAvatar.tsx`.
+Seeded with `tests/components/swap/SwapToast.test.tsx`: renders a real
+wagmi-dependent component under happy-dom with the wagmi hook, the
+tx-confirmation polling hook, and the Web Audio preconfirm sound all
+`vi.mock`'d, while letting the Zustand store run real. Copy this file
+as the template for future component tests.
+
+The vitest config also gained `esbuild: { jsx: "automatic" }` so source
+files don't need to add `import React` to be testable — the Next.js
+transform is assumed in production and is now matched by the test
+runner.
+
+Natural next candidates when splitting god-files:
+`AmountInput.tsx` (pure, no wagmi — straight render/interact test),
+`TokenSelectorModal.tsx` (Zustand + search filter),
+leaderboard table sub-components as they emerge from the split.
 
 ### pg-mem limitation: window functions
 
@@ -190,14 +201,13 @@ summary. When a new gap surfaces, add it here with a clear ROI
 justification — not every followup deserves to live on this list.
 
 Priority order as of the last update:
-1. **Component test pattern seed** — one real component test with
-   mocked wagmi (`SwapToast` or `AmountInput`). Unblocks god-file
-   splits.
-2. **`strictNullChecks: true`** + rewrite `@/lib/api/parse` to the
+1. **`strictNullChecks: true`** + rewrite `@/lib/api/parse` to the
    discriminated-union shape.
-3. **Full god-file splits** (LeaderboardTable, SwapConfirmationModal).
-4. **Dependabot** — cheap ongoing value; one-file PR.
-5. **Widen Stryker scope** to schemas.ts, token-resolver.ts,
+2. **Full god-file splits** (LeaderboardTable, SwapConfirmationModal).
+   Component test pattern is now proven (SwapToast) — new leaf
+   components can copy the mock-and-render template.
+3. **Dependabot** — cheap ongoing value; one-file PR.
+4. **Widen Stryker scope** to schemas.ts, token-resolver.ts,
    leaderboard/paginate.ts, min-amount-out.ts once they earn more
    property tests.
 
@@ -215,3 +225,7 @@ Items done since the last revision of this priority list:
   `use-balance-flash`, `use-page-active`). Hook suite is now 4 files /
   50 tests, locking Edge Config fallback defaults, the 2000ms balance
   flash window, and the 2-minute idle-timer contract.
+- Seeded the component-test pattern (`SwapToast`) with real-wagmi-hook
+  mocking and a real Zustand store. Vitest now uses the automatic JSX
+  transform (`esbuild: { jsx: "automatic" }`) so tests don't need an
+  explicit `import React`. Total suite: 286 passing tests.

@@ -16,6 +16,13 @@ import path from "path"
 //     saving a source file automatically runs its test if one exists.
 
 export default defineConfig({
+  // Match the Next.js JSX transform so .tsx files don't need an explicit
+  // `import React`. Without this, esbuild falls back to the classic runtime
+  // and every component test has to start with a React import (source
+  // files don't, because next/swc injects the automatic runtime for them).
+  esbuild: {
+    jsx: "automatic",
+  },
   test: {
     globals: true,
     environment: "node",
