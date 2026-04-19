@@ -50,18 +50,21 @@ they're no longer applicable.
 - ABI drift test that diffs our local ABIs against the vendored upstream
   copies when present.
 
-### Agent-velocity docs (latest batch)
-- `src/app/api/README.md` — 52-route discovery index, grouped by domain,
-  Zod-migration status per route.
+### Agent-velocity docs + API / strictness completion
+- `src/app/api/README.md` — 52-route discovery index, grouped by domain.
+  **Every route that takes user input is now Zod-validated through
+  `@/lib/api/parse`.** ESLint rule reports zero violations.
 - `src/hooks/README.md` — 50-hook index grouped by concern.
 - `agent_docs/db-schema.md` — both app-owned Postgres tables documented,
   routes that touch each, test-fixture source-of-truth pointer.
 - `INVARIANTS.md` at repo root — every load-bearing contract linked to
   the test that enforces it.
 - ESLint rule warning on imperative validation in `src/app/api/**/route.ts`
-  (surfaces the 28 remaining routes when an agent opens them).
-- `tsconfig.json` now has `noImplicitAny: true`. Installed `@types/pg`
-  along the way.
+  (auto-surfaces any regression).
+- `tsconfig.json` now has `noImplicitAny: true`, **`noUnusedLocals: true`,
+  `noUnusedParameters: true`**. Installed `@types/pg` and
+  `eslint-plugin-unused-imports` along the way. 77 dead declarations
+  purged in the strictness flip.
 
 ---
 
@@ -70,39 +73,14 @@ they're no longer applicable.
 ### Further strictness flips (incremental)
 Each is a separate, reviewable PR so the blast radius stays small.
 
-1. **`noUnusedLocals: true` / `noUnusedParameters: true`** — should be
-   small fallout now that `noImplicitAny` is on. Next up.
-2. **`strictNullChecks: true`** — the big one. Will surface any
+1. **`strictNullChecks: true`** — the big one. Will surface any
    place we treat `null`/`undefined` loosely. The `T | NextResponse`
    pattern in `@/lib/api/parse` was chosen because strict-null is off;
    once it's on, the discriminated-union form becomes usable again
    (we'd rewrite parse.ts to return `{ ok: true; data } | { ok: false; response }`).
-3. **Full `strict: true`** — once the above land, the rest
+2. **Full `strict: true`** — once strictNullChecks lands, the rest
    (`strictFunctionTypes`, `strictBindCallApply`, etc.) should be
-   free.
-
-### API routes not yet on Zod (28 remaining)
-
-All flagged with ⚠️ in `src/app/api/README.md` and now surfaced by
-the ESLint rule. Migration recipe:
-`.claude/skills/next-app-router/api-routes.md`.
-
-User-input routes (higher priority):
-- `src/app/api/waitlist/{count,list}/route.ts`
-- `src/app/api/whitelist/{list,generate,check,convert-waitlist-to-whitelist,whitelist-swap-volume-holders}/route.ts`
-- `src/app/api/config/{fee-percentile,tx-timeout,gas-estimate,quote-guard,leaderboard-poll}/route.ts`
-- `src/app/api/analytics/leaderboard/{route,efficiency-leaders,rising-stars,volume-leaders}/route.ts`
-- `src/app/api/analytics/{transactions,swap-count,volume/swap,l1-swap-hashes}/route.ts`
-- `src/app/api/gate/warm/route.ts`
-- `src/app/api/og/preconfirm/{route.tsx,[time]/route.tsx}` (validate the `time` segment)
-- `src/app/api/cron/update-edge-config/miles-estimate-gas/route.ts` (bearer-token header)
-- `src/app/api/user-community-activity/{stats,entities}/route.ts`
-
-Input-free routes (Zod is cosmetic, low priority):
-- `src/app/api/users/route.ts` — lists users, no input
-- `src/app/api/tokens/route.ts` — returns the token list
-- `src/app/api/analytics/active-traders/route.ts` — parameterless GET
-- `src/app/api/analytics/eth-price/route.ts` — parameterless GET
+   relatively free.
 
 ### God files — pending splits
 
@@ -210,13 +188,22 @@ summary. When a new gap surfaces, add it here with a clear ROI
 justification — not every followup deserves to live on this list.
 
 Priority order as of the last update:
-1. Finish API Zod migration (28 routes — mechanical, the ESLint rule
-   surfaces them).
-2. Flip `noUnusedLocals` + `noUnusedParameters`.
-3. Split `use-swap-form` math helpers (lowest-risk of the god-file
-   splits; pure extractions, easy oracle).
-4. Seed 2-3 more hook tests to derisk the god-file splits.
-5. `strictNullChecks: true` + rewrite `@/lib/api/parse` to the
+1. **Split `use-swap-form` math helpers** (lowest-risk of the god-file
+   splits; pure extractions, testable oracle without React).
+2. **Seed 2-3 more hook tests** (`use-quote-guard-config`,
+   `use-balance-flash`, `use-page-active`) to derisk component splits.
+3. **Component test pattern seed** — one real component test with
+   mocked wagmi (`SwapToast` or `AmountInput`). Unblocks god-file
+   splits.
+4. **`strictNullChecks: true`** + rewrite `@/lib/api/parse` to the
    discriminated-union shape.
-6. Component test pattern seed (SwapToast or AmountInput).
-7. Full god-file splits.
+5. **Full god-file splits** (LeaderboardTable, SwapConfirmationModal).
+6. **Dependabot** — cheap ongoing value; one-file PR.
+7. **Widen Stryker scope** to schemas.ts, token-resolver.ts,
+   leaderboard/paginate.ts once they earn more property tests.
+
+Items done since the last revision of this priority list:
+- Finished API Zod migration (was #1). All input-taking routes now go
+  through `@/lib/api/parse`.
+- Flipped `noUnusedLocals` + `noUnusedParameters` (was #2). 77 dead
+  declarations purged.
