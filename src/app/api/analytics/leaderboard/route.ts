@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import {
   getLeaderboard,
   getUserLeaderboardData,
@@ -11,6 +12,14 @@ import {
 } from "@/lib/analytics/services/leaderboard-transform"
 import { AnalyticsClientError } from "@/lib/analytics/client"
 import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/config/constants"
+import { parseSearchParams } from "@/lib/api/parse"
+import { walletAddressSchema } from "@/lib/api/schemas"
+
+// `currentUser` is optional; when present the leaderboard response includes
+// the caller's rank + change. Wallet is lower-cased by walletAddressSchema.
+const querySchema = z.object({
+  currentUser: walletAddressSchema.optional(),
+})
 
 // In-memory cache for leaderboard data
 const cache = new Map<string, { data: any; timestamp: number }>()
@@ -40,11 +49,13 @@ function setCachedData(key: string, data: any): void {
 }
 
 export async function GET(request: NextRequest) {
-  try {
-    // Get current user address from query params (optional)
-    const { searchParams } = new URL(request.url)
-    const currentUserAddress = searchParams.get("currentUser")?.toLowerCase() || null
+  const parsed = parseSearchParams(request, querySchema)
+  if (parsed instanceof NextResponse) return parsed
+  // Wallet is already lower-cased by walletAddressSchema; null marks the
+  // "unauthenticated leaderboard request" branch throughout this handler.
+  const currentUserAddress = parsed.currentUser ?? null
 
+  try {
     // Check cache first
     const cacheKey = getCacheKey(currentUserAddress)
     const cachedData = getCachedData(cacheKey)

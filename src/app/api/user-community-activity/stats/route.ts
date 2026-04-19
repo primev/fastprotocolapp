@@ -1,31 +1,38 @@
 import "server-only"
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { pool } from "@/lib/settlement/db"
+import { parseSearchParams } from "@/lib/api/parse"
+
+// Both filters are optional. `entity` trims whitespace before it becomes a
+// SQL param so a caller can't sneak trailing-whitespace duplicates past
+// the distinct counts.
+const querySchema = z.object({
+  entity: z.string().trim().min(1).optional(),
+  chainId: z.coerce.number().int().optional(),
+})
 
 /**
  * GET /api/user-community-activity/stats
- * Returns aggregate stats for user_activity. Query params: entity (optional), chainId (optional)
+ * Returns aggregate stats for user_activity. Optional filters: entity, chainId.
  */
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const entity = searchParams.get("entity")?.trim() || null
-    const chainIdParam = searchParams.get("chainId")
-    const chainId = chainIdParam !== null && chainIdParam !== "" ? parseInt(chainIdParam, 10) : null
+  const parsed = parseSearchParams(request, querySchema)
+  if (parsed instanceof NextResponse) return parsed
+  const { entity, chainId } = parsed
 
+  try {
     const filters: string[] = []
     const values: unknown[] = []
     let paramIndex = 1
 
     if (entity) {
-      filters.push(`entity = $${paramIndex}`)
+      filters.push(`entity = $${paramIndex++}`)
       values.push(entity)
-      paramIndex++
     }
-    if (chainId !== null && !Number.isNaN(chainId)) {
-      filters.push(`chainid = $${paramIndex}`)
+    if (chainId !== undefined) {
+      filters.push(`chainid = $${paramIndex++}`)
       values.push(chainId)
-      paramIndex++
     }
 
     const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : ""

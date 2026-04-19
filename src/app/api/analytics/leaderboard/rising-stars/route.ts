@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import {
   getRisingStarsNewUsers,
   getRisingStarsWoWGrowth,
@@ -8,6 +9,16 @@ import {
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import { AnalyticsClientError } from "@/lib/analytics/client"
 import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/config/constants"
+import { parseSearchParams } from "@/lib/api/parse"
+
+// page=0 means "card preview"; page≥1 is paginated mode. The three sort
+// values map to distinct SQL queries — constraining via z.enum prevents an
+// unknown sort from silently falling through to the climbers branch.
+const querySchema = z.object({
+  sort: z.enum(["climbers", "new_users", "wow_growth"]).default("climbers"),
+  limit: z.coerce.number().int().min(1).max(100).default(15),
+  page: z.coerce.number().int().min(0).default(0),
+})
 
 // In-memory cache
 const cache = new Map<string, { data: unknown; timestamp: number }>()
@@ -35,12 +46,11 @@ interface RisingStarEntry {
  * GET /api/analytics/leaderboard/rising-stars?sort=climbers|new_users|wow_growth&limit=15&page=1
  */
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const sort = searchParams.get("sort") || "climbers"
-    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "15", 10), 1), 100)
-    const page = parseInt(searchParams.get("page") || "0", 10)
+  const parsed = parseSearchParams(request, querySchema)
+  if (parsed instanceof NextResponse) return parsed
+  const { sort, limit, page } = parsed
 
+  try {
     // Paginated mode
     if (page > 0) {
       const cacheKey = `rising-stars:${sort}:p${page}:l${limit}`

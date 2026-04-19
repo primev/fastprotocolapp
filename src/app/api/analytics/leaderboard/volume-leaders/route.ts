@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import {
   getLeaderboard,
   getLeaderboardByLargestSwap,
@@ -7,6 +8,14 @@ import {
 import { trimWalletAddress } from "@/lib/analytics/services/leaderboard-transform"
 import { AnalyticsClientError } from "@/lib/analytics/client"
 import { LEADERBOARD_CACHE_STALE_TIME } from "@/lib/config/constants"
+import { parseSearchParams } from "@/lib/api/parse"
+
+const querySchema = z.object({
+  sort: z.enum(["volume", "avg_size", "largest"]).default("volume"),
+  limit: z.coerce.number().int().min(1).max(100).default(15),
+  tier: z.string().default("all"),
+  page: z.coerce.number().int().min(0).default(0),
+})
 
 // In-memory cache
 const cache = new Map<string, { data: unknown; timestamp: number }>()
@@ -39,13 +48,11 @@ interface VolumeLeaderEntry {
  * When page is provided, returns paginated results with total count.
  */
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const sort = searchParams.get("sort") || "volume"
-    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "15", 10), 1), 100)
-    const tier = searchParams.get("tier") || "all"
-    const page = parseInt(searchParams.get("page") || "0", 10)
+  const parsed = parseSearchParams(request, querySchema)
+  if (parsed instanceof NextResponse) return parsed
+  const { sort, limit, tier, page } = parsed
 
+  try {
     // Paginated mode — server-side tier filtering + pagination
     if (page > 0) {
       const cacheKey = `volume-leaders:${sort}:${tier}:p${page}:l${limit}`

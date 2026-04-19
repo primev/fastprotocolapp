@@ -1,10 +1,20 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { getRecentL1SwapTxHashes } from "@/lib/analytics/services/l1-transactions.service"
 import { AnalyticsClientError } from "@/lib/analytics/client"
+import { parseSearchParams } from "@/lib/api/parse"
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const limit = Math.min(Number(searchParams.get("limit")) || 200, 1000)
+// Upper bound of 1000 is a server-side DoS guard — the analytics service
+// has no built-in limit of its own and a naïve client could otherwise
+// ask for millions of hashes.
+const querySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(1000).default(200),
+})
+
+export async function GET(request: NextRequest) {
+  const parsed = parseSearchParams(request, querySchema)
+  if (parsed instanceof NextResponse) return parsed
+  const { limit } = parsed
 
   try {
     const hashes = await getRecentL1SwapTxHashes(limit)
@@ -13,11 +23,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "No data returned from analytics API" }, { status: 500 })
     }
 
-    return NextResponse.json({
-      success: true,
-      count: hashes.length,
-      hashes,
-    })
+    return NextResponse.json({ success: true, count: hashes.length, hashes })
   } catch (error) {
     console.error("Error fetching L1 swap tx hashes:", error)
 
