@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useMemo, useCallback, useState, useRef } from "react"
-import NumberFlow from "@number-flow/react"
+import { X } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -10,21 +10,6 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog"
-import { cn } from "@/lib/utils"
-import { isStablecoin } from "@/lib/tokens/stablecoins"
-import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import {
-  X,
-  RefreshCw,
-  ChevronDown,
-  Info,
-  Fuel,
-  AlertTriangle,
-  ChevronRight,
-  Copy,
-  Check,
-} from "lucide-react"
 import type { Token } from "@/types/swap"
 import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
 import { useSwapConfirmation } from "@/hooks/use-swap-confirmation"
@@ -32,13 +17,13 @@ import { getPriceImpactSeverity } from "@/hooks/use-swap-quote"
 import {
   getTransactionErrorTitle,
   getTransactionFullMessage,
-  getTransactionShortMessage,
-  parseBarterSlippageError,
   RPCError,
 } from "@/lib/settlement/transaction-errors"
 import { useAccount } from "wagmi"
 import { mainnet } from "wagmi/chains"
+import { isStablecoin } from "@/lib/tokens/stablecoins"
 import { useTokenPrice } from "@/hooks/use-token-price"
+import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 import { DEFAULT_ETH_PRICE_USD } from "@/lib/config/constants"
 import { GAS_LIMIT_MULTIPLIER, ETH_PATH_DISPLAY_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
 import { useEthPathGasEstimate } from "@/hooks/use-eth-path-gas-estimate"
@@ -46,13 +31,12 @@ import { ZERO_ADDRESS } from "@/lib/swap/constants"
 import { useSwapToastStore } from "@/stores/swapToastStore"
 import { refetchMiles } from "@/hooks/use-user-points"
 import { notifySwapSubmitted } from "@/lib/swap/events"
-
-const numberFlowStyle = {
-  "--number-flow-char-gap": "-0.5px",
-  "--number-flow-mask-duration": "0.3s",
-  "--number-flow-mask-timing-function": "cubic-bezier(0.4, 0, 0.2, 1)",
-  fontVariantNumeric: "tabular-nums",
-} as React.CSSProperties
+import { ConfirmCtaButton } from "./swap-confirmation/ConfirmCtaButton"
+import { ErrorDetailModal } from "./swap-confirmation/ErrorDetailModal"
+import { ErrorView } from "./swap-confirmation/ErrorView"
+import { SwapDetailsCollapse } from "./swap-confirmation/SwapDetailsCollapse"
+import { TransactionSummary } from "./swap-confirmation/TransactionSummary"
+import { useSnapshotOnOpen } from "./swap-confirmation/useSnapshotOnOpen"
 
 interface SwapConfirmationModalProps {
   open: boolean
@@ -113,72 +97,6 @@ interface SwapConfirmationModalProps {
   } | null
 }
 
-interface InfoRowProps {
-  label: string
-  value: React.ReactNode
-  tooltip?: React.ReactNode
-  valueClassName?: string
-}
-
-function InfoRow({ label, value, tooltip, valueClassName }: InfoRowProps) {
-  return (
-    <div className="flex items-center justify-between py-2.5">
-      <div className="flex items-center gap-1.5">
-        <span className="text-sm text-gray-400">{label}</span>
-        {tooltip && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[200px] bg-[#1c2128] border-white/10">
-                <p className="text-xs text-gray-300">{tooltip}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-      </div>
-      <span
-        className={cn(
-          "text-sm font-medium text-white",
-          valueClassName,
-          (label === "Minimum received" || label === "Maximum sold") && "text-emerald-400"
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  )
-}
-
-import { TokenIcon } from "@/components/swap/TokenIcon"
-
-function BuyReceiveValue({ value, className }: { value: string; className?: string }) {
-  const clean = value?.replace(/,/g, "") ?? ""
-  const numeric = clean && !Number.isNaN(parseFloat(clean)) ? parseFloat(clean) : null
-  const decimalPlaces = clean.includes(".") ? (clean.split(".")[1]?.length ?? 0) : 0
-  const minFractionDigits = Math.min(decimalPlaces, 6)
-  const maxFractionDigits = Math.max(6, decimalPlaces)
-
-  if (numeric === null) {
-    return <span className={className}>{value || "0"}</span>
-  }
-
-  return (
-    <span className={className}>
-      <NumberFlow
-        value={numeric}
-        format={{
-          minimumFractionDigits: minFractionDigits,
-          maximumFractionDigits: maxFractionDigits,
-          useGrouping: true,
-        }}
-        style={numberFlowStyle}
-      />
-    </span>
-  )
-}
-
 function SwapConfirmationModal({
   open,
   onOpenChange,
@@ -214,78 +132,50 @@ function SwapConfirmationModal({
 }: SwapConfirmationModalProps) {
   // Snapshot quote-dependent values when the modal opens so they stay static
   // during the review — live quote refreshes should not shift the numbers.
-  // We use a ref + synchronous assignment (not useEffect) so the snapshot is
-  // available on the very first render when `open` flips to true.
-  const snapshotRef = useRef<{
-    tokenIn: Token | undefined
-    tokenOut: Token | undefined
-    amountIn: string
-    amountOut: string
-    minAmountOut: string
-    slippageLimitFormatted: string
-    isMaxIn: boolean
-    exchangeRate: number
-    priceImpact: number
-    slippage: string
-    deadline: number
-    gasEstimate: bigint | null
-    ethPrice: number | null | undefined
-    fromTokenPrice: number | null | undefined
-    toTokenPrice: number | null | undefined
-    estimatedMiles: number | null | undefined
-  } | null>(null)
-  const wasOpenRef = useRef(open)
+  const {
+    tokenIn,
+    tokenOut,
+    amountIn,
+    amountOut,
+    minAmountOut,
+    slippageLimitFormatted,
+    isMaxIn,
+    exchangeRate,
+    priceImpact,
+    slippage,
+    deadline,
+    gasEstimate,
+    ethPrice,
+    fromTokenPrice,
+    toTokenPrice,
+    estimatedMiles,
+  } = useSnapshotOnOpen(open, {
+    tokenIn: tokenInLive,
+    tokenOut: tokenOutLive,
+    amountIn: amountInLive,
+    amountOut: amountOutLive,
+    minAmountOut: minAmountOutLive,
+    slippageLimitFormatted: slippageLimitFormattedLive,
+    isMaxIn: isMaxInLive,
+    exchangeRate: exchangeRateLive,
+    priceImpact: priceImpactLive,
+    slippage: slippageLive,
+    deadline: deadlineLive,
+    gasEstimate: gasEstimateLive,
+    ethPrice: ethPriceLive,
+    fromTokenPrice: fromTokenPriceLive,
+    toTokenPrice: toTokenPriceLive,
+    estimatedMiles: estimatedMilesLive,
+  })
 
-  if (open && !wasOpenRef.current) {
-    // Modal just opened — capture current values
-    snapshotRef.current = {
-      tokenIn: tokenInLive,
-      tokenOut: tokenOutLive,
-      amountIn: amountInLive,
-      amountOut: amountOutLive,
-      minAmountOut: minAmountOutLive,
-      slippageLimitFormatted: slippageLimitFormattedLive,
-      isMaxIn: isMaxInLive,
-      exchangeRate: exchangeRateLive,
-      priceImpact: priceImpactLive,
-      slippage: slippageLive,
-      deadline: deadlineLive,
-      gasEstimate: gasEstimateLive,
-      ethPrice: ethPriceLive,
-      fromTokenPrice: fromTokenPriceLive,
-      toTokenPrice: toTokenPriceLive,
-      estimatedMiles: estimatedMilesLive,
-    }
-  } else if (!open && wasOpenRef.current) {
-    // Modal just closed — clear snapshot
-    snapshotRef.current = null
-  }
-  wasOpenRef.current = open
-
-  const tokenIn = snapshotRef.current?.tokenIn ?? tokenInLive
-  const tokenOut = snapshotRef.current?.tokenOut ?? tokenOutLive
-  const amountIn = snapshotRef.current?.amountIn ?? amountInLive
-  const amountOut = snapshotRef.current?.amountOut ?? amountOutLive
-  const minAmountOut = snapshotRef.current?.minAmountOut ?? minAmountOutLive
-  const slippageLimitFormatted =
-    snapshotRef.current?.slippageLimitFormatted ?? slippageLimitFormattedLive
-  const isMaxIn = snapshotRef.current?.isMaxIn ?? isMaxInLive
-  const exchangeRate = snapshotRef.current?.exchangeRate ?? exchangeRateLive
-  const priceImpact = snapshotRef.current?.priceImpact ?? priceImpactLive
-  const slippage = snapshotRef.current?.slippage ?? slippageLive
-  const deadline = snapshotRef.current?.deadline ?? deadlineLive
-  const gasEstimate = snapshotRef.current?.gasEstimate ?? gasEstimateLive
-  const ethPrice = snapshotRef.current?.ethPrice ?? ethPriceLive
-  const fromTokenPrice = snapshotRef.current?.fromTokenPrice ?? fromTokenPriceLive
-  const toTokenPrice = snapshotRef.current?.toTokenPrice ?? toTokenPriceLive
-  const estimatedMiles = snapshotRef.current?.estimatedMiles ?? estimatedMilesLive
   // --- EXTERNAL HOOKS ---
   const { chain: signerChain, isConnected } = useAccount()
 
   // If signerChain is undefined, the wallet isn't connected to a signer yet.
-  const isEthereumMainnet = useMemo(() => {
-    return isConnected && signerChain?.id === mainnet.id
-  }, [isConnected, signerChain])
+  const isEthereumMainnet = useMemo(
+    () => isConnected && signerChain?.id === mainnet.id,
+    [isConnected, signerChain]
+  )
 
   const {
     isWrap,
@@ -305,6 +195,7 @@ function SwapConfirmationModal({
   const updateToastHash = useSwapToastStore((s) => s.updateToastHash)
   const removeToast = useSwapToastStore((s) => s.removeToast)
   const setFailed = useSwapToastStore((s) => s.setFailed)
+  const clearLastTxError = useSwapToastStore((s) => s.clearLastTxError)
 
   const {
     confirmSwap,
@@ -344,7 +235,6 @@ function SwapConfirmationModal({
 
   const [isExpanded, setIsExpanded] = useState(false)
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false)
-  const [hasCopied, setHasCopied] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
   const [isApprovalInProgress, setIsApprovalInProgress] = useState(false)
   const [isAutoSwappingAfterApproval, setIsAutoSwappingAfterApproval] = useState(false)
@@ -371,13 +261,14 @@ function SwapConfirmationModal({
   }, [isApprovalRejected])
 
   const operationType = isWrap ? "wrap" : isUnwrap ? "unwrap" : "swap"
-  const impactSeverity = useMemo(
+  const impactSeverity: "low" | "medium" | "high" = useMemo(
     () => (isWrap || isUnwrap ? "low" : getPriceImpactSeverity(priceImpact)),
     [isWrap, isUnwrap, priceImpact]
   )
 
-  const intentPath =
+  const intentPath = Boolean(
     !isWrap && !isUnwrap && tokenIn && tokenIn.address?.toLowerCase() !== ZERO_ADDRESS.toLowerCase()
+  )
 
   // --- ACTIONS ---
   const resetAllStates = useCallback(() => {
@@ -398,8 +289,6 @@ function SwapConfirmationModal({
     }
     return (base * GAS_LIMIT_MULTIPLIER) / 100n
   }, [isWrap, isUnwrap, wethGasEstimate, ethPathGasEstimate, gasEstimate])
-
-  const clearLastTxError = useSwapToastStore((s) => s.clearLastTxError)
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
@@ -525,7 +414,7 @@ function SwapConfirmationModal({
     }
   }, [activeGasEstimate, gasPrice, effectiveEthPrice])
 
-  // USD value under each token amount (match main swap form, NumberFlow + commas)
+  // USD value under each token amount
   const fromUsdValue = useMemo(() => {
     const num = parseFloat(amountIn?.replace(/,/g, "") ?? "")
     if (isNaN(num) || num <= 0 || fromTokenPrice == null || fromTokenPrice <= 0) return null
@@ -549,11 +438,6 @@ function SwapConfirmationModal({
     [activeError, operationType]
   )
 
-  const barterSlippageInfo = useMemo(() => {
-    if (!activeError) return null
-    return parseBarterSlippageError(activeError.message)
-  }, [activeError])
-
   /** Content for Error Log modal: raw DB record when available, else receipt JSON, else full message. */
   const errorDetailContent = useMemo(() => {
     if (!activeError) return ""
@@ -573,13 +457,6 @@ function SwapConfirmationModal({
     }
     return getTransactionFullMessage(activeError)
   }, [activeError, externalError?.rawDbRecord, externalError?.receipt])
-
-  const copyErrorToClipboard = useCallback(() => {
-    if (!errorDetailContent) return
-    navigator.clipboard.writeText(errorDetailContent)
-    setHasCopied(true)
-    setTimeout(() => setHasCopied(false), 2000)
-  }, [errorDetailContent])
 
   // Rate is "tokenOut per 1 tokenIn"; format by whether tokenOut is stable (match swap form)
   const rateToStable = useMemo(
@@ -646,6 +523,8 @@ function SwapConfirmationModal({
   // Auto-execute retry: mount hooks + effect only, no visible UI (toast handles feedback)
   if (autoExecute && open) return null
 
+  const isDangerous = !isWrap && !isUnwrap && impactSeverity === "high"
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -674,483 +553,69 @@ function SwapConfirmationModal({
           </DialogHeader>
 
           {activeError ? (
-            /* ERROR VIEW */
-            <div className="flex flex-col items-center pb-10 px-8 text-center animate-in fade-in duration-300">
-              {barterSlippageInfo ? (
-                <>
-                  <p className="text-[14px] font-medium text-white/75 max-w-[320px] leading-relaxed mb-2">
-                    Slippage too low for this swap.
-                  </p>
-                  <p className="text-[13px] text-zinc-400 max-w-[300px] leading-relaxed mb-6">
-                    Minimum required slippage:{" "}
-                    <span className="text-white font-semibold">
-                      {barterSlippageInfo.recommendedSlippage}%
-                    </span>
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      resetAllStates()
-                      clearLastTxError()
-                      onRetryWithSlippage?.(barterSlippageInfo.recommendedSlippage)
-                    }}
-                    className="w-full h-14 bg-[#3898FF] hover:bg-[#3898FF]/90 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3 mb-3"
-                  >
-                    <RefreshCw size={16} /> Retry with {barterSlippageInfo.recommendedSlippage}%
-                    slippage
-                  </button>
-                  <button
-                    onClick={() => setIsErrorModalOpen(true)}
-                    className="group flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider transition-all"
-                  >
-                    View Error Details
-                    <ChevronRight
-                      size={14}
-                      className="group-hover:translate-x-0.5 transition-transform"
-                    />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p className="text-[14px] font-medium text-white/75 max-w-[320px] leading-relaxed mb-6">
-                    {getTransactionShortMessage(activeError)}
-                  </p>
-                  <button
-                    onClick={() => setIsErrorModalOpen(true)}
-                    className="group flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider transition-all mb-6"
-                  >
-                    View Error Details
-                    <ChevronRight
-                      size={14}
-                      className="group-hover:translate-x-0.5 transition-transform"
-                    />
-                  </button>
-                  {!externalError?.occurredAfterPreConfirm && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        resetAllStates()
-                        clearLastTxError()
-                        executeSwap()
-                      }}
-                      className="w-full h-14 bg-white/10 hover:bg-white/15 text-white font-bold uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3"
-                    >
-                      <RefreshCw size={16} /> Try Again
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+            <ErrorView
+              error={activeError}
+              occurredAfterPreConfirm={externalError?.occurredAfterPreConfirm}
+              onOpenDetails={() => setIsErrorModalOpen(true)}
+              onRetry={() => {
+                resetAllStates()
+                clearLastTxError()
+                executeSwap()
+              }}
+              onRetryWithSlippage={(recommended) => {
+                resetAllStates()
+                clearLastTxError()
+                onRetryWithSlippage?.(recommended)
+              }}
+            />
           ) : (
-            /* REVIEW VIEW */
             <div className="animate-in fade-in duration-300">
-              {/* Transaction Summary */}
-              <div className=" px-5 pb-6 space-y-3">
-                {/* From Token */}
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <p className="text-2xl sm:text-3xl font-bold text-white">
-                      <BuyReceiveValue value={amountIn} className="tabular-nums" />{" "}
-                      {tokenIn?.symbol}
-                    </p>
-                    <p className="text-sm text-gray-500 tabular-nums">
-                      {fromUsdValue != null ? (
-                        <span className="inline-flex items-center gap-0.5">
-                          ≈ $
-                          <NumberFlow
-                            value={fromUsdValue}
-                            format={{
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                              useGrouping: true,
-                            }}
-                            style={numberFlowStyle}
-                          />
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </p>
-                  </div>
-                  <TokenIcon token={tokenIn} bare className="h-11 w-11 sm:h-12 sm:w-12" />
-                </div>
+              <TransactionSummary
+                tokenIn={tokenIn}
+                tokenOut={tokenOut}
+                amountIn={amountIn}
+                amountOut={amountOut}
+                fromUsdValue={fromUsdValue}
+                toUsdValue={toUsdValue}
+              />
 
-                {/* Arrow Indicator */}
-                <div className="flex justify-center py-0.5">
-                  <div className="h-7 w-7 rounded-lg bg-white/5 flex items-center justify-center">
-                    <ChevronDown className="h-4 w-4 text-gray-500" />
-                  </div>
-                </div>
+              <SwapDetailsCollapse
+                priceImpact={priceImpact}
+                impactSeverity={impactSeverity}
+                intentPath={intentPath}
+                gasCostUsd={gasCostUsd}
+                isWrap={isWrap}
+                isUnwrap={isUnwrap}
+                estimatedMiles={estimatedMiles}
+                isExpanded={isExpanded}
+                onToggleExpanded={() => setIsExpanded(!isExpanded)}
+                tokenIn={tokenIn}
+                tokenOut={tokenOut}
+                exchangeRate={exchangeRate}
+                rateToStable={rateToStable}
+                isMaxIn={isMaxIn}
+                slippageLimitFormatted={slippageLimitFormatted}
+                slippage={slippage}
+              />
 
-                {/* To Token */}
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <p className="text-2xl sm:text-3xl font-bold text-white">
-                      <BuyReceiveValue value={amountOut} className="tabular-nums" />{" "}
-                      {tokenOut?.symbol}
-                    </p>
-                    <p className="text-sm text-gray-500 tabular-nums">
-                      {toUsdValue != null ? (
-                        <span className="inline-flex items-center gap-0.5">
-                          ≈ $
-                          <NumberFlow
-                            value={toUsdValue}
-                            format={{
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                              useGrouping: true,
-                            }}
-                            style={numberFlowStyle}
-                          />
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </p>
-                  </div>
-                  <TokenIcon token={tokenOut} bare className="h-11 w-11 sm:h-12 sm:w-12" />
-                </div>
-              </div>
-
-              {/* Details Section */}
-              <div className="px-5 sm:px-6 pb-3 bg-white/[0.02] border-y border-white/5">
-                <div className="divide-y divide-white/5">
-                  {impactSeverity === "high" ? (
-                    <InfoRow
-                      label="Price impact"
-                      value={
-                        <span className="flex items-center gap-1.5 tabular-nums">
-                          {priceImpact < 0 && "-"}
-                          <NumberFlow
-                            value={Math.abs(priceImpact)}
-                            format={{
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                              useGrouping: true,
-                            }}
-                            style={numberFlowStyle}
-                          />
-                          %
-                          <TooltipProvider delayDuration={100}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="inline-flex cursor-help">
-                                  <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="top"
-                                className="max-w-[200px] bg-[#1c2128] border-white/10"
-                              >
-                                <p className="font-semibold text-red-400 mb-1">High Price Impact</p>
-                                <p className="text-xs text-gray-300">
-                                  This trade will significantly move the market price. You may
-                                  receive less than expected.
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </span>
-                      }
-                      tooltip="The difference between market price and estimated price due to trade size"
-                      valueClassName="text-red-400"
-                    />
-                  ) : (
-                    <InfoRow
-                      label="Fee"
-                      value="Free"
-                      tooltip="The fee charged for this swap"
-                      valueClassName="text-[#3898FF]"
-                    />
-                  )}
-                  <InfoRow
-                    label="Network cost"
-                    value={
-                      intentPath ? (
-                        <span className="text-[#3898FF]">Free</span>
-                      ) : (
-                        <span className="flex items-center gap-1.5 tabular-nums">
-                          <Fuel className="h-3.5 w-3.5 text-gray-500" />
-                          {gasCostUsd != null ? (
-                            <>
-                              $
-                              <NumberFlow
-                                value={gasCostUsd}
-                                format={{
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                  useGrouping: true,
-                                }}
-                                style={numberFlowStyle}
-                              />
-                            </>
-                          ) : (
-                            "—"
-                          )}
-                        </span>
-                      )
-                    }
-                    tooltip={
-                      intentPath
-                        ? "No gas fee — relayer submits the transaction"
-                        : "Estimated gas fee for this transaction"
-                    }
-                  />
-                  {!isWrap && !isUnwrap && estimatedMiles != null && (
-                    <InfoRow
-                      label="Est. miles earned"
-                      value={
-                        estimatedMiles > 0 ? (
-                          <span className="tabular-nums">
-                            ~
-                            <NumberFlow
-                              value={estimatedMiles}
-                              format={{ useGrouping: true, maximumFractionDigits: 0 }}
-                              style={numberFlowStyle}
-                            />
-                          </span>
-                        ) : (
-                          <span className="text-gray-500">TBD</span>
-                        )
-                      }
-                      tooltip={
-                        estimatedMiles > 0 ? (
-                          "Estimated Fast Miles earned from MEV redistribution on this swap"
-                        ) : (
-                          <>
-                            We are unable to show a miles estimate at this time. You may continue to
-                            earn miles as your swap executes. See{" "}
-                            <a
-                              href="/learn/miles#about-the-miles-estimate"
-                              target="_blank"
-                              rel="noreferrer"
-                              className="underline underline-offset-2 text-[#3898FF] hover:text-[#5aa9ff]"
-                            >
-                              Learn
-                            </a>{" "}
-                            for more info.
-                          </>
-                        )
-                      }
-                      valueClassName={estimatedMiles > 0 ? "text-[#3898FF]" : "text-gray-500"}
-                    />
-                  )}
-                </div>
-
-                <button
-                  onClick={() => setIsExpanded(!isExpanded)}
-                  className="flex items-center justify-center gap-1.5 w-full py-2 mt-2 rounded-lg hover:bg-white/5 transition-all text-sm text-gray-400 hover:text-white"
-                >
-                  {isExpanded ? "Show less" : "Show more"}
-                  <ChevronDown
-                    className={cn(
-                      "h-4 w-4 transition-transform duration-200",
-                      isExpanded && "rotate-180"
-                    )}
-                  />
-                </button>
-
-                <div
-                  className={cn(
-                    "overflow-hidden transition-all duration-300 ease-in-out",
-                    isExpanded
-                      ? "max-h-[300px] opacity-100 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                      : "max-h-0 opacity-0"
-                  )}
-                >
-                  <div className="divide-y divide-white/5 pt-2">
-                    <InfoRow
-                      label="Rate"
-                      value={
-                        <span className="tabular-nums">
-                          1 {tokenIn?.symbol ?? ""} ={" "}
-                          {exchangeRate.toLocaleString("en-US", {
-                            minimumFractionDigits: rateToStable ? 2 : 0,
-                            maximumSignificantDigits: 6,
-                            useGrouping: true,
-                          })}{" "}
-                          {tokenOut?.symbol ?? ""}
-                        </span>
-                      }
-                      tooltip="Current exchange rate between tokens"
-                    />
-                    <InfoRow
-                      label={isMaxIn ? "Maximum sold" : "Minimum received"}
-                      value={(() => {
-                        const cleanSlippage = slippageLimitFormatted?.replace(/,/g, "") ?? "0"
-                        const slippageDecimals = cleanSlippage.includes(".")
-                          ? (cleanSlippage.split(".")[1]?.length ?? 0)
-                          : 0
-                        return (
-                          <span className="inline-flex items-center gap-1 tabular-nums">
-                            <NumberFlow
-                              value={parseFloat(cleanSlippage) || 0}
-                              format={{
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: Math.max(6, slippageDecimals),
-                                useGrouping: true,
-                              }}
-                              style={numberFlowStyle}
-                            />{" "}
-                            {isMaxIn ? (tokenIn?.symbol ?? "") : (tokenOut?.symbol ?? "")}
-                          </span>
-                        )
-                      })()}
-                      tooltip={
-                        isMaxIn
-                          ? "The maximum amount you will pay after slippage"
-                          : "The minimum amount you will receive after slippage"
-                      }
-                    />
-
-                    <InfoRow
-                      label="Max slippage"
-                      value={
-                        <span className="tabular-nums">
-                          {(parseFloat(slippage) || 0).toLocaleString("en-US", {
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 2,
-                            useGrouping: true,
-                          })}
-                          %
-                        </span>
-                      }
-                      tooltip="Maximum price movement allowed before transaction reverts"
-                    />
-
-                    <InfoRow
-                      label="Order routing"
-                      value="Fast Protocol"
-                      tooltip="Protocol used to execute this swap"
-                    />
-                    {impactSeverity === "high" ? (
-                      <InfoRow
-                        label="Fee"
-                        value="Free"
-                        tooltip="The fee charged for this swap"
-                        valueClassName="text-[#3898FF]"
-                      />
-                    ) : (
-                      <InfoRow
-                        label="Price impact"
-                        value={
-                          <span className="flex items-center gap-1.5 tabular-nums">
-                            {`${priceImpact >= 0 ? "" : "-"}${Math.abs(priceImpact).toFixed(2)}%`}
-                            {impactSeverity === "medium" && (
-                              <TooltipProvider delayDuration={100}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="inline-flex cursor-help">
-                                      <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="top"
-                                    className="max-w-[200px] bg-[#1c2128] border-white/10"
-                                  >
-                                    <p className="font-semibold text-amber-400 mb-1">
-                                      Medium Price Impact
-                                    </p>
-                                    <p className="text-xs text-gray-300">
-                                      This trade may move the market price. Consider a smaller
-                                      amount.
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
-                          </span>
-                        }
-                        tooltip="The difference between market price and estimated price due to trade size"
-                        valueClassName={cn(
-                          impactSeverity === "low" && "text-emerald-400",
-                          impactSeverity === "medium" && "text-amber-400"
-                        )}
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* CTA Button */}
-              <div className="p-5 sm:p-6">
-                <button
-                  onClick={handleConfirm}
-                  disabled={ctaState.disabled}
-                  className={cn(
-                    "w-full h-12 sm:h-14 rounded-2xl font-bold text-base sm:text-lg transition-all",
-                    ctaState.disabled || !isEthereumMainnet
-                      ? "bg-white/10 text-gray-500 cursor-not-allowed"
-                      : !isWrap && !isUnwrap && impactSeverity === "high"
-                        ? "bg-red-500 text-white hover:bg-red-500/90 active:scale-[0.98]"
-                        : "bg-[#3898FF] text-white hover:bg-[#3898FF]/90 active:scale-[0.98]"
-                  )}
-                >
-                  {ctaState.showSpinner ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      {ctaState.label}
-                    </span>
-                  ) : (
-                    ctaState.label
-                  )}
-                </button>
-              </div>
+              <ConfirmCtaButton
+                label={ctaState.label}
+                disabled={ctaState.disabled}
+                showSpinner={ctaState.showSpinner}
+                onClick={handleConfirm}
+                isEthereumMainnet={isEthereumMainnet}
+                isDangerous={isDangerous}
+              />
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* ERROR DETAIL MODAL */}
-      <Dialog open={isErrorModalOpen} onOpenChange={setIsErrorModalOpen}>
-        <DialogOverlay className="bg-black/40 backdrop-blur-sm z-[60]" />
-        <DialogContent className="sm:max-w-2xl w-[95vw] p-0 bg-[#0d1117] border-white/10 rounded-[28px] overflow-hidden shadow-2xl z-[70] outline-none">
-          <DialogHeader className="p-6 pb-2">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-lg font-bold text-white uppercase tracking-tight">
-                Error Log
-              </DialogTitle>
-              <DialogClose asChild>
-                <button className="p-2 rounded-lg hover:bg-white/5 transition-colors text-gray-400 hover:text-white">
-                  {/* <X className="h-5 w-5" /> */}
-                </button>
-              </DialogClose>
-            </div>
-          </DialogHeader>
-
-          <div className="p-6 pt-2">
-            <div className="relative group">
-              <div className="w-full bg-black/40 rounded-2xl border border-white/5 p-5 max-h-[50dvh] overflow-y-auto overflow-x-auto scrollbar-hide">
-                <code
-                  className="text-[12px] leading-relaxed font-mono text-red-400/90 break-words whitespace-pre-wrap"
-                  style={{
-                    wordBreak: "break-all",
-                    overflowWrap: "break-word",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {errorDetailContent}
-                </code>
-              </div>
-              <div className="flex justify-end mt-4">
-                <button
-                  onClick={copyErrorToClipboard}
-                  className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-2 border border-white/5"
-                >
-                  {hasCopied ? (
-                    <Check size={14} className="text-emerald-400" />
-                  ) : (
-                    <Copy size={14} />
-                  )}
-                  <span className="text-[10px] font-bold uppercase tracking-widest">
-                    {hasCopied ? "Copied" : "Copy"}
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ErrorDetailModal
+        open={isErrorModalOpen}
+        onOpenChange={setIsErrorModalOpen}
+        content={errorDetailContent}
+      />
     </>
   )
 }
