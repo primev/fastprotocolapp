@@ -84,9 +84,16 @@ Documented under "Pending splits" in
 [`agent_docs/architecture.md`](./architecture.md). Split AFTER seeding
 component tests so regressions have an oracle.
 
-- `src/components/dashboard/LeaderboardTable.tsx` (~2700 LoC)
-- `src/components/modals/SwapConfirmationModal.tsx` (~1160 LoC)
-- `src/hooks/use-swap-form.ts` (~620 LoC)
+- ~~`src/components/dashboard/LeaderboardTable.tsx` (~2700 LoC)~~ — ✅
+  phase 1: extracted the 6 self-contained leaves (LeaderboardRow,
+  PaginatedLeaderboardModal, Volume/Efficiency/Referral/RisingStars
+  cards) + a `leaderboard/types.ts` file. Parent is now 1176 LoC
+  (−57%). Phase 2 (pending): split the parent's stats/progress/analysis
+  sections out of the main render.
+- ~~`src/components/modals/SwapConfirmationModal.tsx` (~1160 LoC)~~ — ✅
+  split into `src/components/modals/swap-confirmation/*` (parent now
+  623 LoC; seven presentational leaves + useSnapshotOnOpen hook).
+- `src/hooks/use-swap-form.ts` (~620 LoC) — still pending
 
 ### Seed more hook tests
 
