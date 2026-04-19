@@ -51,6 +51,9 @@ export default {
     },
 
     extend: {
+      fontFamily: {
+        sora: ["var(--font-sora)", "system-ui", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -126,12 +129,23 @@ export default {
             opacity: "1",
           },
         },
+        "pulse-glow": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.7" },
+        },
+        "value-flash": {
+          "0%": { backgroundColor: "transparent" },
+          "30%": { backgroundColor: "hsl(var(--success) / 0.08)" },
+          "100%": { backgroundColor: "transparent" },
+        },
       },
 
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "slide-in-bottom-left": "slide-in-bottom-left 0.3s ease-out",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        "value-flash": "value-flash 1.2s ease-out 0.5s 1",
       },
     },
   },
