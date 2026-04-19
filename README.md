@@ -2,57 +2,63 @@
 
 The official web application for [Fast Protocol](https://fastprotocol.io) — a coordinated rewards layer providing lightning-fast transactions on Ethereum L1 with tokenized MEV rewards.
 
-## Overview
+> This README serves **two audiences**: humans exploring the project (what it is, how to run it, how it's tested) and AI agents about to edit it (how to orient, where docs live, what hooks fire). Skim top-to-bottom for the former; jump to [Working with AI agents](#working-with-ai-agents) for the latter.
+
+---
+
+## What it is
 
 Fast Protocol App is the primary interface for users to interact with Fast Protocol. Users can claim their Genesis SBT (Soul Bound Token) badges, track their rewards and activity, participate in quests, and climb the leaderboard.
 
-### Key Features
+### Key features
 
-- **Genesis SBT Minting** — claim non-transferable Soul Bound Token badges that represent your participation in the Fast Protocol ecosystem
+- **Genesis SBT minting** — claim non-transferable Soul Bound Token badges that represent your participation in the Fast Protocol ecosystem
 - **Dashboard** — track your swap volume, points, and rewards in real-time
 - **Leaderboard** — compete with other users across Gold, Silver, and Bronze tiers based on trading volume
-- **Referral System** — earn rewards by inviting others to join Fast Protocol
-- **Partner Quests** — complete tasks and quests from ecosystem partners
-- **Fast RPC Integration** — one-click setup to add Fast Protocol's RPC to MetaMask or Rabby wallet
+- **Referral system** — earn rewards by inviting others to join Fast Protocol
+- **Partner quests** — complete tasks and quests from ecosystem partners
+- **Fast RPC integration** — one-click setup to add Fast Protocol's RPC to MetaMask or Rabby wallet
 
-## Tech Stack
+### Tech stack
 
 - **Framework**: [Next.js 15](https://nextjs.org/) with App Router (React 18)
-- **Language**: TypeScript
+- **Language**: TypeScript (strict mode off — see `tsconfig.json`)
 - **Styling**: Tailwind CSS
-- **UI Components**: shadcn/ui + Radix UI
+- **UI components**: shadcn/ui on Radix primitives
 - **Web3**: wagmi 2, viem 2, RainbowKit, ethers 6
 - **Data**: TanStack Query 5
 - **Validation**: Zod + `@t3-oss/env-nextjs`
 - **Testing**: Vitest 4 + fast-check + pg-mem + Stryker
-- **Smart Contracts**: Solidity with Foundry
+- **Smart contracts**: Solidity with Foundry (protocol source of truth at [primev/mev-commit](https://github.com/primev/mev-commit))
 
-## Getting Started
+---
+
+## Getting started
 
 ```bash
-npm install
-cp .env.example .env   # fill in values where needed
-npm run dev            # http://localhost:3000
+npm install                # package-lock.json is authoritative — npm only
+cp .env.example .env       # fill in the UUID placeholders where real values are needed
+npm run dev                # dev server at http://localhost:3000
 ```
-
-The package manager is **npm** — `package-lock.json` is authoritative. Do not regenerate with `bun` or `pnpm`.
 
 ## Scripts
 
 | Command | What it does |
 |---|---|
 | `npm run dev` | Next dev server |
-| `npm run build` | Production build (requires populated `.env`) |
+| `npm run build` | Production build (needs a populated `.env`) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | `next lint` |
 | `npm run test` | Vitest watch mode |
 | `npm run test:run` | Full suite, single pass (CI + agent-safe) |
 | `npm run test:coverage` | v8 coverage report |
-| `npm run test:fork` | Anvil fork tests (requires `FORK_RPC_URL`) |
+| `npm run test:fork` | Anvil fork tests (needs `FORK_RPC_URL`) |
+| `npm run test:externals` | ABI drift diff vs upstream mev-commit (needs `/sync-externals` first) |
 | `npm run test:mutation` | Stryker mutation testing |
+| `npm run sync:externals` | Sync vendored external repos under `.external/` |
 | `npm run format` / `format:check` | Prettier write / check |
 
-## Project Structure
+## Project structure
 
 ```
 src/
@@ -88,16 +94,19 @@ tests/                      Mirrors src/; all tests live at top level
 └── utils/                  Shared test helpers (pg-mem, arbitraries, mocks)
 
 contracts/                  Solidity (Foundry) — edit with care
-contracts-abi/              Extracted ABI JSON consumed by src/lib/tokens/*-abi.ts
+contracts-abi/              Extracted ABI JSON (diffed vs upstream by the externals CI)
 docs/                       Human-facing deep-dives (banner-gated)
 agent_docs/                 Agent-facing reference/map layer
-.claude/                    Skills, subagents, slash commands, hooks
+.claude/                    Skills, subagents, slash commands, hooks, externals manifest
+.external/                  Vendored upstream repos (gitignored; rebuilt by /prime)
 .github/workflows/          CI pipeline
 ```
 
+---
+
 ## Testing
 
-The suite covers nine layers, each catching a class of bug the others can't:
+The suite covers ten layers, each catching a class of bug the others can't:
 
 | Layer | Purpose | Runs via |
 |---|---|---|
@@ -105,52 +114,108 @@ The suite covers nine layers, each catching a class of bug the others can't:
 | Property (fast-check) | Rules across the whole input space | `npm run test:run` |
 | Integration (pg-mem) | Real SQL execution for API routes | `npm run test:run` |
 | Cross-module invariants | Rules spanning module boundaries | `npm run test:run` |
-| ABI drift | JSON + const-ABI sanity vs canonical interfaces | `npm run test:run` |
-| EIP-712 signing | Typed-data hash stability + injectivity + Permit2 domain separator | `npm run test:run` |
+| ABI shape | JSON sanity + canonical signatures | `npm run test:run` |
+| EIP-712 signing | Typed-data hash stability + Permit2 domain separator | `npm run test:run` |
 | Upstream API contracts | Fuul/Barter response schemas + fixtures | `npm run test:run` |
 | Hook (happy-dom) | React hooks via `renderHook` | `npm run test:run` |
+| Upstream ABI drift | Our ABIs vs vendored mev-commit copies | `npm run test:externals` (after `/sync-externals`) |
 | Fork (anvil) | On-chain `DOMAIN_SEPARATOR()` vs off-chain snapshot | `npm run test:fork` |
 | Mutation (Stryker) | Tests of the tests — catches quality drift | `npm run test:mutation` |
 
-**230 tests in the default run; suite completes in under a second.** Fork and mutation are opt-in because they need network / extra time.
+**232 tests in the default run; suite completes in under a second.** Fork, externals-drift, and mutation are opt-in because they need network / extra time.
 
-## CI Pipeline
+## CI pipeline
 
-Five GitHub Actions workflows under `.github/workflows/`:
+Six GitHub Actions workflows under `.github/workflows/`:
 
 | Workflow | Trigger | Gates PR? |
 |---|---|---|
 | `format.yml` | PR + push to main | ✅ |
-| `verify.yml` | PR + push to main | ✅ (typecheck + 230 tests) |
+| `verify.yml` | PR + push to main | ✅ (typecheck + 232 tests) |
 | `build.yml` | PR + push, path-filtered | ✅ (when API / middleware / env / server-actions / next.config touched) |
 | `fork.yml` | nightly + manual | ❌ (scheduled canary; needs `FORK_RPC_URL` secret) |
+| `externals.yml` | weekly + manual | ❌ (syncs mev-commit, runs ABI drift test) |
 | `mutation.yml` | weekly + manual | ❌ (quality signal; uploads HTML artifact) |
+
+---
 
 ## Working with AI agents
 
-This repo is instrumented for agentic development:
+This repo is instrumented for agentic development. If you're an AI agent starting a session, run **`/prime`** first — it's the single command that loads the project mental model.
 
-- [`AGENTS.md`](./AGENTS.md) — portable spec (Claude Code, Codex, Cursor, Amp, Jules)
-- [`CLAUDE.md`](./CLAUDE.md) — Claude Code-specific additions
-- [`agent_docs/`](./agent_docs) — on-demand reference: `architecture.md`, `stack.md`, `web3-integration.md`, `testing.md`, `verification.md`, `glossary.md`, and `audit-followup.md` (outstanding work)
-- [`.claude/`](./.claude) — skills (how-to), subagents (context firewalls), slash commands (`/prime`, `/verify`, `/test`, etc.), and PostToolUse hooks
+### What `/prime` does
 
-**Hooks fire on every file edit** (silent on success, loud on failure):
-- `tsc --noEmit` after any `.ts`/`.tsx` change
-- Auto-run the mirror test in `tests/` if one exists
-- `next build` when the edit touches the server/client boundary
+1. Syncs every external workspace declared in `.claude/externals.json`
+   (fast-forward clone or refresh; prints current SHA + age).
+2. Reads the five orientation files in order:
+   `CLAUDE.md` → `AGENTS.md` → `agent_docs/stack.md` → `agent_docs/architecture.md` → `agent_docs/verification.md`.
+3. Summarizes the project in 5 bullets.
+4. Lists available slash commands, skills, and external workspaces.
 
-In a fresh Claude Code session, run `/prime` to load the project mental model.
+### Primitives
+
+| Thing | Where |
+|---|---|
+| **Portable spec** | [`AGENTS.md`](./AGENTS.md) — works across Claude Code, Codex, Cursor, Amp, Jules |
+| **Claude Code specifics** | [`CLAUDE.md`](./CLAUDE.md) — hooks, subagents, and harness details |
+| **Reference / map layer** | [`agent_docs/`](./agent_docs) — architecture, stack, web3, testing, verification, glossary, external workspaces |
+| **Skills (how-to)** | [`.claude/skills/`](./.claude/skills) — load on relevance (defi-swap, web3-wallet, testing-vitest, external-mev-commit, etc.) |
+| **Subagents (firewalls)** | [`.claude/agents/`](./.claude/agents) — explore-web3, security-reviewer, ui-verifier, abi-tracer |
+| **Slash commands** | [`.claude/commands/`](./.claude/commands) — `/prime`, `/verify`, `/test`, `/sync-externals`, `/review-diff`, etc. |
+| **Followups / state** | [`agent_docs/audit-followup.md`](./agent_docs/audit-followup.md) — outstanding work, testing-layer status, open gaps |
 
 ### Documentation layers
+
+Three surfaces with non-overlapping roles. When in doubt, this is the precedence:
 
 | Layer | Audience | Role |
 |---|---|---|
 | `.claude/skills/` | agents | HOW-TO — patterns, do/don't, code snippets |
 | `agent_docs/` | agents | MAP — pointers to code + cross-links |
-| `docs/` | humans | NARRATIVE — UX behavior, SQL reference, product flow |
+| `docs/` | humans | NARRATIVE — UX behavior, SQL reference, product flow (banner-gated) |
 
 Each `docs/*.md` carries an "Audience: humans" banner pointing to the authoritative skill so agents don't accidentally treat it as load-bearing.
+
+### PostToolUse hooks (silent on success, loud on failure)
+
+| Hook | When it fires | What it does |
+|---|---|---|
+| `post-edit-typecheck.sh` | After any `.ts`/`.tsx` edit | `tsc --noEmit` |
+| `post-edit-test.sh` | After any source edit | Runs the mirror test in `tests/<mirror>.test.*` if one exists |
+| `post-edit-build.sh` | When API / middleware / env / server-actions / next.config changes | `next build` |
+| `stop-format-check.sh` | At session end | `prettier --check` |
+| `externals-sync.sh` | From `/prime` and `/sync-externals` | Clones / fetches / fast-forwards vendored external repos |
+| `pre-commit-external-guard.sh` | Optional git pre-commit | Refuses commits with staged changes under `.external/` |
+
+The pre-commit guard is shipped as a script — install once per clone:
+
+```bash
+ln -sf ../../.claude/hooks/pre-commit-external-guard.sh .git/hooks/pre-commit
+```
+
+### External workspaces — reading upstream repos as local context
+
+Some cross-repo context (protocol types, canonical ABIs, upstream handler shapes) is better as vendored read-only files than as MCP round-trips. The pattern:
+
+- `.claude/externals.json` declares external repos with `name`, `origin`, `ref`, sparse paths, and freshness thresholds.
+- `/prime` and `/sync-externals` materialize them under `.external/<name>/` — gitignored, rebuilt on demand.
+- Each external gets a skill (`.claude/skills/external-<name>/`) that tells agents WHEN to load it and a scope map (`agent_docs/external-<name>.md`) that shows WHERE inside the external to look.
+
+Current externals:
+
+| Name | Upstream | Scope map |
+|---|---|---|
+| `mev-commit` | [primev/mev-commit](https://github.com/primev/mev-commit) | [`agent_docs/external-mev-commit.md`](./agent_docs/external-mev-commit.md) |
+
+Design rationale and the full add-a-new-external recipe: [`agent_docs/external-workspaces-plan.md`](./agent_docs/external-workspaces-plan.md).
+
+### The one-sentence workflow
+
+**Edit → PostToolUse hooks fire → `/verify` before handoff → push → CI re-runs verify + build + format on every PR.**
+
+Fork, externals, and mutation tests run on schedule (or manual dispatch) and don't gate PRs.
+
+---
 
 ## Links
 
@@ -159,6 +224,7 @@ Each `docs/*.md` carries an "Audience: humans" banner pointing to the authoritat
 - **Discord**: [discord.com/invite/fastprotocol](https://discord.com/invite/fastprotocol)
 - **Telegram**: [t.me/Fast_Protocol](https://t.me/Fast_Protocol)
 - **X (Twitter)**: [@Fast_Protocol](https://x.com/Fast_Protocol)
+- **Protocol repo**: [primev/mev-commit](https://github.com/primev/mev-commit) (vendored under `.external/` for agent context)
 
 ## License
 
