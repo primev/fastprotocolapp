@@ -188,22 +188,26 @@ summary. When a new gap surfaces, add it here with a clear ROI
 justification — not every followup deserves to live on this list.
 
 Priority order as of the last update:
-1. **Split `use-swap-form` math helpers** (lowest-risk of the god-file
-   splits; pure extractions, testable oracle without React).
-2. **Seed 2-3 more hook tests** (`use-quote-guard-config`,
+1. **Seed 2-3 more hook tests** (`use-quote-guard-config`,
    `use-balance-flash`, `use-page-active`) to derisk component splits.
-3. **Component test pattern seed** — one real component test with
+2. **Component test pattern seed** — one real component test with
    mocked wagmi (`SwapToast` or `AmountInput`). Unblocks god-file
    splits.
-4. **`strictNullChecks: true`** + rewrite `@/lib/api/parse` to the
+3. **`strictNullChecks: true`** + rewrite `@/lib/api/parse` to the
    discriminated-union shape.
-5. **Full god-file splits** (LeaderboardTable, SwapConfirmationModal).
-6. **Dependabot** — cheap ongoing value; one-file PR.
-7. **Widen Stryker scope** to schemas.ts, token-resolver.ts,
-   leaderboard/paginate.ts once they earn more property tests.
+4. **Full god-file splits** (LeaderboardTable, SwapConfirmationModal).
+5. **Dependabot** — cheap ongoing value; one-file PR.
+6. **Widen Stryker scope** to schemas.ts, token-resolver.ts,
+   leaderboard/paginate.ts, min-amount-out.ts once they earn more
+   property tests.
 
 Items done since the last revision of this priority list:
-- Finished API Zod migration (was #1). All input-taking routes now go
-  through `@/lib/api/parse`.
-- Flipped `noUnusedLocals` + `noUnusedParameters` (was #2). 77 dead
+- Finished API Zod migration. All input-taking routes now go through
+  `@/lib/api/parse`.
+- Flipped `noUnusedLocals` + `noUnusedParameters`. 77 dead
   declarations purged.
+- Extracted `use-swap-form` math helpers into
+  `@/lib/swap/min-amount-out` with 14 property tests. Contract-safety
+  invariants (floor ≤ amountOut end-to-end, never tightens user's
+  tolerance, monotone in Barter shortfall) are now independently
+  verifiable without React.
