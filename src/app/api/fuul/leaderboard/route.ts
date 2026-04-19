@@ -88,9 +88,11 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "15", 10), 1), 100)
     const page = parseInt(searchParams.get("page") || "0", 10)
     const sort = searchParams.get("sort") || ""
+    const forceRefresh = searchParams.get("refresh") === "1"
 
-    // Refresh cache if stale or missing
-    const isStale = !rawCache || Date.now() - rawCache.timestamp >= LEADERBOARD_CACHE_STALE_TIME
+    // Refresh cache if stale, missing, or explicitly requested
+    const isStale =
+      forceRefresh || !rawCache || Date.now() - rawCache.timestamp >= LEADERBOARD_CACHE_STALE_TIME
     if (isStale) {
       const allResults: FuulLeaderboardEntry[] = []
       let currentPage = 1

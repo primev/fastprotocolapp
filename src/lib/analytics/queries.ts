@@ -544,6 +544,75 @@ ORDER BY MAX(p.l1_timestamp) DESC
 LIMIT :limit
 `.trim()
 
+// FastSwap-specific tx hashes for gas estimation.
+// Uses fastswap_miles instead of processed_l1_txns_v2 so gas averages
+// reflect actual FastSwap transactions, not arbitrary L1 swaps.
+export const GET_RECENT_FASTSWAP_TX_HASHES = `
+SELECT tx_hash
+FROM mevcommit_57173.fastswap_miles
+WHERE processed = 1
+ORDER BY block_timestamp DESC
+LIMIT :limit
+`.trim()
+
+// Surplus rate samples for miles estimation.
+// Computes `surplus / user_amt_out` — both columns are in the SAME output-token
+// units (smallest denomination), so decimals cancel and the ratio is dimensionless.
+// That lets us sample across all swap types (eth_weth AND erc20→erc20) without
+// per-token decimals handling. The previous version divided by 1e18, which only
+// worked for ETH/WETH output and silently excluded all erc20 swaps — about 58%
+// of production volume.
+// Only includes swaps with positive surplus and output to avoid division by zero.
+// Returns individual ratios so the caller can compute a percentile (p25 in the
+// consumer, not median — see route handler for rationale).
+export const GET_FASTSWAP_SURPLUS_RATES = `
+SELECT
+  CAST(surplus AS DOUBLE) / CAST(user_amt_out AS DOUBLE) AS surplus_rate
+FROM mevcommit_57173.fastswap_miles
+WHERE processed = 1
+  AND CAST(surplus AS DOUBLE) > 0
+  AND CAST(user_amt_out AS DOUBLE) > 0
+  AND block_timestamp >= NOW() - INTERVAL 30 DAY
+ORDER BY block_timestamp DESC
+`.trim()
+
+// FastSwap miles domain
+// Recent FastSwap transactions with miles/surplus for a specific user address.
+// Used by the dashboard swap history table. Includes both processed=1 (finalized)
+// and processed=0 (still calculating) rows so the UI can surface "pending" state
+// without the user having to refresh. Supports pagination via LIMIT/OFFSET.
+export const GET_USER_RECENT_SWAPS = `
+SELECT
+  tx_hash,
+  block_timestamp,
+  swap_type,
+  input_token,
+  output_token,
+  input_amount,
+  user_amt_out,
+  surplus,
+  gas_cost,
+  surplus_eth,
+  miles,
+  processed
+FROM mevcommit_57173.fastswap_miles
+WHERE lower(user_address) = lower(:address)
+ORDER BY block_timestamp DESC
+LIMIT :limit OFFSET :offset
+`.trim()
+
+// Aggregate stats for a user's FastSwap history — total row count (for
+// pagination) and total miles earned across all swaps (for the header chip).
+// Combined into one query to avoid an extra round trip; both aggregates scan
+// the same rows so the cost is identical to a plain COUNT.
+export const GET_USER_RECENT_SWAPS_COUNT = `
+SELECT
+  COUNT(*) AS total,
+  COALESCE(SUM(CASE WHEN processed = 1 THEN miles ELSE 0 END), 0) AS total_miles
+FROM mevcommit_57173.fastswap_miles
+WHERE lower(user_address) = lower(:address)
+`.trim()
+
 /**
  * Centralized queries registry
  * Maps query keys to SQL template literals
@@ -578,6 +647,12 @@ export const QUERIES = {
 
   // L1 transactions domain
   "l1/get-recent-swap-tx-hashes": GET_RECENT_L1_SWAP_TX_HASHES,
+  "fastswap/get-recent-tx-hashes": GET_RECENT_FASTSWAP_TX_HASHES,
+  "fastswap/get-surplus-rates": GET_FASTSWAP_SURPLUS_RATES,
+
+  // FastSwap miles domain
+  "fastswap/get-user-recent-swaps": GET_USER_RECENT_SWAPS,
+  "fastswap/get-user-recent-swaps-count": GET_USER_RECENT_SWAPS_COUNT,
 
   // Whitelist generation domain
   "whitelist/all-swap-wallets": ALL_SWAP_WALLETS,

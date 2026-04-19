@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAccount } from "wagmi"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
-import { useGateStatus } from "@/hooks/use-gate-status"
+import { useGateStatus, getCachedApproval } from "@/hooks/use-gate-status"
 import { useGateView } from "./GateViewContext"
 import { Hero } from "@/components/swap/HeroSection"
 import { AnimatedBackgroundOrbs } from "@/components/swap/OrbAnimatedBackground"
@@ -41,12 +41,27 @@ export function SwapOrLandingGate() {
   const [view, setView] = useState<GateView>("landing")
   // True when user clicked the button while disconnected — auto-proceeds after wallet connects
   const [earlyAccessIntended, setEarlyAccessIntended] = useState(false)
+  // True once the initial sessionStorage check has run. Until then we
+  // suppress all rendering so the landing page never flashes for
+  // returning approved users.
+  const [ready, setReady] = useState(false)
 
   // Helper: transition to swap and tell the layout to show the app header
   const goToSwap = () => {
     enterSwap()
     setView("swap")
   }
+
+  // On mount, check sessionStorage BEFORE rendering any content.
+  // If the user has a cached approval, jump straight to swap on the
+  // very first post-mount render — no landing page flash, no API call.
+  useEffect(() => {
+    if (address && getCachedApproval(address)) {
+      goToSwap()
+    }
+    setReady(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // After connecting + checks resolve, proceed automatically if user had clicked the button
   useEffect(() => {
@@ -97,6 +112,14 @@ export function SwapOrLandingGate() {
 
   if (!swapPrivateMode) {
     return <SwapContent />
+  }
+
+  // Suppress all rendering until the mount effect has checked
+  // sessionStorage. This is a single invisible frame (~16ms) that
+  // prevents the landing page from flashing for returning users
+  // who already have a cached approval.
+  if (!ready) {
+    return null
   }
 
   if (view === "swap") {

@@ -30,7 +30,7 @@ import { useDashboardTab } from "../DashboardTabContext"
 import { SBTDisplayCard } from "@/components/dashboard/SBTDisplayCard"
 import { ReferralsCard } from "@/components/dashboard/ReferralsCard"
 import { OneTimeTasksAccordion } from "@/components/dashboard/OneTimeTasksAccordion"
-import { SwapEarnAccordion } from "@/components/dashboard/SwapEarnAccordion"
+// import { SwapEarnAccordion } from "@/components/dashboard/SwapEarnAccordion"
 import { UserMetricsSection } from "@/components/dashboard/UserMetricsSection"
 import { PointsHUD } from "@/components/dashboard/PointsHUD"
 import { WeeklyTasksSection } from "@/components/dashboard/WeeklyTasksSection"
@@ -40,7 +40,19 @@ import { OneTimeTasksSection } from "@/components/dashboard/OneTimeTasksSection"
 import { SBTGatingModal } from "@/components/modals/SBTGatingModal"
 import { TransactionFeedbackModal } from "@/components/modals/TransactionFeedbackModal"
 import { ReferralModal } from "@/components/modals/ReferralModal"
+import dynamic from "next/dynamic"
 import { EcosystemSetCarousel } from "@/components/dashboard/EcosystemSetsCarousel"
+import { FEATURE_FLAGS } from "@/lib/feature-flags"
+
+// Client-only: UserSwapsTable depends on wagmi state (address, isConnected)
+// that differs between server and client. Rendering it on the server produces
+// HTML that the client immediately disagrees with, causing a cascading hydration
+// error that unmounts the component entirely. `ssr: false` avoids the issue by
+// deferring the first render to the client — no server HTML, no mismatch.
+const UserSwapsTable = dynamic(
+  () => import("@/components/dashboard/UserSwapsTable").then((m) => m.UserSwapsTable),
+  { ssr: false }
+)
 
 import type { TaskName } from "@/hooks/use-dashboard-tasks"
 
@@ -153,7 +165,7 @@ const DashboardContent = () => {
   return (
     <>
       {/* Announcement Banner - dashboard specific, rendered in page content */}
-      <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all">
+      {/* <div className="bg-gradient-to-r from-primary to-primary/80 border-b border-primary/50 hover:from-primary/90 hover:to-primary/70 transition-all">
         <div className="container mx-auto px-4 py-1 text-center">
           <p className="text-primary-foreground text-sm">
             🎉 You&apos;re all set. Make your first Fast swap on these{" "}
@@ -166,7 +178,7 @@ const DashboardContent = () => {
             .
           </p>
         </div>
-      </div>
+      </div> */}
 
       {/* Content Area - layout provides paddingTop for header */}
       <div className="container mx-auto px-4 sm:px-4 py-4">
@@ -205,6 +217,10 @@ const DashboardContent = () => {
                   </div>
                 </div>
 
+                {FEATURE_FLAGS.show_miles_estimate && (
+                  <UserSwapsTable address={address} isConnected={isConnected} />
+                )}
+
                 <EcosystemSetCarousel />
 
                 <OneTimeTasksAccordion
@@ -219,7 +235,7 @@ const DashboardContent = () => {
                   onEmailTaskClick={() => emailDialog.setShowEmailDialog(true)}
                 />
 
-                <SwapEarnAccordion />
+                {/* <SwapEarnAccordion /> */}
 
                 <hr />
                 <UserMetricsSection address={address} />
