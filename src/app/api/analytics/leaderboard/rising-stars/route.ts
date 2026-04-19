@@ -47,8 +47,8 @@ interface RisingStarEntry {
  */
 export async function GET(request: NextRequest) {
   const parsed = parseSearchParams(request, querySchema)
-  if (parsed instanceof NextResponse) return parsed
-  const { sort, limit, page } = parsed
+  if (!parsed.ok) return parsed.response
+  const { sort, limit, page } = parsed.data
 
   try {
     // Paginated mode

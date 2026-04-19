@@ -14,8 +14,8 @@ const querySchema = z.object({
 
 export async function GET(request: NextRequest) {
   const parsed = parseSearchParams(request, querySchema)
-  if (parsed instanceof NextResponse) return parsed
-  const { currency } = parsed
+  if (!parsed.ok) return parsed.response
+  const { currency } = parsed.data
 
   try {
     const fuulApiKey = env.FUUL_API_KEY

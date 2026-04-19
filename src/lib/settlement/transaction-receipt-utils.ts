@@ -35,7 +35,14 @@ function convertRpcResponseToReceipt(data: any): TransactionReceipt {
     logsBloom: result.logsBloom as `0x${string}`,
     status: result.status === "0x1" ? "success" : "reverted",
     type: result.type || "0x2",
-    effectiveGasPrice: result.effectiveGasPrice ? BigInt(result.effectiveGasPrice) : undefined,
+    // viem's TransactionReceipt requires a bigint here. Post-London RPC
+    // always returns effectiveGasPrice; fall back to gasPrice (pre-London)
+    // or 0n so the shape stays valid even if the node omits the field.
+    effectiveGasPrice: result.effectiveGasPrice
+      ? BigInt(result.effectiveGasPrice)
+      : result.gasPrice
+        ? BigInt(result.gasPrice)
+        : 0n,
   }
 }
 

@@ -151,7 +151,7 @@ const DashboardContent = () => {
       status !== "reconnecting"
     ) {
       hasOpenedConnectModalRef.current = true
-      openConnectModal()
+      openConnectModal?.()
     }
   }, [isMounted, isConnected, status, openConnectModal])
 

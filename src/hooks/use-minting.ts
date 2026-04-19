@@ -16,7 +16,7 @@ export interface UseMintingProps {
 export interface UseMintingReturn {
   isMinting: boolean
   alreadyMinted: boolean
-  existingTokenId: string | null
+  existingTokenId: string | undefined
   handleMintSbt: () => Promise<void>
 }
 
@@ -31,7 +31,7 @@ export function useMinting({
   const router = useRouter()
   const [isMinting, setIsMinting] = useState(false)
   const [alreadyMinted, setAlreadyMinted] = useState(false)
-  const [existingTokenId, setExistingTokenId] = useState<string | null>(null)
+  const [existingTokenId, setExistingTokenId] = useState<string | undefined>(undefined)
 
   const {
     writeContract,
@@ -73,7 +73,7 @@ export function useMinting({
     const checkExistingToken = async () => {
       if (!address || !publicClient) {
         setAlreadyMinted(false)
-        setExistingTokenId(null)
+        setExistingTokenId(undefined)
         return
       }
 
@@ -92,12 +92,12 @@ export function useMinting({
           setExistingTokenId(tokenId.toString())
         } else {
           setAlreadyMinted(false)
-          setExistingTokenId(null)
+          setExistingTokenId(undefined)
         }
       } catch (error) {
         console.error("Error checking existing token:", error)
         setAlreadyMinted(false)
-        setExistingTokenId(null)
+        setExistingTokenId(undefined)
       }
     }
 

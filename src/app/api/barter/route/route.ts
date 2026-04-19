@@ -17,8 +17,8 @@ const bodySchema = z.object({
 
 export async function POST(request: NextRequest) {
   const parsed = await parseJson(request, bodySchema)
-  if (parsed instanceof NextResponse) return parsed
-  const { source, target, sellAmount } = parsed
+  if (!parsed.ok) return parsed.response
+  const { source, target, sellAmount } = parsed.data
 
   try {
     const apiKey = process.env.BARTER_API_KEY

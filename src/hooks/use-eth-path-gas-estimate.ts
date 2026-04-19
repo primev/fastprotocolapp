@@ -64,7 +64,7 @@ export function useEthPathGasEstimate(
         address as `0x${string}`
       )
 
-      setGasEstimate(result.gasEstimate)
+      setGasEstimate(result?.gasEstimate ?? null)
     } catch {
       setGasEstimate(null)
     } finally {

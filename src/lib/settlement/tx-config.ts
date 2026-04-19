@@ -27,9 +27,10 @@ export async function getTxConfirmationTimeoutMs(): Promise<number> {
     const res = await fetch("/api/config/tx-timeout")
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
-    cachedTimeoutMs =
+    const resolved: number =
       typeof data.timeoutMs === "number" && data.timeoutMs > 0 ? data.timeoutMs : DEFAULT_TIMEOUT_MS
-    return cachedTimeoutMs
+    cachedTimeoutMs = resolved
+    return resolved
   } catch {
     return DEFAULT_TIMEOUT_MS
   }

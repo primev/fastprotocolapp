@@ -268,9 +268,9 @@ export function useSwapForm(allTokens: Token[]) {
     }
   }, [quote, fromToken?.symbol, toToken?.symbol, isManualInversion, pairKey])
 
-  const hasNoLiquidity = useMemo(() => {
+  const hasNoLiquidity = useMemo<boolean>(() => {
     if (isManualInversion && swappedQuote) return false
-    return noLiquidity || (quoteError && quoteError.message?.includes("No liquidity found"))
+    return Boolean(noLiquidity || (quoteError && quoteError.message?.includes("No liquidity found")))
   }, [noLiquidity, quoteError, isManualInversion, swappedQuote])
 
   // Validate Barter can route this amount within 2% slippage.
@@ -599,10 +599,13 @@ export function useSwapForm(allTokens: Token[]) {
     barterAmountTooSmall,
     barterUnavailable,
     isBarterValidating: debouncedValidating,
-    gasEstimate: isWrapUnwrap ? wrapUnwrapGasEstimate : (displayQuote?.gasEstimate ?? null),
     ethPrice: ethPrice ?? null,
     setClearSwapState,
     ...wrapContext,
+    // Keep the explicit `gasEstimate` after the spread — the wrap/unwrap
+    // context also exports a `gasEstimate`, but the caller needs the
+    // mode-aware value (wrap vs. swap quote), so this one must win.
+    gasEstimate: isWrapUnwrap ? wrapUnwrapGasEstimate : (displayQuote?.gasEstimate ?? null),
     // Permit2 approval state (Permit path only)
     isPermitPath,
     needsPermit2Approval: isPermitPath ? permit2Allowance.needsApproval : false,

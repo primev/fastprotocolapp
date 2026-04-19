@@ -30,7 +30,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const [isAddRpcModalOpen, setIsAddRpcModalOpen] = useState(false)
   const [isBrowserWalletModalOpen, setIsBrowserWalletModalOpen] = useState(false)
   const [headerHeight, setHeaderHeight] = useState(75)
-  const headerRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement | null>(null)
 
   const { isConnected, status, connector } = useAccount()
   const { connectors } = useConnect()

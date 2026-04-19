@@ -16,7 +16,7 @@ const identifyUserSchema = z.object({
 
 export async function POST(request: NextRequest) {
   const body = await parseJson(request, identifyUserSchema)
-  if (body instanceof NextResponse) return body
+  if (!body.ok) return body.response
 
   try {
     const fuulApiKey = process.env.FUUL_API_KEY
@@ -27,17 +27,17 @@ export async function POST(request: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fuulPayload: any = {
-      metadata: { tracking_id: body.trackingId },
+      metadata: { tracking_id: body.data.trackingId },
       name: "connect_wallet",
       user: {
-        identifier: body.identifier,
+        identifier: body.data.identifier,
         // Fuul's field name is snake_case; we translate here so the client
         // contract stays camelCase throughout the app.
-        identifier_type: body.identifierType,
+        identifier_type: body.data.identifierType,
       },
     }
-    if (body.accountChainId !== undefined) {
-      fuulPayload.account_chain_id = body.accountChainId
+    if (body.data.accountChainId !== undefined) {
+      fuulPayload.account_chain_id = body.data.accountChainId
     }
 
     const response = await fetch(FUUL_API_URL, {

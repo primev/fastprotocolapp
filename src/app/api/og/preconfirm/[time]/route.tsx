@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 import { parseParams } from "@/lib/api/parse"
 
@@ -23,7 +23,7 @@ export async function GET(
   const parsed = await parseParams(params, paramsSchema)
   // Soft-fail to default — see schema comment. A 400 here would ruin
   // whatever social card the crawler is trying to render.
-  const time = (parsed instanceof NextResponse ? 0.4 : parsed.time).toFixed(1)
+  const time = (parsed.ok ? parsed.data.time : 0.4).toFixed(1)
 
   const [clonoidFont, soraFont] = await Promise.all([
     fetch(new URL("../fonts/clonoid-digits.ttf", import.meta.url)).then((r) => r.arrayBuffer()),

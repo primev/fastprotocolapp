@@ -11,8 +11,8 @@ export async function GET(
   { params }: { params: Promise<{ hash: string }> }
 ) {
   const parsed = await parseParams(params, paramsSchema)
-  if (parsed instanceof NextResponse) return parsed
-  const { hash } = parsed
+  if (!parsed.ok) return parsed.response
+  const { hash } = parsed.data
 
   try {
     const apiToken = env.FAST_RPC_API_TOKEN || ""

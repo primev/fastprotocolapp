@@ -154,8 +154,8 @@ function formatTokenAmount(raw: string | null, decimals: number): string | null 
  */
 export async function GET(request: NextRequest) {
   const parsed = parseSearchParams(request, querySchema)
-  if (parsed instanceof NextResponse) return parsed
-  const { address, page, pageSize } = parsed
+  if (!parsed.ok) return parsed.response
+  const { address, page, pageSize } = parsed.data
 
   try {
     const result = await getUserRecentSwaps(address, page, pageSize)

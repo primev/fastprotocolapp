@@ -29,23 +29,22 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const p = await parseParams(params, paramsSchema)
-  if (p instanceof NextResponse) return p
+  if (!p.ok) return p.response
 
   const body = await parseJson(request, bodySchema)
-  if (body instanceof NextResponse) return body
+  if (!body.ok) return body.response
 
-  // `p.id` and `body` are fully typed here — p.id is already lower-cased.
-  return NextResponse.json({ ok: true, id: p.id })
+  // `p.data.id` and `body.data` are fully typed here — p.data.id is already lower-cased.
+  return NextResponse.json({ ok: true, id: p.data.id })
 }
 ```
 
-### Why the `T | NextResponse` return, not a discriminated union
+### Return shape — discriminated union
 
-Our tsconfig runs with `strictNullChecks: false`, which breaks the narrowing
-we need to reach `.response` after `if (!parsed.ok)`. Returning
-`T | NextResponse` lets callers narrow via `instanceof NextResponse`, which
-works regardless of strictness. The helper comment in
-`src/lib/api/parse.ts` documents this in full.
+Parse helpers return `{ ok: true; data } | { ok: false; response }`. Narrow
+with `if (!parsed.ok) return parsed.response`, then use `parsed.data`. This
+shape requires `strictNullChecks: true` (which this repo has since the
+`strictNullChecks` flip).
 
 ## Rules
 

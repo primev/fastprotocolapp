@@ -132,7 +132,7 @@ const IndexPage = ({
   const handleClaimClick = () => {
     if (!isConnected) {
       shouldNavigateAfterConnectRef.current = true
-      openConnectModal()
+      openConnectModal?.()
     } else {
       // If already connected, check tokenId as proof of minting
       if (tokenId !== null && tokenId !== undefined && tokenId !== BigInt(0)) {

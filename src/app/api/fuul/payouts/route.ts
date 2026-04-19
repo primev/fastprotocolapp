@@ -11,8 +11,8 @@ const querySchema = z.object({ address: walletAddressSchema })
 
 export async function GET(request: NextRequest) {
   const parsed = parseSearchParams(request, querySchema)
-  if (parsed instanceof NextResponse) return parsed
-  const address = parsed.address // walletAddressSchema lower-cases this
+  if (!parsed.ok) return parsed.response
+  const address = parsed.data.address // walletAddressSchema lower-cases this
 
   try {
     const fuulApiKey = env.FUUL_API_KEY

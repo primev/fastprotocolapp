@@ -13,8 +13,8 @@ const querySchema = z.object({
 
 export async function GET(request: NextRequest) {
   const parsed = parseSearchParams(request, querySchema)
-  if (parsed instanceof NextResponse) return parsed
-  const { limit } = parsed
+  if (!parsed.ok) return parsed.response
+  const { limit } = parsed.data
 
   try {
     const hashes = await getRecentL1SwapTxHashes(limit)

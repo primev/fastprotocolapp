@@ -27,10 +27,10 @@ const fastswapSchema = z
 
 export async function POST(request: NextRequest) {
   const body = await parseJson(request, fastswapSchema)
-  if (body instanceof NextResponse) return body
+  if (!body.ok) return body.response
 
   // Normalize slippage to the "1.0" / "0.5" string form FastSwap expects.
-  const slippageNum = parseFloat(body.slippage ?? "")
+  const slippageNum = parseFloat(body.data.slippage ?? "")
   const slippageFormatted =
     !Number.isNaN(slippageNum) && slippageNum >= 0 ? slippageNum.toFixed(1) : "0.5"
 

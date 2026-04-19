@@ -45,11 +45,11 @@ async function fetchWhitelistRows(sheets: any, spreadsheetId: string): Promise<s
 
 export async function POST(request: NextRequest) {
   const body = await parseJson(request, earlyAccessSchema)
-  if (body instanceof NextResponse) return body
+  if (!body.ok) return body.response
 
   try {
     const { sheets, spreadsheetId } = await getSheetsClient()
-    const wallet = body.wallet_address // already lower-cased by walletAddressSchema
+    const wallet = body.data.wallet_address // already lower-cased by walletAddressSchema
 
     const [waitlistRows, whitelistRows] = await Promise.all([
       fetchWaitlistRows(sheets, spreadsheetId).catch(() => [] as string[][]),
@@ -77,9 +77,9 @@ export async function POST(request: NextRequest) {
           [
             timestamp,
             wallet,
-            body.x_handle,
-            body.discord_handle,
-            body.email,
+            body.data.x_handle,
+            body.data.discord_handle,
+            body.data.email,
             hasAccess ? "TRUE" : "FALSE",
           ],
         ],

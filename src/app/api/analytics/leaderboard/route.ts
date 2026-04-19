@@ -50,10 +50,10 @@ function setCachedData(key: string, data: any): void {
 
 export async function GET(request: NextRequest) {
   const parsed = parseSearchParams(request, querySchema)
-  if (parsed instanceof NextResponse) return parsed
+  if (!parsed.ok) return parsed.response
   // Wallet is already lower-cased by walletAddressSchema; null marks the
   // "unauthenticated leaderboard request" branch throughout this handler.
-  const currentUserAddress = parsed.currentUser ?? null
+  const currentUserAddress = parsed.data.currentUser ?? null
 
   try {
     // Check cache first

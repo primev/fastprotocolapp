@@ -8,7 +8,7 @@ Authoritative values: `package.json`. This file is the agent's cheat sheet.
 |---|---|---|
 | Framework | `next` | ^15.5.7 (App Router) |
 | UI | `react` / `react-dom` | ^18.3.1 |
-| Language | `typescript` | ^5.8.3 (**strict mode off** — `tsconfig.json`) |
+| Language | `typescript` | ^5.8.3 (full `strict` off; `strictNullChecks`, `noImplicitAny`, `noUnusedLocals`, `noUnusedParameters` all on — see `tsconfig.json`) |
 | Web3 client | `wagmi` | ^2.19.5 |
 | EVM primitives | `viem` | ^2.40.4 |
 | Wallet UI | `@rainbow-me/rainbowkit` | ^2.2.9 |

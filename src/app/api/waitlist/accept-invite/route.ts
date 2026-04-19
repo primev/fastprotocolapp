@@ -30,8 +30,8 @@ async function fetchWhitelistRows(sheets: any, spreadsheetId: string): Promise<s
 /** Check whether a wallet has accepted their invite. */
 export async function GET(request: NextRequest) {
   const parsed = parseSearchParams(request, querySchema)
-  if (parsed instanceof NextResponse) return parsed
-  const address = parsed.address // already lower-cased
+  if (!parsed.ok) return parsed.response
+  const address = parsed.data.address // already lower-cased
 
   try {
     const { sheets, spreadsheetId } = await getSheetsClient()
@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
 /** Mark a wallet as having accepted their invite (sets col F = TRUE on Swap Whitelist). */
 export async function POST(request: NextRequest) {
   const body = await parseJson(request, bodySchema)
-  if (body instanceof NextResponse) return body
-  const address = body.wallet_address
+  if (!body.ok) return body.response
+  const address = body.data.wallet_address
 
   try {
     const { sheets, spreadsheetId } = await getSheetsClient()

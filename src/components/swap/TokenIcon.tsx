@@ -48,7 +48,7 @@ export function TokenIcon({
           : undefined
       }
     >
-      {token.logoURI && !hasImageError ? (
+      {token?.logoURI && !hasImageError ? (
         <img
           src={token.logoURI}
           alt={token.symbol}
@@ -58,7 +58,7 @@ export function TokenIcon({
           onError={() => setHasImageError(true)}
         />
       ) : (
-        <span className="text-[10px] font-bold text-white uppercase">{token.symbol.charAt(0)}</span>
+        <span className="text-[10px] font-bold text-white uppercase">{token?.symbol?.charAt(0)}</span>
       )}
     </div>
   )

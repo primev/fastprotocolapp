@@ -104,7 +104,7 @@ describe("WETH_ABI — matches canonical WETH9 shape", () => {
     expect(withdraw).toBeDefined()
     expect(withdraw!.stateMutability).toBe("nonpayable")
     expect(withdraw!.inputs).toHaveLength(1)
-    expect(withdraw!.inputs[0].type).toBe("uint256")
+    expect(withdraw!.inputs[0]!.type).toBe("uint256")
   })
 
   it("defines balanceOf(address) view returning uint256", () => {
@@ -112,9 +112,9 @@ describe("WETH_ABI — matches canonical WETH9 shape", () => {
     expect(bal).toBeDefined()
     expect(bal!.stateMutability).toBe("view")
     expect(bal!.inputs).toHaveLength(1)
-    expect(bal!.inputs[0].type).toBe("address")
+    expect(bal!.inputs[0]!.type).toBe("address")
     expect(bal!.outputs).toHaveLength(1)
-    expect(bal!.outputs[0].type).toBe("uint256")
+    expect(bal!.outputs[0]!.type).toBe("uint256")
   })
 })
 

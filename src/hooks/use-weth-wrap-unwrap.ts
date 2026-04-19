@@ -8,7 +8,7 @@ import {
   useBalance,
   useEstimateGas,
 } from "wagmi"
-import { parseUnits, type TransactionReceipt } from "viem"
+import { encodeFunctionData, parseUnits, type TransactionReceipt } from "viem"
 import { WETH_ADDRESS } from "@/lib/swap/constants"
 import { WETH_ABI } from "@/lib/tokens/weth-abi"
 import { isWrapOperation, isUnwrapOperation } from "@/lib/tokens/weth-utils"
@@ -37,15 +37,26 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
   }, [amount])
 
   // --- GAS ESTIMATION ---
+  // `useEstimateGas` takes raw transaction parameters (to/data/value), not the
+  // abi/functionName/args shape accepted by `useReadContract` or
+  // `useWriteContract`. We encode the call here so both the wrap and unwrap
+  // branches flow through a single estimator.
+  const estimateData = useMemo(() => {
+    if (amountInWei === 0n) return undefined
+    return encodeFunctionData({
+      abi: WETH_ABI,
+      functionName: isWrap ? "deposit" : "withdraw",
+      args: isWrap ? [] : [amountInWei],
+    })
+  }, [isWrap, amountInWei])
+
   const { data: rawEstimate, refetch: refetchEstimate } = useEstimateGas({
-    address: WETH_ADDRESS,
-    abi: WETH_ABI,
-    functionName: isWrap ? "deposit" : "withdraw",
-    args: isWrap ? [] : [amountInWei],
+    to: WETH_ADDRESS,
+    data: estimateData,
     value: isWrap ? amountInWei : undefined,
     account: address,
     query: {
-      enabled: isConnected && !!address && amountInWei > 0n,
+      enabled: isConnected && !!address && amountInWei > 0n && !!estimateData,
       refetchInterval: 12_000,
     },
   })

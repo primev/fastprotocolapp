@@ -19,8 +19,8 @@ export async function GET(
   { params }: { params: Promise<{ wallet_address: string; entity: string }> }
 ) {
   const parsed = await parseParams(params, paramsSchema)
-  if (parsed instanceof NextResponse) return parsed
-  const { wallet_address: address, entity } = parsed
+  if (!parsed.ok) return parsed.response
+  const { wallet_address: address, entity } = parsed.data
 
   try {
     const { rows } = await pool.query(

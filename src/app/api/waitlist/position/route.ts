@@ -20,8 +20,8 @@ async function fetchRows(): Promise<string[][]> {
 
 export async function GET(request: NextRequest) {
   const parsed = parseSearchParams(request, querySchema)
-  if (parsed instanceof NextResponse) return parsed
-  const address = parsed.address
+  if (!parsed.ok) return parsed.response
+  const address = parsed.data.address
 
   try {
     const rows = await fetchRows()

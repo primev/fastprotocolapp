@@ -38,8 +38,8 @@ export async function GET(
   { params }: { params: Promise<{ wallet_address: string }> }
 ) {
   const parsed = await parseParams(params, paramsSchema)
-  if (parsed instanceof NextResponse) return parsed
-  const address = parsed.wallet_address
+  if (!parsed.ok) return parsed.response
+  const address = parsed.data.wallet_address
 
   try {
     const { rows } = await pool.query("SELECT * FROM user_onboarding WHERE wallet_address = $1", [
@@ -62,11 +62,11 @@ export async function POST(
   { params }: { params: Promise<{ wallet_address: string }> }
 ) {
   const parsedParams = await parseParams(params, paramsSchema)
-  if (parsedParams instanceof NextResponse) return parsedParams
-  const address = parsedParams.wallet_address
+  if (!parsedParams.ok) return parsedParams.response
+  const address = parsedParams.data.wallet_address
 
   const body = await parseJson(request, onboardingBodySchema)
-  if (body instanceof NextResponse) return body
+  if (!body.ok) return body.response
 
   try {
     const { rows: existingRows } = await pool.query(
@@ -76,7 +76,7 @@ export async function POST(
 
     if (existingRows.length === 0) {
       // Create: unset fields default to false so the row always has all columns.
-      const values = ONBOARDING_FIELDS.map((field) => body[field] ?? false)
+      const values = ONBOARDING_FIELDS.map((field) => body.data[field] ?? false)
       const placeholders = ONBOARDING_FIELDS.map((_, i) => `$${i + 2}`).join(", ")
       const { rows } = await pool.query(
         `INSERT INTO user_onboarding (wallet_address, ${ONBOARDING_FIELDS.join(", ")})
@@ -88,9 +88,9 @@ export async function POST(
     }
 
     // Update: only touch columns the caller explicitly sent.
-    const updates = ONBOARDING_FIELDS.filter((f) => body[f] !== undefined).map((f) => ({
+    const updates = ONBOARDING_FIELDS.filter((f) => body.data[f] !== undefined).map((f) => ({
       field: f,
-      value: body[f] as boolean,
+      value: body.data[f] as boolean,
     }))
     if (updates.length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })
@@ -122,14 +122,14 @@ export async function PUT(
   { params }: { params: Promise<{ wallet_address: string }> }
 ) {
   const parsedParams = await parseParams(params, paramsSchema)
-  if (parsedParams instanceof NextResponse) return parsedParams
-  const address = parsedParams.wallet_address
+  if (!parsedParams.ok) return parsedParams.response
+  const address = parsedParams.data.wallet_address
 
   const body = await parseJson(request, onboardingBodySchema)
-  if (body instanceof NextResponse) return body
+  if (!body.ok) return body.response
 
   try {
-    const values = ONBOARDING_FIELDS.map((field) => body[field] ?? false)
+    const values = ONBOARDING_FIELDS.map((field) => body.data[field] ?? false)
     const { rows } = await pool.query(
       `INSERT INTO user_onboarding (wallet_address, ${ONBOARDING_FIELDS.join(", ")})
        VALUES ($1, ${ONBOARDING_FIELDS.map((_, i) => `$${i + 2}`).join(", ")})

@@ -20,8 +20,8 @@ const querySchema = z.object({
  */
 export async function GET(request: NextRequest) {
   const parsed = parseSearchParams(request, querySchema)
-  if (parsed instanceof NextResponse) return parsed
-  const { wallet, category, sort, tier, pageSize } = parsed
+  if (!parsed.ok) return parsed.response
+  const { wallet, category, sort, tier, pageSize } = parsed.data
 
   try {
     const result = await findUserInLeaderboard({ wallet, category, sort, tier, pageSize })

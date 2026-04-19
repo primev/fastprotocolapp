@@ -29,7 +29,7 @@ export async function fetchEthPathTxAndEstimate(
   params: EthPathTxParams,
   publicClient: PublicClient,
   account: Address
-): Promise<EthPathTxResult | null> {
+): Promise<EthPathTxResult> {
   const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap/eth`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

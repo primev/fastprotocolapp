@@ -3,7 +3,7 @@ import { Connector } from "wagmi"
 
 export interface UseWalletInfoReturn {
   walletName: string
-  walletIcon: string | null
+  walletIcon: string | undefined
 }
 
 /**
@@ -28,12 +28,12 @@ export function useWalletInfo(
   isConnected: boolean
 ): UseWalletInfoReturn {
   const [walletName, setWalletName] = useState<string>("Browser Wallet")
-  const [walletIcon, setWalletIcon] = useState<string | null>(null)
+  const [walletIcon, setWalletIcon] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     if (!connector || !isConnected) {
       setWalletName("Browser Wallet")
-      setWalletIcon(null)
+      setWalletIcon(undefined)
       return
     }
 
@@ -73,7 +73,7 @@ export function useWalletInfo(
       } else {
         // Don't clear icon during injected transition - keep previous icon
         if (connectorId !== "injected" && !isConnected) {
-          setWalletIcon(null)
+          setWalletIcon(undefined)
         }
         // Otherwise keep the previous icon during transitions
       }

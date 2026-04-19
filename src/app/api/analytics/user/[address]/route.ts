@@ -13,8 +13,8 @@ export async function GET(
   { params }: { params: Promise<{ address: string }> }
 ) {
   const parsed = await parseParams(params, paramsSchema)
-  if (parsed instanceof NextResponse) return parsed
-  const normalizedAddress = parsed.address
+  if (!parsed.ok) return parsed.response
+  const normalizedAddress = parsed.data.address
 
   try {
     const fastRpcToken = env.FAST_RPC_API_TOKEN

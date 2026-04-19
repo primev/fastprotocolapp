@@ -27,8 +27,8 @@ export async function GET(
   { params }: { params: Promise<{ wallet_address: string }> }
 ) {
   const parsed = await parseParams(params, paramsSchema)
-  if (parsed instanceof NextResponse) return parsed
-  const address = parsed.wallet_address
+  if (!parsed.ok) return parsed.response
+  const address = parsed.data.wallet_address
 
   try {
     const { rows } = await pool.query(
@@ -64,21 +64,21 @@ export async function POST(
   { params }: { params: Promise<{ wallet_address: string }> }
 ) {
   const parsedParams = await parseParams(params, paramsSchema)
-  if (parsedParams instanceof NextResponse) return parsedParams
-  const address = parsedParams.wallet_address
+  if (!parsedParams.ok) return parsedParams.response
+  const address = parsedParams.data.wallet_address
 
   const body = await parseJson(request, postBodySchema)
-  if (body instanceof NextResponse) return body
+  if (!body.ok) return body.response
 
   try {
     await pool.query(
       `INSERT INTO user_activity (user_address, entity, activity, chainid)
        VALUES ($1, $2, $3, $4)`,
-      [address, body.entity, body.activity, body.chainId ?? null]
+      [address, body.data.entity, body.data.activity, body.data.chainId ?? null]
     )
 
     return NextResponse.json(
-      { ok: true, entity: body.entity, activity: body.activity, chainId: body.chainId ?? null },
+      { ok: true, entity: body.data.entity, activity: body.data.activity, chainId: body.data.chainId ?? null },
       { status: 201 }
     )
   } catch (err) {

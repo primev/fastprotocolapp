@@ -19,7 +19,7 @@ const feedbackSchema = z.object({
 
 export async function POST(request: NextRequest) {
   const body = await parseJson(request, feedbackSchema)
-  if (body instanceof NextResponse) return body
+  if (!body.ok) return body.response
 
   try {
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       valueInputOption: "USER_ENTERED",
       requestBody: {
         values: [
-          [body.timestamp, body.wallet_address, body.tx_type, body.status, body.txhash ?? ""],
+          [body.data.timestamp, body.data.wallet_address, body.data.tx_type, body.data.status, body.data.txhash ?? ""],
         ],
       },
     })

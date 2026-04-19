@@ -221,7 +221,7 @@ const OnboardingPageContent = () => {
       },
       wallet: () => {
         // Directly open the connect modal
-        openConnectModal()
+        openConnectModal?.()
       },
       rpc: () => {
         if (!isConnected) {

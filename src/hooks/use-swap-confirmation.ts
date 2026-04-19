@@ -161,7 +161,7 @@ export function useSwapConfirmation({
 
     const txHash = await sendTransactionAsync({
       to: result.to as `0x${string}`,
-      data: result.data,
+      data: result.data as `0x${string}`,
       value: BigInt(result.value),
       gas: bufferedGas,
     })

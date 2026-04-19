@@ -229,7 +229,7 @@ function SwapConfirmationModal({
     slippage: string
     deadline: number
     gasEstimate: bigint | null
-    ethPrice: number | undefined
+    ethPrice: number | null | undefined
     fromTokenPrice: number | null | undefined
     toTokenPrice: number | null | undefined
     estimatedMiles: number | null | undefined
@@ -414,7 +414,7 @@ function SwapConfirmationModal({
     let pendingPlaceholder: string | null = null
     try {
       const onConfirm = () => {
-        onCloseAfterSuccess()
+        onCloseAfterSuccess?.()
         if (refreshBalances) setTimeout(() => refreshBalances(), 1000)
         setTimeout(() => refetchMiles(), 5000)
       }
@@ -422,20 +422,20 @@ function SwapConfirmationModal({
         const hash = await wrap()
         notifySwapSubmitted(hash, estimatedMiles)
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
-        onCloseAfterSuccess()
+        onCloseAfterSuccess?.()
         onOpenChange(false)
       } else if (isUnwrap) {
         const hash = await unwrap()
         notifySwapSubmitted(hash, estimatedMiles)
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
-        onCloseAfterSuccess()
+        onCloseAfterSuccess?.()
         onOpenChange(false)
       } else {
         const hash = await confirmSwap({
           onPendingHash: (ph) => {
             pendingPlaceholder = ph
             addToast(ph, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
-            onCloseAfterSuccess()
+            onCloseAfterSuccess?.()
             onOpenChange(false) // Close modal immediately; toast takes over
           },
         })
@@ -447,7 +447,7 @@ function SwapConfirmationModal({
           updateToastHash(pendingPlaceholder, hash)
         } else {
           addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
-          onCloseAfterSuccess()
+          onCloseAfterSuccess?.()
         }
         onOpenChange(false)
       }

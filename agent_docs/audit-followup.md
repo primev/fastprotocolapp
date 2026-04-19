@@ -73,14 +73,10 @@ they're no longer applicable.
 ### Further strictness flips (incremental)
 Each is a separate, reviewable PR so the blast radius stays small.
 
-1. **`strictNullChecks: true`** — the big one. Will surface any
-   place we treat `null`/`undefined` loosely. The `T | NextResponse`
-   pattern in `@/lib/api/parse` was chosen because strict-null is off;
-   once it's on, the discriminated-union form becomes usable again
-   (we'd rewrite parse.ts to return `{ ok: true; data } | { ok: false; response }`).
-2. **Full `strict: true`** — once strictNullChecks lands, the rest
-   (`strictFunctionTypes`, `strictBindCallApply`, etc.) should be
-   relatively free.
+1. **Full `strict: true`** — strictNullChecks is now ON. The remaining
+   flags (`strictFunctionTypes`, `strictBindCallApply`, `alwaysStrict`)
+   should be cheap follow-ups now that the load-bearing null/undefined
+   fixes have landed.
 
 ### God files — pending splits
 
@@ -201,15 +197,16 @@ summary. When a new gap surfaces, add it here with a clear ROI
 justification — not every followup deserves to live on this list.
 
 Priority order as of the last update:
-1. **`strictNullChecks: true`** + rewrite `@/lib/api/parse` to the
-   discriminated-union shape.
-2. **Full god-file splits** (LeaderboardTable, SwapConfirmationModal).
+1. **Full god-file splits** (LeaderboardTable, SwapConfirmationModal).
    Component test pattern is now proven (SwapToast) — new leaf
    components can copy the mock-and-render template.
-3. **Dependabot** — cheap ongoing value; one-file PR.
-4. **Widen Stryker scope** to schemas.ts, token-resolver.ts,
+2. **Dependabot** — cheap ongoing value; one-file PR.
+3. **Widen Stryker scope** to schemas.ts, token-resolver.ts,
    leaderboard/paginate.ts, min-amount-out.ts once they earn more
    property tests.
+4. **Full `strict: true`** — four remaining flags after
+   strictNullChecks (strictFunctionTypes, strictBindCallApply,
+   alwaysStrict, noImplicitThis). Should be cheap follow-ups.
 
 Items done since the last revision of this priority list:
 - Finished API Zod migration. All input-taking routes now go through
@@ -229,3 +226,10 @@ Items done since the last revision of this priority list:
   mocking and a real Zustand store. Vitest now uses the automatic JSX
   transform (`esbuild: { jsx: "automatic" }`) so tests don't need an
   explicit `import React`. Total suite: 286 passing tests.
+- Flipped `strictNullChecks: true` and rewrote `@/lib/api/parse` to the
+  discriminated-union shape (`{ ok: true; data } | { ok: false; response }`).
+  All 32 API route callers migrated to `if (!parsed.ok) return parsed.response`
+  / `parsed.data.x`. Wallet-info + minting hooks now use `undefined` in
+  place of `null` to align with React prop conventions; optional callbacks
+  are `?.()` invoked. 40+ strict-null violations fixed across hooks,
+  components, and settlement utilities.

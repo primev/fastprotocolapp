@@ -22,12 +22,12 @@ export async function GET(
   { params }: { params: Promise<{ entity: string }> }
 ) {
   const parsedParams = await parseParams(params, paramsSchema)
-  if (parsedParams instanceof NextResponse) return parsedParams
-  const { entity } = parsedParams
+  if (!parsedParams.ok) return parsedParams.response
+  const { entity } = parsedParams.data
 
   const parsedQuery = parseSearchParams(request, querySchema)
-  if (parsedQuery instanceof NextResponse) return parsedQuery
-  const { chainId } = parsedQuery
+  if (!parsedQuery.ok) return parsedQuery.response
+  const { chainId } = parsedQuery.data
 
   try {
     const values: unknown[] = [entity]

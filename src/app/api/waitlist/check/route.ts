@@ -10,8 +10,8 @@ const querySchema = z.object({ address: walletAddressSchema })
 
 export async function GET(request: NextRequest) {
   const parsed = parseSearchParams(request, querySchema)
-  if (parsed instanceof NextResponse) return parsed
-  const address = parsed.address // already lower-cased
+  if (!parsed.ok) return parsed.response
+  const address = parsed.data.address // already lower-cased
 
   try {
     let rows = getWaitlistSheetCache()

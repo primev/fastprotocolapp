@@ -16,6 +16,6 @@ export async function GET(request: NextRequest) {
   const parsed = parseSearchParams(request, querySchema)
   // Parse failure falls back to the default rather than bubbling a 400 —
   // this is a redirect for OG crawlers, a 400 would ruin the social card.
-  const time = (parsed instanceof NextResponse ? 0.4 : parsed.time).toFixed(1)
+  const time = (parsed.ok ? parsed.data.time : 0.4).toFixed(1)
   return NextResponse.redirect(new URL(`/api/og/preconfirm/${time}`, request.url), 301)
 }

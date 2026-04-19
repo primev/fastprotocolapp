@@ -99,8 +99,8 @@ export async function GET(request: NextRequest) {
     }
 
     const parsedQuery = parseSearchParams(request, querySchema)
-    if (parsedQuery instanceof NextResponse) return parsedQuery
-    const { limit, page, sort, refresh } = parsedQuery
+    if (!parsedQuery.ok) return parsedQuery.response
+    const { limit, page, sort, refresh } = parsedQuery.data
     const forceRefresh = refresh === "1"
 
     // Refresh cache if stale, missing, or explicitly requested

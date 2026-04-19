@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import fc from "fast-check"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { isAddress, type Address } from "viem"
 
 import {
@@ -91,11 +91,11 @@ describe("parse helpers — rejected inputs always return 400 with structured is
           headers: { "Content-Type": "application/json" },
         })
         const result = await parseJson(req, bodySchema)
-        expect(result).toBeInstanceOf(NextResponse)
-        if (!(result instanceof NextResponse)) return false
+        expect(result.ok).toBe(false)
+        if (result.ok) return false
 
-        expect(result.status).toBe(400)
-        const json = await result.json()
+        expect(result.response.status).toBe(400)
+        const json = await result.response.json()
         return (
           json.error === "Invalid request" &&
           Array.isArray(json.issues) &&
@@ -113,8 +113,8 @@ describe("parse helpers — rejected inputs always return 400 with structured is
       fc.asyncProperty(invalidWalletAddress(), async (addr) => {
         const req = new NextRequest(`http://localhost/?address=${encodeURIComponent(addr)}`)
         const result = parseSearchParams(req, querySchema)
-        if (!(result instanceof NextResponse)) return false
-        const json = await result.json()
+        if (result.ok) return false
+        const json = await result.response.json()
         return (
           json.error === "Invalid request" &&
           Array.isArray(json.issues) &&

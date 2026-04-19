@@ -106,7 +106,7 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
    * If we are performing a 1:1 wrap/unwrap, the price impact logic is
    * irrelevant. We return a simplified view or handle the exclusion internally.
    */
-  const showExtendedInfo = activeQuote && !isWrapUnwrap
+  const showExtendedInfo = Boolean(activeQuote && !isWrapUnwrap)
 
   return (
     <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-xl bg-white/5 border border-white/5 px-3 py-2 sm:px-4 sm:py-3 transition-all duration-300 ease-in-out">

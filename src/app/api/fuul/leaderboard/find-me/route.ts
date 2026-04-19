@@ -18,8 +18,8 @@ const querySchema = z.object({
  */
 export async function GET(request: NextRequest) {
   const parsed = parseSearchParams(request, querySchema)
-  if (parsed instanceof NextResponse) return parsed
-  const { wallet, sort, pageSize } = parsed
+  if (!parsed.ok) return parsed.response
+  const { wallet, sort, pageSize } = parsed.data
 
   try {
     const trimmedWallet = trimWalletAddress(wallet)
