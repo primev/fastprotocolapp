@@ -48,5 +48,12 @@ jobs:
           cache: "npm"
       - run: npm ci
       - name: Populate .env from example
-        run: cp .env.example .env
+        # `.env.example` uses `FOO=""` to signal "developer must fill this
+        # in." Zod's `.optional()` only allows undefined, not empty string,
+        # so we strip empty-value lines before building — the required
+        # fields (EMAILOCTOPUS_*) have real UUID placeholders and survive,
+        # while the optional fields become undefined and skip validation.
+        run: |
+          cp .env.example .env
+          sed -i '/=""$/d' .env
       - run: npm run build
