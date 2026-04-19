@@ -182,10 +182,14 @@ describe("user-onboarding API route — pg-mem integration", () => {
     const { GET, PUT, POST } = await routePromise
     // GET with `createMockRequest(undefined, "GET")` because WHATWG Request
     // rejects bodies on GET/HEAD — an unrelated platform constraint.
-    const cases = [
-      { handler: GET, method: "GET" as const, body: undefined },
-      { handler: POST, method: "POST" as const, body: {} },
-      { handler: PUT, method: "PUT" as const, body: {} },
+    const cases: Array<{
+      handler: typeof GET | typeof POST | typeof PUT
+      method: "GET" | "POST" | "PUT"
+      body: object | undefined
+    }> = [
+      { handler: GET, method: "GET", body: undefined },
+      { handler: POST, method: "POST", body: {} },
+      { handler: PUT, method: "PUT", body: {} },
     ]
     for (const { handler, method, body } of cases) {
       const res = await handler(

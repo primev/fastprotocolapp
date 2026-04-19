@@ -14,7 +14,18 @@ const WAITLIST_RANGE = "'Swap Waitlist'!A:G"
 // address(A), listA(B), listB(C), listC(D), priority(E), acceptedInvite(F), swapCount(G)
 const WHITELIST_RANGE = "'Swap Whitelist'!A:G"
 
-const EMPTY_RESPONSE = {
+// Explicit type because `position: null` would otherwise infer as `any`
+// under noImplicitAny — and this shape is the wire contract with the UI.
+type GateStatusResponse = {
+  whitelisted: boolean
+  approved: boolean
+  onWaitlist: boolean
+  acceptedInvite: boolean
+  position: number | null
+  total: number
+}
+
+const EMPTY_RESPONSE: GateStatusResponse = {
   whitelisted: false,
   approved: false,
   onWaitlist: false,

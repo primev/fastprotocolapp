@@ -36,7 +36,7 @@ const Disclaimer: DisclaimerComponent = ({ Text }) => (
 )
 
 // Component to handle wallet disconnection and clear localStorage globally
-function WalletDisconnectHandler() {
+function WalletDisconnectHandler(): null {
   // Helper function to clear wallet data from localStorage
   const clearWalletData = () => {
     localStorage.removeItem("genesisSBTTokenId")

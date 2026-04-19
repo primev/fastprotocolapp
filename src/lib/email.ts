@@ -36,7 +36,7 @@ export async function captureEmail({
     }
   )
 
-  const data: unknown = await response.json().catch(() => null)
+  const data: unknown = await response.json().catch((): null => null)
   if (!response.ok) {
     if (response.status === 409) {
       // Not an exceptional case: return a recognizable, non-error response
