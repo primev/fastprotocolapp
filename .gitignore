@@ -52,3 +52,7 @@ bun.lockb
 .superset/
 
 .stryker-tmp/
+
+# External workspaces — upstream repos vendored read-only for agent context.
+# Rebuilt on demand by `/prime` (or `/sync-externals`) from .claude/externals.json.
+.external/

@@ -1,0 +1,27 @@
+{
+  "$comment": "Declarative manifest of upstream repos vendored read-only for agent context. Shape is documented in agent_docs/external-workspaces-plan.md. /prime and /sync-externals materialize these under .external/ (gitignored). Never commit entries under .external/; edits there would be lost on the next sync.",
+  "externals": [
+    {
+      "name": "mev-commit",
+      "origin": "https://github.com/primev/mev-commit.git",
+      "ref": "main",
+      "sparse": [
+        "/contracts/",
+        "/contracts-abi/",
+        "/tools/preconf-rpc/fastswap/",
+        "/tools/preconf-rpc/service/",
+        "/tools/preconf-rpc/handlers/",
+        "/tools/preconf-rpc/store/",
+        "/tools/preconf-rpc/sender/",
+        "/tools/preconf-rpc/rpcserver/",
+        "/tools/preconf-rpc/points/",
+        "/tools/fastswap-miles/"
+      ],
+      "freshness": {
+        "warnAfterDays": 7,
+        "failAfterDays": 45
+      },
+      "purpose": "Upstream protocol source of truth — FastSwap HTTP handler, preconf RPC, miles/Fuul indexer, canonical ABIs. Scope map: agent_docs/external-mev-commit.md"
+    }
+  ]
+}
