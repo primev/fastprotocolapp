@@ -270,7 +270,9 @@ export function useSwapForm(allTokens: Token[]) {
 
   const hasNoLiquidity = useMemo<boolean>(() => {
     if (isManualInversion && swappedQuote) return false
-    return Boolean(noLiquidity || (quoteError && quoteError.message?.includes("No liquidity found")))
+    return Boolean(
+      noLiquidity || (quoteError && quoteError.message?.includes("No liquidity found"))
+    )
   }, [noLiquidity, quoteError, isManualInversion, swappedQuote])
 
   // Validate Barter can route this amount within 2% slippage.

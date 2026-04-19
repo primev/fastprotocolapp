@@ -78,7 +78,12 @@ export async function POST(
     )
 
     return NextResponse.json(
-      { ok: true, entity: body.data.entity, activity: body.data.activity, chainId: body.data.chainId ?? null },
+      {
+        ok: true,
+        entity: body.data.entity,
+        activity: body.data.activity,
+        chainId: body.data.chainId ?? null,
+      },
       { status: 201 }
     )
   } catch (err) {

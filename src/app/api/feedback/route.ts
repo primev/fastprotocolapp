@@ -58,7 +58,13 @@ export async function POST(request: NextRequest) {
       valueInputOption: "USER_ENTERED",
       requestBody: {
         values: [
-          [body.data.timestamp, body.data.wallet_address, body.data.tx_type, body.data.status, body.data.txhash ?? ""],
+          [
+            body.data.timestamp,
+            body.data.wallet_address,
+            body.data.tx_type,
+            body.data.status,
+            body.data.txhash ?? "",
+          ],
         ],
       },
     })
