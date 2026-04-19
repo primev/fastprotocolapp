@@ -32,6 +32,22 @@ sorted by domain; keep each entry to one sentence.
 | Slippage is monotone in bps — more tolerance → lower exactIn floor, higher exactOut ceiling | [`tests/lib/swap/slippage.test.ts`](./tests/lib/swap/slippage.test.ts) |
 | 100% slippage on exactIn collapses to zero (boundary correctness) | [`tests/lib/swap/slippage.test.ts`](./tests/lib/swap/slippage.test.ts) |
 
+## Applied-slippage picker (swap form)
+
+The math that chooses the effective slippage percent fed into `minAmountOut`
+when a user clicks Swap, given their UI setting + Barter's reported
+shortfall. Regressions break either direction (revert vs. over-loose).
+
+| Invariant | Enforced by |
+|---|---|
+| Applied slippage is always in `[0, maxSlippagePct]` for any input | [`tests/lib/swap/min-amount-out.test.ts`](./tests/lib/swap/min-amount-out.test.ts) |
+| Applied slippage is never below `userSlippagePct` (when user ≤ max) — we never silently tighten the user's tolerance | [`tests/lib/swap/min-amount-out.test.ts`](./tests/lib/swap/min-amount-out.test.ts) |
+| Monotone non-decreasing in `barterShortfallPct` — more shortfall → looser floor (up to the cap) | [`tests/lib/swap/min-amount-out.test.ts`](./tests/lib/swap/min-amount-out.test.ts) |
+| Shortfall=0 collapses to `max(userSlippage, 0)`, capped at max | [`tests/lib/swap/min-amount-out.test.ts`](./tests/lib/swap/min-amount-out.test.ts) |
+| `DEFAULT_BARTER_BUFFER_PCT === 0.5` — a silent buffer change would shift every minAmountOut in prod | [`tests/lib/swap/min-amount-out.test.ts`](./tests/lib/swap/min-amount-out.test.ts) |
+| Composes with `computeSlippageLimit` to produce a floor ≤ `amountOut` for all inputs (end-to-end safety property) | [`tests/lib/swap/min-amount-out.test.ts`](./tests/lib/swap/min-amount-out.test.ts) |
+| `computeAppliedSlippagePct` is total — no input combination throws | [`tests/lib/swap/min-amount-out.test.ts`](./tests/lib/swap/min-amount-out.test.ts) |
+
 ## EIP-712 signing (Permit2 witness)
 
 | Invariant | Enforced by |

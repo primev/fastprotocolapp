@@ -21,6 +21,8 @@ import { useSwapSlippage } from "@/hooks/use-swap-slippage"
 import { useBarterValidation } from "@/hooks/use-barter-validation"
 import { useQuoteGuardConfig } from "@/hooks/use-quote-guard-config"
 import { isQuoteGuardTriggered, computeQuoteGuardFloor } from "@/lib/swap/quote-guard"
+import { computeAppliedSlippageBps } from "@/lib/swap/min-amount-out"
+import { computeSlippageLimit } from "@/lib/swap/slippage"
 import { usePageActive } from "@/hooks/use-page-active"
 import { Token } from "@/types/swap"
 import { DEFAULT_ETH_TOKEN } from "@/components/swap/TokenSelectorModal"
@@ -305,8 +307,9 @@ export function useSwapForm(allTokens: Token[]) {
   }, [displayQuote, barterAmountOut, divergenceThresholdPct])
 
   // Compute minAmountOut inline from current slippage + observed barter shortfall.
-  // Uses the larger of user slippage and barter shortfall (+0.1% buffer), capped at 2%,
-  // so the minAmountOut is always achievable by barter on first click.
+  // Pure math lives in @/lib/swap/{min-amount-out,slippage} so it can be
+  // property-tested without React; this hook just reads state + config and
+  // hands them to the helpers.
   //
   // When quoteGuardTriggered, the floor is derived from Barter's routed output minus the
   // configured treasury margin instead of the Uniswap quote — the Uniswap number isn't a
@@ -324,12 +327,12 @@ export function useSwapForm(allTokens: Token[]) {
       return formatUnits(limit, toToken.decimals)
     }
 
-    const userSlippage = Number(parseFloat(effectiveSlippage || "0")) || 0
-    const barterFloor = Number(barterShortfallPct) > 0 ? Number(barterShortfallPct) + 0.5 : 0
-    const appliedSlippage = Math.min(2.0, Math.max(userSlippage, barterFloor))
-    const bps = Math.floor(appliedSlippage * 100)
-    const slippageBps = BigInt(Number.isFinite(bps) ? bps : 0)
-    const limit = (displayQuote.amountOut * (10000n - slippageBps)) / 10000n
+    const bps = computeAppliedSlippageBps({
+      userSlippagePct: parseFloat(effectiveSlippage || "0"),
+      barterShortfallPct: Number(barterShortfallPct),
+      maxSlippagePct: 2,
+    })
+    const limit = computeSlippageLimit(displayQuote.amountOut, bps, "exactIn")
     return formatUnits(limit, toToken.decimals)
   }, [
     isWrapUnwrap,
