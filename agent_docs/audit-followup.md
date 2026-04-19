@@ -37,7 +37,7 @@ they're no longer applicable.
 | ABI shape + upstream drift | ✅ | `npm run test:run` + `npm run test:externals` |
 | EIP-712 encoding + Permit2 DOMAIN_SEPARATOR | ✅ | `npm run test:run` |
 | Upstream API contracts (+ runtime guards) | ✅ | `npm run test:run` |
-| Hook tests (happy-dom + renderHook) | ✅ (one seed: `use-swap-slippage`) | `npm run test:run` |
+| Hook tests (happy-dom + renderHook) | ✅ (4 files, 50 tests — slippage, quote-guard-config, balance-flash, page-active) | `npm run test:run` |
 | Fork tests (anvil + mainnet) | ✅ | `FORK_RPC_URL=https://ethereum-rpc.publicnode.com npm run test:fork` |
 | Mutation testing (Stryker) | ✅ (96.3% on slippage module) | `npm run test:mutation` |
 
@@ -94,11 +94,13 @@ component tests so regressions have an oracle.
 
 ### Seed more hook tests
 
-Pattern proven with `use-swap-slippage`. Highest-ROI next targets:
-- `use-quote-guard-config` — edge-config threshold reads
-- `use-balance-flash` — timing logic
-- `use-page-active` — visibility + idle detection
+Pattern now proven across four hooks (slippage, quote-guard-config,
+balance-flash, page-active — 50 tests total covering localStorage,
+fetch + fallbacks, timer-driven flash, Page Visibility API, and idle
+detection). Next-tier candidates when a god-file split needs coverage:
 - `use-waitlist-position` — fetcher + cache interaction
+- `use-swap-quote` — polling + cancellation
+- `use-rpc-test` — network-check state machine
 
 ### Component testing pattern
 
@@ -188,16 +190,14 @@ summary. When a new gap surfaces, add it here with a clear ROI
 justification — not every followup deserves to live on this list.
 
 Priority order as of the last update:
-1. **Seed 2-3 more hook tests** (`use-quote-guard-config`,
-   `use-balance-flash`, `use-page-active`) to derisk component splits.
-2. **Component test pattern seed** — one real component test with
+1. **Component test pattern seed** — one real component test with
    mocked wagmi (`SwapToast` or `AmountInput`). Unblocks god-file
    splits.
-3. **`strictNullChecks: true`** + rewrite `@/lib/api/parse` to the
+2. **`strictNullChecks: true`** + rewrite `@/lib/api/parse` to the
    discriminated-union shape.
-4. **Full god-file splits** (LeaderboardTable, SwapConfirmationModal).
-5. **Dependabot** — cheap ongoing value; one-file PR.
-6. **Widen Stryker scope** to schemas.ts, token-resolver.ts,
+3. **Full god-file splits** (LeaderboardTable, SwapConfirmationModal).
+4. **Dependabot** — cheap ongoing value; one-file PR.
+5. **Widen Stryker scope** to schemas.ts, token-resolver.ts,
    leaderboard/paginate.ts, min-amount-out.ts once they earn more
    property tests.
 
@@ -211,3 +211,7 @@ Items done since the last revision of this priority list:
   invariants (floor ≤ amountOut end-to-end, never tightens user's
   tolerance, monotone in Barter shortfall) are now independently
   verifiable without React.
+- Seeded three more hook tests (`use-quote-guard-config`,
+  `use-balance-flash`, `use-page-active`). Hook suite is now 4 files /
+  50 tests, locking Edge Config fallback defaults, the 2000ms balance
+  flash window, and the 2-minute idle-timer contract.
