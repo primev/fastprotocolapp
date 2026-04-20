@@ -217,7 +217,7 @@ const DashboardContent = () => {
                   </div>
                 </div>
 
-                {FEATURE_FLAGS.show_miles_estimate && (
+                {FEATURE_FLAGS.show_miles_dashboard_table && (
                   <UserSwapsTable address={address} isConnected={isConnected} />
                 )}
 
