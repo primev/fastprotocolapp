@@ -70,13 +70,12 @@ they're no longer applicable.
 
 ## 🟡 Outstanding — pick up from here
 
-### Further strictness flips (incremental)
-Each is a separate, reviewable PR so the blast radius stays small.
+### ~~Further strictness flips~~ — ✅
 
-1. **Full `strict: true`** — strictNullChecks is now ON. The remaining
-   flags (`strictFunctionTypes`, `strictBindCallApply`, `alwaysStrict`)
-   should be cheap follow-ups now that the load-bearing null/undefined
-   fixes have landed.
+`strict: true` is on. The remaining flags (`strictFunctionTypes`,
+`strictBindCallApply`, `alwaysStrict`, `noImplicitThis`,
+`strictPropertyInitialization`) produced zero new errors — the
+strictNullChecks flip had already caught the hard cases.
 
 ### God files — pending splits
 

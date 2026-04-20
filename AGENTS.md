@@ -9,7 +9,7 @@ The **Fast Protocol App** — the web UI for Fast Protocol, a coordinated reward
 ## Stack (authoritative values live in `package.json`)
 
 - **Framework**: Next.js 15 App Router, React 18
-- **Language**: TypeScript (full `strict` still **off**, but `strictNullChecks`, `noImplicitAny`, `noUnusedLocals`, and `noUnusedParameters` are all **on** — see `tsconfig.json`)
+- **Language**: TypeScript with `strict: true` + `noUnusedLocals` + `noUnusedParameters` (see `tsconfig.json`)
 - **Web3**: wagmi 2, viem 2, ethers 6, RainbowKit
 - **Data**: TanStack Query 5, Zustand (minimal use)
 - **UI**: Tailwind 3, shadcn/ui on Radix primitives
