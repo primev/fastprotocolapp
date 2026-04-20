@@ -99,6 +99,7 @@ All colors MUST be HSL.
     @apply bg-background text-foreground font-sans antialiased;
     margin: 0;
     padding: 0;
+    padding-top: var(--global-banner-h, 0px);
   }
 
   html {

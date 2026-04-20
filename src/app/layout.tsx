@@ -7,6 +7,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next"
 import { getBaseUrl, SITE_URL } from "@/lib/config/site"
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register"
 import { InstallPrompt } from "@/components/pwa/install-prompt"
+import { GlobalBanner } from "@/components/shared/GlobalBanner"
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -160,6 +161,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        <GlobalBanner />
         <Providers>{children}</Providers>
         <ServiceWorkerRegister />
         <InstallPrompt />

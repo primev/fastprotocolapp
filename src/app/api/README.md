@@ -36,13 +36,14 @@ below and should be migrated when touched. See
 
 ## Config (runtime feature toggles read from Vercel Edge Config)
 
-| Route                      | Methods | Purpose                            | Zod |
-| -------------------------- | ------- | ---------------------------------- | --- |
-| `config/fee-percentile/`   | GET     | Dynamic fee-percentile value       | ⚠️  |
-| `config/gas-estimate/`     | GET     | Miles-estimate gas-cost baseline   | ⚠️  |
-| `config/leaderboard-poll/` | GET     | Leaderboard poll interval override | ⚠️  |
-| `config/quote-guard/`      | GET     | Quote-guard divergence threshold   | ⚠️  |
-| `config/tx-timeout/`       | GET     | Tx-confirmation timeout config     | ⚠️  |
+| Route                      | Methods | Purpose                               | Zod |
+| -------------------------- | ------- | ------------------------------------- | --- |
+| `config/fee-percentile/`   | GET     | Dynamic fee-percentile value          | ⚠️  |
+| `config/gas-estimate/`     | GET     | Miles-estimate gas-cost baseline      | ⚠️  |
+| `config/global-banner/`    | GET     | Edge-Config-driven global banner text | ⚠️  |
+| `config/leaderboard-poll/` | GET     | Leaderboard poll interval override    | ⚠️  |
+| `config/quote-guard/`      | GET     | Quote-guard divergence threshold      | ⚠️  |
+| `config/tx-timeout/`       | GET     | Tx-confirmation timeout config        | ⚠️  |
 
 ## Cron (scheduled jobs run by Vercel Cron)
 
