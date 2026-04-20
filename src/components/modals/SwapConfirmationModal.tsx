@@ -543,6 +543,8 @@ function SwapConfirmationModal({
               </DialogTitle>
               <DialogClose asChild>
                 <button
+                  type="button"
+                  aria-label="Close"
                   onClick={() => handleOpenChange(false)}
                   className="p-2 rounded-lg hover:bg-white/5 transition-colors"
                 >
