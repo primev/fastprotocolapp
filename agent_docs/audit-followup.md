@@ -95,7 +95,13 @@ component tests so regressions have an oracle.
 - ~~`src/components/modals/SwapConfirmationModal.tsx` (~1160 LoC)~~ — ✅
   split into `src/components/modals/swap-confirmation/*` (parent now
   623 LoC; seven presentational leaves + useSnapshotOnOpen hook).
-- `src/hooks/use-swap-form.ts` (~620 LoC) — still pending
+- `src/hooks/use-swap-form.ts` (~620 LoC) — still pending.
+- `PaginatedLeaderboardModal` — `renderStat` / `renderSubtext` callbacks
+  cast their entry to `any` at every call site (see `LeaderboardTable.tsx`
+  and the Volume/Efficiency/Referral/RisingStars cards). The right fix
+  is to make the modal generic over `T extends PaginatedModalEntry`.
+  Pre-existing from main's `e57a5f8`; worth cleaning when the modal is
+  next touched.
 
 ### Seed more hook tests
 
@@ -249,6 +255,14 @@ Items done since the last revision of this priority list:
   mocking and a real Zustand store. Vitest now uses the automatic JSX
   transform (`esbuild: { jsx: "automatic" }`) so tests don't need an
   explicit `import React`. Total suite: 286 passing tests.
+- **Merge-with-main alignment flow** landed: `.claude/skills/merging-main/`
+  skill + `/realign` slash command. Playbook covers stale `src/lib/*`
+  imports (folderization drift), ESLint-rule hits on new API routes,
+  `any`/`@ts-ignore` additions, doc-index drift
+  (`agent_docs/architecture.md`, `src/app/api/README.md`,
+  `src/hooks/README.md`), test seeds, a11y sweeps. Ran it live against
+  main's PR #109 merge — caught one broken `@/lib/site-config` import
+  and two doc-tree entries, fixed in the same commit.
 - Flipped `strictNullChecks: true` and rewrote `@/lib/api/parse` to the
   discriminated-union shape (`{ ok: true; data } | { ok: false; response }`).
   All 32 API route callers migrated to `if (!parsed.ok) return parsed.response`

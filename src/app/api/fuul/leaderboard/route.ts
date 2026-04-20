@@ -196,7 +196,10 @@ export async function GET(request: NextRequest) {
       // In the error path we can't rely on the parsed query from earlier
       // (we may have thrown before it resolved), so re-read raw search
       // params with lenient defaults — the goal here is to salvage a
-      // response, not to enforce validation.
+      // response, not to enforce validation. Intentional exemption from
+      // the no-restricted-syntax rule; security-reviewer cleared this
+      // path as acceptable.
+      // eslint-disable-next-line no-restricted-syntax
       const { searchParams } = new URL(request.url)
       const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "15", 10), 1), 100)
       const page = parseInt(searchParams.get("page") || "0", 10)

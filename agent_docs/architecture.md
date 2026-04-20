@@ -13,9 +13,9 @@ src/app/
 ├── early-access/              # Waitlist / gated entry
 ├── learn/                     # Educational content (MDX)
 ├── network-checker/           # RPC health check
+├── pro/                       # /pro marketing landing (post-merge of #109)
 ├── referral/                  # Referral landing
 ├── s/                         # Short-link handler
-├── share/                     # Share card generator
 ├── layout.tsx                 # Root layout, providers
 ├── globals.css                # Tailwind layer + design tokens
 ├── not-found.tsx
@@ -36,8 +36,9 @@ Routes that accept user input now go through `@/lib/api/parse` + Zod schemas in
 
 ```
 claim/          dashboard/      landing/        learn/
-modals/         network-checker onboarding/     pwa/
-referral/       shared/         swap/           ui/          (shadcn)
+modals/         network-checker onboarding/     pro/
+pwa/            referral/       shared/         swap/
+ui/             (shadcn)
 AnimatedBackground.tsx  NavLink.tsx  providers.tsx
 ```
 

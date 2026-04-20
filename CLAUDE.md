@@ -28,6 +28,7 @@ Full map: [`.claude/README.md`](./.claude/README.md).
 | `ui-shadcn` | Components under `src/components/` — Radix/shadcn conventions |
 | `testing-vitest` | Writing or running vitest tests |
 | `skill-creator` | Authoring a new skill in this repo |
+| `merging-main` | Merging / rebasing main, catching pattern drift in incoming changes |
 
 You decide when a skill is relevant based on its `description` frontmatter. Don't preload.
 
@@ -42,7 +43,7 @@ Spawn a subagent whenever the task would otherwise read 10+ files in main contex
 
 ## Slash commands
 
-`/prime` · `/typecheck` · `/lint` · `/test` · `/verify` · `/verify-ui` · `/sync-externals` · `/new-skill` · `/review-diff`
+`/prime` · `/typecheck` · `/lint` · `/test` · `/verify` · `/verify-ui` · `/sync-externals` · `/realign` · `/new-skill` · `/review-diff`
 
 Definitions in [`.claude/commands/`](./.claude/commands/).
 
