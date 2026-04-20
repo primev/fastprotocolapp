@@ -12,7 +12,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
-    const apiToken = env.FAST_RPC_API_TOKEN || ""
+    const apiToken = env.FAST_RPC_DB_AUTH_TOKEN || ""
 
     const response = await fetch(`https://fastrpc.mev-commit.xyz/status/${hash}`, {
       method: "GET",
