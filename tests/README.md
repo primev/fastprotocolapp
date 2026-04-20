@@ -4,6 +4,7 @@ All Vitest test files live here, mirroring `src/`:
 
 ```
 tests/
+├── a11y/                <- WCAG 2.1 AA sweeps via axe-core (own oracle)
 ├── api/                 <- src/app/api/<route>/route.ts
 ├── components/          <- src/components/**
 ├── hooks/               <- src/hooks/**

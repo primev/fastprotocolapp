@@ -175,9 +175,14 @@ No bundle-size monitoring, no TTFB target. Agents can silently
 regress perf with no feedback. `next build --profile` + a size-limit
 diff on PRs would help.
 
-### Accessibility baseline
+### ~~Accessibility baseline~~ — ✅ seeded
 
-Zero a11y tests. `axe-core` in happy-dom is ~30 min to wire up.
+Wired `axe-core` + `vitest-axe` into `tests/a11y/` as its own test tier.
+First canary: `SwapToast.a11y.test.tsx` covers pending, confirmed, and
+barter-slippage-failed states — zero WCAG 2.1 AA violations. Shared
+`tests/utils/axe.ts` helper formats failures with rule id + help URL.
+Expand coverage by copying the template as new critical components
+split out (SwapConfirmationModal, LeaderboardHeader, AppHeader).
 
 ### Recent-incidents ledger
 
