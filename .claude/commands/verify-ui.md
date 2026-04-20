@@ -13,17 +13,33 @@ target route. It must clean up the server before returning.
 ## Target routes
 
 ```
-/           — landing / gate (AnimatedBackground + landing copy)
-/dashboard  — leaderboard + user performance cards
-/claim      — Genesis SBT claim flow (needs wallet, but SSR must 200)
+/             — landing / gate (AnimatedBackground + Swap heading)
+/dashboard    — personal miles page (tabs: My Miles, etc.)
+/leaderboard  — the LeaderboardTable route (Miles / Volume / Stats)
+/claim        — Genesis SBT claim flow (SSR must 200 even without wallet)
 ```
+
+Note: `/leaderboard` is the heavy refactor target (2711 → 447 LoC parent),
+not `/dashboard`. Both are worth smoking because the header + providers
+load on every authenticated route.
 
 For each route, the subagent should verify:
 - HTTP 200
 - No console errors in the SSR response that would indicate a crashed
-  provider (look for "Cannot read", "TypeError", stack traces in HTML)
+  provider (look for "Cannot read", "TypeError", stack traces in HTML).
+  Note: Node Streams polyfill source bundled into pages includes the
+  string "TypeError" in static error-class definitions — distinguish
+  from real "Application error" markers.
 - A content marker proving the right template rendered
-  ("LEADERBOARD", "Genesis", the gate's "Swap" heading)
+  ("LEADERBOARD" on /leaderboard, "Genesis" on /claim, Swap heading on /).
+
+## Known operational gotchas
+
+- A stale `.next/` directory from a prior branch can 500 every route on
+  boot with "Cannot find module './NNNN.js'" — the dev server builds
+  per-branch. If this happens, `rm -rf .next` and restart.
+- Without `ANALYTICS_DB_AUTH_TOKEN` set, analytics SSR fetches return
+  401; pages are expected to render skeleton/empty states (not crash).
 
 ## What this command is NOT
 
