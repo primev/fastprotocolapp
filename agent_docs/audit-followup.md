@@ -163,10 +163,12 @@ every error-handling bug.
 `security-reviewer` subagent on every PR via a GitHub Action that
 posts a review comment. Nightly rather than per-PR to control cost.
 
-### Dependabot
+### ~~Dependabot~~ — ✅
 
-No dependency-update automation today. wagmi / viem / zod updates
-sneak up.
+Configured in `.github/dependabot.yml`. Weekly npm bumps with grouping
+(web3, react-ecosystem, testing, next, radix) so related libraries move
+as one PR. Monthly GitHub Actions bumps. Majors are excluded — we open
+those by hand after reading the migration guide.
 
 ### Performance budget
 
@@ -184,12 +186,13 @@ Zero a11y tests. `axe-core` in happy-dom is ~30 min to wire up.
 Powerful as a negative-example signal for agents. Requires discipline
 to maintain.
 
-### Widen Stryker scope
+### Widen Stryker scope — 🟡 partial
 
-Currently mutates only `src/lib/swap/slippage.ts`. Add more modules
-as they earn property-test coverage — natural next targets:
-`src/lib/api/schemas.ts`, `src/lib/tokens/token-resolver.ts`,
-`src/components/dashboard/leaderboard/paginate.ts`.
+Now mutates `slippage.ts`, `min-amount-out.ts`, `api/schemas.ts`, and
+`token-resolver.ts` — the four pure modules with fast-check property
+coverage. Still open: `leaderboard/paginate.ts` (has example tests but
+no property coverage yet) and any new module that earns a property
+suite (eth-path-tx, quote-guard, tokens/weth-utils).
 
 ### Extend `externals.json` to more upstreams
 
@@ -207,16 +210,17 @@ summary. When a new gap surfaces, add it here with a clear ROI
 justification — not every followup deserves to live on this list.
 
 Priority order as of the last update:
-1. **Full god-file splits** (LeaderboardTable, SwapConfirmationModal).
-   Component test pattern is now proven (SwapToast) — new leaf
-   components can copy the mock-and-render template.
-2. **Dependabot** — cheap ongoing value; one-file PR.
-3. **Widen Stryker scope** to schemas.ts, token-resolver.ts,
-   leaderboard/paginate.ts, min-amount-out.ts once they earn more
-   property tests.
-4. **Full `strict: true`** — four remaining flags after
+1. **`use-swap-form.ts` decomposition** (last god-file, 620 LoC). Unlike
+   the component splits, this one is risky without an oracle — the
+   hook's pieces share state and effect ordering. Safer plan: extract
+   clearly-pure sub-hooks (`useDebouncedValidating`, `useRefreshTimer`)
+   with tests, rather than a wholesale rewrite.
+2. **Full `strict: true`** — four remaining flags after
    strictNullChecks (strictFunctionTypes, strictBindCallApply,
    alwaysStrict, noImplicitThis). Should be cheap follow-ups.
+3. **Performance budget + a11y baseline** — bundle-size monitoring and
+   `axe-core` in happy-dom. Neither is urgent but both are cheap to
+   wire once.
 
 Items done since the last revision of this priority list:
 - Finished API Zod migration. All input-taking routes now go through
@@ -232,6 +236,10 @@ Items done since the last revision of this priority list:
   `use-balance-flash`, `use-page-active`). Hook suite is now 4 files /
   50 tests, locking Edge Config fallback defaults, the 2000ms balance
   flash window, and the 2-minute idle-timer contract.
+- Two god-files fully split: **SwapConfirmationModal** (1158→623 LoC,
+  7 leaves + useSnapshotOnOpen) and **LeaderboardTable** (2711→447 LoC,
+  11 leaves + types.ts under `src/components/dashboard/leaderboard/`).
+- Dependabot landed + Stryker widened to four pure modules.
 - Seeded the component-test pattern (`SwapToast`) with real-wagmi-hook
   mocking and a real Zustand store. Vitest now uses the automatic JSX
   transform (`esbuild: { jsx: "automatic" }`) so tests don't need an

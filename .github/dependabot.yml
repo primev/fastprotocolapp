@@ -1,0 +1,78 @@
+# Dependabot keeps wagmi / viem / zod / next / react patches from rotting.
+# Weekly cadence so the PR noise is predictable; security updates still fire
+# on-demand regardless of the schedule.
+#
+# Grouping rules keep noisy ecosystems as single PRs:
+#   - react-ecosystem: React, React-DOM, @types/react, @types/react-dom move together.
+#   - web3: wagmi / viem / @rainbow-me / ethers — upgrading one alone almost
+#     always breaks the others, so a single PR is the right unit of review.
+#   - testing: Vitest + @testing-library + happy-dom + fast-check.
+#   - next: Next.js + eslint-config-next.
+#   - radix: @radix-ui/* — internal primitives behind shadcn; routine bumps.
+#
+# Anything that doesn't match a group still gets its own PR. When bumping
+# wagmi/viem, re-run `npm run test:run` and the fork tests before merging —
+# ABI or typed-data shape drift is the most common failure mode.
+
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    labels:
+      - "dependencies"
+    groups:
+      react-ecosystem:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      web3:
+        patterns:
+          - "wagmi"
+          - "viem"
+          - "@rainbow-me/*"
+          - "ethers"
+      testing:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+          - "@testing-library/*"
+          - "happy-dom"
+          - "fast-check"
+          - "@stryker-mutator/*"
+      next:
+        patterns:
+          - "next"
+          - "eslint-config-next"
+          - "@next/*"
+      radix:
+        patterns:
+          - "@radix-ui/*"
+    ignore:
+      # Major-version bumps need a human read of the migration guide; let
+      # Dependabot propose minors/patches and we'll open majors manually.
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - "dependencies"
+      - "ci"

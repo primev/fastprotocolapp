@@ -1,8 +1,13 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "_comment": "Mutation testing config. Scoped narrowly on purpose: a full-repo mutation run takes 10+ minutes and isn't a PR gate. We target the safety-critical pure modules where test quality matters most (slippage math, Zod schemas). Add a new `mutate` glob when a module earns property-test coverage. Run with `npx stryker run`.",
+  "_comment": "Mutation testing config. Scoped narrowly on purpose: a full-repo mutation run takes 10+ minutes and isn't a PR gate. We target the safety-critical pure modules where test quality matters most (slippage math, applied-slippage picker, Zod API schemas, token resolution). Add a new `mutate` glob when a module earns property-test coverage. Run with `npx stryker run`.",
   "testRunner": "vitest",
-  "mutate": ["src/lib/swap/slippage.ts"],
+  "mutate": [
+    "src/lib/swap/slippage.ts",
+    "src/lib/swap/min-amount-out.ts",
+    "src/lib/api/schemas.ts",
+    "src/lib/tokens/token-resolver.ts"
+  ],
   "reporters": ["progress", "clear-text", "html"],
   "coverageAnalysis": "perTest",
   "vitest": {
