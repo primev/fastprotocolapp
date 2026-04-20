@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
-import { patchEdgeConfigItems, type EdgeConfigValue } from "@/lib/vercel-edge-config"
+import { patchEdgeConfigItems } from "@/lib/vercel-edge-config"
 import { getAnalyticsClient } from "@/lib/analytics/client"
-import { DEFAULT_SURPLUS_BUCKETS, type SurplusBuckets } from "@/lib/surplus-rate"
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -29,6 +28,9 @@ const RPC_CONCURRENCY = 5
  */
 const FALLBACK_GAS_LIMIT = 450_000
 const FALLBACK_GAS_USED = 180_000
+/** Fallback p25 surplus rate (0.56% from 2026-04-14 all-swap sample). */
+const FALLBACK_SURPLUS_RATE = 0.0056
+
 // ---------------------------------------------------------------------------
 // Auth helper
 // ---------------------------------------------------------------------------
@@ -246,102 +248,64 @@ async function computeGasAverages(): Promise<{ gasLimitAvg: number; gasUsedAvg: 
 // Surplus rate computation
 // ---------------------------------------------------------------------------
 
-/** Round to 6 decimal places — avoids floating-point noise in Edge Config. */
-function round6(n: number): number {
-  return Math.round(n * 1e6) / 1e6
-}
-
-function median(sorted: number[]): number {
-  if (sorted.length === 0) return 0
-  const mid = Math.floor(sorted.length / 2)
-  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
-}
-
 /**
- * Computes a size-bucketed surplus-rate estimate from recent processed
- * FastSwap transactions.
+ * Computes the p25 surplus rate from recent processed FastSwap transactions.
  *
- * Rationale (from PR history — keep here so future readers don't have to dig):
- * the realized distribution of `surplus / user_amt_out` is strongly bimodal —
- * small swaps capture ~2% and large swaps ~0.5%, with very few observations
- * between. A single global rate (the old p25) either over-promised for large
- * swaps or under-promised for small ones. The p25 under-promised small-swap
- * users so hard that `surplusRate × outputEth` fell below the gas floor and
- * the UI showed 0 miles on sub-~$340 swaps — even though those swaps do earn
- * miles at settlement.
+ * Surplus rate = surplus / user_amt_out — both in the same output-token units,
+ * so the ratio is decimal-agnostic and comparable across eth_weth and
+ * erc20→erc20 swaps. See GET_FASTSWAP_SURPLUS_RATES for the query.
  *
- * Fix: bucket samples into tertiles by `output_eth` (per-swap output converted
- * to ETH via `surplus_eth / surplus_rate`, no price oracle needed), and use
- * each bucket's median within-bucket rate. Because the buckets are tighter
- * than the full distribution, p50 within a bucket is actually representative
- * — the "bimodal gap" problem only exists across the whole population.
+ * We use p25 (not the median) because the realized distribution of rates is
+ * strongly bimodal: one cluster of ~0.5–0.6% for larger swaps and another of
+ * ~2–2.1% for smaller swaps, with very few observations in between. The median
+ * sits in the gap at ~0.9–1.25% — mathematically correct but not representative
+ * of any individual user's experience. p25 aligns with the large-swap cluster
+ * and under-promises for small-swap users (they earn more than estimated, which
+ * is the desired UX direction). A proper size-bucketed estimator is a follow-up.
  *
- * Thresholds are data-driven (picked at the tertile boundaries on the sample)
- * so the boundaries move with real volume rather than being hard-coded.
+ * @returns The p25 surplus rate as a decimal (e.g. 0.0056 = 0.56%),
+ *          or FALLBACK_SURPLUS_RATE if insufficient data.
  */
-async function computeSurplusBuckets(): Promise<SurplusBuckets> {
+async function computeSurplusRateEstimate(): Promise<number> {
   const client = getAnalyticsClient()
 
   const rows = await client.execute("fastswap/get-surplus-rates", {})
 
   if (rows.length === 0) {
-    console.warn("[cron/miles-estimate-gas] No surplus rate data — using fallback buckets")
-    return DEFAULT_SURPLUS_BUCKETS
+    console.warn("[cron/miles-estimate-gas] No surplus rate data returned — using fallback")
+    return FALLBACK_SURPLUS_RATE
   }
 
-  interface Sample {
-    rate: number
-    outputEth: number
-  }
-  const samples: Sample[] = rows
-    .map((row) => ({ rate: Number(row[0]), outputEth: Number(row[1]) }))
-    .filter(
-      (s) =>
-        Number.isFinite(s.rate) && s.rate > 0 && Number.isFinite(s.outputEth) && s.outputEth > 0
-    )
+  const rates = rows
+    .map((row) => Number(row[0]))
+    .filter((r) => Number.isFinite(r) && r > 0)
+    .sort((a, b) => a - b)
 
-  // Need at least ~15 samples to produce three non-trivial buckets.
-  if (samples.length < 15) {
-    console.warn(
-      `[cron/miles-estimate-gas] Only ${samples.length} valid surplus samples — using fallback buckets`
-    )
-    return DEFAULT_SURPLUS_BUCKETS
+  if (rates.length === 0) {
+    console.warn("[cron/miles-estimate-gas] No valid surplus rates — using fallback")
+    return FALLBACK_SURPLUS_RATE
   }
 
-  // Sort by outputEth to pick tertile thresholds.
-  const bySize = [...samples].sort((a, b) => a.outputEth - b.outputEth)
-  const smallMediumIdx = Math.floor(bySize.length / 3)
-  const mediumLargeIdx = Math.floor((bySize.length * 2) / 3)
-  const thresholdSmall = bySize[smallMediumIdx].outputEth
-  const thresholdLarge = bySize[mediumLargeIdx].outputEth
+  const p25Index = Math.floor(rates.length * 0.25)
+  const p25 = rates[p25Index]
 
-  const smallSamples = bySize.slice(0, smallMediumIdx)
-  const mediumSamples = bySize.slice(smallMediumIdx, mediumLargeIdx)
-  const largeSamples = bySize.slice(mediumLargeIdx)
+  // Round to 6 decimal places to avoid floating point noise in Edge Config
+  const rounded = Math.round(p25 * 1e6) / 1e6
 
-  const rateOf = (arr: Sample[]): number => {
-    if (arr.length === 0) return 0
-    const sorted = arr.map((s) => s.rate).sort((a, b) => a - b)
-    return median(sorted)
-  }
-
-  const buckets: SurplusBuckets = {
-    thresholds: [round6(thresholdSmall), round6(thresholdLarge)],
-    rates: {
-      small: round6(rateOf(smallSamples)),
-      medium: round6(rateOf(mediumSamples)),
-      large: round6(rateOf(largeSamples)),
-    },
-  }
+  const mid = Math.floor(rates.length / 2)
+  const p50 = rates.length % 2 === 0 ? (rates[mid - 1] + rates[mid]) / 2 : rates[mid]
 
   console.log(
-    `[cron/miles-estimate-gas] surplus buckets (n=${samples.length}):\n` +
-      `  small  (< ${buckets.thresholds[0]} ETH, n=${smallSamples.length}): p50 ${(buckets.rates.small * 100).toFixed(2)}%\n` +
-      `  medium (< ${buckets.thresholds[1]} ETH, n=${mediumSamples.length}): p50 ${(buckets.rates.medium * 100).toFixed(2)}%\n` +
-      `  large  (≥ ${buckets.thresholds[1]} ETH, n=${largeSamples.length}): p50 ${(buckets.rates.large * 100).toFixed(2)}%`
+    `[cron/miles-estimate-gas] surplusRate — count: ${rates.length}  ` +
+      `p10: ${(rates[Math.floor(rates.length * 0.1)] * 100).toFixed(2)}%  ` +
+      `p25: ${(p25 * 100).toFixed(2)}% (chosen)  ` +
+      `p50: ${(p50 * 100).toFixed(2)}%  ` +
+      `p75: ${(rates[Math.floor(rates.length * 0.75)] * 100).toFixed(2)}%  ` +
+      `p90: ${(rates[Math.floor(rates.length * 0.9)] * 100).toFixed(2)}%  ` +
+      `mean: ${((rates.reduce((a, r) => a + r, 0) / rates.length) * 100).toFixed(2)}%`
   )
 
-  return buckets
+  return rounded
 }
 
 // ---------------------------------------------------------------------------
@@ -375,26 +339,20 @@ export async function GET(request: Request) {
 
   try {
     // --- Step 2: Fetch the new values ----------------------------------------
-    const [gasAverages, surplusBuckets] = await Promise.all([
+    const [gasAverages, surplusRate] = await Promise.all([
       computeGasAverages(),
-      computeSurplusBuckets(),
+      computeSurplusRateEstimate(),
     ])
     const { gasLimitAvg, gasUsedAvg } = gasAverages
 
-    // Legacy single-rate key (kept for older clients that haven't deployed the
-    // bucketed consumer yet). Use the medium bucket — the typical swap — so
-    // anyone still reading the scalar gets a sensible "middle" value.
-    const legacyScalarRate = surplusBuckets.rates.medium
-
     console.log(
-      `[cron/miles-estimate-gas] Computed: gasLimit=${gasLimitAvg}, gasUsed=${gasUsedAvg}, ` +
-        `buckets=${JSON.stringify(surplusBuckets)}`
+      `[cron/miles-estimate-gas] Computed: gasLimit=${gasLimitAvg}, gasUsed=${gasUsedAvg}, surplusRate=${(surplusRate * 100).toFixed(2)}%`
     )
 
     // --- Step 3: Write to Edge Config ---------------------------------------
     /**
-     * "upsert" so keys are created on the very first run and updated on all
-     * subsequent runs — no manual Edge Config setup needed.
+     * We use "upsert" so the keys are created on the very first run and
+     * updated on all subsequent runs — no manual Edge Config setup needed.
      */
     const result = await patchEdgeConfigItems([
       {
@@ -409,13 +367,8 @@ export async function GET(request: Request) {
       },
       {
         operation: "upsert",
-        key: "miles_estimate_surplus_buckets",
-        value: surplusBuckets as unknown as EdgeConfigValue,
-      },
-      {
-        operation: "upsert",
         key: "miles_estimate_surplus_rate",
-        value: legacyScalarRate,
+        value: surplusRate,
       },
     ])
 
@@ -430,8 +383,7 @@ export async function GET(request: Request) {
       updated: {
         gasLimitAverage: gasLimitAvg,
         gasUsedAverage: gasUsedAvg,
-        surplusBuckets,
-        surplusRate: legacyScalarRate,
+        surplusRate,
       },
       vercelResponse: result,
     })
