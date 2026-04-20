@@ -24,6 +24,7 @@ import { isQuoteGuardTriggered, computeQuoteGuardFloor } from "@/lib/swap/quote-
 import { computeAppliedSlippageBps } from "@/lib/swap/min-amount-out"
 import { computeSlippageLimit } from "@/lib/swap/slippage"
 import { usePageActive } from "@/hooks/use-page-active"
+import { useDebouncedValidating } from "@/hooks/use-debounced-validating"
 import { Token } from "@/types/swap"
 import { DEFAULT_ETH_TOKEN } from "@/components/swap/TokenSelectorModal"
 
@@ -361,33 +362,11 @@ export function useSwapForm(allTokens: Token[]) {
   }, [displayQuote, quoteGuardTriggered, barterAmountOut, toToken])
 
   // --- Minimum "Calculating..." display time ---
-  // The combined validating signal (quote loading OR barter validating) must stay true
-  // for at least 1.5s to prevent the swap button text from flickering.
-  const MIN_VALIDATING_DISPLAY_MS = 500
+  // Flicker guard for the swap button label when quote + barter races
+  // return under the perception threshold. Logic lives in
+  // `useDebouncedValidating` so it's independently property-tested.
   const rawValidating = isBarterValidating || (isQuoteLoading && !isWrapUnwrap)
-  const [debouncedValidating, setDebouncedValidating] = useState(false)
-  const validatingSinceRef = useRef<number>(0)
-  const minDisplayTimerRef = useRef<ReturnType<typeof setTimeout>>()
-
-  useEffect(() => {
-    if (rawValidating) {
-      // Going true — show immediately, record timestamp
-      clearTimeout(minDisplayTimerRef.current)
-      setDebouncedValidating(true)
-      validatingSinceRef.current = Date.now()
-    } else if (debouncedValidating) {
-      // Going false — delay until minimum display time has elapsed
-      const elapsed = Date.now() - validatingSinceRef.current
-      const remaining = MIN_VALIDATING_DISPLAY_MS - elapsed
-      if (remaining > 0) {
-        minDisplayTimerRef.current = setTimeout(() => setDebouncedValidating(false), remaining)
-      } else {
-        setDebouncedValidating(false)
-      }
-    }
-    return () => clearTimeout(minDisplayTimerRef.current)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawValidating])
+  const debouncedValidating = useDebouncedValidating(rawValidating)
 
   // --- UI Content Generation ---
 
