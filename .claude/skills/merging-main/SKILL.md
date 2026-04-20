@@ -63,16 +63,26 @@ repo's safety protocol (see CLAUDE.md) and loses review comments on the PR.
 After resolving mechanical conflicts, run these checks against the incoming
 main changes. Each is a class of drift to catch.
 
-### 1. Stale import paths — automatic
+### 1. Stale import paths — caught at three points
 
 The folderization under `src/lib/` (commit `6889c3b`) moved most top-level
 files into `config/ · tokens/ · settlement/ · swap/`. Main PRs that opened
 before that commit still import the old paths.
 
-**This class is caught automatically by the `no-restricted-imports` rule
-in `eslint.config.js`.** Run `npm run lint` after the merge; any hit
-includes the new path in the warning message. You do NOT need to grep
-manually — the rule knows the full table.
+This class is caught automatically by the `no-restricted-imports` rule
+in `eslint.config.js`. The rule fires at three points:
+
+1. **Local, right after merge** — the husky `post-merge` hook
+   (`.husky/post-merge`) runs `npm run lint` after every `git merge` or
+   `git pull` that touched `src/` and prints a loud warning on any hit.
+   Exit code is always 0 (the merge is already committed by the time
+   the hook fires), but the warning tells you to fix before pushing.
+2. **CI on push** — `.github/workflows/verify.yml` has a `lint` job
+   that greps lint output for `no-restricted-imports` and fails the
+   PR check if any is found.
+3. **Manual** — `npm run lint` or the `/realign` slash command.
+
+You do NOT need to grep manually — the rule knows the full table.
 
 If you ever add a new subfolder under `src/lib/`, update the rule in
 `eslint.config.js` (and this table) with the old → new mapping.

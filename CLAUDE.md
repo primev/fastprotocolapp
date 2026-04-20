@@ -65,6 +65,12 @@ Definitions in [`.claude/commands/`](./.claude/commands/).
     `src/app/api/**`, `src/middleware.ts`, `next.config.mjs`, `src/env/**`,
     or `src/actions/**`. Degrades to a notice if `.env.local` isn't populated.
 - **Stop** runs `npm run format:check`. Prints non-conforming files if any.
+- **Git `post-merge`** (via husky, `.husky/post-merge`) — fires after every
+  `git merge` or `git pull` that touched `src/`. Runs `npm run lint` and
+  surfaces `no-restricted-imports` or `no-restricted-syntax` hits with a
+  pointer to the `merging-main` skill. Always exits 0 (merge is already
+  done), but the warning is your local signal to run `/realign` before
+  pushing.
 
 If a hook complains, fix it before declaring the task complete.
 

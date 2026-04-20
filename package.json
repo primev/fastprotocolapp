@@ -18,7 +18,8 @@
     "sync:externals": "./.claude/hooks/externals-sync.sh",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
-    "stablecoins": "tsx scripts/getStablecoins.ts"
+    "stablecoins": "tsx scripts/getStablecoins.ts",
+    "prepare": "husky"
   },
   "dependencies": {
     "@fuul/sdk": "^7.7.1",
@@ -123,6 +124,7 @@
     "fast-check": "^4.7.0",
     "globals": "^15.15.0",
     "happy-dom": "^20.9.0",
+    "husky": "^9.1.7",
     "jiti": "^2.6.1",
     "lovable-tagger": "^1.1.11",
     "pg-mem": "^3.0.14",

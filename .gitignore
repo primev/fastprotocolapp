@@ -57,3 +57,8 @@ bun.lockb
 # External workspaces — upstream repos vendored read-only for agent context.
 # Rebuilt on demand by `/prime` (or `/sync-externals`) from .claude/externals.json.
 .external/
+
+# Husky — commit the hook scripts (.husky/post-merge etc.) but not the
+# auto-generated dispatcher in .husky/_/, which is regenerated on
+# `npm install` via the `prepare` script.
+.husky/_/
