@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useUserSwaps } from "@/hooks/use-user-swaps"
-import { useSurplusRate } from "@/hooks/use-surplus-rate"
+import { useSurplusBuckets } from "@/hooks/use-surplus-rate"
 import { SwapsTableBody } from "./user-swaps-parts"
 import { UserSwapsModal } from "./UserSwapsModal"
 
@@ -36,7 +36,7 @@ export function UserSwapsTable({ address, isConnected }: Props) {
     page: 1,
     pageSize: RECENT_LIMIT,
   })
-  const surplusRate = useSurplusRate()
+  const surplusBuckets = useSurplusBuckets()
 
   return (
     <>
@@ -77,7 +77,7 @@ export function UserSwapsTable({ address, isConnected }: Props) {
           </div>
         ) : (
           <>
-            <SwapsTableBody swaps={swaps} surplusRate={surplusRate} />
+            <SwapsTableBody swaps={swaps} surplusBuckets={surplusBuckets} />
             <div className="flex justify-center pt-4 mt-2 border-t border-white/5">
               <button
                 type="button"

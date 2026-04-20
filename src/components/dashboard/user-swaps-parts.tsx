@@ -29,6 +29,11 @@ import {
 } from "@/components/ui/table"
 import type { UserSwapRow } from "@/hooks/use-user-swaps"
 import { getEstimatedMilesForHash } from "@/lib/swap-events"
+import {
+  DEFAULT_SURPLUS_BUCKETS,
+  pickSurplusRate,
+  type SurplusBuckets,
+} from "@/lib/surplus-rate"
 
 export const ETHERSCAN_TX_BASE = "https://etherscan.io/tx/"
 
@@ -116,14 +121,13 @@ export function SwapSide({
 }
 
 /**
- * Conservative miles estimate for pending rows. Uses the surplus rate
- * (from Edge Config, updated daily by cron) and the 90% user share /
+ * Conservative miles estimate for pending rows. Falls back to the size-bucketed
+ * surplus rate (from Edge Config, updated daily by cron) and the 90% user share /
  * 100k miles-per-ETH constants.
  *
  * This is a rough floor — actual miles are computed post-settlement and
  * will overwrite this value once processed.
  */
-const DEFAULT_SURPLUS_RATE = 0.0056
 const USER_MEV_SHARE = 0.9
 const MILES_PER_ETH = 100_000
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
@@ -154,13 +158,14 @@ const ESTIMATED_BID_COST_ETH = 0.00004
  *
  * Fallback: if `surplus` isn't populated yet (rare race window between tx
  * submission and the indexer catching up), or the output is a non-ETH token
- * we can't convert here without a price oracle, fall back to the old
- * `surplusRate × amountOut × 0.9 × 100k` population-prior estimate.
+ * we can't convert here without a price oracle, fall back to the
+ * size-bucketed `pickSurplusRate(outputEth) × amountOut × 0.9 × 100k`
+ * population-prior estimate.
  *
  * Returns null when even the fallback can't produce something meaningful;
  * the caller renders "TBD" in that case.
  */
-function estimateMiles(row: UserSwapRow, surplusRate: number): number | null {
+function estimateMiles(row: UserSwapRow, surplusBuckets: SurplusBuckets): number | null {
   if (!row.amountOut) return null
 
   // Dashboard only handles ETH-output rows in the realized path because
@@ -191,11 +196,13 @@ function estimateMiles(row: UserSwapRow, surplusRate: number): number | null {
     }
   }
 
-  // Fallback: population prior × displayed output. Same as the pre-change
-  // formula — used only when realized surplus/gas aren't available yet.
-  const parsed = parseFloat(row.amountOut)
-  if (!parsed || parsed <= 0) return null
-  const mevPot = surplusRate * parsed
+  // Fallback: size-bucketed surplus rate × displayed output (in ETH, since we
+  // already filtered to ETH output above). Used only when realized surplus/gas
+  // aren't available yet.
+  const outputEth = parseFloat(row.amountOut)
+  if (!outputEth || outputEth <= 0) return null
+  const rate = pickSurplusRate(outputEth, surplusBuckets)
+  const mevPot = rate * outputEth
   const userMev = mevPot * USER_MEV_SHARE
   const miles = Math.floor(userMev * MILES_PER_ETH)
   return miles > 0 ? miles : null
@@ -212,14 +219,14 @@ function estimateMiles(row: UserSwapRow, surplusRate: number): number | null {
  */
 export function MilesCell({
   row,
-  surplusRate = DEFAULT_SURPLUS_RATE,
+  surplusBuckets = DEFAULT_SURPLUS_BUCKETS,
 }: {
   row: UserSwapRow
-  surplusRate?: number
+  surplusBuckets?: SurplusBuckets
 }) {
   if (!row.processed) {
     const stashed = getEstimatedMilesForHash(row.txHash)
-    const est = stashed ?? estimateMiles(row, surplusRate)
+    const est = stashed ?? estimateMiles(row, surplusBuckets)
     if (est != null && est > 0) {
       return (
         <Badge variant="outline" className="text-muted-foreground font-normal">
@@ -277,10 +284,10 @@ export function StatusCell({ row }: { row: UserSwapRow }) {
  */
 export function SwapsTableBody({
   swaps,
-  surplusRate,
+  surplusBuckets,
 }: {
   swaps: UserSwapRow[]
-  surplusRate?: number
+  surplusBuckets?: SurplusBuckets
 }) {
   return (
     <Table>
@@ -344,7 +351,7 @@ export function SwapsTableBody({
               </span>
             </TableCell>
             <TableCell className="text-right px-2 md:px-4">
-              <MilesCell row={row} surplusRate={surplusRate} />
+              <MilesCell row={row} surplusBuckets={surplusBuckets} />
             </TableCell>
             <TableCell className="text-right hidden md:table-cell px-4">
               <a

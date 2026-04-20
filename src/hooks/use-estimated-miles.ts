@@ -2,6 +2,12 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { RPC_ENDPOINT } from "@/lib/network-config"
+import {
+  DEFAULT_SURPLUS_BUCKETS,
+  isSurplusBuckets,
+  pickSurplusRate,
+  type SurplusBuckets,
+} from "@/lib/surplus-rate"
 
 /** Fallback average gas limit for bid cost calculation (priorityFee × gasLimit) */
 const DEFAULT_AVG_GAS_LIMIT = 450_000n
@@ -13,14 +19,6 @@ const USER_MEV_SHARE = 0.9
 const MILES_PER_ETH = 100_000
 /** How often to refresh bid estimate from FastRPC (ms) — roughly 1 block */
 const BID_ESTIMATE_POLL_MS = 12_000
-/**
- * Fallback surplus rate — used until Edge Config value is fetched.
- * Updated daily by the miles-estimate-gas cron job: p25 of
- * `surplus / user_amt_out` across all processed swaps (both eth_weth and
- * erc20→erc20) over the last 30 days. p25 rather than p50 because the
- * realized distribution is bimodal — see the cron for rationale.
- */
-const DEFAULT_SURPLUS_RATE = 0.0056
 
 interface UseEstimatedMilesParams {
   amountOut: string
@@ -46,9 +44,9 @@ export function useEstimatedMiles({
   const [priorityFee, setPriorityFee] = useState<bigint | null>(null)
   const [avgGasLimit, setAvgGasLimit] = useState<bigint>(DEFAULT_AVG_GAS_LIMIT)
   const [avgGasUsed, setAvgGasUsed] = useState<bigint>(DEFAULT_AVG_GAS_USED)
-  const [surplusRate, setSurplusRate] = useState(DEFAULT_SURPLUS_RATE)
+  const [surplusBuckets, setSurplusBuckets] = useState<SurplusBuckets>(DEFAULT_SURPLUS_BUCKETS)
 
-  // Fetch gas estimates and surplus rate from Edge Config (updated daily by cron).
+  // Fetch gas estimates and surplus buckets from Edge Config (updated daily by cron).
   // Runs on mount — not gated on `enabled` so data is ready before the first quote arrives.
   useEffect(() => {
     let cancelled = false
@@ -65,8 +63,8 @@ export function useEstimatedMiles({
           if (typeof data.gasUsedEstimate === "number" && data.gasUsedEstimate > 0) {
             setAvgGasUsed(BigInt(data.gasUsedEstimate))
           }
-          if (typeof data.surplusRate === "number" && data.surplusRate > 0) {
-            setSurplusRate(data.surplusRate)
+          if (isSurplusBuckets(data.surplusBuckets)) {
+            setSurplusBuckets(data.surplusBuckets)
           }
         }
       } catch (err) {
@@ -123,12 +121,12 @@ export function useEstimatedMiles({
   const baseFeeRef = useRef<bigint | null>(null)
   const avgGasLimitRef = useRef<bigint>(DEFAULT_AVG_GAS_LIMIT)
   const avgGasUsedRef = useRef<bigint>(DEFAULT_AVG_GAS_USED)
-  const surplusRateRef = useRef(DEFAULT_SURPLUS_RATE)
+  const surplusBucketsRef = useRef<SurplusBuckets>(DEFAULT_SURPLUS_BUCKETS)
   priorityFeeRef.current = priorityFee
   baseFeeRef.current = baseFeePerGas
   avgGasLimitRef.current = avgGasLimit
   avgGasUsedRef.current = avgGasUsed
-  surplusRateRef.current = surplusRate
+  surplusBucketsRef.current = surplusBuckets
 
   // Track last successful miles so transient states don't flash null.
   const lastMilesRef = useRef<number | null>(null)
@@ -163,8 +161,10 @@ export function useEstimatedMiles({
       outputInEth = (parsedAmountOut * toTokenPrice) / ethPrice
     }
 
-    // MEV pot in ETH = median surplus rate (from Edge Config) × outputInEth.
-    const curSurplusRate = surplusRateRef.current
+    // MEV pot in ETH = size-bucketed surplus rate (from Edge Config) × outputInEth.
+    // Rate depends on output size — see `pickSurplusRate` / `lib/surplus-rate.ts`.
+    const curBuckets = surplusBucketsRef.current
+    const curSurplusRate = pickSurplusRate(outputInEth, curBuckets)
     const slippageAmountEth = curSurplusRate * outputInEth
 
     // Bid cost: priority fee × avg gas limit (bid = priorityFee × txn.Gas())
@@ -199,7 +199,10 @@ export function useEstimatedMiles({
           ? `    outputInEth = ${parsedAmountOut} (native ETH output)\n`
           : `    outputInEth = ${parsedAmountOut} × $${toTokenPrice?.toFixed(2)} / $${ethPrice?.toFixed(2)} = ${outputInEth.toFixed(6)} ETH\n`) +
         `\n` +
-        `  Step 2: MEV pot (median surplus rate = ${(curSurplusRate * 100).toFixed(2)}% of output)\n` +
+        `  Step 2: MEV pot (size-bucketed surplus rate = ${(curSurplusRate * 100).toFixed(2)}% of output)\n` +
+        `    buckets: small <${curBuckets.thresholds[0]} ETH → ${(curBuckets.rates.small * 100).toFixed(2)}%, ` +
+        `medium <${curBuckets.thresholds[1]} ETH → ${(curBuckets.rates.medium * 100).toFixed(2)}%, ` +
+        `large → ${(curBuckets.rates.large * 100).toFixed(2)}%\n` +
         `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${curSurplusRate} = ${slippageAmountEth.toFixed(8)} ETH\n` +
         `\n` +
         `  Step 3: Bid cost (FastRPC bid estimate × avgGasLimit from Edge Config)\n` +
