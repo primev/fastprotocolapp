@@ -110,6 +110,69 @@ const nextJsConfig = [
       ],
     },
   },
+  // Pre-folderization `src/lib` paths.
+  //
+  // The "folderize lib" commit (6889c3b) moved most top-level files under
+  // src/lib/ into config/ · tokens/ · settlement/ · swap/ subfolders.
+  // Feature PRs from main that opened before that commit still import the
+  // old paths; when they merge in, the imports are broken at runtime but
+  // TypeScript can't narrow them to a useful message. This rule catches
+  // every stale path before `next build` does, with a pointer to the new
+  // location in the message.
+  //
+  // If you're seeing this rule fire: the module moved. Update your import
+  // to the path in the message. Do NOT reintroduce the old top-level
+  // module; any such re-add is an anti-pattern regression.
+  //
+  // Mirrors the rename table in .claude/skills/merging-main/SKILL.md.
+  {
+    rules: {
+      'no-restricted-imports': [
+        'warn',
+        {
+          paths: [
+            // config/
+            { name: '@/lib/site-config', message: "Moved to '@/lib/config/site'." },
+            { name: '@/lib/network-config', message: "Moved to '@/lib/config/network'." },
+            { name: '@/lib/feature-flags', message: "Moved to '@/lib/config/feature-flags'." },
+            { name: '@/lib/constants', message: "Moved to '@/lib/config/constants'." },
+            { name: '@/lib/leaderboard-config', message: "Moved to '@/lib/config/leaderboard'." },
+            // tokens/
+            { name: '@/lib/weth-abi', message: "Moved to '@/lib/tokens/weth-abi'." },
+            { name: '@/lib/erc20-abi', message: "Moved to '@/lib/tokens/erc20-abi'." },
+            { name: '@/lib/token-list', message: "Moved to '@/lib/tokens/token-list' (JSON: '@/lib/tokens/token-list.json')." },
+            { name: '@/lib/token-resolver', message: "Moved to '@/lib/tokens/token-resolver'." },
+            { name: '@/lib/stablecoins', message: "Moved to '@/lib/tokens/stablecoins'." },
+            { name: '@/lib/stablecoin-list', message: "Moved to '@/lib/tokens/stablecoin-list'." },
+            { name: '@/lib/weth-utils', message: "Moved to '@/lib/tokens/weth-utils'." },
+            { name: '@/lib/token-icons', message: "Moved to '@/lib/tokens/token-icons'." },
+            { name: '@/lib/popular-tokens', message: "Moved to '@/lib/tokens/popular-tokens'." },
+            { name: '@/lib/barter-supported-tokens', message: "Moved to '@/lib/tokens/barter-supported-tokens'." },
+            // settlement/
+            { name: '@/lib/transaction-errors', message: "Moved to '@/lib/settlement/transaction-errors'." },
+            { name: '@/lib/transaction-receipt-utils', message: "Moved to '@/lib/settlement/transaction-receipt-utils'." },
+            { name: '@/lib/tx-config', message: "Moved to '@/lib/settlement/tx-config'." },
+            { name: '@/lib/fast-rpc-status', message: "Moved to '@/lib/settlement/rpc-status'." },
+            { name: '@/lib/fast-tx-status', message: "Moved to '@/lib/settlement/tx-status'." },
+            { name: '@/lib/fast-db', message: "Moved to '@/lib/settlement/db'." },
+            { name: '@/lib/preconfirm-sound', message: "Moved to '@/lib/settlement/preconfirm-sound'." },
+            // swap/
+            { name: '@/lib/slippage', message: "Moved to '@/lib/swap/slippage'." },
+            { name: '@/lib/quote-guard', message: "Moved to '@/lib/swap/quote-guard'." },
+            { name: '@/lib/eth-path-tx', message: "Moved to '@/lib/swap/eth-path-tx'." },
+            { name: '@/lib/permit2-utils', message: "Moved to '@/lib/swap/permit2-utils'." },
+            { name: '@/lib/barter-api', message: "Moved to '@/lib/swap/barter-api'." },
+            { name: '@/lib/swap-constants', message: "Moved to '@/lib/swap/constants'." },
+            { name: '@/lib/swap-events', message: "Moved to '@/lib/swap/events'." },
+            { name: '@/lib/swap-server', message: "Moved to '@/lib/swap/server'." },
+            // deleted
+            { name: '@/lib/fast-settlement-v2-1', message: "Removed. The v2.1 ABI is no longer used; see contracts-abi/ for current ABIs." },
+            { name: '@/lib/fast-settlement-v3-abi', message: "Removed. See src/lib/tokens/*-abi.ts and contracts-abi/ for current ABIs." },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 export default nextJsConfig;

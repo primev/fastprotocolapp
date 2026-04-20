@@ -63,40 +63,59 @@ repo's safety protocol (see CLAUDE.md) and loses review comments on the PR.
 After resolving mechanical conflicts, run these checks against the incoming
 main changes. Each is a class of drift to catch.
 
-### 1. Stale import paths
+### 1. Stale import paths — automatic
 
-The folderization under `src/lib/` renamed a bunch of modules. Main PRs
-opened before the folderization still import the old paths:
+The folderization under `src/lib/` (commit `6889c3b`) moved most top-level
+files into `config/ · tokens/ · settlement/ · swap/`. Main PRs that opened
+before that commit still import the old paths.
+
+**This class is caught automatically by the `no-restricted-imports` rule
+in `eslint.config.js`.** Run `npm run lint` after the merge; any hit
+includes the new path in the warning message. You do NOT need to grep
+manually — the rule knows the full table.
+
+If you ever add a new subfolder under `src/lib/`, update the rule in
+`eslint.config.js` (and this table) with the old → new mapping.
+
+Full current rename table (mirrored in the lint rule):
 
 | Old path (pre-folderization) | New path |
 |---|---|
 | `@/lib/site-config` | `@/lib/config/site` |
-| `@/lib/network` | `@/lib/config/network` |
+| `@/lib/network-config` | `@/lib/config/network` |
 | `@/lib/feature-flags` | `@/lib/config/feature-flags` |
 | `@/lib/constants` | `@/lib/config/constants` |
+| `@/lib/leaderboard-config` | `@/lib/config/leaderboard` |
 | `@/lib/weth-abi` | `@/lib/tokens/weth-abi` |
 | `@/lib/erc20-abi` | `@/lib/tokens/erc20-abi` |
-| `@/lib/token-list` (import from JSON) | `@/lib/tokens/token-list.json` |
+| `@/lib/token-list` | `@/lib/tokens/token-list` |
 | `@/lib/token-resolver` | `@/lib/tokens/token-resolver` |
 | `@/lib/stablecoins` | `@/lib/tokens/stablecoins` |
+| `@/lib/stablecoin-list` | `@/lib/tokens/stablecoin-list` |
 | `@/lib/weth-utils` | `@/lib/tokens/weth-utils` |
+| `@/lib/token-icons` | `@/lib/tokens/token-icons` |
+| `@/lib/popular-tokens` | `@/lib/tokens/popular-tokens` |
+| `@/lib/barter-supported-tokens` | `@/lib/tokens/barter-supported-tokens` |
 | `@/lib/transaction-errors` | `@/lib/settlement/transaction-errors` |
 | `@/lib/transaction-receipt-utils` | `@/lib/settlement/transaction-receipt-utils` |
 | `@/lib/tx-config` | `@/lib/settlement/tx-config` |
-| `@/lib/rpc-status` | `@/lib/settlement/rpc-status` |
+| `@/lib/fast-rpc-status` | `@/lib/settlement/rpc-status` |
+| `@/lib/fast-tx-status` | `@/lib/settlement/tx-status` |
+| `@/lib/fast-db` | `@/lib/settlement/db` |
+| `@/lib/preconfirm-sound` | `@/lib/settlement/preconfirm-sound` |
 | `@/lib/slippage` | `@/lib/swap/slippage` |
 | `@/lib/quote-guard` | `@/lib/swap/quote-guard` |
 | `@/lib/eth-path-tx` | `@/lib/swap/eth-path-tx` |
-| `@/lib/permit2` | `@/lib/swap/permit2` |
+| `@/lib/permit2-utils` | `@/lib/swap/permit2-utils` |
+| `@/lib/barter-api` | `@/lib/swap/barter-api` |
+| `@/lib/swap-constants` | `@/lib/swap/constants` |
+| `@/lib/swap-events` | `@/lib/swap/events` |
+| `@/lib/swap-server` | `@/lib/swap/server` |
+| `@/lib/fast-settlement-v2-1` | **Deleted** — use `contracts-abi/` |
+| `@/lib/fast-settlement-v3-abi` | **Deleted** — use `contracts-abi/` |
 
-Grep the merged tree for any of the old paths:
-
-```bash
-grep -rn "@/lib/site-config\|@/lib/network\b\|@/lib/feature-flags\b\|@/lib/weth-abi\b\|@/lib/constants\b" src/ 2>/dev/null
-```
-
-Each hit is a broken import that `next build` will catch — fix the path at
-the call site, not by reintroducing the old module.
+Do NOT fix by reintroducing the old module — every such re-add is an
+anti-pattern regression. Update the call site to the new path.
 
 ### 2. New API routes must use Zod + parseJson
 

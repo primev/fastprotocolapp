@@ -18,15 +18,15 @@ starting.
    Read the commit subjects. Every new route / component / hook /
    lib-file needs to be traced through the alignment checklist.
 
-2. **Hunt stale lib imports.** The folderization renamed several modules.
-   The skill has the full old → new table. Any hit here is a broken
-   import in the merged tree:
+2. **Stale lib imports — handled by ESLint.** The folderization rename
+   table is codified in `eslint.config.js` as a `no-restricted-imports`
+   rule. Run `npm run lint` and look for any `no-restricted-imports`
+   warning — the message includes the new path to move the import to.
 
-   ```bash
-   grep -rn "@/lib/site-config\|@/lib/network\b\|@/lib/feature-flags\b\|@/lib/weth-abi\b\|@/lib/constants\b\|@/lib/stablecoins\b\|@/lib/weth-utils\b\|@/lib/erc20-abi\b\|@/lib/token-list\b\|@/lib/token-resolver\b\|@/lib/transaction-errors\b\|@/lib/slippage\b\|@/lib/quote-guard\b\|@/lib/eth-path-tx\b\|@/lib/permit2\b" src/
-   ```
-
-   Fix by updating the call site, never by reintroducing the old module.
+   If you're adding a new rename (e.g. you split another top-level
+   `src/lib/*.ts` into a subfolder), update both:
+   1. The `no-restricted-imports` block in `eslint.config.js`.
+   2. The rename table in `.claude/skills/merging-main/SKILL.md`.
 
 3. **ESLint on new API routes.** The Zod-validation rule is scoped to
    `src/app/api/**/route.ts`. A main PR that preceded that rule can
