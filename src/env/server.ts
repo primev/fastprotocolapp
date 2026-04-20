@@ -5,7 +5,7 @@ export const env = createEnv({
   server: {
     EMAILOCTOPUS_API_KEY: z.string().min(1),
     EMAILOCTOPUS_LIST_ID: z.string().uuid(),
-    FAST_RPC_API_TOKEN: z.string().min(1).optional(),
+    FAST_RPC_DB_AUTH_TOKEN: z.string().min(1).optional(),
     GOOGLE_SHEETS_ID: z.string().min(1).optional(),
     GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().email().optional(),
     GOOGLE_PRIVATE_KEY: z.string().min(1).optional(),

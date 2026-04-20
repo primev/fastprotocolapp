@@ -15,7 +15,7 @@ export async function GET(
   const { hash } = parsed.data
 
   try {
-    const apiToken = env.FAST_RPC_API_TOKEN || ""
+    const apiToken = env.FAST_RPC_DB_AUTH_TOKEN || ""
 
     const response = await fetch(`https://fastrpc.mev-commit.xyz/status/${hash}`, {
       method: "GET",

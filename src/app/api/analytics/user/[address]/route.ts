@@ -17,7 +17,7 @@ export async function GET(
   const normalizedAddress = parsed.data.address
 
   try {
-    const fastRpcToken = env.FAST_RPC_API_TOKEN
+    const fastRpcToken = env.FAST_RPC_DB_AUTH_TOKEN
     if (!fastRpcToken) {
       return NextResponse.json({ error: "Fast RPC API token not configured" }, { status: 500 })
     }
