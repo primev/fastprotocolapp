@@ -42,7 +42,7 @@ Spawn a subagent whenever the task would otherwise read 10+ files in main contex
 
 ## Slash commands
 
-`/prime` · `/typecheck` · `/lint` · `/test` · `/verify` · `/new-skill` · `/review-diff`
+`/prime` · `/typecheck` · `/lint` · `/test` · `/verify` · `/verify-ui` · `/sync-externals` · `/new-skill` · `/review-diff`
 
 Definitions in [`.claude/commands/`](./.claude/commands/).
 

@@ -143,12 +143,13 @@ Until then, the window-function routes are unit-tested via mocked
 
 ## 🟢 Lower priority / nice-to-have
 
-### Dev-server verification (`/verify-ui`)
+### ~~Dev-server verification (`/verify-ui`)~~ — ✅
 
-`ui-verifier` subagent exists but the end-to-end flow isn't
-exercised. A one-shot slash command that boots dev, loads the three
-critical routes (`/`, `/dashboard`, `/claim`), and screenshots them
-would close the visual-regression gap without setting up Playwright CI.
+Slash command at `.claude/commands/verify-ui.md` delegates to the
+`ui-verifier` subagent: boots `npm run dev`, curls `/`, `/dashboard`,
+`/claim`, checks HTTP 200 + content markers, cleans up the server.
+Not a visual-regression tool — catches provider crashes, missing env
+vars, blank-page hydration; pixel drift still needs a human.
 
 ### Error taxonomy document
 
