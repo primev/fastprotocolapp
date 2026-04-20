@@ -14,14 +14,29 @@ import { walletAddressSchema } from "@/lib/api/schemas"
 const WAITLIST_RANGE = "'Swap Waitlist'!A:G"
 const WHITELIST_RANGE = "'Swap Whitelist'!A:G"
 
-// Zod replaces the earlier chain of imperative nullish checks. `trim()` runs
-// before length/format validation so whitespace-only input is rejected.
-const earlyAccessSchema = z.object({
-  wallet_address: walletAddressSchema,
-  x_handle: z.string().trim().min(1, "X handle is required"),
-  discord_handle: z.string().trim().min(1, "Discord handle is required"),
-  email: z.string().trim().email("Invalid email address"),
-})
+// Zod replaces the earlier chain of imperative nullish checks. Contact
+// methods are optional individually, but the `.refine` below enforces that
+// at least ONE is provided — matches the main-branch semantics (users can
+// join with any of X / Discord / email, not all three).
+//
+// `trim()` runs before length / format validation so whitespace-only input
+// is treated as absent.
+const earlyAccessSchema = z
+  .object({
+    wallet_address: walletAddressSchema,
+    x_handle: z.string().trim().optional().default(""),
+    discord_handle: z.string().trim().optional().default(""),
+    email: z
+      .string()
+      .trim()
+      .optional()
+      .default("")
+      .refine((v) => v === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "Invalid email address"),
+  })
+  .refine(
+    (v) => v.x_handle !== "" || v.discord_handle !== "" || v.email !== "",
+    "At least one contact method is required (X, Discord, or email)"
+  )
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchWaitlistRows(sheets: any, spreadsheetId: string): Promise<string[][]> {

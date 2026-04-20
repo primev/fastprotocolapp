@@ -128,7 +128,7 @@ export function SwapToast({ hash }: { hash: string }) {
       ogWarmedRef.current = true
       const secs = parseFloat(elapsedSec)
       if (secs <= 4.1) {
-        fetch(`${window.location.origin}/og/preconfirm/${elapsedSec}`).catch(() => {})
+        fetch(`${window.location.origin}/s/${elapsedSec}/opengraph-image`).catch(() => {})
       }
     }
   }, [elapsedSec])
