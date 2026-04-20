@@ -18,17 +18,21 @@ const PRIORITY_FEE_WEI = 1n
 /**
  * Headroom on maxFeePerGas so the tx stays includable if baseFee climbs between
  * quote and inclusion. This is a CEILING only — the user pays
- * `min(maxFeePerGas, baseFee + maxPriorityFeePerGas) × gasUsed`, so 2× doesn't
- * cost 2×. EIP-1559 baseFee changes at most 12.5% per block, so 2× ≈ 6 blocks
- * of headroom.
+ * `min(maxFeePerGas, baseFee + maxPriorityFeePerGas) × gasUsed`, so bumping the
+ * ceiling doesn't raise cost. Expressed as a percentage of baseFee.
+ *
+ * 125% = ~2 blocks of headroom (baseFee can rise at most 12.5% per block under
+ * EIP-1559). On mainnet ~95% of txs land within 2 blocks, so this keeps the
+ * wallet's displayed "max fee" close to the actual cost without meaningful
+ * drop risk.
  */
-const MAX_FEE_CEILING_MULTIPLIER = 2n
+const MAX_FEE_CEILING_BPS = 125n
 
 export type GasFees = { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint } | undefined
 
 function gasFeesFromBaseFee(baseFeePerGas: bigint): GasFees {
   return {
-    maxFeePerGas: baseFeePerGas * MAX_FEE_CEILING_MULTIPLIER + PRIORITY_FEE_WEI,
+    maxFeePerGas: (baseFeePerGas * MAX_FEE_CEILING_BPS) / 100n + PRIORITY_FEE_WEI,
     maxPriorityFeePerGas: PRIORITY_FEE_WEI,
   }
 }
