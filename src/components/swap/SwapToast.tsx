@@ -36,16 +36,21 @@ export function SwapToast({ hash }: { hash: string }) {
 
   const toastRef = useRef<HTMLDivElement>(null)
   const effectiveHash = hash.startsWith("pending-") ? undefined : hash
-  const prevEffectiveHashRef = useRef<string | undefined>(undefined)
 
-  // Log when real hash arrives (permit path: placeholder → real hash swap)
-  if (effectiveHash && effectiveHash !== prevEffectiveHashRef.current) {
-    prevEffectiveHashRef.current = effectiveHash
+  // Log when real hash arrives (permit path: placeholder → real hash swap).
+  // In an effect — not in the render body — so React strict mode doesn't
+  // double-fire the log, and so the ref mutation isn't a during-render
+  // side effect. The dep on `effectiveHash` means the log fires once per
+  // unique hash, which is exactly the "first time we see a real hash"
+  // signal we want.
+  useEffect(() => {
+    if (!effectiveHash) return
     const elapsed = toast?.createdAt ? ((Date.now() - toast.createdAt) / 1000).toFixed(2) : "?"
     console.log(
       `[SwapToast] Hash ready | +${elapsed}s from submit | now=${Date.now()} | hash=${effectiveHash}`
     )
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveHash])
 
   // Wagmi watches for real on-chain receipt — used for confirmed detection only.
   // Our custom polling hook handles preconfirmed detection via FastRPC commitment/receipt polling.

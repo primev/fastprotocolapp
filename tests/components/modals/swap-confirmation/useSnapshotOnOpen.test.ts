@@ -109,6 +109,32 @@ describe("useSnapshotOnOpen — freezes on the open=true edge", () => {
     expect(result.current).toBe(afterCapture)
   })
 
+  it("deep-clones so later mutations to nested objects don't leak into the snapshot", () => {
+    // The tokenIn / tokenOut values passed by SwapConfirmationModal are Token
+    // object references, not primitives. If a downstream token-list refetch
+    // mutated those objects in place (e.g. corrected a stale `decimals`
+    // field), a shallow snapshot would see the mutation and the user would
+    // sign a tx with different values than they reviewed. The `structuredClone`
+    // call in the hook is what prevents that. This test locks it.
+    const token = { address: "0xabc", symbol: "USDC", decimals: 6 }
+    const { result, rerender } = renderHook(
+      ({ open, values }: { open: boolean; values: { t: typeof token } }) =>
+        useSnapshotOnOpen(open, values),
+      { initialProps: { open: false, values: { t: token } } }
+    )
+    rerender({ open: true, values: { t: token } })
+    // Snapshot captured — before any mutation, both snapshot and live see
+    // decimals=6.
+    expect(result.current.t.decimals).toBe(6)
+
+    // Simulate a downstream mutation of the live token object. A shallow
+    // spread would let this through; the deep clone must block it.
+    token.decimals = 99
+
+    // Snapshot must still read the original value.
+    expect(result.current.t.decimals).toBe(6)
+  })
+
   it("is total — open toggling at any cadence never throws", () => {
     const { rerender } = renderHook(
       ({ open, values }) => useSnapshotOnOpen(open, values),

@@ -197,13 +197,21 @@ split out (SwapConfirmationModal, LeaderboardHeader, AppHeader).
 Powerful as a negative-example signal for agents. Requires discipline
 to maintain.
 
-### Widen Stryker scope — 🟡 partial
+### Widen Stryker scope — ✅ (overall 96.5%)
 
 Now mutates `slippage.ts`, `min-amount-out.ts`, `api/schemas.ts`, and
 `token-resolver.ts` — the four pure modules with fast-check property
-coverage. Still open: `leaderboard/paginate.ts` (has example tests but
-no property coverage yet) and any new module that earns a property
-suite (eth-path-tx, quote-guard, tokens/weth-utils).
+coverage. Per-module scores after survivor-kill pass:
+- `api/schemas.ts` — **100%** (anchor + message-literal coverage)
+- `tokens/token-resolver.ts` — **98.4%** (2 equivalent-mutant remainders)
+- `swap/slippage.ts` — **96.3%** (1 equivalent)
+- `swap/min-amount-out.ts` — **80.95%** (4 equivalent boundary cases)
+
+Remaining survivors are all equivalent mutants (both branches produce
+the same observable output); unkillable without rewriting the source.
+Still open: `leaderboard/paginate.ts` (has example tests but no
+property coverage yet); add when any new pure module earns a property
+suite.
 
 ### Extend `externals.json` to more upstreams
 
@@ -221,17 +229,24 @@ summary. When a new gap surfaces, add it here with a clear ROI
 justification — not every followup deserves to live on this list.
 
 Priority order as of the last update:
-1. **`use-swap-form.ts` decomposition** (last god-file, 620 LoC). Unlike
-   the component splits, this one is risky without an oracle — the
-   hook's pieces share state and effect ordering. Safer plan: extract
-   clearly-pure sub-hooks (`useDebouncedValidating`, `useRefreshTimer`)
-   with tests, rather than a wholesale rewrite.
-2. **Full `strict: true`** — four remaining flags after
-   strictNullChecks (strictFunctionTypes, strictBindCallApply,
-   alwaysStrict, noImplicitThis). Should be cheap follow-ups.
-3. **Performance budget + a11y baseline** — bundle-size monitoring and
-   `axe-core` in happy-dom. Neither is urgent but both are cheap to
-   wire once.
+
+The agentic-first infrastructure is **substantially complete** — strict
+TS, Zod on all routes, god-file splits, 10 test layers, drift-catching
+lint rule, `/realign` + `/verify` + `/verify-ui`, CI gating, a11y tier,
+96.5% mutation score, 399 tests across 33 files.
+
+Remaining items are maintenance / judgment calls rather than completion
+criteria:
+
+1. **`use-swap-form.ts` further decomposition** (refresh-timer, switch
+   handler). Has a regression-oracle test suite now, so no longer
+   blocked — but each extraction is ≤25 LoC of churn for ≤25 LoC of
+   shrink. Marginal ROI; do as part of the next feature touching it.
+2. **Performance budget** — policy decision (adds PR friction). Wire
+   `size-limit` or `next build --profile` diffing if/when the team
+   wants the signal.
+3. **Error taxonomy doc + recent-incidents ledger** — require ongoing
+   human ownership to stay fresh; not agent-automatable.
 
 Items done since the last revision of this priority list:
 - Finished API Zod migration. All input-taking routes now go through

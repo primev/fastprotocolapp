@@ -110,6 +110,169 @@ describe("getTokenSymbol", () => {
   })
 })
 
+// ─── mutation-coverage kills ─────────────────────────────────────────────────
+//
+// These tests target the non-equivalent Stryker survivors in token-resolver.ts.
+// They look unglamorous — mostly assertions on edge inputs — but each one
+// kills a specific mutant that would otherwise survive. Adding a case here
+// without a mutant target is fine; removing one without running Stryker is
+// not. Run `npx stryker run` after editing.
+
+describe("token-resolver — edge-shape kills", () => {
+  it("resolveTokenAddress returns null for an object with no address field", () => {
+    // Line 27 `typeof === "object" && token.address` — the `&&` guard
+    // protects against object-without-address entering the branch. A `||`
+    // mutant would enter the branch and, if symbol === "ETH", incorrectly
+    // return WETH; we want null.
+    expect(resolveTokenAddress({ symbol: "ETH" } as unknown as Token)).toBeNull()
+    expect(resolveTokenAddress({ symbol: "USDC" } as unknown as Token)).toBeNull()
+  })
+
+  it("resolveTokenAddress handles token objects with missing symbol without crashing", () => {
+    // Line 29 `token.symbol?.toUpperCase()` — the optional chain is what
+    // prevents a TypeError when symbol is undefined. If someone removes
+    // the `?.`, this case will throw; the assertion is "doesn't throw
+    // AND returns the object's own address".
+    expect(resolveTokenAddress({ address: "0xabcd" } as unknown as Token)).toBe("0xabcd")
+  })
+
+  it("resolveTokenAddress routes a ZERO_ADDRESS entry from the list to WETH", () => {
+    // Line 49 `if (foundToken.address === ZERO_ADDRESS)` — pinning both
+    // sides: when the list entry IS the zero-address, we substitute WETH.
+    // When it isn't, we return the entry's own address verbatim.
+    const zeroEntry: Token = {
+      address: ZERO_ADDRESS,
+      symbol: "ETHISH",
+      decimals: 18,
+      name: "Zero",
+    }
+    expect(resolveTokenAddress("ETHISH", [zeroEntry])).toBe(WETH_ADDRESS)
+    expect(resolveTokenAddress("USDC", [USDC])).toBe(USDC.address)
+  })
+
+  it("resolveTokenAddress picks the matching symbol out of a crowded list", () => {
+    // Line 83 `.find((t) => t.symbol.toUpperCase() === symbol)` — a
+    // mutant that replaces the predicate with `() => true` returns the
+    // first element regardless of symbol. This test fails that mutant
+    // because the lookup has to find USDC (third), not DAI (first).
+    const DAI: Token = {
+      address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      symbol: "DAI",
+      decimals: 18,
+      name: "Dai",
+    }
+    const WBTC: Token = {
+      address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      symbol: "WBTC",
+      decimals: 8,
+      name: "Wrapped Bitcoin",
+    }
+    expect(resolveTokenAddress("USDC", [DAI, WBTC, USDC])).toBe(USDC.address)
+  })
+
+  it("resolveTokenAddress returns null for non-string / non-object inputs", () => {
+    // Line 36 `typeof token === "string"` — a mutant flipping this to
+    // `true` would try to enter the string branch with a number or
+    // boolean and crash on .toUpperCase(). The `!token` guard at line 24
+    // catches primitive falsy values, but 1 and true are truthy.
+    expect(resolveTokenAddress(1 as unknown as Token)).toBeNull()
+    expect(resolveTokenAddress(true as unknown as Token)).toBeNull()
+  })
+
+  it("resolveTokenDecimals falls back to 18 for objects without a number `decimals`", () => {
+    // Line 76 `typeof token === "object" && typeof token.decimals === "number"`
+    // — a mutant flipping the second conjunct to `true` would read
+    // `token.decimals` (undefined or a non-number string) instead of
+    // defaulting. We expect 18.
+    expect(resolveTokenDecimals({ address: "0xabc", symbol: "X" } as unknown as Token)).toBe(18)
+    expect(
+      resolveTokenDecimals({
+        address: "0xabc",
+        symbol: "X",
+        decimals: "6" as unknown as number,
+      } as Token)
+    ).toBe(18)
+  })
+
+  it("resolveTokenDecimals picks the matching symbol out of a crowded list", () => {
+    // Line 83 `.find((t) => t.symbol.toUpperCase() === symbol)` —
+    // mirror of the resolveTokenAddress test, but on the decimals
+    // function. A mutant replacing the predicate with `() => true`
+    // would return the first entry (DAI, decimals=18) instead of the
+    // matching USDC (decimals=6), so the assertion catches it.
+    const DAI_DEC: Token = {
+      address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      symbol: "DAI",
+      decimals: 18,
+      name: "Dai",
+    }
+    const WBTC_DEC: Token = {
+      address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      symbol: "WBTC",
+      decimals: 8,
+      name: "Wrapped Bitcoin",
+    }
+    expect(resolveTokenDecimals("USDC", [DAI_DEC, WBTC_DEC, USDC])).toBe(6)
+    // And a non-18 confirmation so the mutant can't squeak by on a
+    // match where first-element decimals happened to equal the answer.
+    expect(resolveTokenDecimals("WBTC", [DAI_DEC, USDC, WBTC_DEC])).toBe(8)
+  })
+
+  it("resolveTokenDecimals honors list lookups only when decimals is a number", () => {
+    // Line 85 `foundToken && typeof foundToken.decimals === "number"`
+    // — if a list entry has a non-number decimals, we default to 18
+    // instead of returning garbage. Protects against upstream token-list
+    // drift (e.g. a schema that accidentally stringifies decimals).
+    const broken: Token = {
+      address: "0x1",
+      symbol: "BROKEN",
+      decimals: "18" as unknown as number,
+      name: "Broken",
+    }
+    expect(resolveTokenDecimals("BROKEN", [broken])).toBe(18)
+  })
+
+  it("isNativeETH returns false for a concrete ERC-20 with non-ETH symbol and non-zero address", () => {
+    // Line 101 `||` — a mutant flipping to `&&` would require BOTH the
+    // zero-address AND symbol="ETH" to be true before returning true,
+    // which breaks the common case. Pinning: a USDC-like token (neither
+    // zero-address nor ETH symbol) is false; a zero-address token with
+    // USDC-looking symbol is TRUE (address matches); an ETH-symbol
+    // token with non-zero address is TRUE (symbol matches).
+    expect(isNativeETH({ address: "0xabc", symbol: "USDC" } as Token)).toBe(false)
+    expect(isNativeETH({ address: ZERO_ADDRESS, symbol: "USDC" } as Token)).toBe(true)
+    expect(isNativeETH({ address: "0xabc", symbol: "eth" } as Token)).toBe(true)
+  })
+
+  it("isNativeETH does not crash on an object with missing symbol", () => {
+    // Line 101 `symbol?.toUpperCase()` — the optional chain prevents a
+    // TypeError when symbol is undefined. A mutant removing `?.` would
+    // throw here.
+    expect(isNativeETH({ address: "0xabc" } as unknown as Token)).toBe(false)
+  })
+
+  it("isNativeETH returns false for non-string / non-object / null inputs", () => {
+    // Line 98 `return false` — a boolean-flip mutant would return true
+    // for nullish. Lines 104 and 117 `typeof === "string"` flipped to
+    // `true` would misclassify numbers/booleans.
+    expect(isNativeETH(null)).toBe(false)
+    expect(isNativeETH(undefined)).toBe(false)
+    expect(isNativeETH(42 as unknown as Token)).toBe(false)
+    expect(isNativeETH(false as unknown as Token)).toBe(false)
+  })
+
+  it("getTokenSymbol returns null for primitive non-string inputs", () => {
+    // Line 117 `typeof === "object"` — a mutant flipping to `true` would
+    // treat a number as an object and try to read `.symbol`. Kill case.
+    expect(getTokenSymbol(42 as unknown as Token)).toBeNull()
+    expect(getTokenSymbol(true as unknown as Token)).toBeNull()
+  })
+
+  it("getTokenSymbol returns the bare string when given a string input", () => {
+    expect(getTokenSymbol("USDC")).toBe("USDC")
+  })
+})
+
 // ─── properties ──────────────────────────────────────────────────────────────
 //
 // These lock the two load-bearing invariants of the resolver:

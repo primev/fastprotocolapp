@@ -1,9 +1,9 @@
 name: Verify
 
-# Fast, no-secret PR gate: typecheck + full test suite.
+# Fast, no-secret PR gate: typecheck + lint + full test suite.
 # Runs on every PR and every push to main. No env vars needed because
-# neither `tsc --noEmit` nor the default vitest suite touch t3-oss env
-# validation (only `next build` does).
+# none of typecheck / lint / vitest touches t3-oss env validation
+# (only `next build` does, and that has its own path-gated workflow).
 
 on:
   push:
@@ -27,6 +27,42 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: npm run typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      # Full lint output (the eslint-plugin-only-warn plugin downgrades
+      # everything to warnings, so this always exits 0). We tee the output
+      # so the drift gate below can inspect it without rerunning lint.
+      - name: ESLint (informational)
+        run: npm run lint 2>&1 | tee /tmp/lint.log
+      # Drift gate: fail the job if the pre-folderization import rule
+      # fired OR the imperative-validation API-route rule fired. Both
+      # warnings are downgraded by onlyWarn but they're load-bearing
+      # signals — an incoming PR from main that reintroduces either
+      # pattern must be caught at PR review, not at merge.
+      - name: Drift gate (no-restricted-imports / no-restricted-syntax)
+        run: |
+          set -e
+          fail=0
+          if grep -q "no-restricted-imports" /tmp/lint.log; then
+            echo "::error::Stale pre-folderization import detected. See .claude/skills/merging-main/SKILL.md for the rename table."
+            grep -B 1 "no-restricted-imports" /tmp/lint.log || true
+            fail=1
+          fi
+          if grep -q "no-restricted-syntax" /tmp/lint.log; then
+            echo "::error::API route uses imperative validation. Migrate to parseJson / parseSearchParams / parseParams — see .claude/skills/next-app-router/api-routes.md."
+            grep -B 1 "no-restricted-syntax" /tmp/lint.log || true
+            fail=1
+          fi
+          exit $fail
 
   test:
     name: Test suite
