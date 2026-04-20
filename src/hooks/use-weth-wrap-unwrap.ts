@@ -14,13 +14,14 @@ import { WETH_ABI } from "@/lib/weth-abi"
 import { isWrapOperation, isUnwrapOperation } from "@/lib/weth-utils"
 import { mainnet } from "wagmi/chains"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
-import { GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
+import { GAS_LIMIT_MULTIPLIER, useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 
 export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
   const { address, isConnected } = useAccount()
   const [error, setError] = useState<Error | null>(null)
   const [internalHash, setInternalHash] = useState<string | null>(null)
   const [isSuccess, setIsSuccess] = useState(false)
+  const { getFreshGasFees } = useBroadcastGasPrice()
 
   const isWrap = isWrapOperation(fromToken, toToken)
   const isUnwrap = isUnwrapOperation(fromToken, toToken)
@@ -107,6 +108,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
   const wrap = useCallback(async (): Promise<string> => {
     reset()
     try {
+      const fees = await getFreshGasFees()
       const hash = await writeContractAsync({
         address: WETH_ADDRESS,
         abi: WETH_ABI,
@@ -114,13 +116,14 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         value: amountInWei,
         chain: mainnet,
         account: address,
+        ...(fees ?? {}),
       })
       return hash
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
       throw err
     }
-  }, [address, amountInWei, writeContractAsync, reset])
+  }, [address, amountInWei, writeContractAsync, reset, getFreshGasFees])
 
   const unwrap = useCallback(async (): Promise<string> => {
     if (amountInWei === 0n) {
@@ -135,6 +138,7 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
     }
     reset()
     try {
+      const fees = await getFreshGasFees()
       const hash = await writeContractAsync({
         address: WETH_ADDRESS,
         abi: WETH_ABI,
@@ -142,13 +146,14 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
         args: [amountInWei],
         chain: mainnet,
         account: address,
+        ...(fees ?? {}),
       })
       return hash
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
       throw err
     }
-  }, [address, amountInWei, writeContractAsync, reset, wethBalance])
+  }, [address, amountInWei, writeContractAsync, reset, wethBalance, getFreshGasFees])
 
   return {
     isWrap,

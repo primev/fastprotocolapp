@@ -4,22 +4,32 @@ import { useCallback } from "react"
 import { useBlock } from "wagmi"
 import { formatUnits } from "viem"
 
+/** Gas-limit safety headroom (not a cost multiplier — user pays actual gasUsed). */
 export const GAS_LIMIT_MULTIPLIER = 100n
-export const ETH_PATH_GAS_LIMIT_MULTIPLIER = 140n // 40% buffer for tx
-/** Display multiplier so our estimate aligns with wallet (wallet adds gas price buffer) */
-export const ETH_PATH_DISPLAY_MULTIPLIER = 195n // ~90% extra for display
+export const ETH_PATH_GAS_LIMIT_MULTIPLIER = 140n
 
-const PRIORITY_FEE_WEI = 0n
+/**
+ * Priority fee (tip) applied to every broadcast. We want this effectively zero.
+ * 1 wei is the smallest non-zero value most infrastructure will accept — keeps
+ * cost unchanged to ~18 decimal places but avoids any "tip == 0" edge cases.
+ */
+const PRIORITY_FEE_WEI = 1n
 
-export type GasFees =
-  | { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }
-  | { gasPrice: bigint }
-  | undefined
+/**
+ * Headroom on maxFeePerGas so the tx stays includable if baseFee climbs between
+ * quote and inclusion. This is a CEILING only — the user pays
+ * `min(maxFeePerGas, baseFee + maxPriorityFeePerGas) × gasUsed`, so 2× doesn't
+ * cost 2×. EIP-1559 baseFee changes at most 12.5% per block, so 2× ≈ 6 blocks
+ * of headroom.
+ */
+const MAX_FEE_CEILING_MULTIPLIER = 2n
+
+export type GasFees = { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint } | undefined
 
 function gasFeesFromBaseFee(baseFeePerGas: bigint): GasFees {
   return {
-    maxFeePerGas: baseFeePerGas,
-    maxPriorityFeePerGas: 0n,
+    maxFeePerGas: baseFeePerGas * MAX_FEE_CEILING_MULTIPLIER + PRIORITY_FEE_WEI,
+    maxPriorityFeePerGas: PRIORITY_FEE_WEI,
   }
 }
 
@@ -40,18 +50,18 @@ export function useBroadcastGasPrice() {
     return undefined
   }, [refetchBlock])
 
+  // Effective price the user actually pays per gas unit: baseFee + tip.
+  // Used for the UI cost estimate so display = cost paid.
   const effectivePrice = baseFeePerGas != null ? baseFeePerGas + PRIORITY_FEE_WEI : null
-  const rawPrice = effectivePrice
   const gasPriceGwei = effectivePrice != null ? parseFloat(formatUnits(effectivePrice, 9)) : null
-  const bufferedPrice = effectivePrice
 
   return {
     gasFees,
     getFreshGasFees,
     rawMaxFeePerGas: effectivePrice,
     rawLegacyPrice: effectivePrice,
-    rawPrice,
-    bufferedPrice,
+    rawPrice: effectivePrice,
+    bufferedPrice: effectivePrice,
     gasPriceGwei,
   }
 }

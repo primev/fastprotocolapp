@@ -41,7 +41,7 @@ import { useAccount } from "wagmi"
 import { mainnet } from "wagmi/chains"
 import { useTokenPrice } from "@/hooks/use-token-price"
 import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
-import { GAS_LIMIT_MULTIPLIER, ETH_PATH_DISPLAY_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
+import { GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
 import { useEthPathGasEstimate } from "@/hooks/use-eth-path-gas-estimate"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import { useSwapToastStore } from "@/stores/swapToastStore"
@@ -395,10 +395,6 @@ function SwapConfirmationModal({
     if (isWrap || isUnwrap) return wethGasEstimate
     const base = ethPathGasEstimate ?? gasEstimate
     if (!base) return null
-    // ETH path: use display multiplier so estimate aligns with wallet (wallet adds buffers)
-    if (ethPathGasEstimate) {
-      return (base * ETH_PATH_DISPLAY_MULTIPLIER) / 100n
-    }
     return (base * GAS_LIMIT_MULTIPLIER) / 100n
   }, [isWrap, isUnwrap, wethGasEstimate, ethPathGasEstimate, gasEstimate])
 

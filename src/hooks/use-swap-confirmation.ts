@@ -2,7 +2,10 @@
 
 import { useState, useCallback } from "react"
 import { useAccount, usePublicClient, useSendTransaction } from "wagmi"
-import { ETH_PATH_GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
+import {
+  ETH_PATH_GAS_LIMIT_MULTIPLIER,
+  useBroadcastGasPrice,
+} from "@/hooks/use-broadcast-gas-price"
 import { mainnet } from "wagmi/chains"
 import { parseUnits, formatUnits } from "viem"
 import { useSwapIntent } from "@/hooks/use-swap-intent"
@@ -48,6 +51,7 @@ export function useSwapConfirmation({
   const { createIntentSignature } = useSwapIntent()
   const { getFreshNonce, releaseNonce, isLoading: isNonceLoading } = usePermit2Nonce()
   const { sendTransactionAsync } = useSendTransaction()
+  const { getFreshGasFees } = useBroadcastGasPrice()
 
   // --- Transaction State ---
   // Note: Confirmation polling is handled by SwapToast (single source of truth).
@@ -169,11 +173,19 @@ export function useSwapConfirmation({
 
     const bufferedGas = (result.gasEstimate * ETH_PATH_GAS_LIMIT_MULTIPLIER) / 100n
 
+    // Pin the exact gas fees the wallet uses. Without this the wallet fills in
+    // its own priority fee (1–3 gwei "market tip"), which dwarfs baseFee at
+    // low fees and makes the displayed estimate wildly under-report the real
+    // cost. Submitting explicit maxPriorityFeePerGas keeps the tip at our
+    // configured value and the effective price in sync with the UI.
+    const fees = await getFreshGasFees()
+
     const txHash = await sendTransactionAsync({
       to: result.to as `0x${string}`,
       data: result.data,
       value: BigInt(result.value),
       gas: bufferedGas,
+      ...(fees ?? {}),
     })
 
     // Fire after wallet signs — timer should measure submission→preconfirmation,
