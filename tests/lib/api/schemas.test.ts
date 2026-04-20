@@ -41,6 +41,34 @@ describe("walletAddressSchema — examples", () => {
     expect(() => walletAddressSchema.parse(undefined)).toThrow()
     expect(() => walletAddressSchema.parse(123)).toThrow()
   })
+
+  it("anchors — rejects valid-prefix + junk suffix (guards the trailing $)", () => {
+    // If the regex lost its `$` anchor, this 42-char valid prefix followed by
+    // a spurious suffix would pass validation and feed a malformed address
+    // into downstream SQL. The length/hex regex alone is not enough.
+    expect(() =>
+      walletAddressSchema.parse("0xabcdef1234567890abcdef1234567890abcdef12_junk")
+    ).toThrow()
+  })
+
+  it("anchors — rejects junk prefix + valid-length suffix (guards the leading ^)", () => {
+    // If the regex lost its `^` anchor, a 42-char valid tail would smuggle
+    // a caller-controlled prefix through.
+    expect(() =>
+      walletAddressSchema.parse("junk_0xabcdef1234567890abcdef1234567890abcdef12")
+    ).toThrow()
+  })
+
+  it("error message surfaces 'Invalid wallet address' verbatim", () => {
+    // 400 responses include the message — UI + ops dashboards read it.
+    // Pin the exact string so a typo doesn't silently break downstream
+    // consumers that match on it.
+    const result = walletAddressSchema.safeParse("not-an-address")
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]!.message).toBe("Invalid wallet address")
+    }
+  })
 })
 
 describe("walletAddressSchema — properties", () => {
@@ -108,6 +136,27 @@ describe("txHashSchema — examples", () => {
     // the mix-up the schema prevents.
     expect(() => txHashSchema.parse("0xabcdef1234567890abcdef1234567890abcdef12")).toThrow()
   })
+
+  it("anchors — rejects valid-prefix + junk suffix (guards the trailing $)", () => {
+    // Same concern as the wallet anchor test — a 66-char valid prefix + junk
+    // must not slip through. DB rows are indexed on the hash value; a
+    // malformed key would silently split related events across two rows.
+    const raw = "0x" + "abcdef12".repeat(8) + "_junk"
+    expect(() => txHashSchema.parse(raw)).toThrow()
+  })
+
+  it("anchors — rejects junk prefix + valid-length suffix (guards the leading ^)", () => {
+    const raw = "junk_0x" + "abcdef12".repeat(8)
+    expect(() => txHashSchema.parse(raw)).toThrow()
+  })
+
+  it("error message surfaces 'Invalid transaction hash' verbatim", () => {
+    const result = txHashSchema.safeParse("not-a-hash")
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]!.message).toBe("Invalid transaction hash")
+    }
+  })
 })
 
 describe("txHashSchema — properties", () => {
@@ -149,6 +198,19 @@ describe("tokenSymbolSchema — examples", () => {
   it("rejects empty and overlong symbols", () => {
     expect(() => tokenSymbolSchema.parse("")).toThrow()
     expect(() => tokenSymbolSchema.parse("A".repeat(17))).toThrow()
+  })
+
+  it("error messages surface 'Symbol is required' / 'Symbol too long' verbatim", () => {
+    const tooShort = tokenSymbolSchema.safeParse("")
+    expect(tooShort.success).toBe(false)
+    if (!tooShort.success) {
+      expect(tooShort.error.issues[0]!.message).toBe("Symbol is required")
+    }
+    const tooLong = tokenSymbolSchema.safeParse("A".repeat(17))
+    expect(tooLong.success).toBe(false)
+    if (!tooLong.success) {
+      expect(tooLong.error.issues[0]!.message).toBe("Symbol too long")
+    }
   })
 })
 

@@ -75,6 +75,36 @@ describe("computeAppliedSlippagePct — named cases", () => {
       computeAppliedSlippagePct({ userSlippagePct: 0.5, barterShortfallPct: Number.NaN })
     ).toBe(0.5)
   })
+
+  it("treats Infinity as zero for both inputs — the isFinite guard must bite", () => {
+    // Without the `Number.isFinite` guard, an Infinity slipping in (e.g. from
+    // a downstream division producing +Infinity) would pass the `> 0` check
+    // and propagate, silently pegging the applied slippage at the cap. The
+    // isFinite short-circuit is what prevents that. These cases lock the
+    // two mutants that survive on the `&&` in the guard (both branches
+    // evaluate the same under isFinite=false unless the OR mutation flips).
+    expect(
+      computeAppliedSlippagePct({
+        userSlippagePct: Number.POSITIVE_INFINITY,
+        barterShortfallPct: 0,
+        maxSlippagePct: 2,
+      })
+    ).toBe(0)
+    expect(
+      computeAppliedSlippagePct({
+        userSlippagePct: 0.5,
+        barterShortfallPct: Number.POSITIVE_INFINITY,
+        maxSlippagePct: 2,
+      })
+    ).toBe(0.5)
+    // And the `-Infinity` path — same isFinite guard, different branch.
+    expect(
+      computeAppliedSlippagePct({
+        userSlippagePct: Number.NEGATIVE_INFINITY,
+        barterShortfallPct: 0,
+      })
+    ).toBe(0)
+  })
 })
 
 // ─── computeAppliedSlippagePct — properties ──────────────────────────────────

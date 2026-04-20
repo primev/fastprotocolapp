@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const resp = await fetch(`${FASTSWAP_API_BASE}/fastswap`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...body, slippage: slippageFormatted }),
+      body: JSON.stringify({ ...body.data, slippage: slippageFormatted }),
     })
     const result = await resp.json()
     if (!resp.ok) return NextResponse.json(result, { status: resp.status })
