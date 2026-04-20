@@ -555,23 +555,34 @@ ORDER BY block_timestamp DESC
 LIMIT :limit
 `.trim()
 
-// Surplus rate samples for miles estimation.
-// Computes `surplus / user_amt_out` — both columns are in the SAME output-token
-// units (smallest denomination), so decimals cancel and the ratio is dimensionless.
-// That lets us sample across all swap types (eth_weth AND erc20→erc20) without
-// per-token decimals handling. The previous version divided by 1e18, which only
-// worked for ETH/WETH output and silently excluded all erc20 swaps — about 58%
-// of production volume.
-// Only includes swaps with positive surplus and output to avoid division by zero.
-// Returns individual ratios so the caller can compute a percentile (p25 in the
-// consumer, not median — see route handler for rationale).
+// Surplus rate samples for miles estimation, keyed by per-swap output size
+// (in ETH) so the cron can bucket and produce a size-aware rate instead of a
+// single population average.
+//
+// `surplus_rate = surplus / user_amt_out` — both columns are in the SAME
+// output-token units (smallest denomination), so decimals cancel and the ratio
+// is dimensionless. That lets us sample across all swap types (eth_weth AND
+// erc20→erc20) without per-token decimals handling.
+//
+// `output_eth` = output-token amount expressed in ETH. Derived from two
+// columns on the row itself, avoiding a join and any price-oracle dependency:
+//
+//   surplus_eth = surplus × (eth_per_output_token)
+//   ⇒ eth_per_output_token = surplus_eth / surplus
+//   ⇒ user_amt_out_eth = user_amt_out × (surplus_eth / surplus)
+//                      = (surplus_eth × user_amt_out) / surplus
+//
+// Only includes swaps with positive surplus, output, and surplus_eth. Returns
+// individual rows — all bucketing and percentile math happens in the consumer.
 export const GET_FASTSWAP_SURPLUS_RATES = `
 SELECT
-  CAST(surplus AS DOUBLE) / CAST(user_amt_out AS DOUBLE) AS surplus_rate
+  CAST(surplus AS DOUBLE) / CAST(user_amt_out AS DOUBLE) AS surplus_rate,
+  CAST(surplus_eth AS DOUBLE) * CAST(user_amt_out AS DOUBLE) / CAST(surplus AS DOUBLE) AS output_eth
 FROM mevcommit_57173.fastswap_miles
 WHERE processed = 1
   AND CAST(surplus AS DOUBLE) > 0
   AND CAST(user_amt_out AS DOUBLE) > 0
+  AND CAST(surplus_eth AS DOUBLE) > 0
   AND block_timestamp >= NOW() - INTERVAL 30 DAY
 ORDER BY block_timestamp DESC
 `.trim()
