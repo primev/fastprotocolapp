@@ -85,11 +85,14 @@ Documented under "Pending splits" in
 component tests so regressions have an oracle.
 
 - ~~`src/components/dashboard/LeaderboardTable.tsx` (~2700 LoC)~~ — ✅
-  phase 1: extracted the 6 self-contained leaves (LeaderboardRow,
-  PaginatedLeaderboardModal, Volume/Efficiency/Referral/RisingStars
-  cards) + a `leaderboard/types.ts` file. Parent is now 1176 LoC
-  (−57%). Phase 2 (pending): split the parent's stats/progress/analysis
-  sections out of the main render.
+  fully split across two phases. Parent is now **447 LoC (−84%)** and
+  pure orchestration. Extracted 11 files under
+  `src/components/dashboard/leaderboard/`:
+  - Phase 1 (leaves): `LeaderboardRow`, `PaginatedLeaderboardModal`,
+    `VolumeLeadersCard`, `EfficiencyLeadersCard`, `ReferralLeadersCard`,
+    `RisingStarsCard`, `types.ts`.
+  - Phase 2 (sections): `LeaderboardHeader`, `VolumeProgressAnalysis`,
+    `MilesProgressAnalysis`, `VolumeModeTable`, `MilesModeTable`.
 - ~~`src/components/modals/SwapConfirmationModal.tsx` (~1160 LoC)~~ — ✅
   split into `src/components/modals/swap-confirmation/*` (parent now
   623 LoC; seven presentational leaves + useSnapshotOnOpen hook).
