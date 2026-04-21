@@ -217,7 +217,17 @@ const DashboardContent = () => {
                   </div>
                 </div>
 
-                {FEATURE_FLAGS.show_miles_dashboard_table && (
+                {/*
+                  Flag gates the table in production only. On local dev
+                  (NODE_ENV !== "production") and Vercel previews
+                  (NEXT_PUBLIC_VERCEL_ENV === "preview") the table always
+                  renders so work-in-progress can be verified without
+                  toggling the flag. Both env vars are statically replaced
+                  by Next.js at build time.
+                */}
+                {(FEATURE_FLAGS.show_miles_dashboard_table ||
+                  process.env.NODE_ENV !== "production" ||
+                  process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") && (
                   <UserSwapsTable address={address} isConnected={isConnected} />
                 )}
 
