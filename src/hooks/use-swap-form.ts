@@ -375,12 +375,14 @@ export function useSwapForm(allTokens: Token[]) {
     if (isWrapUnwrap) return `1 ${fromToken?.symbol} = 1 ${toToken?.symbol}`
     if (!displayQuote && fromToken && toToken) return null
     if (displayQuote && fromToken && toToken) {
-      const isToStable = isStablecoin(toToken.address ?? "", toToken.symbol)
-      // Rate is "toToken per 1 fromToken", so format using toToken's type (avoid 0.00 for small rates like 1 USDT = 0.000356 ETH)
-      const rate = displayQuote.exchangeRate
-      const rateFormatted = isToStable
-        ? rate.toFixed(2)
-        : rate.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 3 })
+      // Rate is "toToken per 1 fromToken"; delegate to formatTokenAmount so small rates
+      // (e.g. 1 USDC = 0.00001 WBTC) render with significant digits instead of rounding to 0.
+      const rateFormatted = formatTokenAmount(
+        displayQuote.exchangeRate,
+        toToken.symbol,
+        undefined,
+        toToken.address
+      )
       return `1 ${fromToken.symbol} = ${rateFormatted} ${toToken.symbol}`
     }
     return lastValidRate || "-"

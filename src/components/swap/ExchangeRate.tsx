@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useMemo } from "react"
-import NumberFlow from "@number-flow/react"
+import NumberFlow, { type Format } from "@number-flow/react"
 import { Info } from "lucide-react"
 // Utils & Hooks
 import { cn } from "@/lib/utils"
@@ -108,6 +108,17 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
    */
   const showExtendedInfo = Boolean(activeQuote && !isWrapUnwrap)
 
+  // Pick format options by rate magnitude so tiny rates (e.g. 1 USDC = 0.00001 WBTC)
+  // render with significant digits instead of rounding to 0.
+  const rateFormat = useMemo<Format>(() => {
+    if (exchangeRateToStable) return { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    if (exchangeRateValue == null) return { maximumFractionDigits: 4 }
+    const abs = Math.abs(exchangeRateValue)
+    if (abs >= 1) return { maximumFractionDigits: 4 }
+    if (abs >= 0.001) return { maximumFractionDigits: 6 }
+    return { maximumSignificantDigits: 6 }
+  }, [exchangeRateToStable, exchangeRateValue])
+
   return (
     <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-xl bg-white/5 border border-white/5 px-3 py-2 sm:px-4 sm:py-3 transition-all duration-300 ease-in-out">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2 text-xs text-muted-foreground">
@@ -124,10 +135,7 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
                 1 {exchangeRateFromSymbol} ={" "}
                 <NumberFlow
                   value={exchangeRateValue}
-                  format={{
-                    minimumFractionDigits: exchangeRateToStable ? 2 : 0,
-                    maximumFractionDigits: exchangeRateToStable ? 2 : 3,
-                  }}
+                  format={rateFormat}
                   style={
                     {
                       "--number-flow-char-gap": "-0.5px",
