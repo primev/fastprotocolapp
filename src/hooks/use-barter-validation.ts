@@ -124,10 +124,10 @@ export function useBarterValidation({
     // flicker. Successful validation below clears it.
     const currentRequest = ++requestIdRef.current
 
-    const source =
-      fromToken.address === ZERO_ADDRESS
-        ? (WETH_ADDRESS as `0x${string}`)
-        : (fromToken.address as `0x${string}`)
+    const isEthInput = fromToken.address === ZERO_ADDRESS
+    const source = isEthInput
+      ? (WETH_ADDRESS as `0x${string}`)
+      : (fromToken.address as `0x${string}`)
     const target = toToken.address as `0x${string}`
     const sellAmtWei = parseUnits(sellClean, fromToken.decimals).toString()
 
@@ -136,7 +136,7 @@ export function useBarterValidation({
 
     const attempt = async (consecutiveFailures: number): Promise<void> => {
       try {
-        const route = await fetchBarterRoute(source, target, sellAmtWei)
+        const route = await fetchBarterRoute(source, target, sellAmtWei, isEthInput)
 
         if (cancelled || currentRequest !== requestIdRef.current) return
 

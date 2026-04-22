@@ -19,12 +19,18 @@ function getApiBase(): string {
  * @param source - Source token address (use WETH for native ETH)
  * @param target - Target token address
  * @param sellAmount - Amount to sell in wei (as string)
+ * @param isEthInput - True when the user is spending native ETH (pays L1 gas
+ *   themselves). Picks Barter's pre-gas `outputAmount` instead of
+ *   `outputWithGasAmount` so the returned figure reflects what the user
+ *   actually receives and isn't double-counted against the Uniswap quote in
+ *   shortfall/quote-guard comparisons.
  * @returns outputAmount, gasEstimation, and optionally transactionFee and gasPrice
  */
 export async function fetchBarterRoute(
   source: Address,
   target: Address,
-  sellAmount: string
+  sellAmount: string,
+  isEthInput: boolean = false
 ): Promise<{
   outputAmount: string
   gasEstimation: number
@@ -39,6 +45,7 @@ export async function fetchBarterRoute(
       source: source.toLowerCase(),
       target: target.toLowerCase(),
       sellAmount,
+      isEthInput,
     }),
   })
 

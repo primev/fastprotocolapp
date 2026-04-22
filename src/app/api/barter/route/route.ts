@@ -5,7 +5,7 @@ const BARTER_API_BASE = "https://api2.eth.barterswap.xyz"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { source, target, sellAmount } = body
+    const { source, target, sellAmount, isEthInput } = body
 
     if (!source || !target || !sellAmount) {
       return NextResponse.json(
@@ -42,7 +42,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: msg }, { status: resp.status })
     }
 
-    const outputAmount = data?.outputWithGasAmount
+    // ETH input: user pays L1 gas from their own wallet, so Barter's raw
+    // `outputAmount` (pre-gas) is what the user actually receives. For permit
+    // (ERC-20 in) the relayer pays gas and deducts it from the output, so
+    // `outputWithGasAmount` is the realized user amount. Using the wrong field
+    // on ETH input produces a phantom shortfall vs. the Uniswap quote (which
+    // never subtracts gas) and spuriously trips `amountTooSmall` when L1 gas
+    // is elevated.
+    const outputAmount = isEthInput === true ? data?.outputAmount : data?.outputWithGasAmount
     const gasEstimation = data?.gasEstimation
     const transactionFee = data?.transactionFee
     const gasPrice = data?.gasPrice
