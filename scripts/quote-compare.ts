@@ -82,14 +82,25 @@
  */
 import { readFileSync } from "fs"
 import { parseArgs } from "node:util"
-import {
-  createPublicClient,
-  http,
-  formatUnits,
-  erc20Abi,
-  type Address,
-} from "viem"
+import { createPublicClient, http, formatUnits, type Address } from "viem"
 import { mainnet } from "viem/chains"
+
+const ERC20_READ_ABI = [
+  {
+    inputs: [],
+    name: "decimals",
+    outputs: [{ type: "uint8" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "symbol",
+    outputs: [{ type: "string" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const
 
 for (const line of readFileSync(".env", "utf8").split("\n")) {
   const match = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/)
@@ -158,8 +169,8 @@ const client = createPublicClient({
 
 async function getDecimalsAndSymbol(addr: Address) {
   const [decimals, symbol] = await Promise.all([
-    client.readContract({ address: addr, abi: erc20Abi, functionName: "decimals" }),
-    client.readContract({ address: addr, abi: erc20Abi, functionName: "symbol" }),
+    client.readContract({ address: addr, abi: ERC20_READ_ABI, functionName: "decimals" }),
+    client.readContract({ address: addr, abi: ERC20_READ_ABI, functionName: "symbol" }),
   ])
   return { decimals, symbol }
 }
