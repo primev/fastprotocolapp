@@ -3,9 +3,23 @@ import { NextRequest, NextResponse } from "next/server"
 const BARTER_API_BASE = "https://api2.eth.barterswap.xyz"
 
 export async function POST(request: NextRequest) {
+  let body: unknown
   try {
-    const body = await request.json()
-    const { source, target, sellAmount, isEthInput } = body
+    body = await request.json()
+  } catch {
+    // Empty or malformed body (typically a probe or stray retry). Respond cleanly
+    // without polluting logs with a stack trace.
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+  }
+
+  try {
+    const { source, target, sellAmount, isEthInput } =
+      (body ?? {}) as {
+        source?: string
+        target?: string
+        sellAmount?: string
+        isEthInput?: boolean
+      }
 
     if (!source || !target || !sellAmount) {
       return NextResponse.json(

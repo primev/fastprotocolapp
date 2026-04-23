@@ -5,7 +5,6 @@ import { createPublicClient, http, parseUnits, formatUnits, type Address } from 
 import { mainnet } from "wagmi/chains"
 import { RPC_ENDPOINT, FALLBACK_RPC_ENDPOINT } from "@/lib/network-config"
 import { sanitizeAmountInput, formatTokenAmount } from "@/lib/utils"
-import { isStablecoin } from "@/lib/stablecoins"
 import { resolveTokenAddress, resolveTokenDecimals, getTokenSymbol } from "@/lib/token-resolver"
 import type { Token } from "@/types/swap"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
@@ -325,67 +324,6 @@ function recalculateSlippageLimit(
     )
     return { slippageLimit, slippageLimitFormatted }
   }
-}
-
-/**
- * Calculate auto slippage based on trade characteristics
- * Returns a value between 0.5% and 2% based on:
- * - Trade size (larger trades need more slippage tolerance)
- * - Token type (stablecoins need less, volatile tokens need more)
- * - Network conditions (higher gas = more slippage tolerance)
- * @param tradeAmount - Trade amount in token units
- * @param tokenIn - Input token object or symbol
- * @param tokenOut - Output token object or symbol
- * @param gasPriceGwei - Current gas price in gwei (optional)
- * @returns Auto slippage percentage
- */
-export function calculateAutoSlippage(
-  tradeAmount: number,
-  tokenIn: Token | string,
-  tokenOut: Token | string,
-  gasPriceGwei?: number | null
-): number {
-  // Base slippage for small trades
-  let slippage = 0.5
-
-  // Get token symbols and addresses for comparison
-  const tokenInSymbol = getTokenSymbol(tokenIn) ?? ""
-  const tokenOutSymbol = getTokenSymbol(tokenOut) ?? ""
-  const tokenInAddress = typeof tokenIn === "object" && tokenIn?.address ? tokenIn.address : ""
-  const tokenOutAddress = typeof tokenOut === "object" && tokenOut?.address ? tokenOut.address : ""
-
-  // Check if tokens are stablecoins (need less slippage)
-  const isStablecoinPair =
-    isStablecoin(tokenInAddress, tokenInSymbol) || isStablecoin(tokenOutAddress, tokenOutSymbol)
-
-  // Adjust based on trade size
-  // Larger trades need more slippage tolerance
-  if (tradeAmount > 100000) {
-    slippage += 1.0 // Large trades: +1%
-  } else if (tradeAmount > 10000) {
-    slippage += 0.5 // Medium trades: +0.5%
-  } else if (tradeAmount > 1000) {
-    slippage += 0.2 // Small-medium trades: +0.2%
-  }
-
-  // Adjust based on token volatility
-  if (!isStablecoinPair) {
-    slippage += 0.3 // Volatile pairs need more slippage
-  }
-
-  // Adjust based on gas prices (higher gas = more slippage tolerance to avoid reverts)
-  if (gasPriceGwei) {
-    if (gasPriceGwei > 100) {
-      slippage += 0.5 // Very high gas
-    } else if (gasPriceGwei > 50) {
-      slippage += 0.3 // High gas
-    } else if (gasPriceGwei > 20) {
-      slippage += 0.1 // Medium gas
-    }
-  }
-
-  // Clamp between 0.5% and 2% (never exceed 2%)
-  return Math.max(0.5, Math.min(2.0, slippage))
 }
 
 /**

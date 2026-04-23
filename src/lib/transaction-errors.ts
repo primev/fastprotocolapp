@@ -3,6 +3,7 @@
  */
 
 import type { TransactionReceipt } from "viem"
+import { SLIPPAGE_MAX } from "@/hooks/use-swap-slippage"
 
 /**
  * Parses a barter minReturn error to compute the minimum required slippage.
@@ -35,8 +36,8 @@ export function parseBarterSlippageError(message: string): {
 
   // Required slippage = how far barterMinReturn falls short of the original quote
   const requiredSlippagePct = ((amountOut - barterMinReturn) / amountOut) * 100
-  // Round up to nearest 0.1%, add 0.5% safety buffer, cap at 2.0%
-  const recommended = Math.min(2.0, Math.ceil(requiredSlippagePct * 10) / 10 + 0.5)
+  // Round up to nearest 0.1%, add 0.5% safety buffer, cap at SLIPPAGE_MAX.
+  const recommended = Math.min(SLIPPAGE_MAX, Math.ceil(requiredSlippagePct * 10) / 10 + 0.5)
   return { barterMinReturn, userRequired, recommendedSlippage: recommended.toFixed(1) }
 }
 

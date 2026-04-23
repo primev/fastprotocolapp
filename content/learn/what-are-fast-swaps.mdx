@@ -65,9 +65,32 @@ Swaps route through existing Ethereum liquidity — the protocol doesn't operate
 
 ## Slippage and execution
 
-Because fast swaps confirm before the block, you face less execution uncertainty than standard swaps. The price you see is close to the price you get, since the builder commits to a specific execution within 200ms rather than leaving your transaction exposed to a full block of price movement.
+Slippage is the maximum price movement you accept between quote and execution. If the actual output falls below your tolerance, the swap reverts instead of filling at a worse price.
 
-Slippage tolerance still matters for volatile pairs, but the window of exposure is compressed from 12+ seconds to sub-second.
+Because fast swaps confirm in ~200ms, your window of price exposure is compressed from a full 12+ second block down to sub-second — so the tolerance you need is typically much smaller than on a standard DEX. Fast Protocol leans into that with an **auto mode** that keeps defaults tight.
+
+### Auto mode (default)
+
+Auto mode picks the smallest tolerance that still lets the swap route reliably:
+
+- **0.5%** when you're selling ETH
+- **1%** when you're selling an ERC-20 token (the permit path carries slightly more routing overhead)
+
+If the router reports that the route can't actually deliver within the base tolerance — for example, because gas has spiked or the pair is temporarily thin — auto mode bumps your tolerance up to **2%** to cover the shortfall. When this happens, the confirmation screen shows a note: *"Your slippage has been auto-adjusted to cover gas costs."* You don't need to do anything; the swap still goes through at the original quote, just with more headroom.
+
+### Custom mode
+
+For volatile pairs, large trades, or tokens with transfer taxes, you can switch to **Custom** and set any value from the path floor (0.5% or 1%) up to **50%** — the same ceiling Uniswap uses.
+
+A warning appears when your custom value goes above **5%**:
+
+> Slippage above 5% is unusual. You will earn more miles, but will likely receive less tokens.
+
+That tradeoff is real. Higher slippage tolerance means more price room for a builder to capture mev — which can increase your Miles earnings — but it also means your worst-case execution price is further from the quote. For ordinary swaps, stick with auto.
+
+### Deadline
+
+The swap deadline (default 30 minutes) controls how long the signed order remains valid. If the transaction isn't included within that window, it expires instead of executing at a stale price. Because fast swaps confirm in ~200ms, the deadline is effectively just a safety net for network-level failures.
 
 <TryItCTA href="/" label="Try a fast swap" />
 

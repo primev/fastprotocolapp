@@ -7,7 +7,6 @@ import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import type { Token } from "@/types/swap"
 
 const DEBOUNCE_MS = 300
-const MAX_SLIPPAGE_PCT = 2.0
 /**
  * Delay before retrying a failed `/route` call within the same validation cycle.
  * Chosen short enough that a single transient blip (one 500 response, one TCP
@@ -34,11 +33,17 @@ interface UseBarterValidationParams {
   sellAmount: string
   /** Monotonic counter — increments on each Uniswap requote so we re-validate even when amountOut is unchanged */
   quoteGeneration: number
+  /**
+   * User's current slippage tolerance in percent (e.g. 2, 5, 50). amountTooSmall
+   * is derived from this — raising the tolerance re-evaluates the cached shortfall
+   * instantly without a new Barter API call.
+   */
+  maxSlippagePct: number
   enabled: boolean
 }
 
 interface UseBarterValidationReturn {
-  /** True when the amount is too small for Barter to route within 2% slippage */
+  /** True when observed Barter shortfall exceeds the user's current slippage tolerance */
   amountTooSmall: boolean
   /** Observed shortfall percentage between Uniswap quote and Barter output (0 when unknown) */
   shortfallPct: number
@@ -73,9 +78,9 @@ export function useBarterValidation({
   amountOut,
   sellAmount,
   quoteGeneration,
+  maxSlippagePct,
   enabled,
 }: UseBarterValidationParams): UseBarterValidationReturn {
-  const [amountTooSmall, setAmountTooSmall] = useState(false)
   const [shortfallPct, setShortfallPct] = useState(0)
   const [settled, setSettled] = useState(true)
   const [barterAmountOut, setBarterAmountOut] = useState<bigint | undefined>(undefined)
@@ -91,7 +96,6 @@ export function useBarterValidation({
   useEffect(() => {
     // Reset when disabled or missing inputs
     if (!enabled || !fromToken || !toToken || !amountOut || amountOut === 0n) {
-      setAmountTooSmall(false)
       setShortfallPct(0)
       setBarterAmountOut(undefined)
       setBarterUnavailable(false)
@@ -103,7 +107,6 @@ export function useBarterValidation({
 
     const sellClean = sellAmount?.replace(/,/g, "").trim()
     if (!sellClean || parseFloat(sellClean) <= 0) {
-      setAmountTooSmall(false)
       setShortfallPct(0)
       setBarterAmountOut(undefined)
       setBarterUnavailable(false)
@@ -116,7 +119,6 @@ export function useBarterValidation({
     // Inputs changed — mark unsettled immediately (no gap for swap button to flash)
     lastSettledKeyRef.current = inputKey
     setSettled(false)
-    setAmountTooSmall(false)
     setShortfallPct(0)
     setBarterAmountOut(undefined)
     // Do NOT reset barterUnavailable here — if we're in an outage, leaving it true
@@ -146,7 +148,6 @@ export function useBarterValidation({
 
         setBarterAmountOut(barterOut)
         setShortfallPct(Math.max(0, shortfall))
-        setAmountTooSmall(shortfall > MAX_SLIPPAGE_PCT)
         setBarterUnavailable(false)
         setSettled(true)
       } catch {
@@ -157,7 +158,6 @@ export function useBarterValidation({
           // Sustained outage — block the swap button, clear any stale Barter data,
           // and mark settled so the UI stops spinning.
           setBarterAmountOut(undefined)
-          setAmountTooSmall(false)
           setShortfallPct(0)
           setBarterUnavailable(true)
           setSettled(true)
@@ -185,6 +185,12 @@ export function useBarterValidation({
       if (retryTimer) clearTimeout(retryTimer)
     }
   }, [fromToken, toToken, amountOut, sellAmount, quoteGeneration, enabled, inputKey])
+
+  // Derive amountTooSmall from cached shortfall + live slippage tolerance.
+  // This lets the gate re-evaluate instantly when the user bumps their slippage
+  // (no extra Barter API call, no "calculating" flicker) while still accurately
+  // reflecting whether the current tolerance covers the measured shortfall.
+  const amountTooSmall = settled && shortfallPct > 0 && shortfallPct > maxSlippagePct
 
   return {
     amountTooSmall,
