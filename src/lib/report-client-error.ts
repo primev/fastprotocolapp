@@ -91,8 +91,7 @@ function extractViemDetails(err: unknown) {
       const root = e.walk(() => true) as { name?: unknown; message?: unknown } | undefined
       if (root && root !== e) {
         if (typeof root.name === "string") viem.rootCauseName = root.name
-        if (typeof root.message === "string")
-          viem.rootCauseMessage = truncate(root.message, 500)
+        if (typeof root.message === "string") viem.rootCauseMessage = truncate(root.message, 500)
       }
     } catch {
       // walk() implementations vary; ignore failures
