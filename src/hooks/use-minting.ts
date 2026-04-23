@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from "@/lib/contract-config"
 import { parseTokenIdFromReceipt } from "@/lib/onboarding-utils"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
+import { reportClientError } from "@/lib/report-client-error"
 
 export interface UseMintingProps {
   isConnected: boolean
@@ -67,6 +68,13 @@ export function useMinting({
     receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
     mode: "receipt",
     onConfirmed,
+    onError: (err) => {
+      reportClientError(err, {
+        source: "use-minting.waitForTxConfirmation",
+        hash,
+        walletAddress: address,
+      })
+    },
   })
 
   // Check if user already has a token minted on page load
@@ -97,6 +105,10 @@ export function useMinting({
         }
       } catch (error) {
         console.error("Error checking existing token:", error)
+        reportClientError(error, {
+          source: "use-minting.checkExistingToken",
+          walletAddress: address,
+        })
         setAlreadyMinted(false)
         setExistingTokenId(null)
       }
@@ -115,6 +127,12 @@ export function useMinting({
     if (isWriteError || isConfirmError) {
       setIsMinting(false)
       const error = writeError || confirmError
+      reportClientError(error, {
+        source: "use-minting.writeOrConfirmError",
+        hash,
+        walletAddress: address,
+        kind: isWriteError ? "write" : "confirm",
+      })
 
       if (error?.message?.toLowerCase().includes("user")) {
         toast.error("Claiming Failed", {
@@ -136,6 +154,8 @@ export function useMinting({
     isConfirmError,
     writeError,
     confirmError,
+    address,
+    hash,
   ])
 
   const handleMintSbt = async () => {
@@ -154,6 +174,10 @@ export function useMinting({
       } as unknown as any)
     } catch (error: any) {
       setIsMinting(false)
+      reportClientError(error, {
+        source: "use-minting.handleMintSbt",
+        walletAddress: address,
+      })
 
       toast.error("Transaction Failed", {
         description: error?.message || "An unknown error occurred",

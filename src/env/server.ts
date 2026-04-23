@@ -17,6 +17,9 @@ export const env = createEnv({
     VERCEL_ACCESS_TOKEN: z.string().min(1).optional(),
     TEAM_ID: z.string().min(1).optional(),
     CRON_SECRET: z.string().min(1).optional(),
+    // Client error forwarding. If unset, errors are logged to Vercel via console.error only.
+    GROUNDCOVER_OTLP_ENDPOINT: z.string().url().optional(),
+    GROUNDCOVER_API_KEY: z.string().min(1).optional(),
   },
   // For Next.js >= 13.4.4, we can reference process.env directly
   experimental__runtimeEnv: process.env,

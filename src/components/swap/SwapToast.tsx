@@ -15,6 +15,7 @@ import {
   parseBarterSlippageError,
   RPCError,
 } from "@/lib/transaction-errors"
+import { reportClientError } from "@/lib/report-client-error"
 import { FAST_PROTOCOL_NETWORK } from "@/lib/network-config"
 import { TokenPairIcon } from "./TokenPairIcon"
 import { PreconfirmCelebration, PreconfirmGlow } from "./PreconfirmCelebration"
@@ -95,6 +96,17 @@ export function SwapToast({ hash }: { hash: string }) {
       const rawDbRecord = err instanceof RPCError ? err.rawDbRecord : undefined
       const message =
         typeof err?.message === "string" ? err.message : getTransactionShortMessage(err)
+      reportClientError(err, {
+        source: "swap-toast.onError",
+        hash: effectiveHash,
+        elapsedSec: elapsed,
+        tokenIn: t?.tokenIn?.symbol,
+        tokenOut: t?.tokenOut?.symbol,
+        amountIn: t?.amountIn,
+        amountOut: t?.amountOut,
+        hasReceipt: Boolean(txReceipt),
+        hasDbRecord: Boolean(rawDbRecord),
+      })
       setFailed(hash, txReceipt, message, rawDbRecord)
     },
   })

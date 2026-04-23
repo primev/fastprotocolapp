@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { parseUnits } from "viem"
 import { fetchBarterRoute } from "@/lib/barter-api"
+import { reportClientError } from "@/lib/report-client-error"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import type { Token } from "@/types/swap"
 
@@ -149,11 +150,22 @@ export function useBarterValidation({
         setAmountTooSmall(shortfall > MAX_SLIPPAGE_PCT)
         setBarterUnavailable(false)
         setSettled(true)
-      } catch {
+      } catch (err) {
         if (cancelled || currentRequest !== requestIdRef.current) return
 
         const failures = consecutiveFailures + 1
-        if (failures >= UNAVAILABLE_ERROR_THRESHOLD) {
+        const sustained = failures >= UNAVAILABLE_ERROR_THRESHOLD
+        reportClientError(err, {
+          source: "use-barter-validation.fetchBarterRoute",
+          consecutiveFailures: failures,
+          sustained,
+          sourceToken: source,
+          targetToken: target,
+          sellAmtWei,
+          isEthInput,
+        })
+
+        if (sustained) {
           // Sustained outage — block the swap button, clear any stale Barter data,
           // and mark settled so the UI stops spinning.
           setBarterAmountOut(undefined)
