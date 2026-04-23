@@ -15,6 +15,7 @@ import { isWrapOperation, isUnwrapOperation } from "@/lib/weth-utils"
 import { mainnet } from "wagmi/chains"
 import { useWaitForTxConfirmation } from "@/hooks/use-wait-for-tx-confirmation"
 import { GAS_LIMIT_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
+import { reportClientError } from "@/lib/report-client-error"
 
 export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
   const { address, isConnected } = useAccount()
@@ -84,16 +85,31 @@ export function useWethWrapUnwrap({ fromToken, toToken, amount }: any) {
     receipt: (receipt as TransactionReceipt | undefined) ?? undefined,
     mode: "status",
     onConfirmed: () => setIsSuccess(true),
-    onError: (err: Error) => setError(err instanceof Error ? err : new Error(String(err))),
+    onError: (err: Error) => {
+      reportClientError(err, {
+        source: "use-weth-wrap-unwrap.waitForTxConfirmation",
+        hash: internalHash,
+        walletAddress: address,
+        op: isWrap ? "wrap" : isUnwrap ? "unwrap" : "unknown",
+      })
+      setError(err instanceof Error ? err : new Error(String(err)))
+    },
   })
 
   // Aggregate errors from contract writing and receipt fetching
   useEffect(() => {
     const rawError = writeError || receiptError
     if (rawError) {
+      reportClientError(rawError, {
+        source: "use-weth-wrap-unwrap.writeOrReceiptError",
+        hash: internalHash,
+        walletAddress: address,
+        op: isWrap ? "wrap" : isUnwrap ? "unwrap" : "unknown",
+        kind: writeError ? "write" : "receipt",
+      })
       setError(rawError instanceof Error ? rawError : new Error(String(rawError)))
     }
-  }, [writeError, receiptError])
+  }, [writeError, receiptError, internalHash, address, isWrap, isUnwrap])
 
   const reset = useCallback(() => {
     wagmiReset()

@@ -6,6 +6,7 @@ import { parseUnits, maxUint256 } from "viem"
 import { mainnet } from "wagmi/chains"
 import { PERMIT2_ADDRESS, ZERO_ADDRESS } from "@/lib/swap-constants"
 import { ERC20_APPROVE_ABI } from "@/lib/erc20-abi"
+import { reportClientError } from "@/lib/report-client-error"
 import type { Token } from "@/types/swap"
 
 interface UsePermit2AllowanceParams {
@@ -56,8 +57,19 @@ export function usePermit2Allowance({
     data: hash,
     isPending: isApproving,
     isError: isApprovalError,
+    error: approvalError,
     reset: resetWrite,
   } = useWriteContract()
+
+  useEffect(() => {
+    if (!approvalError) return
+    reportClientError(approvalError, {
+      source: "use-permit2-allowance.writeError",
+      walletAddress: owner,
+      tokenAddress: token?.address,
+      tokenSymbol: token?.symbol,
+    })
+  }, [approvalError, owner, token?.address, token?.symbol])
 
   const { data: receipt } = useWaitForTransactionReceipt({
     hash: hash ?? undefined,
