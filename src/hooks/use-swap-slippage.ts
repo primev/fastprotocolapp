@@ -11,6 +11,14 @@ const SLIPPAGE_WARN_THRESHOLD = 5
 const AUTO_BASE_ETH = 0.5
 const AUTO_BASE_PERMIT = 1
 
+/**
+ * Headroom added above the observed Barter shortfall when auto mode bumps up.
+ * Small enough to stay in the ballpark of the shortfall, large enough that a
+ * quote refresh with slightly higher shortfall doesn't immediately re-gate the
+ * swap with "Amount too small".
+ */
+const AUTO_BUMP_BUFFER_PCT = 0.5
+
 export type SlippageMode = "auto" | "custom"
 export type SlippageWarning = "none" | "high"
 
@@ -19,9 +27,19 @@ interface UseSwapSlippageOptions {
   isPermitPath?: boolean
   /**
    * Observed shortfall percentage from Barter validation. When this exceeds the auto base,
-   * auto mode bumps slippage to 2% to cover gas costs.
+   * auto mode bumps slippage to (shortfall + AUTO_BUMP_BUFFER_PCT) so the trade clears
+   * the amount-too-small gate with a small buffer against quote-refresh jitter.
    */
   barterShortfallPct?: number
+}
+
+/**
+ * Target slippage when auto mode needs to cover an observed Barter shortfall.
+ * Rounded up to the nearest 0.1% step, buffered, and capped at the UI ceiling.
+ */
+function computeAutoBumpValue(shortfallPct: number): number {
+  const roundedUp = Math.ceil(shortfallPct / SLIPPAGE_STEP) * SLIPPAGE_STEP
+  return Math.min(SLIPPAGE_MAX, roundedUp + AUTO_BUMP_BUFFER_PCT)
 }
 
 function clampDeadline(minutes: number): number {
@@ -74,11 +92,14 @@ export function useSwapSlippage(options: UseSwapSlippageOptions = {}) {
   const autoBase = isPermitPath ? AUTO_BASE_PERMIT : AUTO_BASE_ETH
   const customMin = autoBase
 
-  // Auto mode: bump to 2% when Barter's observed shortfall exceeds the auto base.
-  // The existing computedMinAmountOut logic in useSwapForm already takes max(user, shortfall+0.5),
-  // so this flag primarily drives the *visible* slippage value and the review-page note.
+  // Auto mode: when Barter's observed shortfall exceeds the auto base, bump the
+  // visible slippage to (shortfall + buffer) so the user's tolerance clears the
+  // amount-too-small gate instead of stranding them at a hardcoded 2% that may
+  // not be enough.
   const autoBumpedForGas = mode === "auto" && barterShortfallPct > autoBase
-  const autoSlippage = autoBumpedForGas ? formatSlippage(2) : formatSlippage(autoBase)
+  const autoSlippage = autoBumpedForGas
+    ? formatSlippage(computeAutoBumpValue(barterShortfallPct))
+    : formatSlippage(autoBase)
 
   // Re-clamp custom value when the floor rises (e.g. user switches from ETH input to ERC20 input).
   // IMPORTANT: do not depend on customSlippage here — doing so re-runs on every keystroke and
@@ -129,12 +150,13 @@ export function useSwapSlippage(options: UseSwapSlippageOptions = {}) {
     localStorage.setItem("swapDeadline", String(clamped))
   }
 
+  // Warning fires on the effective slippage regardless of mode so an
+  // auto-bump above the threshold is still transparent to the user.
   const slippageWarning: SlippageWarning = useMemo(() => {
-    if (mode !== "custom") return "none"
-    const num = parseFloat(customSlippage)
+    const num = parseFloat(slippage)
     if (Number.isNaN(num)) return "none"
     return num > SLIPPAGE_WARN_THRESHOLD ? "high" : "none"
-  }, [mode, customSlippage])
+  }, [slippage])
 
   return {
     slippage,

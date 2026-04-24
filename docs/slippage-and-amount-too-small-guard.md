@@ -38,18 +38,34 @@ The permit path carries slightly more routing overhead, so its floor is higher.
 
 ### Auto-bump for gas
 
-When Barter's observed `shortfallPct` exceeds the auto base, auto mode visually bumps slippage to **2%** to cover routing cost.
+When Barter's observed `shortfallPct` exceeds the auto base, auto mode bumps
+the visible slippage to cover the shortfall plus a small buffer, so the
+amount-too-small gate actually clears:
 
 ```ts
 const autoBumpedForGas = mode === "auto" && barterShortfallPct > autoBase
-const autoSlippage     = autoBumpedForGas ? "2" : String(autoBase)
+const autoSlippage     = autoBumpedForGas
+  ? formatSlippage(computeAutoBumpValue(barterShortfallPct))
+  : formatSlippage(autoBase)
+
+// roundedUp = ceil(shortfall to 0.1%), then + AUTO_BUMP_BUFFER_PCT (0.5%), capped at SLIPPAGE_MAX
 ```
 
-When this fires, the confirmation modal shows the note:
+The buffer (`AUTO_BUMP_BUFFER_PCT = 0.5`) exists because Barter's routed output
+drifts slightly between quotes as pool state and gas move. Without the buffer,
+the next 15-second requote can report a shortfall 0.1–0.3% higher than the one
+we just bumped to, immediately re-blocking the swap with "Amount too small".
+
+Example — shortfall observed at 2.7%:
+- `ceil(2.7 / 0.1) * 0.1 = 2.7`
+- `2.7 + 0.5 = 3.2%` → visible slippage
+
+When this fires, the confirmation modal shows:
 
 > Your slippage has been auto-adjusted to cover gas costs
 
-Rendered in `SwapConfirmationModal.tsx:1030` off the `autoAdjustedForGas` prop (`= form.autoBumpedForGas`).
+Rendered in `SwapConfirmationModal.tsx:1030` off the `autoAdjustedForGas` prop
+(`= form.autoBumpedForGas`).
 
 ### Custom mode
 
@@ -118,9 +134,21 @@ The guard isn't about Barter being broken — it's about the user's stated toler
 
 ---
 
-## Why auto caps at 2%
+## Auto's upper bound
 
-Auto mode silently bumps up to 2% but no further. Beyond that threshold, routing overhead starts to dominate the trade itself, and hiding that loss would be user-hostile. Above 2%, the UI blocks and forces a conscious opt-in via Custom mode. That's the role of the `>5%` warning copy — the user is choosing to earn more Miles (more room for builder-captured MEV) at the cost of a worse execution price.
+Auto mode can scale up to `SLIPPAGE_MAX` (50%) if Barter's measured shortfall
+demands it — the design goal is that auto should actually unblock the gate
+rather than strand the user at a static ceiling. The confirmation modal's
+"slippage has been auto-adjusted" note is how the user learns auto bumped
+beyond the base tier; it fires whenever `autoBumpedForGas` is true, regardless
+of the magnitude.
+
+If the bumped value lands above `SLIPPAGE_WARN_THRESHOLD` (5%), the user will
+still see the >5% warning banner if they open the settings popover (because
+the banner is tied to the effective numeric value, not just custom mode). The
+expectation is that shortfalls that large only occur on genuinely marginal
+trade sizes — users in that situation benefit more from seeing an executable
+path than from a hard block.
 
 ---
 
