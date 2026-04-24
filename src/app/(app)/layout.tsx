@@ -175,7 +175,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     <div className="bg-background min-h-screen">
       <div
         ref={setHeaderRef}
-        className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
+        className="fixed left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
+        style={{ top: "var(--global-banner-h, 0px)" }}
       >
         <AppHeader
           isConnected={isConnected}

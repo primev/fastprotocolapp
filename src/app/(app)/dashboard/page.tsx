@@ -42,6 +42,7 @@ import { TransactionFeedbackModal } from "@/components/modals/TransactionFeedbac
 import { ReferralModal } from "@/components/modals/ReferralModal"
 import dynamic from "next/dynamic"
 import { EcosystemSetCarousel } from "@/components/dashboard/EcosystemSetsCarousel"
+import { FEATURE_FLAGS } from "@/lib/feature-flags"
 
 // Client-only: UserSwapsTable depends on wagmi state (address, isConnected)
 // that differs between server and client. Rendering it on the server produces
@@ -216,7 +217,19 @@ const DashboardContent = () => {
                   </div>
                 </div>
 
-                <UserSwapsTable address={address} isConnected={isConnected} />
+                {/*
+                  Flag gates the table in production only. On local dev
+                  (NODE_ENV !== "production") and Vercel previews
+                  (NEXT_PUBLIC_VERCEL_ENV === "preview") the table always
+                  renders so work-in-progress can be verified without
+                  toggling the flag. Both env vars are statically replaced
+                  by Next.js at build time.
+                */}
+                {(FEATURE_FLAGS.show_miles_dashboard_table ||
+                  process.env.NODE_ENV !== "production" ||
+                  process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") && (
+                  <UserSwapsTable address={address} isConnected={isConnected} />
+                )}
 
                 <EcosystemSetCarousel />
 

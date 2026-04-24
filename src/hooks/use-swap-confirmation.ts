@@ -11,6 +11,7 @@ import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import { FASTSWAP_API_BASE } from "@/lib/network-config"
 import { TOP_OF_BLOCK_PERCENTILE } from "@/lib/pro-mode"
 import { fetchEthPathTxAndEstimate } from "@/lib/eth-path-tx"
+import { reportClientError } from "@/lib/report-client-error"
 import type { Token } from "@/types/swap"
 
 interface UseSwapConfirmationParams {
@@ -114,6 +115,19 @@ export function useSwapConfirmation({
           return await executePermitPath(inputAmtWei, userAmtOutWei, options)
         }
       } catch (err) {
+        reportClientError(err, {
+          source: "use-swap-confirmation.confirmSwap",
+          path: isEthPath ? "eth" : "permit",
+          fromTokenSymbol: fromToken?.symbol,
+          fromTokenAddress: fromToken?.address,
+          toTokenSymbol: toToken?.symbol,
+          toTokenAddress: toToken?.address,
+          amount,
+          minAmountOut,
+          slippage,
+          deadline,
+          walletAddress: address,
+        })
         handleSwapError(err)
         throw err
       }

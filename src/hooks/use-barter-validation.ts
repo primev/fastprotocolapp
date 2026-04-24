@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { parseUnits } from "viem"
 import { fetchBarterRoute } from "@/lib/barter-api"
+import { reportClientError } from "@/lib/report-client-error"
 import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import type { Token } from "@/types/swap"
 
@@ -124,10 +125,10 @@ export function useBarterValidation({
     // flicker. Successful validation below clears it.
     const currentRequest = ++requestIdRef.current
 
-    const source =
-      fromToken.address === ZERO_ADDRESS
-        ? (WETH_ADDRESS as `0x${string}`)
-        : (fromToken.address as `0x${string}`)
+    const isEthInput = fromToken.address === ZERO_ADDRESS
+    const source = isEthInput
+      ? (WETH_ADDRESS as `0x${string}`)
+      : (fromToken.address as `0x${string}`)
     const target = toToken.address as `0x${string}`
     const sellAmtWei = parseUnits(sellClean, fromToken.decimals).toString()
 
@@ -136,7 +137,7 @@ export function useBarterValidation({
 
     const attempt = async (consecutiveFailures: number): Promise<void> => {
       try {
-        const route = await fetchBarterRoute(source, target, sellAmtWei)
+        const route = await fetchBarterRoute(source, target, sellAmtWei, isEthInput)
 
         if (cancelled || currentRequest !== requestIdRef.current) return
 
@@ -149,11 +150,22 @@ export function useBarterValidation({
         setAmountTooSmall(shortfall > MAX_SLIPPAGE_PCT)
         setBarterUnavailable(false)
         setSettled(true)
-      } catch {
+      } catch (err) {
         if (cancelled || currentRequest !== requestIdRef.current) return
 
         const failures = consecutiveFailures + 1
-        if (failures >= UNAVAILABLE_ERROR_THRESHOLD) {
+        const sustained = failures >= UNAVAILABLE_ERROR_THRESHOLD
+        reportClientError(err, {
+          source: "use-barter-validation.fetchBarterRoute",
+          consecutiveFailures: failures,
+          sustained,
+          sourceToken: source,
+          targetToken: target,
+          sellAmtWei,
+          isEthInput,
+        })
+
+        if (sustained) {
           // Sustained outage — block the swap button, clear any stale Barter data,
           // and mark settled so the UI stops spinning.
           setBarterAmountOut(undefined)
