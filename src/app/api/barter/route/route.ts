@@ -56,19 +56,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: msg }, { status: resp.status })
     }
 
-    // ETH input: user pays L1 gas from their own wallet, so Barter's raw
-    // `outputAmount` (pre-gas) is what the user actually receives. For permit
-    // (ERC-20 in) the relayer pays gas and deducts it from the output, so
-    // `outputWithGasAmount` is the realized user amount. Using the wrong field
-    // on ETH input produces a phantom shortfall vs. the Uniswap quote (which
-    // never subtracts gas) and spuriously trips `amountTooSmall` when L1 gas
-    // is elevated.
-    const outputAmount = isEthInput === true ? data?.outputAmount : data?.outputWithGasAmount
+    // Two distinct fields, two distinct downstream questions:
+    //
+    // - `outputAmount` (pre-gas) is what Barter's router would deliver before
+    //   relayer gas is deducted. This is the realized routing output regardless
+    //   of path, so it's the right basis for *MEV / surplus* estimation
+    //   (`barter_pre_gas - userAmtOut` matches what the FastSettlement contract
+    //   retains as surplus, which is what miles are credited from).
+    //
+    // - `outputWithGasAmount` (post-gas) is what the user actually receives
+    //   after the relayer deducts L1 gas on the permit path; on the ETH path
+    //   the user pays gas themselves, so it equals `outputAmount`. This is the
+    //   right basis for the *amount-too-small* gate (can the user actually
+    //   receive their floor on this trade?).
+    //
+    // Returning both lets the client expose two derived numbers without making
+    // path-specific decisions in the proxy.
+    const outputAmount = data?.outputAmount
+    const outputWithGasAmount = isEthInput === true ? data?.outputAmount : data?.outputWithGasAmount
     const gasEstimation = data?.gasEstimation
     const transactionFee = data?.transactionFee
     const gasPrice = data?.gasPrice
 
-    if (outputAmount == null || gasEstimation == null) {
+    if (outputAmount == null || outputWithGasAmount == null || gasEstimation == null) {
       return NextResponse.json(
         { error: "Barter API error. Invalid route response." },
         { status: 500 }
@@ -76,7 +86,8 @@ export async function POST(request: NextRequest) {
     }
 
     const response: Record<string, unknown> = {
-      outputAmount: String(outputAmount),
+      outputAmount: String(outputWithGasAmount),
+      outputAmountPreGas: String(outputAmount),
       gasEstimation: Number(gasEstimation),
     }
     if (transactionFee != null) response.transactionFee = String(transactionFee)

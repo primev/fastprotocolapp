@@ -49,8 +49,20 @@ interface UseBarterValidationReturn {
   shortfallPct: number
   /** True while validation hasn't completed for current inputs (debounce + fetch) */
   isValidating: boolean
-  /** Barter's routed output amount (wei). Undefined until first successful fetch for current inputs. */
+  /**
+   * Barter's path-adjusted output (post-gas on permit path, pre-gas on ETH path).
+   * Used by the quote-guard floor and `amountTooSmall` gate — represents what the
+   * user actually receives.
+   */
   barterAmountOut: bigint | undefined
+  /**
+   * Barter's pre-gas routing output regardless of path. Used by the miles
+   * estimator to compute `surplus = barterPreGasOutputAmount - userAmtOut`,
+   * which mirrors how the FastSettlement contract retains surplus on-chain.
+   * Falls back to `barterAmountOut` when the proxy doesn't return a separate
+   * value (older deployment, or ETH path where they're equal).
+   */
+  barterPreGasOutputAmount: bigint | undefined
   /**
    * True when Barter's /route endpoint has failed for the current inputs at least
    * UNAVAILABLE_ERROR_THRESHOLD times in a row. Callers should block swap submission
@@ -84,6 +96,9 @@ export function useBarterValidation({
   const [shortfallPct, setShortfallPct] = useState(0)
   const [settled, setSettled] = useState(true)
   const [barterAmountOut, setBarterAmountOut] = useState<bigint | undefined>(undefined)
+  const [barterPreGasOutputAmount, setBarterPreGasOutputAmount] = useState<
+    bigint | undefined
+  >(undefined)
   const [barterUnavailable, setBarterUnavailable] = useState(false)
   const requestIdRef = useRef(0)
 
@@ -98,6 +113,7 @@ export function useBarterValidation({
     if (!enabled || !fromToken || !toToken || !amountOut || amountOut === 0n) {
       setShortfallPct(0)
       setBarterAmountOut(undefined)
+      setBarterPreGasOutputAmount(undefined)
       setBarterUnavailable(false)
       setSettled(true)
       lastSettledKeyRef.current = ""
@@ -109,6 +125,7 @@ export function useBarterValidation({
     if (!sellClean || parseFloat(sellClean) <= 0) {
       setShortfallPct(0)
       setBarterAmountOut(undefined)
+      setBarterPreGasOutputAmount(undefined)
       setBarterUnavailable(false)
       setSettled(true)
       lastSettledKeyRef.current = ""
@@ -121,6 +138,7 @@ export function useBarterValidation({
     setSettled(false)
     setShortfallPct(0)
     setBarterAmountOut(undefined)
+    setBarterPreGasOutputAmount(undefined)
     // Do NOT reset barterUnavailable here — if we're in an outage, leaving it true
     // across input changes avoids "swap button enables for 300ms then blocks again"
     // flicker. Successful validation below clears it.
@@ -143,10 +161,12 @@ export function useBarterValidation({
         if (cancelled || currentRequest !== requestIdRef.current) return
 
         const barterOut = BigInt(route.outputAmount)
+        const barterPreGas = BigInt(route.outputAmountPreGas)
         const shortfall =
           amountOut > 0n ? Number(((amountOut - barterOut) * 10000n) / amountOut) / 100 : 0
 
         setBarterAmountOut(barterOut)
+        setBarterPreGasOutputAmount(barterPreGas)
         setShortfallPct(Math.max(0, shortfall))
         setBarterUnavailable(false)
         setSettled(true)
@@ -158,6 +178,7 @@ export function useBarterValidation({
           // Sustained outage — block the swap button, clear any stale Barter data,
           // and mark settled so the UI stops spinning.
           setBarterAmountOut(undefined)
+          setBarterPreGasOutputAmount(undefined)
           setShortfallPct(0)
           setBarterUnavailable(true)
           setSettled(true)
@@ -197,6 +218,7 @@ export function useBarterValidation({
     shortfallPct,
     isValidating: !settled,
     barterAmountOut,
+    barterPreGasOutputAmount,
     barterUnavailable,
   }
 }

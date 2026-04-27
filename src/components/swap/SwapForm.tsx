@@ -52,6 +52,8 @@ export function SwapForm() {
   const { estimatedMiles: rawEstimatedMiles } = useEstimatedMiles({
     amountOut: milesAmountOut,
     slippage: form.slippage,
+    toTokenDecimals: form.toToken?.decimals ?? null,
+    barterPreGasOutputAmount: form.barterPreGasOutputAmount,
     toTokenPrice: form.toPrice,
     ethPrice: form.ethPrice,
     isEthOutput,
