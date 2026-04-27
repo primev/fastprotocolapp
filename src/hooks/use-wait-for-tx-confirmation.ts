@@ -9,7 +9,7 @@ import { getTxConfirmationTimeoutMs } from "@/lib/tx-config"
 import { RPCError, buildRevertMessage } from "@/lib/transaction-errors"
 
 /** Standard user-facing copy for swap failures. Detail belongs in logs, not the toast. */
-const SWAP_FAILED_MESSAGE = "Swap Failed, please try again"
+const SWAP_FAILED_MESSAGE = "Swap was dropped by the network, please try again"
 
 /**
  * Returns an Error with a friendly user-facing message that still carries the
