@@ -92,7 +92,15 @@ Whenever the effective slippage — auto-bumped or custom — crosses **5%**, an
 
 > Slippage above 5% is unusual. You will earn more miles, but will likely receive less tokens.
 
-That tradeoff is real. Higher slippage tolerance means more price room for a builder to capture mev — which can increase your Miles earnings — but it also means your worst-case execution price is further from the quote. For ordinary swaps, stick with auto at its base tier.
+That tradeoff is architectural, not advisory. On Fast Protocol, the settlement contract pays you exactly your slippage floor (the minimum you signed for) and retains everything above as **surplus** — which becomes your Miles. So a wider slippage means:
+
+- Your floor (the tokens you actually receive) drops proportionally
+- The retained surplus grows by the same amount
+- Your Miles balance grows in lockstep with that surplus
+
+At 0.5% slippage on a 1 ETH-equivalent trade, your floor is 0.995 of quote and any extra room becomes a small Miles credit. At 50% slippage on the same trade, your floor is 0.5 of quote — half the trade value flows through as Miles instead of tokens. That's mechanically what the contract does; it's not an estimate or a probability.
+
+For ordinary swaps, stick with auto at its base tier — the goal of normal trading is to receive tokens, not maximize Miles. Wider slippage is for cases where you specifically prefer Miles to tokens, or where market conditions require it.
 
 ### Deadline
 
