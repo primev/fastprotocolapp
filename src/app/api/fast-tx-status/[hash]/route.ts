@@ -16,19 +16,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const client = getAnalyticsClient()
     const rows = await client.executeRaw(
-      `SELECT status FROM mctransactions WHERE lower(hash) = lower(:hash) LIMIT 1`,
+      `SELECT status, details FROM mctransactions WHERE lower(hash) = lower(:hash) LIMIT 1`,
       { hash },
       { catalog: "fastrpc", timeout: 5000 }
     )
 
     if (rows.length === 0) {
-      return NextResponse.json({ status: null })
+      return NextResponse.json({ status: null, details: null })
     }
 
-    const status = rows[0][0] as string
-    return NextResponse.json({ status })
+    const [status, details] = rows[0] as [string | null, string | null]
+    return NextResponse.json({ status: status ?? null, details: details ?? null })
   } catch (error) {
     console.error("[fast-tx-status] Query failed:", error)
-    return NextResponse.json({ status: null, error: "Query failed" }, { status: 500 })
+    return NextResponse.json(
+      { status: null, details: null, error: "Query failed" },
+      { status: 500 }
+    )
   }
 }
