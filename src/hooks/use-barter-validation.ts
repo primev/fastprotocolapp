@@ -8,7 +8,6 @@ import { ZERO_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 import type { Token } from "@/types/swap"
 
 const DEBOUNCE_MS = 300
-const MAX_SLIPPAGE_PCT = 2.0
 /**
  * Delay before retrying a failed `/route` call within the same validation cycle.
  * Chosen short enough that a single transient blip (one 500 response, one TCP
@@ -35,18 +34,36 @@ interface UseBarterValidationParams {
   sellAmount: string
   /** Monotonic counter — increments on each Uniswap requote so we re-validate even when amountOut is unchanged */
   quoteGeneration: number
+  /**
+   * User's current slippage tolerance in percent (e.g. 2, 5, 50). amountTooSmall
+   * is derived from this — raising the tolerance re-evaluates the cached shortfall
+   * instantly without a new Barter API call.
+   */
+  maxSlippagePct: number
   enabled: boolean
 }
 
 interface UseBarterValidationReturn {
-  /** True when the amount is too small for Barter to route within 2% slippage */
+  /** True when observed Barter shortfall exceeds the user's current slippage tolerance */
   amountTooSmall: boolean
   /** Observed shortfall percentage between Uniswap quote and Barter output (0 when unknown) */
   shortfallPct: number
   /** True while validation hasn't completed for current inputs (debounce + fetch) */
   isValidating: boolean
-  /** Barter's routed output amount (wei). Undefined until first successful fetch for current inputs. */
+  /**
+   * Barter's path-adjusted output (post-gas on permit path, pre-gas on ETH path).
+   * Used by the quote-guard floor and `amountTooSmall` gate — represents what the
+   * user actually receives.
+   */
   barterAmountOut: bigint | undefined
+  /**
+   * Barter's pre-gas routing output regardless of path. Used by the miles
+   * estimator to compute `surplus = barterPreGasOutputAmount - userAmtOut`,
+   * which mirrors how the FastSettlement contract retains surplus on-chain.
+   * Falls back to `barterAmountOut` when the proxy doesn't return a separate
+   * value (older deployment, or ETH path where they're equal).
+   */
+  barterPreGasOutputAmount: bigint | undefined
   /**
    * True when Barter's /route endpoint has failed for the current inputs at least
    * UNAVAILABLE_ERROR_THRESHOLD times in a row. Callers should block swap submission
@@ -74,12 +91,15 @@ export function useBarterValidation({
   amountOut,
   sellAmount,
   quoteGeneration,
+  maxSlippagePct,
   enabled,
 }: UseBarterValidationParams): UseBarterValidationReturn {
-  const [amountTooSmall, setAmountTooSmall] = useState(false)
   const [shortfallPct, setShortfallPct] = useState(0)
   const [settled, setSettled] = useState(true)
   const [barterAmountOut, setBarterAmountOut] = useState<bigint | undefined>(undefined)
+  const [barterPreGasOutputAmount, setBarterPreGasOutputAmount] = useState<bigint | undefined>(
+    undefined
+  )
   const [barterUnavailable, setBarterUnavailable] = useState(false)
   const requestIdRef = useRef(0)
 
@@ -92,9 +112,9 @@ export function useBarterValidation({
   useEffect(() => {
     // Reset when disabled or missing inputs
     if (!enabled || !fromToken || !toToken || !amountOut || amountOut === 0n) {
-      setAmountTooSmall(false)
       setShortfallPct(0)
       setBarterAmountOut(undefined)
+      setBarterPreGasOutputAmount(undefined)
       setBarterUnavailable(false)
       setSettled(true)
       lastSettledKeyRef.current = ""
@@ -104,9 +124,9 @@ export function useBarterValidation({
 
     const sellClean = sellAmount?.replace(/,/g, "").trim()
     if (!sellClean || parseFloat(sellClean) <= 0) {
-      setAmountTooSmall(false)
       setShortfallPct(0)
       setBarterAmountOut(undefined)
+      setBarterPreGasOutputAmount(undefined)
       setBarterUnavailable(false)
       setSettled(true)
       lastSettledKeyRef.current = ""
@@ -117,9 +137,9 @@ export function useBarterValidation({
     // Inputs changed — mark unsettled immediately (no gap for swap button to flash)
     lastSettledKeyRef.current = inputKey
     setSettled(false)
-    setAmountTooSmall(false)
     setShortfallPct(0)
     setBarterAmountOut(undefined)
+    setBarterPreGasOutputAmount(undefined)
     // Do NOT reset barterUnavailable here — if we're in an outage, leaving it true
     // across input changes avoids "swap button enables for 300ms then blocks again"
     // flicker. Successful validation below clears it.
@@ -142,12 +162,13 @@ export function useBarterValidation({
         if (cancelled || currentRequest !== requestIdRef.current) return
 
         const barterOut = BigInt(route.outputAmount)
+        const barterPreGas = BigInt(route.outputAmountPreGas)
         const shortfall =
           amountOut > 0n ? Number(((amountOut - barterOut) * 10000n) / amountOut) / 100 : 0
 
         setBarterAmountOut(barterOut)
+        setBarterPreGasOutputAmount(barterPreGas)
         setShortfallPct(Math.max(0, shortfall))
-        setAmountTooSmall(shortfall > MAX_SLIPPAGE_PCT)
         setBarterUnavailable(false)
         setSettled(true)
       } catch (err) {
@@ -169,7 +190,7 @@ export function useBarterValidation({
           // Sustained outage — block the swap button, clear any stale Barter data,
           // and mark settled so the UI stops spinning.
           setBarterAmountOut(undefined)
-          setAmountTooSmall(false)
+          setBarterPreGasOutputAmount(undefined)
           setShortfallPct(0)
           setBarterUnavailable(true)
           setSettled(true)
@@ -198,11 +219,18 @@ export function useBarterValidation({
     }
   }, [fromToken, toToken, amountOut, sellAmount, quoteGeneration, enabled, inputKey])
 
+  // Derive amountTooSmall from cached shortfall + live slippage tolerance.
+  // This lets the gate re-evaluate instantly when the user bumps their slippage
+  // (no extra Barter API call, no "calculating" flicker) while still accurately
+  // reflecting whether the current tolerance covers the measured shortfall.
+  const amountTooSmall = settled && shortfallPct > 0 && shortfallPct > maxSlippagePct
+
   return {
     amountTooSmall,
     shortfallPct,
     isValidating: !settled,
     barterAmountOut,
+    barterPreGasOutputAmount,
     barterUnavailable,
   }
 }

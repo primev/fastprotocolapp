@@ -16,7 +16,7 @@ The swap button (`ActionButton.tsx`) is a priority cascade — the first matchin
 | 4 | No amount entered (empty or "0") | **Enter an amount** | Gray, disabled |
 | 5 | Balance < entered amount | **Insufficient balance** | Gray, disabled |
 | 6 | No Uniswap pool/route exists | **This trade cannot be completed right now** | Gray, disabled |
-| 7 | Barter output shortfall > 2% | **Amount too small to swap** | Amber warning, disabled |
+| 7 | Barter output shortfall > user's current slippage tolerance | **Amount too small to swap** | Amber warning, disabled (see [slippage-and-amount-too-small-guard.md](./slippage-and-amount-too-small-guard.md)) |
 | 8 | Quote loading or Barter validating | **Calculating...** | Gray, disabled, spinner (1.5s min display to prevent flicker) |
 | 9 | Permit2 nonce loading | **Initializing...** | Gray, disabled, spinner |
 | 10 | All checks pass, wrap pair | **Wrap** | Gradient, clickable |

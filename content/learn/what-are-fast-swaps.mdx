@@ -65,9 +65,46 @@ Swaps route through existing Ethereum liquidity — the protocol doesn't operate
 
 ## Slippage and execution
 
-Because fast swaps confirm before the block, you face less execution uncertainty than standard swaps. The price you see is close to the price you get, since the builder commits to a specific execution within 200ms rather than leaving your transaction exposed to a full block of price movement.
+Slippage is the maximum price movement you accept between quote and execution. If the actual output falls below your tolerance, the swap reverts instead of filling at a worse price.
 
-Slippage tolerance still matters for volatile pairs, but the window of exposure is compressed from 12+ seconds to sub-second.
+Because fast swaps confirm in ~200ms, your window of price exposure is compressed from a full 12+ second block down to sub-second — so the tolerance you need is typically much smaller than on a standard DEX. Fast Protocol leans into that with an **auto mode** that keeps defaults tight.
+
+### Auto mode (default)
+
+Auto mode picks the smallest tolerance that still lets the swap route reliably:
+
+- **0.5%** when you're selling ETH
+- **1%** when you're selling an ERC-20 token (the permit path carries slightly more routing overhead)
+
+If the router reports that the route can't actually deliver within the base tolerance — for example, because gas has spiked or the pair is temporarily thin — auto mode bumps your tolerance to **just above the observed routing shortfall, plus a small buffer**. The buffer is there so a subsequent quote refresh reporting slightly higher shortfall doesn't immediately re-block you.
+
+Concrete example: if the route would deliver 2.7% less than the quote, auto sets your slippage to **3.2%** (2.7% rounded up + 0.5% buffer). If it would deliver 7.1% less, auto sets **7.6%**. Auto will scale up to the 50% ceiling if that's what the route actually needs — the design goal is that auto should unblock the swap, not strand you at a static value that wasn't enough.
+
+When an auto-bump happens, the confirmation screen shows a note: *"Your slippage has been auto-adjusted to cover gas costs."*
+
+### Custom mode
+
+For volatile pairs, large trades, or tokens with transfer taxes, you can switch to **Custom** and set any value from the path floor (0.5% or 1%) up to **50%** — the same ceiling Uniswap uses.
+
+### The >5% warning
+
+Whenever the effective slippage — auto-bumped or custom — crosses **5%**, an amber banner opens in the settings popover:
+
+> Slippage above 5% is unusual. You will earn more miles, but will likely receive less tokens.
+
+That tradeoff is architectural, not advisory. On Fast Protocol, the settlement contract pays you exactly your slippage floor (the minimum you signed for) and retains everything above as **surplus** — which becomes your Miles. So a wider slippage means:
+
+- Your floor (the tokens you actually receive) drops proportionally
+- The retained surplus grows by the same amount
+- Your Miles balance grows in lockstep with that surplus
+
+At 0.5% slippage on a 1 ETH-equivalent trade, your floor is 0.995 of quote and any extra room becomes a small Miles credit. At 50% slippage on the same trade, your floor is 0.5 of quote — half the trade value flows through as Miles instead of tokens. That's mechanically what the contract does; it's not an estimate or a probability.
+
+For ordinary swaps, stick with auto at its base tier — the goal of normal trading is to receive tokens, not maximize Miles. Wider slippage is for cases where you specifically prefer Miles to tokens, or where market conditions require it.
+
+### Deadline
+
+The swap deadline (default 30 minutes) controls how long the signed order remains valid. If the transaction isn't included within that window, it expires instead of executing at a stale price. Because fast swaps confirm in ~200ms, the deadline is effectively just a safety net for network-level failures.
 
 <TryItCTA href="/" label="Try a fast swap" />
 

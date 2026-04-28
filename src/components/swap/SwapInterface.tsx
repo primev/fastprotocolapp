@@ -20,6 +20,7 @@ const TransactionSettings = dynamic(
 // Types
 import { Token } from "@/types/swap"
 import { QuoteResult } from "@/hooks/use-swap-quote"
+import type { SlippageMode, SlippageWarning } from "@/hooks/use-swap-slippage"
 import { UseBalanceReturnType } from "wagmi"
 
 /**
@@ -33,9 +34,16 @@ interface SwapInterfaceProps {
   setIsSettingsOpen: (open: boolean) => void
   slippage: string
   handleSlippageChange: (slippage: string) => void
+  commitSlippage: () => void
   internalDeadline: number
   setInternalDeadline: (deadline: number) => void
   isMounted: boolean
+  slippageMode: SlippageMode
+  setSlippageMode: (mode: SlippageMode) => void
+  slippageCustomMin: number
+  slippageAutoBase: number
+  slippageAutoBumpedForGas: boolean
+  slippageWarning: SlippageWarning
 
   // Input Asset (Sell) State
   fromToken: Token | null
@@ -105,9 +113,16 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
     setIsSettingsOpen,
     slippage,
     handleSlippageChange,
+    commitSlippage,
     internalDeadline,
     setInternalDeadline,
     isMounted,
+    slippageMode,
+    setSlippageMode,
+    slippageCustomMin,
+    slippageAutoBase,
+    slippageAutoBumpedForGas,
+    slippageWarning,
     fromToken,
     formattedFromBalance,
     sellDisplayValue,
@@ -171,9 +186,16 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         setIsSettingsOpen={setIsSettingsOpen}
         slippage={slippage}
         handleSlippageChange={handleSlippageChange}
+        commitSlippage={commitSlippage}
         internalDeadline={internalDeadline}
         setInternalDeadline={setInternalDeadline}
         isMounted={isMounted}
+        mode={slippageMode}
+        setMode={setSlippageMode}
+        customMin={slippageCustomMin}
+        autoBase={slippageAutoBase}
+        autoBumpedForGas={slippageAutoBumpedForGas}
+        slippageWarning={slippageWarning}
       />
 
       {/* 2. CORE SWAP CARDS
