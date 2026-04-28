@@ -13,6 +13,63 @@ const USER_MEV_SHARE = 0.9
 const MILES_PER_ETH = 100_000
 /** How often to refresh bid estimate from FastRPC (ms) — roughly 1 block */
 const BID_ESTIMATE_POLL_MS = 12_000
+
+/**
+ * Compute the on-chain surplus (in ETH) the FastSettlement contract would
+ * retain from this trade, given Barter's pre-gas routed output and the user's
+ * slippage tolerance.
+ *
+ *   userAmtOut   = uniswapAmountOut × (1 − slippage / 100)
+ *   surplus_tok  = max(0, barterPreGas − userAmtOut)
+ *   surplus_eth  = surplus_tok converted to ETH (using prices on non-ETH output)
+ *
+ * Returns `null` when inputs are invalid or insufficient — caller should fall
+ * back to the Edge Config rate-based formula in that case.
+ *
+ * Exported for testing.
+ */
+export function computeSurplusEth(args: {
+  parsedAmountOut: number
+  slippagePct: number
+  barterPreGasOutputAmount: bigint
+  toTokenDecimals: number
+  isEthOutput: boolean
+  toTokenPrice: number | null
+  ethPrice: number | null
+}): number | null {
+  const {
+    parsedAmountOut,
+    slippagePct,
+    barterPreGasOutputAmount,
+    toTokenDecimals,
+    isEthOutput,
+    toTokenPrice,
+    ethPrice,
+  } = args
+
+  if (
+    !Number.isFinite(parsedAmountOut) ||
+    parsedAmountOut <= 0 ||
+    !Number.isFinite(slippagePct) ||
+    slippagePct < 0 ||
+    barterPreGasOutputAmount <= 0n ||
+    toTokenDecimals < 0
+  ) {
+    return null
+  }
+
+  const decimalsScale = 10 ** toTokenDecimals
+  const barterPreGasHuman = Number(barterPreGasOutputAmount) / decimalsScale
+  const userAmtOutHuman = parsedAmountOut * (1 - slippagePct / 100)
+  const surplusHuman = Math.max(0, barterPreGasHuman - userAmtOutHuman)
+
+  if (isEthOutput) return surplusHuman
+
+  if (toTokenPrice == null || toTokenPrice <= 0 || ethPrice == null || ethPrice <= 0) {
+    return null
+  }
+  return (surplusHuman * toTokenPrice) / ethPrice
+}
 /**
  * Fallback surplus rate — used until Edge Config value is fetched.
  * Updated daily by the miles-estimate-gas cron job: p25 of
@@ -25,6 +82,22 @@ const DEFAULT_SURPLUS_RATE = 0.0056
 interface UseEstimatedMilesParams {
   amountOut: string
   slippage: string
+  /**
+   * Decimals of the output token. Required to convert `barterPreGasOutputAmount`
+   * (wei) to a human-readable amount for the surplus comparison.
+   */
+  toTokenDecimals: number | null
+  /**
+   * Barter's pre-gas routed output (wei). When present, drives the
+   * slippage-aware surplus formula: `surplus = barterPreGasOutputAmount −
+   * userAmtOut`. Mirrors what the FastSettlement contract retains as surplus
+   * on-chain (see `IntentExecuted` event in FastSettlementV3).
+   *
+   * When undefined (Barter still validating, unavailable, or wrap/unwrap),
+   * the estimator falls back to `surplusRate × outputInEth` from Edge Config
+   * so the badge has a value to show.
+   */
+  barterPreGasOutputAmount: bigint | undefined
   toTokenPrice: number | null
   ethPrice: number | null
   isEthOutput: boolean
@@ -36,6 +109,8 @@ interface UseEstimatedMilesParams {
 export function useEstimatedMiles({
   amountOut,
   slippage,
+  toTokenDecimals,
+  barterPreGasOutputAmount,
   toTokenPrice,
   ethPrice,
   isEthOutput,
@@ -163,9 +238,43 @@ export function useEstimatedMiles({
       outputInEth = (parsedAmountOut * toTokenPrice) / ethPrice
     }
 
-    // MEV pot in ETH = median surplus rate (from Edge Config) × outputInEth.
+    // MEV pot in ETH.
+    //
+    // Preferred path — use the slippage-aware surplus formula, mirroring what
+    // the FastSettlement contract retains on-chain:
+    //   surplus = barterPreGasOutputAmount − userAmtOut
+    //   userAmtOut = uniswapAmountOut × (1 − slippage / 100)
+    // The contract's `received - userAmtOut` becomes the surplus that's later
+    // credited to the user as miles. Computing the same quantity from Barter's
+    // pre-gas routing output gives a slippage-reactive estimate without any
+    // capture-rate cap or hand-tuned constant.
+    //
+    // Fallback path — when Barter hasn't settled yet, is unavailable, or the
+    // output decimals are unknown, fall back to `surplusRate × outputInEth`
+    // from Edge Config so the badge still shows a number.
     const curSurplusRate = surplusRateRef.current
-    const slippageAmountEth = curSurplusRate * outputInEth
+    const slippagePct = parseFloat(slippage)
+    let slippageAmountEth: number
+    let formulaSource: "barter-surplus" | "edge-config-fallback"
+    const surplusFromBarter =
+      barterPreGasOutputAmount != null && toTokenDecimals != null
+        ? computeSurplusEth({
+            parsedAmountOut,
+            slippagePct,
+            barterPreGasOutputAmount,
+            toTokenDecimals,
+            isEthOutput,
+            toTokenPrice,
+            ethPrice,
+          })
+        : null
+    if (surplusFromBarter != null) {
+      slippageAmountEth = surplusFromBarter
+      formulaSource = "barter-surplus"
+    } else {
+      slippageAmountEth = curSurplusRate * outputInEth
+      formulaSource = "edge-config-fallback"
+    }
 
     // Bid cost: priority fee × avg gas limit (bid = priorityFee × txn.Gas())
     const bidCostEth = Number(curPriorityFee * curAvgGasLimit) / 1e18
@@ -192,15 +301,20 @@ export function useEstimatedMiles({
     const miles = netMevEth > 0 ? Math.floor(userMevEth * MILES_PER_ETH) : 0
 
     console.log(
-      `[useEstimatedMiles] ${miles} miles | ${isPermitPath ? "permit" : "ETH"} path\n` +
+      `[useEstimatedMiles] ${miles} miles | ${isPermitPath ? "permit" : "ETH"} path | source=${formulaSource}\n` +
         `\n` +
         `  Step 1: Convert output to ETH\n` +
         (isEthOutput
           ? `    outputInEth = ${parsedAmountOut} (native ETH output)\n`
           : `    outputInEth = ${parsedAmountOut} × $${toTokenPrice?.toFixed(2)} / $${ethPrice?.toFixed(2)} = ${outputInEth.toFixed(6)} ETH\n`) +
         `\n` +
-        `  Step 2: MEV pot (median surplus rate = ${(curSurplusRate * 100).toFixed(2)}% of output)\n` +
-        `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${curSurplusRate} = ${slippageAmountEth.toFixed(8)} ETH\n` +
+        (formulaSource === "barter-surplus"
+          ? `  Step 2: MEV pot (slippage-aware: barterPreGas − userAmtOut)\n` +
+            `    slippage = ${slippagePct}%\n` +
+            `    userAmtOut = ${parsedAmountOut} × (1 − ${slippagePct}/100)\n` +
+            `    slippageAmountEth = ${slippageAmountEth.toFixed(8)} ETH\n`
+          : `  Step 2: MEV pot (Edge Config fallback: surplusRate × output)\n` +
+            `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${curSurplusRate} = ${slippageAmountEth.toFixed(8)} ETH\n`) +
         `\n` +
         `  Step 3: Bid cost (FastRPC bid estimate × avgGasLimit from Edge Config)\n` +
         `    bidCostEth = ${curPriorityFee.toString()} wei × ${curAvgGasLimit.toString()} gasLimit / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
@@ -228,7 +342,18 @@ export function useEstimatedMiles({
     // read from refs and don't cause recalculation. Only user-driven changes (amountOut,
     // slippage) and price updates trigger recalculation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [amountOut, slippage, enabled, gasReady, toTokenPrice, ethPrice, isEthOutput, isPermitPath])
+  }, [
+    amountOut,
+    slippage,
+    barterPreGasOutputAmount,
+    toTokenDecimals,
+    enabled,
+    gasReady,
+    toTokenPrice,
+    ethPrice,
+    isEthOutput,
+    isPermitPath,
+  ])
 
   // Update ref outside useMemo to avoid React error #300 (state mutation during render)
   if (rawMiles != null) lastMilesRef.current = rawMiles

@@ -20,11 +20,16 @@ function getApiBase(): string {
  * @param target - Target token address
  * @param sellAmount - Amount to sell in wei (as string)
  * @param isEthInput - True when the user is spending native ETH (pays L1 gas
- *   themselves). Picks Barter's pre-gas `outputAmount` instead of
- *   `outputWithGasAmount` so the returned figure reflects what the user
- *   actually receives and isn't double-counted against the Uniswap quote in
- *   shortfall/quote-guard comparisons.
- * @returns outputAmount, gasEstimation, and optionally transactionFee and gasPrice
+ *   themselves). Determines which Barter field is returned as `outputAmount`
+ *   for the amount-too-small gate; `outputAmountPreGas` is always Barter's
+ *   raw routing output regardless of path (used for surplus / miles math).
+ * @returns
+ *   - `outputAmount`: post-gas output for the active path (eth-input == permit
+ *     -gas, eth-input == raw). Use for amount-too-small gating.
+ *   - `outputAmountPreGas`: Barter's pre-gas routing output regardless of
+ *     path. Use for MEV surplus estimation (matches what the FastSettlement
+ *     contract retains as `received - userAmtOut`).
+ *   - `gasEstimation`, plus optional `transactionFee` and `gasPrice`.
  */
 export async function fetchBarterRoute(
   source: Address,
@@ -33,6 +38,7 @@ export async function fetchBarterRoute(
   isEthInput: boolean = false
 ): Promise<{
   outputAmount: string
+  outputAmountPreGas: string
   gasEstimation: number
   transactionFee?: string
   gasPrice?: string
@@ -77,19 +83,25 @@ export async function fetchBarterRoute(
   }
 
   const outputAmount = data?.outputAmount
+  // Older proxy responses didn't include `outputAmountPreGas`; fall back to
+  // outputAmount on ETH path (where they're identical anyway). Permit-path
+  // callers that need true pre-gas should ensure proxy is upgraded.
+  const outputAmountPreGas = data?.outputAmountPreGas ?? data?.outputAmount
   const gasEstimation = data?.gasEstimation
 
-  if (outputAmount == null || gasEstimation == null) {
+  if (outputAmount == null || outputAmountPreGas == null || gasEstimation == null) {
     throw new Error("Barter API error. Invalid route response.")
   }
 
   const result: {
     outputAmount: string
+    outputAmountPreGas: string
     gasEstimation: number
     transactionFee?: string
     gasPrice?: string
   } = {
     outputAmount: String(outputAmount),
+    outputAmountPreGas: String(outputAmountPreGas),
     gasEstimation: Number(gasEstimation),
   }
   if (data?.transactionFee != null) result.transactionFee = String(data.transactionFee)

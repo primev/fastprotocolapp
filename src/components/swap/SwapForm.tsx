@@ -52,6 +52,8 @@ export function SwapForm() {
   const { estimatedMiles: rawEstimatedMiles } = useEstimatedMiles({
     amountOut: milesAmountOut,
     slippage: form.slippage,
+    toTokenDecimals: form.toToken?.decimals ?? null,
+    barterPreGasOutputAmount: form.barterPreGasOutputAmount,
     toTokenPrice: form.toPrice,
     ethPrice: form.ethPrice,
     isEthOutput,
@@ -131,9 +133,16 @@ export function SwapForm() {
         setIsSettingsOpen={setIsSettingsOpen}
         slippage={form.slippage}
         handleSlippageChange={form.updateSlippage}
+        commitSlippage={form.commitSlippage}
         internalDeadline={form.deadline}
         setInternalDeadline={form.updateDeadline}
         isMounted={form.isMounted}
+        slippageMode={form.mode}
+        setSlippageMode={form.setMode}
+        slippageCustomMin={form.customMin}
+        slippageAutoBase={form.autoBase}
+        slippageAutoBumpedForGas={form.autoBumpedForGas}
+        slippageWarning={form.slippageWarning}
         // From Token Props
         fromToken={form.fromToken!}
         formattedFromBalance={formatBalance(
@@ -258,6 +267,7 @@ export function SwapForm() {
           exchangeRate={form.isWrapUnwrap ? 1 : form.displayQuote?.exchangeRate || 1}
           priceImpact={form.isWrapUnwrap ? 0 : form.displayQuote?.priceImpact || 0}
           slippage={form.slippage}
+          autoAdjustedForGas={form.autoBumpedForGas}
           deadline={
             typeof form.deadline === "number" && !Number.isNaN(form.deadline) ? form.deadline : 30
           }
