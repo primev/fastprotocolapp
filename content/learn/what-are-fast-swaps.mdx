@@ -78,7 +78,7 @@ Auto mode picks the smallest tolerance that still lets the swap route reliably:
 
 If the router reports that the route can't actually deliver within the base tolerance — for example, because gas has spiked or the pair is temporarily thin — auto mode bumps your tolerance to **just above the observed routing shortfall, plus a small buffer**. The buffer is there so a subsequent quote refresh reporting slightly higher shortfall doesn't immediately re-block you.
 
-Concrete example: if Barter's router reports it would deliver 2.7% less than the quote, auto sets your slippage to **3.2%** (2.7% rounded up + 0.5% buffer). If it reports 7.1%, auto sets **7.6%**. Auto will scale up to the 50% ceiling if that's what the route actually needs — the design goal is that auto should unblock the swap, not strand you at a static 2% that wasn't enough.
+Concrete example: if the route would deliver 2.7% less than the quote, auto sets your slippage to **3.2%** (2.7% rounded up + 0.5% buffer). If it would deliver 7.1% less, auto sets **7.6%**. Auto will scale up to the 50% ceiling if that's what the route actually needs — the design goal is that auto should unblock the swap, not strand you at a static value that wasn't enough.
 
 When an auto-bump happens, the confirmation screen shows a note: *"Your slippage has been auto-adjusted to cover gas costs."*
 
