@@ -13,13 +13,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { source, target, sellAmount, isEthInput } =
-      (body ?? {}) as {
-        source?: string
-        target?: string
-        sellAmount?: string
-        isEthInput?: boolean
-      }
+    const { source, target, sellAmount, isEthInput } = (body ?? {}) as {
+      source?: string
+      target?: string
+      sellAmount?: string
+      isEthInput?: boolean
+    }
 
     if (!source || !target || !sellAmount) {
       return NextResponse.json(

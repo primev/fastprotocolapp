@@ -105,9 +105,7 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
             <div className="overflow-hidden">
               <div className="pb-3">
                 <div className="rounded-xl px-3 py-2 border border-amber-500/30 bg-amber-500/10">
-                  <span className="text-[12px] leading-snug text-amber-200">
-                    {WARNING_MESSAGE}
-                  </span>
+                  <span className="text-[12px] leading-snug text-amber-200">{WARNING_MESSAGE}</span>
                 </div>
               </div>
             </div>
@@ -144,9 +142,7 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
                     onClick={() => setMode("auto")}
                     className={cn(
                       "text-[12px] font-semibold px-3 py-1 rounded-full transition-all",
-                      mode === "auto"
-                        ? "bg-primary text-black"
-                        : "text-zinc-400 hover:text-white"
+                      mode === "auto" ? "bg-primary text-black" : "text-zinc-400 hover:text-white"
                     )}
                   >
                     Auto
@@ -156,9 +152,7 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
                     onClick={() => setMode("custom")}
                     className={cn(
                       "text-[12px] font-semibold px-3 py-1 rounded-full transition-all",
-                      mode === "custom"
-                        ? "bg-primary text-black"
-                        : "text-zinc-400 hover:text-white"
+                      mode === "custom" ? "bg-primary text-black" : "text-zinc-400 hover:text-white"
                     )}
                   >
                     Custom

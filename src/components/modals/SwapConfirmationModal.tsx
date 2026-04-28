@@ -281,8 +281,7 @@ function SwapConfirmationModal({
   const exchangeRate = snapshotRef.current?.exchangeRate ?? exchangeRateLive
   const priceImpact = snapshotRef.current?.priceImpact ?? priceImpactLive
   const slippage = snapshotRef.current?.slippage ?? slippageLive
-  const autoAdjustedForGas =
-    snapshotRef.current?.autoAdjustedForGas ?? autoAdjustedForGasLive
+  const autoAdjustedForGas = snapshotRef.current?.autoAdjustedForGas ?? autoAdjustedForGasLive
   const deadline = snapshotRef.current?.deadline ?? deadlineLive
   const gasEstimate = snapshotRef.current?.gasEstimate ?? gasEstimateLive
   const ethPrice = snapshotRef.current?.ethPrice ?? ethPriceLive

@@ -97,9 +97,9 @@ export function useBarterValidation({
   const [shortfallPct, setShortfallPct] = useState(0)
   const [settled, setSettled] = useState(true)
   const [barterAmountOut, setBarterAmountOut] = useState<bigint | undefined>(undefined)
-  const [barterPreGasOutputAmount, setBarterPreGasOutputAmount] = useState<
-    bigint | undefined
-  >(undefined)
+  const [barterPreGasOutputAmount, setBarterPreGasOutputAmount] = useState<bigint | undefined>(
+    undefined
+  )
   const [barterUnavailable, setBarterUnavailable] = useState(false)
   const requestIdRef = useRef(0)
 
