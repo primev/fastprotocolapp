@@ -8,6 +8,41 @@ import { fetchCommitmentStatus } from "@/lib/fast-rpc-status"
 import { getTxConfirmationTimeoutMs } from "@/lib/tx-config"
 import { RPCError, buildRevertMessage } from "@/lib/transaction-errors"
 
+/** Standard user-facing copy for swap failures. Detail belongs in logs, not the toast. */
+const SWAP_FAILED_MESSAGE = "Swap was dropped by the network, please try again"
+
+/**
+ * Returns an Error with a friendly user-facing message that still carries the
+ * underlying error's diagnostic fields (cause, viem `shortMessage`/`details`/
+ * `metaMessages`/`walk`, original stack) so `reportClientError` forwards them
+ * verbatim to Vercel — and so the toast UI never has to show raw RPC strings.
+ */
+function buildSwapFailedError(cause: unknown, fallbackDetails?: string | null): Error {
+  const e = new Error(SWAP_FAILED_MESSAGE)
+  if (cause != null) {
+    ;(e as { cause?: unknown }).cause = cause
+    if (typeof cause === "object") {
+      const c = cause as {
+        shortMessage?: unknown
+        details?: unknown
+        metaMessages?: unknown
+        walk?: unknown
+        stack?: unknown
+      }
+      const decorated = e as unknown as Record<string, unknown>
+      if (typeof c.shortMessage === "string") decorated.shortMessage = c.shortMessage
+      if (typeof c.details === "string") decorated.details = c.details
+      if (Array.isArray(c.metaMessages)) decorated.metaMessages = c.metaMessages
+      if (typeof c.walk === "function") decorated.walk = (c.walk as Function).bind(c)
+      if (typeof c.stack === "string") decorated.stack = c.stack
+    }
+  }
+  if (fallbackDetails && !(e as { details?: unknown }).details) {
+    ;(e as { details?: unknown }).details = fallbackDetails
+  }
+  return e
+}
+
 /**
  * Adaptive polling: starts fast to catch sub-second preconfirmations,
  * then backs off. First 5 polls at 100ms (~500ms window), then 500ms.
@@ -142,16 +177,10 @@ export function useWaitForTxConfirmation({
     hasConfirmedRef.current = true
     if (abortRef.current) abortRef.current.abort()
 
-    // If wagmi reports a dropped/replaced transaction, surface the full hash
-    // so users can look it up. Wagmi's own message doesn't always include it.
-    const raw = receiptError instanceof Error ? receiptError.message : String(receiptError)
-    const mentionsDropped = /drop|replac/i.test(raw)
-    const e =
-      mentionsDropped && hash
-        ? new Error(`Transaction ${hash} was dropped by the network.`)
-        : receiptError instanceof Error
-          ? receiptError
-          : new Error(String(receiptError))
+    // Wrap the wagmi/viem error in a friendly user-facing message while
+    // preserving viem fields (shortMessage/details/metaMessages/walk) and the
+    // original stack so Vercel logs retain the full diagnostic.
+    const e = buildSwapFailedError(receiptError)
     setError(e)
     onErrorRef.current?.(e)
   }, [hash, receiptError])
@@ -192,16 +221,16 @@ export function useWaitForTxConfirmation({
         const dbPollInterval = setInterval(async () => {
           if (abortController.signal.aborted || hasConfirmedRef.current) return
           try {
-            const mcStatus = await fetchFastTxStatus(hash, abortController.signal)
+            const mc = await fetchFastTxStatus(hash, abortController.signal)
             if (abortController.signal.aborted || hasConfirmedRef.current) return
 
-            if (mcStatus === "failed") {
+            if (mc.status === "failed") {
               hasConfirmedRef.current = true
               abortController.abort()
-              const e = new Error(`Transaction ${hash} was dropped by the network.`)
+              const e = buildSwapFailedError(null, mc.details)
               setError(e)
               onErrorRef.current?.(e)
-            } else if (mcStatus === "confirmed") {
+            } else if (mc.status === "confirmed") {
               // DB caught up — fire confirmed if we haven't already
               if (!hasConfirmedRef.current) {
                 hasConfirmedRef.current = true
@@ -214,7 +243,7 @@ export function useWaitForTxConfirmation({
                 firePreConfirmed()
                 onConfirmedRef.current(result)
               }
-            } else if (mcStatus === "preconfirmed") {
+            } else if (mc.status === "preconfirmed") {
               firePreConfirmed()
             }
           } catch {
@@ -284,11 +313,11 @@ export function useWaitForTxConfirmation({
             return
           }
 
-          const mcStatus = await fetchFastTxStatus(hash, abortController.signal)
+          const mc = await fetchFastTxStatus(hash, abortController.signal)
 
           if (abortController.signal.aborted || hasConfirmedRef.current) break
 
-          if (mcStatus === "confirmed") {
+          if (mc.status === "confirmed") {
             hasConfirmedRef.current = true
             abortController.abort()
             clearInterval(dbPollInterval)
@@ -301,11 +330,11 @@ export function useWaitForTxConfirmation({
             return
           }
 
-          if (mcStatus === "failed") {
+          if (mc.status === "failed") {
             hasConfirmedRef.current = true
             abortController.abort()
             clearInterval(dbPollInterval)
-            const e = new Error(`Transaction ${hash} was dropped by the network.`)
+            const e = buildSwapFailedError(null, mc.details)
             setError(e)
             onErrorRef.current?.(e)
             return
