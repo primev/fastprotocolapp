@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { RPC_ENDPOINT } from "@/lib/network-config"
 
 /** Fallback average gas limit for bid cost calculation (priorityFee × gasLimit) */
@@ -33,6 +33,17 @@ interface UseEstimatedMilesParams {
   enabled: boolean
 }
 
+export interface UseEstimatedMilesReturn {
+  estimatedMiles: number | null
+  /**
+   * Inverse of the miles formula: given a target miles count, return the
+   * required output token amount (in display units) needed to earn it.
+   * Returns null if gas/price data isn't loaded yet or the target is
+   * below the cost floor (i.e. not earnable at current gas).
+   */
+  milesToAmountOut: (targetMiles: number) => number | null
+}
+
 export function useEstimatedMiles({
   amountOut,
   slippage,
@@ -42,7 +53,7 @@ export function useEstimatedMiles({
   baseFeePerGas,
   isPermitPath,
   enabled,
-}: UseEstimatedMilesParams): { estimatedMiles: number | null } {
+}: UseEstimatedMilesParams): UseEstimatedMilesReturn {
   const [priorityFee, setPriorityFee] = useState<bigint | null>(null)
   const [avgGasLimit, setAvgGasLimit] = useState<bigint>(DEFAULT_AVG_GAS_LIMIT)
   const [avgGasUsed, setAvgGasUsed] = useState<bigint>(DEFAULT_AVG_GAS_USED)
@@ -234,5 +245,40 @@ export function useEstimatedMiles({
   if (rawMiles != null) lastMilesRef.current = rawMiles
   const estimatedMiles = rawMiles ?? lastMilesRef.current
 
-  return { estimatedMiles }
+  // Inverse of the forward calc above. Reads from the same refs so it stays
+  // in sync with the latest gas/surplus data without re-rendering on ticks.
+  const milesToAmountOut = useCallback(
+    (targetMiles: number): number | null => {
+      if (!Number.isFinite(targetMiles) || targetMiles <= 0) return null
+      const curPriorityFee = priorityFeeRef.current
+      const curBaseFee = baseFeeRef.current
+      if (curPriorityFee == null || curBaseFee == null) return null
+      if (!isEthOutput && (toTokenPrice == null || toTokenPrice <= 0)) return null
+      if (!isEthOutput && (!ethPrice || ethPrice <= 0)) return null
+
+      const curAvgGasLimit = avgGasLimitRef.current
+      const curAvgGasUsed = avgGasUsedRef.current
+      const curSurplusRate = surplusRateRef.current
+
+      const bidCostEth = Number(curPriorityFee * curAvgGasLimit) / 1e18
+      const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGasUsed) / 1e18 : 0
+      const sweepMultiplier = isEthOutput ? 1 : 2.5
+      const totalBidCost = bidCostEth * sweepMultiplier
+      const totalGasCost = gasCostEth * sweepMultiplier
+
+      const userMevEth = targetMiles / MILES_PER_ETH
+      const netMevEth = userMevEth / USER_MEV_SHARE
+      const slippageAmountEth = netMevEth + totalBidCost + totalGasCost
+      const outputInEth = slippageAmountEth / curSurplusRate
+      if (!Number.isFinite(outputInEth) || outputInEth <= 0) return null
+
+      const result = isEthOutput
+        ? outputInEth
+        : (outputInEth * (ethPrice as number)) / (toTokenPrice as number)
+      return Number.isFinite(result) && result > 0 ? result : null
+    },
+    [isEthOutput, isPermitPath, toTokenPrice, ethPrice]
+  )
+
+  return { estimatedMiles, milesToAmountOut }
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useEffect, useMemo } from "react"
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { useAccount } from "wagmi"
 import { useSwapToastStore } from "@/stores/swapToastStore"
@@ -49,7 +49,7 @@ export function SwapForm() {
       ? form.displayedAmountOutFormatted
       : form.amount
 
-  const { estimatedMiles: rawEstimatedMiles } = useEstimatedMiles({
+  const { estimatedMiles: rawEstimatedMiles, milesToAmountOut } = useEstimatedMiles({
     amountOut: milesAmountOut,
     slippage: form.slippage,
     toTokenPrice: form.toPrice,
@@ -122,6 +122,14 @@ export function SwapForm() {
     if (!isConnected || !form.fromToken || !form.toToken) return
     setIsConfirmationOpen(true)
   }
+
+  const handleApplyMilesCalc = useCallback(
+    (amountOut: string) => {
+      form.setEditingSide("buy")
+      form.setAmount(amountOut)
+    },
+    [form]
+  )
 
   return (
     <div className="relative flex flex-col items-center justify-start w-full min-h-[320px]">
@@ -210,6 +218,8 @@ export function SwapForm() {
         barterUnavailable={form.barterUnavailable}
         isBarterValidating={form.isBarterValidating}
         estimatedMiles={estimatedMiles}
+        milesToAmountOut={milesToAmountOut}
+        onApplyMilesCalc={handleApplyMilesCalc}
       />
 
       {/* From Token Selector Modal */}

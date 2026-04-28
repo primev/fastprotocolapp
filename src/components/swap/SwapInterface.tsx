@@ -95,6 +95,8 @@ interface SwapInterfaceProps {
   barterUnavailable: boolean
   isBarterValidating: boolean
   estimatedMiles?: number | null
+  milesToAmountOut: (targetMiles: number) => number | null
+  onApplyMilesCalc: (amountOut: string) => void
 }
 
 export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
@@ -273,7 +275,11 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         isNonceLoading={isNonceLoading}
       />
 
-      <RewardsBadge />
+      <RewardsBadge
+        toToken={toToken}
+        milesToAmountOut={props.milesToAmountOut}
+        onApply={props.onApplyMilesCalc}
+      />
     </div>
   )
 }

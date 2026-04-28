@@ -44,6 +44,7 @@ out/
 #Claude
 .mcp.json
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # error-insights skill runtime output (library + daily reports)
 /error-insights/
