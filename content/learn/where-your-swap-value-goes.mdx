@@ -1,0 +1,91 @@
+---
+title: "Same Trade, Different Outcome: Where Your Swap Value Actually Goes"
+description: "Most swaps leak value to slippage, suboptimal routing, and mev. Fast Swaps capture that surplus and return it to you through Miles."
+slug: "where-your-swap-value-goes"
+category: "Fast Protocol"
+date: "2026-04-28"
+tags: ["fast swaps", "execution", "mev", "slippage", "miles"]
+readingTime: "3 min read"
+seoKeywords: ["swap execution", "swap value", "mev capture", "fast swaps vs dex", "swap surplus"]
+status: published
+faq:
+  - question: "Why am I losing value on swaps even when I use Fast RPC?"
+    answer: "Fast RPC protects your transaction from some mempool risk, but if you're executing on another DEX, the DEX and external actors still capture the surplus your trade generates. Fast Swaps are designed to return that surplus to you instead of letting it leak."
+  - question: "What does 'execution is the trade' mean?"
+    answer: "The token you choose and the timing of your trade matter, but the final outcome is determined by how the trade executes — routing, slippage, ordering, and mev capture. Two identical trades can produce very different results depending on where and how they execute."
+  - question: "How do Fast Swaps return surplus to me?"
+    answer: "Fast Swaps optimize execution in real time and route value back to you through Miles, so the surplus your trade generates is preserved instead of captured by the DEX or external actors."
+---
+
+Most users believe they're trading at market price.
+
+They're not.
+
+Every swap — no matter how simple — has hidden dynamics that determine what you actually receive. And in most cases, users are leaving value on the table without realizing it.
+
+![Diagram comparing swap value flow on a typical DEX vs. Fast Swaps](https://pub-c59e6dbe877c4b8db6ffacb766f2d8c7.r2.dev/fast-dapp/assets/RPC%20vs.%20Fast%20Swaps.png)
+
+## The hidden tax on every swap
+
+When you execute a trade on a typical DEX, several things happen behind the scenes:
+
+- **Slippage** eats into your execution price
+- **Routing inefficiencies** lead to suboptimal paths
+- **MEV** (Maximal Extractable Value) is captured by third parties
+
+None of this is obvious in the UI. You see your trade complete — but not the value that was lost along the way.
+
+## "But I'm using Fast RPC…"
+
+That's a good start — but it's not the full solution.
+
+Using Fast RPC on another DEX can help reduce some inefficiencies. But you're still not capturing the upside of your own trade.
+
+In most cases:
+
+- The DEX captures the value generated
+- External actors capture mev
+- You receive only a fraction of what's possible
+
+## Execution is the trade
+
+Most people optimize:
+
+- what token to buy
+- when to trade
+
+But the real edge is **how the trade executes**.
+
+Execution determines:
+
+- your final price
+- how much value is preserved
+- whether surplus is captured or lost
+
+## Fast Swaps: capture what you create
+
+Fast Protocol changes the equation.
+
+Instead of allowing value to leak, Fast Swaps are designed to:
+
+- Optimize execution in real time
+- Return surplus back to the user through [Miles](/learn/miles)
+
+## Same action. Better outcome.
+
+You don't need to change what you trade. You just need to change where you execute.
+
+| Where you swap | What happens |
+| --- | --- |
+| Other DEX (even with Fast RPC) | Some protection, limited upside |
+| Fast Swaps | Better execution + max Miles earned |
+
+## The bottom line
+
+You're already making the trade.
+
+Now make it where it actually pays you back.
+
+<TryItCTA href="/" label="Try a fast swap" />
+
+<FAQSchema faqs={frontmatter.faq} />
