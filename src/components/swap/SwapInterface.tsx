@@ -103,8 +103,11 @@ interface SwapInterfaceProps {
   barterUnavailable: boolean
   isBarterValidating: boolean
   estimatedMiles?: number | null
-  milesToAmountOut: (targetMiles: number) => number | null
-  onApplyMilesCalc: (amountOut: string) => void
+  milesToSlippage: (targetMiles: number) => { slippage: string; slippageBumped: boolean } | null
+  maxAchievableMiles: number | null
+  swapResetCount: number
+  onApplyMilesCalc: (args: { slippage: string }) => void
+  onCloseMilesCalc: () => void
 }
 
 export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
@@ -298,9 +301,12 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
       />
 
       <RewardsBadge
-        toToken={toToken}
-        milesToAmountOut={props.milesToAmountOut}
+        milesToSlippage={props.milesToSlippage}
+        maxAchievableMiles={props.maxAchievableMiles}
+        swapInputsKey={`${fromToken?.address ?? ""}-${toToken?.address ?? ""}`}
+        swapResetCount={props.swapResetCount}
         onApply={props.onApplyMilesCalc}
+        onClose={props.onCloseMilesCalc}
       />
     </div>
   )

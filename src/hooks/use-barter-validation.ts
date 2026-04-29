@@ -101,6 +101,14 @@ export function useBarterValidation({
     undefined
   )
   const [barterUnavailable, setBarterUnavailable] = useState(false)
+  // The inputKey the *stored* barter values were validated against. When the
+  // inputKey changes (e.g. token switch, new amount) the values held in state
+  // are immediately stale — but the cleanup `useEffect` runs after render, so
+  // the first render after the change would otherwise expose stale data to
+  // consumers (causing the miles bar / max miles to flash an order-of-
+  // magnitude wrong number). Gating the returned values on this key === the
+  // current inputKey makes the staleness invisible to consumers.
+  const [storedForKey, setStoredForKey] = useState("")
   const requestIdRef = useRef(0)
 
   // quoteGeneration is included so a requote that returns the same amountOut still triggers re-validation
@@ -163,14 +171,24 @@ export function useBarterValidation({
 
         const barterOut = BigInt(route.outputAmount)
         const barterPreGas = BigInt(route.outputAmountPreGas)
-        const shortfall =
+        const shortfallRaw =
           amountOut > 0n ? Number(((amountOut - barterOut) * 10000n) / amountOut) / 100 : 0
+
+        // Sanity guard: real Barter routing rarely deviates more than ~30%
+        // from uniswap. A shortfall > 90% is almost always a decimals
+        // mismatch — `amountOut` is the previous pair's bigint (e.g. ETH
+        // wei) while `barterOut` is the new pair's (e.g. USDC raw),
+        // because `displayQuote` was using a stale quote during the
+        // switch transition. Drop the result; the next validation with
+        // a fresh in-pair quote will set the right value.
+        if (Math.abs(shortfallRaw) > 90) return
 
         setBarterAmountOut(barterOut)
         setBarterPreGasOutputAmount(barterPreGas)
-        setShortfallPct(Math.max(0, shortfall))
+        setShortfallPct(Math.max(0, shortfallRaw))
         setBarterUnavailable(false)
         setSettled(true)
+        setStoredForKey(inputKey)
       } catch (err) {
         if (cancelled || currentRequest !== requestIdRef.current) return
 
@@ -194,6 +212,7 @@ export function useBarterValidation({
           setShortfallPct(0)
           setBarterUnavailable(true)
           setSettled(true)
+          setStoredForKey(inputKey)
           return
         }
 
@@ -225,12 +244,20 @@ export function useBarterValidation({
   // reflecting whether the current tolerance covers the measured shortfall.
   const amountTooSmall = settled && shortfallPct > 0 && shortfallPct > maxSlippagePct
 
+  // Synchronously gate every returned value on whether it was validated for
+  // the *current* inputKey. On a token switch, inputKey changes immediately
+  // but the cleanup `useEffect` hasn't yet cleared the cached state, so
+  // without this gate consumers would briefly see the old pair's data
+  // applied to the new pair (decimals mismatch → orders-of-magnitude-wrong
+  // miles in the bar/max). With the gate, all values look "in flight"
+  // until the new pair's validation settles.
+  const isCurrent = storedForKey === inputKey
   return {
-    amountTooSmall,
-    shortfallPct,
-    isValidating: !settled,
-    barterAmountOut,
-    barterPreGasOutputAmount,
-    barterUnavailable,
+    amountTooSmall: isCurrent && amountTooSmall,
+    shortfallPct: isCurrent ? shortfallPct : 0,
+    isValidating: !isCurrent || !settled,
+    barterAmountOut: isCurrent ? barterAmountOut : undefined,
+    barterPreGasOutputAmount: isCurrent ? barterPreGasOutputAmount : undefined,
+    barterUnavailable: isCurrent && barterUnavailable,
   }
 }

@@ -49,7 +49,11 @@ export function SwapForm() {
       ? form.displayedAmountOutFormatted
       : form.amount
 
-  const { estimatedMiles: rawEstimatedMiles, milesToAmountOut } = useEstimatedMiles({
+  const {
+    estimatedMiles: rawEstimatedMiles,
+    milesToSlippage,
+    maxAchievableMiles,
+  } = useEstimatedMiles({
     amountOut: milesAmountOut,
     slippage: form.slippage,
     toTokenDecimals: form.toToken?.decimals ?? null,
@@ -65,6 +69,7 @@ export function SwapForm() {
       !!form.displayQuote &&
       !!form.fromToken &&
       !!form.toToken,
+    isBarterValidating: form.isBarterValidating,
   })
 
   // Keep estimation behind the feature flag for UI, but always log to console
@@ -125,13 +130,30 @@ export function SwapForm() {
     setIsConfirmationOpen(true)
   }
 
+  // Stable references for the calc callbacks so their identity doesn't
+  // churn each render (`form` is rebuilt every render but its inner
+  // setters / updateSlippage / resetSlippage are stable useCallbacks).
+  const { updateSlippage, resetSlippage } = form
+  const formSlippageRef = useRef(form.slippage)
+  formSlippageRef.current = form.slippage
+
   const handleApplyMilesCalc = useCallback(
-    (amountOut: string) => {
-      form.setEditingSide("buy")
-      form.setAmount(amountOut)
+    ({ slippage }: { slippage: string }) => {
+      // Calculator only adjusts slippage — never changes the user's typed
+      // sell/buy amounts. The required slippage flips us into custom mode
+      // (which is what `updateSlippage` does); user can switch back to auto.
+      if (slippage && slippage !== formSlippageRef.current) {
+        updateSlippage(slippage)
+      }
     },
-    [form]
+    [updateSlippage]
   )
+
+  // Calc closed → drop calc-applied slippage and return to auto mode. The
+  // calc's bumped value was scoped to the calc session.
+  const handleCloseMilesCalc = useCallback(() => {
+    resetSlippage()
+  }, [resetSlippage])
 
   return (
     <div className="relative flex flex-col items-center justify-start w-full min-h-[320px]">
@@ -227,8 +249,11 @@ export function SwapForm() {
         barterUnavailable={form.barterUnavailable}
         isBarterValidating={form.isBarterValidating}
         estimatedMiles={estimatedMiles}
-        milesToAmountOut={milesToAmountOut}
+        milesToSlippage={milesToSlippage}
+        maxAchievableMiles={maxAchievableMiles}
+        swapResetCount={form.swapResetCount}
         onApplyMilesCalc={handleApplyMilesCalc}
+        onCloseMilesCalc={handleCloseMilesCalc}
       />
 
       {/* From Token Selector Modal */}

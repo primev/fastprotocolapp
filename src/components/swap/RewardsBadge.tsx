@@ -2,24 +2,49 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
-import { ArrowRight, Calculator, X } from "lucide-react"
-import { Token } from "@/types/swap"
+import { Calculator, X } from "lucide-react"
+
+interface MilesPlan {
+  slippage: string
+  requiresChange: boolean
+}
 
 interface RewardsBadgeProps {
-  toToken: Token | null
-  milesToAmountOut: (targetMiles: number) => number | null
-  onApply: (amountOut: string) => void
+  milesToSlippage: (targetMiles: number) => MilesPlan | null
+  /** Upper bound (reactive) on miles earnable at the user's CURRENT swap
+   * size with max slippage (50%). Bounded by what they've already typed;
+   * calc never changes the swap amount. */
+  maxAchievableMiles: number | null
+  /** Identity key for the user's current swap pair (`from-to`). When this
+   *  changes — e.g. on switch-tokens — the calc resets back to the
+   *  pre-Enable view. */
+  swapInputsKey: string
+  /** Monotonic counter incremented on every successful swap reset (after
+   *  preconfirmation). When this changes the calc collapses entirely so a
+   *  fresh swap starts with a clean badge. */
+  swapResetCount: number
+  onApply: (args: { slippage: string }) => void
+  /** Called when the calculator is collapsed (X click). Used to reset
+   *  the swap's slippage back to auto since calc-applied slippage is no
+   *  longer in scope. */
+  onClose?: () => void
 }
 
-const formatAmount = (n: number): string => {
-  if (n >= 1) return n.toFixed(Math.min(6, Math.max(2, 6 - Math.floor(Math.log10(n)))))
-  if (n >= 0.0001) return n.toFixed(6)
-  return n.toPrecision(3)
-}
-
-const RewardsBadgeComponent = ({ toToken, milesToAmountOut, onApply }: RewardsBadgeProps) => {
+const RewardsBadgeComponent = ({
+  milesToSlippage,
+  maxAchievableMiles,
+  swapInputsKey,
+  swapResetCount,
+  onApply,
+  onClose,
+}: RewardsBadgeProps) => {
+  // Three-way state machine for the calc view:
+  //   isOpen=false             → collapsed badge ("Calculate Miles")
+  //   isOpen=true, !isEnabled  → "Earn upto {max} miles" + [Enable]
+  //   isOpen=true, isEnabled   → "Earn [input] of {max} miles" + [Calculate]
   const [isOpen, setIsOpen] = useState(false)
-  const [target, setTarget] = useState("1")
+  const [isEnabled, setIsEnabled] = useState(false)
+  const [target, setTarget] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
   const parsed = useMemo(() => {
@@ -27,43 +52,69 @@ const RewardsBadgeComponent = ({ toToken, milesToAmountOut, onApply }: RewardsBa
     return Number.isFinite(n) && n > 0 ? n : null
   }, [target])
 
-  const requiredAmountOut = useMemo(() => {
+  const plan = useMemo(() => {
     if (parsed == null) return null
-    return milesToAmountOut(parsed)
-  }, [parsed, milesToAmountOut])
+    return milesToSlippage(parsed)
+  }, [parsed, milesToSlippage])
 
-  // Skip the first effect run after open so we don't overwrite an existing
-  // buy amount until the user actually edits the calculator.
-  const lastAppliedRef = useRef<string | null>(null)
-  const didMountRef = useRef(false)
-  useEffect(() => {
-    if (!isOpen) return
-    if (!didMountRef.current) {
-      didMountRef.current = true
-      return
-    }
-    const next = parsed != null && requiredAmountOut != null ? formatAmount(requiredAmountOut) : ""
-    if (next !== lastAppliedRef.current) {
-      lastAppliedRef.current = next
-      onApply(next)
-    }
-  }, [isOpen, parsed, requiredAmountOut, onApply])
+  const maxMiles = maxAchievableMiles
 
+  const handleEnable = () => {
+    setIsEnabled(true)
+    setTarget("")
+  }
+
+  // Explicit apply: only mutate slippage when the user hits Calculate or
+  // Enter. We never touch the user's typed sell/buy amount — the calculator
+  // is purely a slippage nudge.
+  const handleCalculate = () => {
+    if (parsed == null || plan == null) return
+    if (!plan.requiresChange) return
+    onApply({ slippage: plan.slippage })
+  }
+
+  // Reset to the pre-Enable view whenever the calc closes — next open shows
+  // "Earn upto {max}" again, even after a successful Calculate.
   useEffect(() => {
-    if (isOpen) {
-      const t = setTimeout(() => {
-        const el = inputRef.current
-        if (!el) return
-        el.focus()
-        const end = el.value.length
-        el.setSelectionRange(end, end)
-      }, 320)
-      return () => clearTimeout(t)
+    if (!isOpen) {
+      setIsEnabled(false)
+      setTarget("")
     }
-    didMountRef.current = false
-    lastAppliedRef.current = null
-    setTarget("1")
   }, [isOpen])
+
+  // Reset when the user changes/swaps tokens. The previous max/target is
+  // stale for the new pair; user re-engages from the Enable view.
+  useEffect(() => {
+    setIsEnabled(false)
+    setTarget("")
+  }, [swapInputsKey])
+
+  // Full reset when the swap completes (preconfirmation fires
+  // `resetFormAfterSuccess`). The calc collapses to the badge; reopening
+  // starts fresh. Skip the initial mount so opening the page doesn't auto-
+  // collapse from "0 → 0".
+  const initialResetRef = useRef(swapResetCount)
+  useEffect(() => {
+    if (swapResetCount === initialResetRef.current) return
+    initialResetRef.current = swapResetCount
+    setIsOpen(false)
+    setIsEnabled(false)
+    setTarget("")
+  }, [swapResetCount])
+
+  // Focus the input the moment we enter the active (Enable-clicked) view so
+  // the user can type immediately.
+  useEffect(() => {
+    if (!isOpen || !isEnabled) return
+    const t = setTimeout(() => {
+      const el = inputRef.current
+      if (!el) return
+      el.focus()
+    }, 60)
+    return () => clearTimeout(t)
+  }, [isOpen, isEnabled])
+
+  const canCalculate = parsed != null && plan != null && plan.requiresChange
 
   return (
     <div className="mt-6 flex justify-center">
@@ -104,47 +155,97 @@ const RewardsBadgeComponent = ({ toToken, milesToAmountOut, onApply }: RewardsBa
             isOpen ? "opacity-100 delay-150" : "pointer-events-none opacity-0"
           }`}
         >
-          <Calculator className="h-4 w-4 shrink-0 text-primary" />
+          <Calculator className="h-4 w-4 shrink-0 text-primary sm:h-5 sm:w-5" />
 
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5">
-            <input
-              ref={inputRef}
-              type="text"
-              inputMode="decimal"
-              value={target}
-              onChange={(e) => setTarget(e.target.value.replace(/[^0-9.,]/g, ""))}
-              placeholder="0"
-              aria-label="Target miles"
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
+            {isEnabled ? (
+              <>
+                <span className="shrink-0 text-sm font-medium text-primary/80 sm:text-base">
+                  Earn
+                </span>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  inputMode="decimal"
+                  value={target}
+                  onChange={(e) => {
+                    const cleaned = e.target.value.replace(/[^0-9.,]/g, "")
+                    if (cleaned === "") {
+                      setTarget("")
+                      return
+                    }
+                    // Hard cap at maxMiles — user can't type a target above
+                    // what's achievable. Clamp on every keystroke so they
+                    // see the cap applied in real time.
+                    const num = parseFloat(cleaned.replace(/,/g, ""))
+                    if (
+                      Number.isFinite(num) &&
+                      maxMiles != null &&
+                      maxMiles > 0 &&
+                      num > maxMiles
+                    ) {
+                      setTarget(String(maxMiles))
+                      return
+                    }
+                    setTarget(cleaned)
+                  }}
+                  onBlur={() => {
+                    if (canCalculate) handleCalculate()
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && canCalculate) {
+                      e.preventDefault()
+                      handleCalculate()
+                    }
+                  }}
+                  placeholder="0"
+                  aria-label="Target miles"
+                  tabIndex={isOpen ? 0 : -1}
+                  className="w-20 min-w-0 bg-transparent text-center text-lg font-bold text-foreground outline-none tabular-nums placeholder:text-foreground/30 sm:text-xl"
+                />
+                <span className="shrink-0 text-sm font-medium text-primary/80 sm:text-base">
+                  {maxMiles != null && maxMiles > 0
+                    ? `of ${maxMiles.toLocaleString()} miles`
+                    : "miles"}
+                </span>
+              </>
+            ) : (
+              <span className="shrink-0 text-sm font-medium text-primary/80 sm:text-base">
+                {maxMiles != null && maxMiles > 0
+                  ? `Earn up to ${maxMiles.toLocaleString()} miles`
+                  : "Earn miles on this swap"}
+              </span>
+            )}
+          </div>
+
+          {isEnabled ? (
+            <button
+              type="button"
+              onClick={handleCalculate}
+              disabled={!canCalculate}
               tabIndex={isOpen ? 0 : -1}
-              className="w-full min-w-0 bg-transparent text-right text-base font-bold text-foreground outline-none tabular-nums placeholder:text-foreground/30 sm:text-lg"
-            />
-            <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-primary/70 sm:text-[11px]">
-              miles
-            </span>
-          </div>
-
-          <ArrowRight
-            className={`h-4 w-4 shrink-0 transition-colors ${
-              requiredAmountOut != null ? "text-primary" : "text-primary/30"
-            }`}
-          />
-
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            <span
-              className={`min-w-0 flex-1 truncate text-base font-bold tabular-nums sm:text-lg ${
-                requiredAmountOut != null ? "text-primary" : "text-foreground/30"
-              }`}
+              className="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:py-1.5 sm:text-sm"
             >
-              {requiredAmountOut != null ? formatAmount(requiredAmountOut) : "—"}
-            </span>
-            <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-primary/70 sm:text-[11px]">
-              {toToken?.symbol ?? "buy"}
-            </span>
-          </div>
+              Apply
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleEnable}
+              disabled={maxMiles == null || maxMiles <= 0}
+              tabIndex={isOpen ? 0 : -1}
+              className="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:py-1.5 sm:text-sm"
+            >
+              Enable
+            </button>
+          )}
 
           <button
             type="button"
-            onClick={() => setIsOpen(false)}
+            onClick={() => {
+              setIsOpen(false)
+              onClose?.()
+            }}
             aria-label="Close calculator"
             tabIndex={isOpen ? 0 : -1}
             className="shrink-0 rounded-full p-0.5 text-primary/70 transition hover:bg-primary/10 hover:text-primary"
