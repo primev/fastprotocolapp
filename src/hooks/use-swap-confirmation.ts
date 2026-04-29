@@ -183,11 +183,15 @@ export function useSwapConfirmation({
 
     const bufferedGas = (result.gasEstimate * ETH_PATH_GAS_LIMIT_MULTIPLIER) / 100n
 
+    // FastSwap inclusion is paid by the bidder via mev-commit preconfirmation,
+    // so the user's L1 tx doesn't need a tip. Forcing priority=0 keeps the
+    // wallet's displayed cost (and the actual charge) aligned with our quote.
     const txHash = await sendTransactionAsync({
       to: result.to as `0x${string}`,
       data: result.data,
       value: BigInt(result.value),
       gas: bufferedGas,
+      maxPriorityFeePerGas: 0n,
     })
 
     // Fire after wallet signs — timer should measure submission→preconfirmation,

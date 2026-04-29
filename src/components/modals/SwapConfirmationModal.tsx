@@ -41,7 +41,7 @@ import { useAccount } from "wagmi"
 import { mainnet } from "wagmi/chains"
 import { useTokenPrice } from "@/hooks/use-token-price"
 import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
-import { GAS_LIMIT_MULTIPLIER, ETH_PATH_DISPLAY_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
+import { GAS_LIMIT_MULTIPLIER, ETH_PATH_DISPLAY_GAS_PADDING } from "@/hooks/use-broadcast-gas-price"
 import { useEthPathGasEstimate } from "@/hooks/use-eth-path-gas-estimate"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import { useSwapToastStore } from "@/stores/swapToastStore"
@@ -337,7 +337,7 @@ function SwapConfirmationModal({
     },
   })
 
-  const { bufferedPrice: gasPrice } = useBroadcastGasPrice()
+  const { ethPathDisplayFeePerGas, rawPrice } = useBroadcastGasPrice()
   const { price: ethPriceFromApi } = useTokenPrice("ETH")
   const effectiveEthPrice = ethPrice ?? ethPriceFromApi ?? DEFAULT_ETH_PRICE_USD
 
@@ -401,9 +401,13 @@ function SwapConfirmationModal({
     if (isWrap || isUnwrap) return wethGasEstimate
     const base = ethPathGasEstimate ?? gasEstimate
     if (!base) return null
-    // ETH path: use display multiplier so estimate aligns with wallet (wallet adds buffers)
+    // ETH path: pad raw simulation by ~20% to match wallet's "estimated cost"
+    // panel (wallets add their own safety margin above eth_estimateGas before
+    // displaying). The 1.4× tx buffer is applied separately at submission in
+    // use-swap-confirmation; it caps actual gas use but doesn't surface in
+    // the wallet's cost line.
     if (ethPathGasEstimate) {
-      return (base * ETH_PATH_DISPLAY_MULTIPLIER) / 100n
+      return (base * ETH_PATH_DISPLAY_GAS_PADDING) / 100n
     }
     return (base * GAS_LIMIT_MULTIPLIER) / 100n
   }, [isWrap, isUnwrap, wethGasEstimate, ethPathGasEstimate, gasEstimate])
@@ -524,15 +528,21 @@ function SwapConfirmationModal({
   }, [needsPermit2Approval, intentPath, isApprovalInProgress, executeSwap])
 
   const gasCostUsd = useMemo(() => {
-    if (!activeGasEstimate || !gasPrice) return null
+    if (!activeGasEstimate) return null
+    // ETH-path swaps land in the user's wallet — display USD must match the
+    // wallet popup, so we use the same maxFeePerGas the wallet populates.
+    // Wrap/unwrap and the permit2 path don't surface in the wallet that way;
+    // fall back to base fee for the rough on-chain cost.
+    const feePerGas = ethPathGasEstimate ? ethPathDisplayFeePerGas : rawPrice
+    if (!feePerGas) return null
     try {
-      const totalWei = BigInt(activeGasEstimate) * BigInt(gasPrice)
+      const totalWei = BigInt(activeGasEstimate) * BigInt(feePerGas)
       const totalEth = Number(totalWei) / 1e18
       return totalEth * effectiveEthPrice
     } catch {
       return null
     }
-  }, [activeGasEstimate, gasPrice, effectiveEthPrice])
+  }, [activeGasEstimate, ethPathGasEstimate, ethPathDisplayFeePerGas, rawPrice, effectiveEthPrice])
 
   // USD value under each token amount (match main swap form, NumberFlow + commas)
   const fromUsdValue = useMemo(() => {
