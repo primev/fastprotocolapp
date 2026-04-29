@@ -103,7 +103,7 @@ interface SwapInterfaceProps {
   barterUnavailable: boolean
   isBarterValidating: boolean
   estimatedMiles?: number | null
-  milesToSlippage: (targetMiles: number) => { slippage: string; slippageBumped: boolean } | null
+  milesToSlippage: (targetMiles: number) => { slippage: string; requiresChange: boolean } | null
   maxAchievableMiles: number | null
   swapResetCount: number
   onApplyMilesCalc: (args: { slippage: string }) => void
