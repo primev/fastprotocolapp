@@ -210,10 +210,16 @@ const RewardsBadgeComponent = ({
                 </span>
               </>
             ) : (
-              <span className="shrink-0 text-sm font-medium text-primary/80 sm:text-base">
-                {maxMiles != null && maxMiles > 0
-                  ? `Earn up to ${maxMiles.toLocaleString()} miles`
-                  : "Earn miles on this swap"}
+              <span
+                className={`shrink-0 text-sm font-medium sm:text-base ${
+                  maxMiles === 0 ? "text-amber-300/90" : "text-primary/80"
+                }`}
+              >
+                {maxMiles == null
+                  ? "Earn miles on this swap"
+                  : maxMiles > 0
+                    ? `Earn up to ${maxMiles.toLocaleString()} miles`
+                    : "Swap too small to earn miles at current gas"}
               </span>
             )}
           </div>

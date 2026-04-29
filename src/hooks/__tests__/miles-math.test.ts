@@ -303,6 +303,31 @@ describe("maxAchievableMiles is consistent with the forward formula", () => {
     )
     expect(max).toBe(0)
   })
+
+  it("returns 0 for a small permit-path swap (~$2 trade replicating real screenshot)", () => {
+    // Replicates the case where a tiny ERC20→USDC swap can't earn miles
+    // even at 50% slippage because the 2.5× sweep multiplier on bid+gas
+    // costs exceeds 0.5×outputInEth. Surfaces the "Swap too small to earn
+    // miles at current gas" message in the calc.
+    //
+    // ~$2 trade @ $3000 ETH → outputInEth ≈ 0.000667 ETH.
+    // Permit path costs: bidCost=2.7e-5, gasCost=2.7e-4, sweep 2.5x
+    // → totals 0.74e-3 ETH, dwarfing the 0.5×0.000667 = 3.3e-4 ETH ceiling.
+    const usdcOut = 1.95 // $1.95
+    const outputInEth = (usdcOut * 1) / 3000
+    const max = maxMilesAt50(
+      usdcOut,
+      USDC_DECIMALS,
+      false,
+      1, // toTokenPrice (USDC = $1)
+      3000, // ethPrice
+      // Barter close to uniswap (passes sanity gate).
+      usdc(usdcOut * 0.99),
+      outputInEth,
+      PERMIT_COSTS
+    )
+    expect(max).toBe(0)
+  })
 })
 
 // ──────────────────────────────────────────────────────────────────────────
