@@ -17,25 +17,27 @@ describe("computeAutoBumpValue", () => {
     expect(computeAutoBumpValue(0)).toBeCloseTo(AUTO_BUMP_BUFFER_PCT, 9)
   })
 
-  it("rounds shortfall UP to the 0.1% step before adding the buffer", () => {
-    // 0.31 → ceil(3.1)/10 = 0.4 + buffer
-    expect(computeAutoBumpValue(0.31)).toBeCloseTo(0.4 + AUTO_BUMP_BUFFER_PCT, 9)
-    // exactly on a step → no extra rounding
+  it("is linear in shortfall (no step rounding before the cap)", () => {
+    // The pre-cap pipeline used to ceil-round shortfall to 0.1% then add the
+    // buffer, which produced the artifact where any positive shortfall pushed
+    // auto one step above baseline. Linear: shortfall + buffer.
+    expect(computeAutoBumpValue(0.31)).toBeCloseTo(0.31 + AUTO_BUMP_BUFFER_PCT, 9)
     expect(computeAutoBumpValue(0.5)).toBeCloseTo(0.5 + AUTO_BUMP_BUFFER_PCT, 9)
+    expect(computeAutoBumpValue(0.001)).toBeCloseTo(0.001 + AUTO_BUMP_BUFFER_PCT, 9)
   })
 
-  it("never returns above SLIPPAGE_MAX", () => {
-    expect(computeAutoBumpValue(45)).toBeLessThanOrEqual(SLIPPAGE_MAX)
-    expect(computeAutoBumpValue(50)).toBeLessThanOrEqual(SLIPPAGE_MAX)
-    expect(computeAutoBumpValue(75)).toBeLessThanOrEqual(SLIPPAGE_MAX)
-    expect(computeAutoBumpValue(1_000)).toBeLessThanOrEqual(SLIPPAGE_MAX)
+  it("clamps at SLIPPAGE_MAX so auto can ramp all the way up if shortfall demands", () => {
+    expect(computeAutoBumpValue(45)).toBeCloseTo(45 + AUTO_BUMP_BUFFER_PCT, 9)
+    expect(computeAutoBumpValue(50)).toBe(SLIPPAGE_MAX)
+    expect(computeAutoBumpValue(75)).toBe(SLIPPAGE_MAX)
+    expect(computeAutoBumpValue(1_000)).toBe(SLIPPAGE_MAX)
   })
 
-  it("is monotonic in shortfall (within the cap)", () => {
+  it("is monotonic non-decreasing in shortfall", () => {
     let prev = -Infinity
-    for (let s = 0; s < SLIPPAGE_MAX - AUTO_BUMP_BUFFER_PCT; s += 0.05) {
+    for (let s = 0; s < SLIPPAGE_MAX; s += 0.1) {
       const v = computeAutoBumpValue(s)
-      expect(v).toBeGreaterThanOrEqual(prev)
+      expect(v).toBeGreaterThanOrEqual(prev - 1e-9)
       prev = v
     }
   })
@@ -151,16 +153,16 @@ describe("auto-slippage fuzz invariants", () => {
     }
   })
 
-  it("auto-slippage covers the shortfall when feasible (slippage ≥ shortfall)", () => {
+  it("auto-slippage covers the shortfall when feasible (slippage ≥ shortfall, up to the SLIPPAGE_MAX rail)", () => {
     const rng = mulberry32(7)
     for (let i = 0; i < 10_000; i++) {
-      // Stay within range where the cap doesn't swallow the buffer.
+      // Stay within range where adding the buffer doesn't run into SLIPPAGE_MAX.
       const shortfall = rng() * (SLIPPAGE_MAX - AUTO_BUMP_BUFFER_PCT - 0.5)
       const isPermit = rng() < 0.5
       const out = computeAutoSlippage(shortfall, isPermit)
       const v = parseFloat(out.slippage)
       // Auto must always sit at or above the observed shortfall, otherwise
-      // the swap would revert as amount-too-small.
+      // the swap reverts as amount-too-small.
       expect(v).toBeGreaterThanOrEqual(shortfall - 1e-9)
     }
   })

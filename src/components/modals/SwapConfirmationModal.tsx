@@ -929,7 +929,7 @@ function SwapConfirmationModal({
                             />
                           </span>
                         ) : (
-                          <span className="text-gray-500">TBD</span>
+                          <span className="text-gray-500">Too small for miles</span>
                         )
                       }
                       tooltip={
@@ -937,8 +937,8 @@ function SwapConfirmationModal({
                           "Estimated Fast Miles earned from MEV redistribution on this swap"
                         ) : (
                           <>
-                            We are unable to show a miles estimate at this time. You may continue to
-                            earn miles as your swap executes. See{" "}
+                            At this swap size, gas and execution costs exceed the surplus miles are
+                            paid from. Try a larger amount, or see{" "}
                             <a
                               href="/learn/miles#about-the-miles-estimate"
                               target="_blank"
@@ -1038,7 +1038,7 @@ function SwapConfirmationModal({
                     />
                     {autoAdjustedForGas && (
                       <div className="-mt-2 mb-1 pl-0.5 text-xs text-amber-400/80">
-                        Your slippage has been auto-adjusted to cover gas costs
+                        Auto-adjusted to cover execution costs
                       </div>
                     )}
 

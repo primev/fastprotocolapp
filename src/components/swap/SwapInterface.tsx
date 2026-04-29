@@ -116,6 +116,10 @@ interface SwapInterfaceProps {
    *  alongside the expected output when miles are applied so the user can see the
    *  guaranteed amount and the cost of the miles they targeted. */
   computedMinAmountOut: string | null
+  /** Lifted calc-open state. Lets the no-miles message in ExchangeRate open
+   *  the calc as an "apply manually" affordance. */
+  isCalcOpen: boolean
+  setIsCalcOpen: (open: boolean) => void
 }
 
 export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
@@ -207,6 +211,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         autoBase={slippageAutoBase}
         autoBumpedForGas={slippageAutoBumpedForGas}
         slippageWarning={slippageWarning}
+        milesApplied={props.milesApplied}
       />
 
       {/* 2. CORE SWAP CARDS
@@ -293,6 +298,8 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
             isManualInversion={isManualInversion}
             timeLeft={timeLeft}
             estimatedMiles={props.estimatedMiles}
+            barterAmountTooSmall={barterAmountTooSmall}
+            onOpenCalculator={() => props.setIsCalcOpen(true)}
           />
         </div>
       </div>
@@ -315,10 +322,12 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
       <RewardsBadge
         milesToSlippage={props.milesToSlippage}
         maxAchievableMiles={props.maxAchievableMiles}
-        swapInputsKey={`${fromToken?.address ?? ""}-${toToken?.address ?? ""}`}
+        swapInputsKey={`${fromToken?.address ?? ""}-${toToken?.address ?? ""}-${amount}`}
         swapResetCount={props.swapResetCount}
         onApply={props.onApplyMilesCalc}
         onClose={props.onCloseMilesCalc}
+        isOpen={props.isCalcOpen}
+        setIsOpen={props.setIsCalcOpen}
       />
     </div>
   )

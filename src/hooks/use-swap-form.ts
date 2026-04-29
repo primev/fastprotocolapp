@@ -328,6 +328,7 @@ export function useSwapForm(allTokens: Token[]) {
     quoteGeneration,
     maxSlippagePct: parseFloat(effectiveSlippage) || 0,
     enabled: !isWrapUnwrap && !!displayQuote && hasSufficientBalance,
+    isQuoteLoading,
   })
 
   // Feed observed shortfall back into the slippage hook so auto mode can bump

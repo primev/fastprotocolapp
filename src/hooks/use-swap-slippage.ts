@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 
 const DEADLINE_MIN_MINUTES = 5
 const DEADLINE_MAX_MINUTES = 1440
@@ -37,13 +37,25 @@ interface UseSwapSlippageOptions {
 
 /**
  * Target slippage when auto mode needs to cover an observed Barter shortfall.
- * Rounded up to the nearest 0.1% step, buffered, and capped at the UI ceiling.
+ *
+ * Linear in the underlying shortfall — `shortfall + buffer` — clamped at
+ * SLIPPAGE_MAX. We deliberately do NOT step-round the shortfall before adding
+ * the buffer here: stair-stepping the underlying produced an artifact where
+ * any positive shortfall (even 0.001%) would push auto from baseline (1.0%)
+ * to 1.1%, even though the buffer alone already covered it. The final
+ * formatted display value is still 0.1%-aligned via `formatSlippage`, so the
+ * user-facing number stays clean.
+ *
+ * Auto is allowed to ramp up to SLIPPAGE_MAX so the user can see the actual
+ * slippage required to execute their swap. The `slippageWarning` derived
+ * value flips to "high" above SLIPPAGE_WARN_THRESHOLD (5%) to surface the
+ * cost-of-execution as the bump climbs.
  *
  * Exported for testing.
  */
 export function computeAutoBumpValue(shortfallPct: number): number {
-  const roundedUp = Math.ceil(shortfallPct / SLIPPAGE_STEP) * SLIPPAGE_STEP
-  return Math.min(SLIPPAGE_MAX, roundedUp + AUTO_BUMP_BUFFER_PCT)
+  const raw = Math.max(0, shortfallPct) + AUTO_BUMP_BUFFER_PCT
+  return Math.min(SLIPPAGE_MAX, raw)
 }
 
 function clampDeadline(minutes: number): number {
@@ -175,6 +187,19 @@ export function useSwapSlippage(options: UseSwapSlippageOptions = {}) {
   const resetSlippage = () => {
     setMode("auto")
   }
+
+  // When the user flips back to auto, drop the stored custom value so the next
+  // custom-mode entry starts from the current auto baseline rather than
+  // restoring whatever was typed before. Without this, custom remembers the
+  // last value across an auto round-trip — surprising when auto's own value
+  // has shifted in the meantime (calc-applied bumps, gas changes, etc.).
+  const prevModeRef = useRef(mode)
+  useEffect(() => {
+    if (prevModeRef.current === "custom" && mode === "auto") {
+      setCustomSlippage(autoSlippage)
+    }
+    prevModeRef.current = mode
+  }, [mode, autoSlippage])
 
   const updateDeadline = (val: number) => {
     const num = Number(val)

@@ -70,6 +70,11 @@ export function SwapForm() {
       !!form.fromToken &&
       !!form.toToken,
     isBarterValidating: form.isBarterValidating,
+    // Synchronous identity of the user's swap inputs. Changes the instant
+    // the user clicks a percentage button or types a new amount — used by
+    // the estimator to clear cached miles/surplus-rate refs so prior-amount
+    // values don't leak into the new amount during the validation window.
+    swapIdentityKey: `${form.amount}|${form.fromToken?.address ?? ""}|${form.toToken?.address ?? ""}`,
   })
 
   // Keep estimation behind the feature flag for UI, but always log to console
@@ -143,6 +148,8 @@ export function SwapForm() {
   // Cleared whenever the user moves slippage off the calc value, switches
   // tokens, or completes a swap.
   const [milesAppliedSlippage, setMilesAppliedSlippage] = useState<string | null>(null)
+  // Lifted so the no-miles message in ExchangeRate can open the calc directly.
+  const [isCalcOpen, setIsCalcOpen] = useState(false)
 
   const handleApplyMilesCalc = useCallback(
     ({ slippage }: { slippage: string }) => {
@@ -290,6 +297,8 @@ export function SwapForm() {
         onCloseMilesCalc={handleCloseMilesCalc}
         milesApplied={milesApplied}
         computedMinAmountOut={form.computedMinAmountOut ?? null}
+        isCalcOpen={isCalcOpen}
+        setIsCalcOpen={setIsCalcOpen}
       />
 
       {/* From Token Selector Modal */}

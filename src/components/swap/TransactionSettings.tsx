@@ -22,11 +22,17 @@ interface TransactionSettingsProps {
   autoBase: number
   autoBumpedForGas: boolean
   slippageWarning: SlippageWarning
+  /** True when the current slippage was set by the miles calculator. Switches
+   *  the high-slippage warning copy to name the cause so the user understands
+   *  why slippage is elevated. */
+  milesApplied?: boolean
 }
 
 const WARNING_MESSAGE =
   "Slippage above 5% is unusual. You will earn more miles, but will likely receive less tokens."
-const AUTO_BUMP_MESSAGE = "Your slippage has been auto-adjusted to cover gas costs"
+const MILES_WARNING_MESSAGE =
+  "Slippage was increased to meet your miles target. You'll receive fewer tokens to earn more miles."
+const AUTO_BUMP_MESSAGE = "Auto-adjusted to cover execution costs."
 
 const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
   isSettingsOpen,
@@ -42,6 +48,7 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
   autoBase,
   autoBumpedForGas,
   slippageWarning,
+  milesApplied = false,
 }) => {
   // Pill/gear visual: amber whenever slippage sits above the auto-mode
   // BASELINE (= max(autoBase, buffer)) — covers auto-bumped, custom-set-high,
@@ -116,7 +123,9 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
             <div className="overflow-hidden">
               <div className="pb-3">
                 <div className="rounded-xl px-3 py-2 border border-amber-500/30 bg-amber-500/10">
-                  <span className="text-[12px] leading-snug text-amber-200">{WARNING_MESSAGE}</span>
+                  <span className="text-[12px] leading-snug text-amber-200">
+                    {milesApplied ? MILES_WARNING_MESSAGE : WARNING_MESSAGE}
+                  </span>
                 </div>
               </div>
             </div>

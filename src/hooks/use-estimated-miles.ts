@@ -129,6 +129,12 @@ interface UseEstimatedMilesParams {
    *  values until the new pair's data is ready, so they don't briefly
    *  compute on partially-settled props (e.g. right after a token switch). */
   isBarterValidating: boolean
+  /** Identity of the user's swap inputs (typed amount + pair). Changes
+   *  synchronously when the user clicks/types. Used to clear the estimator's
+   *  cached miles/effective-rate refs so prior-amount values don't leak
+   *  into the new amount during the validation window — critical for the
+   *  percentage-button toggle case where `amountOut` lags the click. */
+  swapIdentityKey: string
 }
 
 export interface MilesPlan {
@@ -177,6 +183,7 @@ export function useEstimatedMiles({
   isPermitPath,
   enabled,
   isBarterValidating,
+  swapIdentityKey,
 }: UseEstimatedMilesParams): UseEstimatedMilesReturn {
   const [priorityFee, setPriorityFee] = useState<bigint | null>(DEFAULT_PRIORITY_FEE_WEI)
   const [avgGasLimit, setAvgGasLimit] = useState<bigint>(DEFAULT_AVG_GAS_LIMIT)
@@ -272,6 +279,22 @@ export function useEstimatedMiles({
   // uses this so it matches the forward at the current operating point —
   // particularly when barter routing differs from `slippage/100`.
   const lastEffectiveSurplusRateRef = useRef<number | null>(null)
+
+  // Clear both refs the moment the swap identity changes. Driven by the
+  // user's typed amount + pair (passed in via `swapIdentityKey`) rather than
+  // `amountOut`, because `amountOut` lags the click — it only updates when
+  // the new quote refetches. With the lagging signal, toggling 50% → 25%
+  // briefly leaves these refs holding the prior amount's values, which the
+  // inverse calc then uses to project a wildly inflated slippage (visible
+  // as "50% slippage + high miles"). The synchronous identity key clears
+  // them on the click itself, so the validation gate falls through to a
+  // genuine empty state until fresh values arrive.
+  const lastIdentityKeyRef = useRef<string>(swapIdentityKey)
+  if (lastIdentityKeyRef.current !== swapIdentityKey) {
+    lastIdentityKeyRef.current = swapIdentityKey
+    lastMilesRef.current = null
+    lastEffectiveSurplusRateRef.current = null
+  }
 
   // Whether gas data has loaded at least once — triggers one recalc when it arrives.
   // Only require baseFeePerGas on the permit path — the ETH path doesn't use
