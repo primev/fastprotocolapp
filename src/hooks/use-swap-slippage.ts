@@ -5,19 +5,21 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 const DEADLINE_MIN_MINUTES = 5
 const DEADLINE_MAX_MINUTES = 1440
 export const SLIPPAGE_MAX = 50
-const SLIPPAGE_STEP = 0.1
+export const SLIPPAGE_STEP = 0.1
 const SLIPPAGE_WARN_THRESHOLD = 5
 
-const AUTO_BASE_ETH = 0.5
-const AUTO_BASE_PERMIT = 1
+export const AUTO_BASE_ETH = 0.5
+export const AUTO_BASE_PERMIT = 1
 
 /**
- * Headroom added above the observed Barter shortfall when auto mode bumps up.
- * Small enough to stay in the ballpark of the shortfall, large enough that a
- * quote refresh with slightly higher shortfall doesn't immediately re-gate the
- * swap with "Amount too small".
+ * Headroom added above the observed Barter shortfall in auto mode. This is
+ * also the protocol's per-swap surplus capture (= buffer × uniswapAmountOut),
+ * so it doubles as the protocol's revenue knob and the safety margin against
+ * routing drift between Barter validation and bidder fill. 1.0% currently —
+ * 0.5% wasn't enough to absorb observed execution-time drift on small-shortfall
+ * swaps and was leaving slippage-too-low reverts.
  */
-const AUTO_BUMP_BUFFER_PCT = 0.5
+export const AUTO_BUMP_BUFFER_PCT = 1.0
 
 export type SlippageMode = "auto" | "custom"
 export type SlippageWarning = "none" | "high"
@@ -36,8 +38,10 @@ interface UseSwapSlippageOptions {
 /**
  * Target slippage when auto mode needs to cover an observed Barter shortfall.
  * Rounded up to the nearest 0.1% step, buffered, and capped at the UI ceiling.
+ *
+ * Exported for testing.
  */
-function computeAutoBumpValue(shortfallPct: number): number {
+export function computeAutoBumpValue(shortfallPct: number): number {
   const roundedUp = Math.ceil(shortfallPct / SLIPPAGE_STEP) * SLIPPAGE_STEP
   return Math.min(SLIPPAGE_MAX, roundedUp + AUTO_BUMP_BUFFER_PCT)
 }
@@ -46,30 +50,52 @@ function clampDeadline(minutes: number): number {
   return Math.max(DEADLINE_MIN_MINUTES, Math.min(DEADLINE_MAX_MINUTES, minutes))
 }
 
-/** Format a numeric slippage to step-rounded string (e.g. 0.5, 1, 1.3). */
-function formatSlippage(num: number): string {
+/**
+ * Format a numeric slippage to step-rounded string (e.g. 0.5, 1, 1.3).
+ * Exported for testing.
+ */
+export function formatSlippage(num: number): string {
   return num === Math.floor(num) ? String(num) : num.toFixed(1)
 }
 
 /**
  * Strip invalid characters and collapse multiple decimal points so the input
  * feels natural while typing. Does NOT clamp — user can type any value and we
- * only finalize on blur.
+ * only finalize on blur. Exported for testing.
  */
-function sanitizeInput(val: string): string {
+export function sanitizeInput(val: string): string {
   const cleaned = val.replace(/[^0-9.]/g, "")
   const dotIdx = cleaned.indexOf(".")
   if (dotIdx === -1) return cleaned
   return cleaned.slice(0, dotIdx + 1) + cleaned.slice(dotIdx + 1).replace(/\./g, "")
 }
 
-/** Snap a typed value to [min, SLIPPAGE_MAX] with 0.1 step rounding. Runs on blur. */
-function finalizeSlippage(val: string, min: number): string {
+/**
+ * Snap a typed value to [min, SLIPPAGE_MAX] with 0.1 step rounding. Runs on blur.
+ * Exported for testing.
+ */
+export function finalizeSlippage(val: string, min: number): string {
   const num = parseFloat(val)
   if (Number.isNaN(num)) return formatSlippage(min)
   const rounded = Math.round(num / SLIPPAGE_STEP) * SLIPPAGE_STEP
   const clamped = Math.max(min, Math.min(SLIPPAGE_MAX, rounded))
   return formatSlippage(clamped)
+}
+
+/**
+ * Compute the slippage value auto mode would surface given the observed
+ * Barter shortfall and the path-dependent auto base. Mirrors the inline
+ * logic inside `useSwapSlippage` — exported for testing.
+ */
+export function computeAutoSlippage(
+  barterShortfallPct: number,
+  isPermitPath: boolean
+): { slippage: string; bumped: boolean } {
+  const autoBase = isPermitPath ? AUTO_BASE_PERMIT : AUTO_BASE_ETH
+  const baseline = Math.max(autoBase, AUTO_BUMP_BUFFER_PCT)
+  const bump = computeAutoBumpValue(barterShortfallPct)
+  const value = Math.max(autoBase, bump)
+  return { slippage: formatSlippage(value), bumped: bump > baseline }
 }
 
 export function useSwapSlippage(options: UseSwapSlippageOptions = {}) {
@@ -92,14 +118,22 @@ export function useSwapSlippage(options: UseSwapSlippageOptions = {}) {
   const autoBase = isPermitPath ? AUTO_BASE_PERMIT : AUTO_BASE_ETH
   const customMin = autoBase
 
-  // Auto mode: when Barter's observed shortfall exceeds the auto base, bump the
-  // visible slippage to (shortfall + buffer) so the user's tolerance clears the
-  // amount-too-small gate instead of stranding them at a hardcoded 2% that may
-  // not be enough.
-  const autoBumpedForGas = mode === "auto" && barterShortfallPct > autoBase
-  const autoSlippage = autoBumpedForGas
-    ? formatSlippage(computeAutoBumpValue(barterShortfallPct))
-    : formatSlippage(autoBase)
+  // Auto mode: slippage is always max(autoBase, observed shortfall + buffer).
+  // The buffer above shortfall absorbs execution-time drift between when
+  // Barter validated and when the bidder fills — without it, a swap with
+  // shortfall just under autoBase (say 0.3% vs 0.5%) submits with autoBase
+  // and reverts as soon as routing drifts.
+  //
+  // Baseline = the auto-mode value when no shortfall is observed. With the
+  // buffer raised to 1.0, the baseline for ETH input is `buffer` (1.0), not
+  // autoBase (0.5) — and that 1.0 IS the default the user sees. The
+  // "auto-bumped" UI badge should only fire when an actual shortfall pushes
+  // slippage *above* this baseline; otherwise the default state shows a
+  // misleading "custom" badge next to the gear.
+  const bumpedFromShortfall = computeAutoBumpValue(barterShortfallPct)
+  const autoBaseline = Math.max(autoBase, AUTO_BUMP_BUFFER_PCT)
+  const autoBumpedForGas = mode === "auto" && bumpedFromShortfall > autoBaseline
+  const autoSlippage = formatSlippage(Math.max(autoBase, bumpedFromShortfall))
 
   // Re-clamp custom value when the floor rises (e.g. user switches from ETH input to ERC20 input).
   // IMPORTANT: do not depend on customSlippage here — doing so re-runs on every keystroke and
