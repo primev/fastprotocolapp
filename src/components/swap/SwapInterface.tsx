@@ -108,6 +108,14 @@ interface SwapInterfaceProps {
   swapResetCount: number
   onApplyMilesCalc: (args: { slippage: string }) => void
   onCloseMilesCalc: () => void
+  /** True when the miles calc has set the current slippage (cleared on token switch,
+   *  manual slippage edit, or successful swap). Drives the buy card's "miles applied"
+   *  label and min-out display. */
+  milesApplied: boolean
+  /** Slippage-adjusted minimum output as a decimal string. Surfaced on the buy card
+   *  alongside the expected output when miles are applied so the user can see the
+   *  guaranteed amount and the cost of the miles they targeted. */
+  computedMinAmountOut: string | null
 }
 
 export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
@@ -254,6 +262,10 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
           setAmount={setAmount}
           setIsToTokenSelectorOpen={setIsToTokenSelectorOpen}
           buyInputRef={buyInputRef}
+          milesApplied={props.milesApplied}
+          minAmountOut={props.computedMinAmountOut}
+          slippagePct={parseFloat(slippage) || 0}
+          standardSlippagePct={Math.max(slippageAutoBase ?? 0, 1)}
         />
       </div>
 

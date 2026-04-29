@@ -138,7 +138,7 @@ const RewardsBadgeComponent = ({
             <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
             <div className="absolute h-2 w-2 rounded-full bg-primary animate-ping opacity-75" />
           </div>
-          <span className="text-[11px] font-medium text-primary sm:text-xs">Calculate Miles</span>
+          <span className="text-[11px] font-medium text-primary sm:text-xs">Estimate Miles</span>
           <Image
             src="/assets/fast-icon.png"
             alt="Fast"
@@ -210,16 +210,12 @@ const RewardsBadgeComponent = ({
                 </span>
               </>
             ) : (
-              <span
-                className={`shrink-0 text-sm font-medium sm:text-base ${
-                  maxMiles === 0 ? "text-amber-300/90" : "text-primary/80"
-                }`}
-              >
+              <span className={`shrink-0 text-sm font-medium sm:text-base text-primary/80`}>
                 {maxMiles == null
                   ? "Earn miles on this swap"
                   : maxMiles > 0
                     ? `Earn up to ${maxMiles.toLocaleString()} miles`
-                    : "Swap too small to earn miles at current gas"}
+                    : "Swap too small to earn miles."}
               </span>
             )}
           </div>

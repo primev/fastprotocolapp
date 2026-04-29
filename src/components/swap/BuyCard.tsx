@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 // Local Components
 import AmountInput from "./AmountInput"
 import TokenInfoRow from "./TokenInfoRow"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 // Hooks
 import { useBalanceFlash } from "@/hooks/use-balance-flash"
@@ -51,6 +52,19 @@ interface BuyCardProps {
 
   // Input Control
   buyInputRef: React.RefObject<HTMLInputElement>
+
+  // Miles Calc Surface — when the miles calculator was used to apply slippage,
+  // we change the header label and replace the USD-price line with a min-out
+  // breakdown so the user can see *what they're paying* for the miles they
+  // targeted (lower guaranteed receive vs. standard auto slippage).
+  milesApplied: boolean
+  /** Slippage-adjusted minimum receive amount (decimal string). */
+  minAmountOut: string | null
+  /** Currently effective slippage percent (e.g. 5.4). */
+  slippagePct: number
+  /** Slippage percent that auto-mode would land at without the miles calc.
+   *  Used to compute the "vs standard" delta the user is paying for miles. */
+  standardSlippagePct: number
 }
 
 const BuyCardComponent: React.FC<BuyCardProps> = ({
@@ -71,6 +85,10 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
   setAmount,
   setIsToTokenSelectorOpen,
   buyInputRef,
+  milesApplied,
+  minAmountOut,
+  slippagePct,
+  standardSlippagePct,
 }) => {
   /**
    * 1. LOCAL UI STATE
@@ -96,11 +114,40 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
     setAmount(toBalanceValue.toString())
   }
 
+  // Cost-of-miles math: the delta between the standard min-out (auto baseline)
+  // and the slippage-adjusted min-out the user is now agreeing to. Numeric
+  // computation only — no display strings here so the rendering layer stays
+  // declarative.
+  const cleanOutput = outputAmount ? outputAmount.replace(/,/g, "") : ""
+  const expectedNum = parseFloat(cleanOutput)
+  const cleanMin = minAmountOut ? minAmountOut.replace(/,/g, "") : ""
+  const minNum = parseFloat(cleanMin)
+  const showMilesBreakdown =
+    milesApplied &&
+    Number.isFinite(expectedNum) &&
+    expectedNum > 0 &&
+    Number.isFinite(minNum) &&
+    minNum > 0 &&
+    slippagePct > standardSlippagePct
+  const standardMin = showMilesBreakdown ? expectedNum * (1 - standardSlippagePct / 100) : null
+  const deltaVsStandard = showMilesBreakdown && standardMin != null ? standardMin - minNum : null
+
+  // Compact decimal formatting that mirrors the existing buy-amount precision.
+  const formatTokenNum = (n: number): string => {
+    if (!Number.isFinite(n)) return "—"
+    if (n === 0) return "0"
+    if (n >= 1) return n.toLocaleString(undefined, { maximumFractionDigits: 4 })
+    if (n >= 0.0001) return n.toLocaleString(undefined, { maximumFractionDigits: 6 })
+    return n.toPrecision(2)
+  }
+
   return (
     <div className="rounded-[14px] sm:rounded-[16px] bg-[#161b22] border border-white/5 px-3 py-2.5 sm:px-5 sm:py-4">
       {/* Header Section */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Buy</span>
+        <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+          {milesApplied ? "Buy · miles applied" : "Buy"}
+        </span>
         {toToken && (
           <button
             type="button"
@@ -139,13 +186,39 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
           />
 
           {toToken && !!outputAmount && outputAmount !== "0" && (
-            <TokenInfoRow
-              displayAmount={outputAmount}
-              tokenPrice={activeToTokenPrice}
-              isLoadingPrice={isLoadingToPrice}
-              isQuoteLoading={effectiveQuoteLoading}
-              side="buy"
-            />
+            <>
+              {showMilesBreakdown && minNum != null && deltaVsStandard != null ? (
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="mt-1 flex justify-between items-center text-sm font-medium text-gray-500 tracking-tight min-h-[20px] cursor-help">
+                        <span className="font-medium whitespace-nowrap tabular-nums">
+                          ≈ $
+                          {(minNum * (activeToTokenPrice || 0)).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                          {deltaVsStandard > 0 ? ` (−${formatTokenNum(deltaVsStandard)})` : ""}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                      Minimum you&apos;ll receive at the slippage the miles calculator applied. The
+                      number in parentheses is what those miles cost you in {toToken.symbol}{" "}
+                      compared to standard auto slippage.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                <TokenInfoRow
+                  displayAmount={outputAmount}
+                  tokenPrice={activeToTokenPrice}
+                  isLoadingPrice={isLoadingToPrice}
+                  isQuoteLoading={effectiveQuoteLoading}
+                  side="buy"
+                />
+              )}
+            </>
           )}
         </div>
 

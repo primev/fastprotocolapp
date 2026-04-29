@@ -137,6 +137,13 @@ export function SwapForm() {
   const formSlippageRef = useRef(form.slippage)
   formSlippageRef.current = form.slippage
 
+  // Tracks the slippage value the miles calc most recently applied. Used to
+  // flip the buy card into "miles applied" mode (different label + min-out
+  // display) so the user can see the cost of the miles they targeted.
+  // Cleared whenever the user moves slippage off the calc value, switches
+  // tokens, or completes a swap.
+  const [milesAppliedSlippage, setMilesAppliedSlippage] = useState<string | null>(null)
+
   const handleApplyMilesCalc = useCallback(
     ({ slippage }: { slippage: string }) => {
       // Calculator only adjusts slippage — never changes the user's typed
@@ -145,6 +152,7 @@ export function SwapForm() {
       if (slippage && slippage !== formSlippageRef.current) {
         updateSlippage(slippage)
       }
+      setMilesAppliedSlippage(slippage)
     },
     [updateSlippage]
   )
@@ -153,7 +161,33 @@ export function SwapForm() {
   // calc's bumped value was scoped to the calc session.
   const handleCloseMilesCalc = useCallback(() => {
     resetSlippage()
+    setMilesAppliedSlippage(null)
   }, [resetSlippage])
+
+  // Drop the miles-applied marker the moment slippage drifts away from
+  // the calc-applied value (manual edit in settings, retry-with-slippage,
+  // auto-bump kicking back in, etc.). Without this the buy card would lie.
+  useEffect(() => {
+    if (milesAppliedSlippage != null && form.slippage !== milesAppliedSlippage) {
+      setMilesAppliedSlippage(null)
+    }
+  }, [form.slippage, milesAppliedSlippage])
+
+  // Token switch → calc resets, so the marker should too.
+  useEffect(() => {
+    setMilesAppliedSlippage(null)
+  }, [form.fromToken?.address, form.toToken?.address])
+
+  // Successful swap → marker resets along with the rest of the form.
+  const lastResetCountRef = useRef(form.swapResetCount)
+  useEffect(() => {
+    if (form.swapResetCount !== lastResetCountRef.current) {
+      lastResetCountRef.current = form.swapResetCount
+      setMilesAppliedSlippage(null)
+    }
+  }, [form.swapResetCount])
+
+  const milesApplied = milesAppliedSlippage != null
 
   return (
     <div className="relative flex flex-col items-center justify-start w-full min-h-[320px]">
@@ -254,6 +288,8 @@ export function SwapForm() {
         swapResetCount={form.swapResetCount}
         onApplyMilesCalc={handleApplyMilesCalc}
         onCloseMilesCalc={handleCloseMilesCalc}
+        milesApplied={milesApplied}
+        computedMinAmountOut={form.computedMinAmountOut ?? null}
       />
 
       {/* From Token Selector Modal */}
