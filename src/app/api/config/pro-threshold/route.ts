@@ -10,8 +10,7 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        minUsd:
-          typeof threshold === "number" && threshold > 0 ? threshold : PRO_MODE_MIN_USD,
+        minUsd: typeof threshold === "number" && threshold > 0 ? threshold : PRO_MODE_MIN_USD,
       },
       { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } }
     )

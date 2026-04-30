@@ -72,6 +72,8 @@ interface SwapConfirmationModalProps {
   exchangeRate: number
   priceImpact: number
   slippage: string
+  /** True when auto-slippage mode bumped to 2% to cover gas/routing shortfall. Surfaces a note. */
+  autoAdjustedForGas?: boolean
   /** Transaction deadline in minutes (5–1440). Passed to useSwapConfirmation. */
   deadline: number
   gasEstimate: bigint | null
@@ -195,6 +197,7 @@ function SwapConfirmationModal({
   exchangeRate: exchangeRateLive,
   priceImpact: priceImpactLive,
   slippage: slippageLive,
+  autoAdjustedForGas: autoAdjustedForGasLive = false,
   deadline: deadlineLive,
   gasEstimate: gasEstimateLive,
   ethPrice: ethPriceLive,
@@ -233,6 +236,7 @@ function SwapConfirmationModal({
     exchangeRate: number
     priceImpact: number
     slippage: string
+    autoAdjustedForGas: boolean
     deadline: number
     gasEstimate: bigint | null
     ethPrice: number | undefined
@@ -256,6 +260,7 @@ function SwapConfirmationModal({
       exchangeRate: exchangeRateLive,
       priceImpact: priceImpactLive,
       slippage: slippageLive,
+      autoAdjustedForGas: autoAdjustedForGasLive,
       deadline: deadlineLive,
       gasEstimate: gasEstimateLive,
       ethPrice: ethPriceLive,
@@ -281,6 +286,7 @@ function SwapConfirmationModal({
   const exchangeRate = snapshotRef.current?.exchangeRate ?? exchangeRateLive
   const priceImpact = snapshotRef.current?.priceImpact ?? priceImpactLive
   const slippage = snapshotRef.current?.slippage ?? slippageLive
+  const autoAdjustedForGas = snapshotRef.current?.autoAdjustedForGas ?? autoAdjustedForGasLive
   const deadline = snapshotRef.current?.deadline ?? deadlineLive
   const gasEstimate = snapshotRef.current?.gasEstimate ?? gasEstimateLive
   const ethPrice = snapshotRef.current?.ethPrice ?? ethPriceLive
@@ -1054,6 +1060,11 @@ function SwapConfirmationModal({
                       }
                       tooltip="Maximum price movement allowed before transaction reverts"
                     />
+                    {autoAdjustedForGas && (
+                      <div className="-mt-2 mb-1 pl-0.5 text-xs text-amber-400/80">
+                        Your slippage has been auto-adjusted to cover gas costs
+                      </div>
+                    )}
 
                     <InfoRow
                       label="Order routing"

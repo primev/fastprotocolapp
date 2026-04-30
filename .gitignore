@@ -45,3 +45,6 @@ out/
 .mcp.json
 .claude/settings.local.json
 
+# error-insights skill runtime output (library + daily reports)
+/error-insights/
+

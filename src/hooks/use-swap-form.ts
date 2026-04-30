@@ -19,7 +19,7 @@ import {
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import { isStablecoin } from "@/lib/stablecoins"
 import { formatAmountByTokenType, formatTokenAmount } from "@/lib/utils"
-import { useSwapSlippage } from "@/hooks/use-swap-slippage"
+import { useSwapSlippage, SLIPPAGE_MAX } from "@/hooks/use-swap-slippage"
 import { useBarterValidation } from "@/hooks/use-barter-validation"
 import { useQuoteGuardConfig } from "@/hooks/use-quote-guard-config"
 import { isQuoteGuardTriggered, computeQuoteGuardFloor } from "@/lib/quote-guard"
@@ -35,7 +35,6 @@ export function useSwapForm(allTokens: Token[]) {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
   const queryClient = useQueryClient()
-  const settings = useSwapSlippage()
 
   // --- Core State ---
   const [fromToken, setFromToken] = useState<Token | undefined>(DEFAULT_ETH_TOKEN)
@@ -43,6 +42,23 @@ export function useSwapForm(allTokens: Token[]) {
   const [amount, setAmount] = useState("")
   const [editingSide, setEditingSide] = useState<"sell" | "buy">("sell")
   const [clearSwapState, setClearSwapState] = useState(false)
+
+  // --- Auto-slippage inputs ---
+  // isPermitPath is derived below (needs isWrapUnwrap) but useSwapSlippage must run
+  // before useQuote/useBarterValidation. We compute it inline here so it's available
+  // at the slippage hook call site, then recompute later only for consumers of the
+  // full isWrapUnwrap branch (kept identical for clarity).
+  const isPermitPathForSlippage =
+    !isWrapUnwrapPair(fromToken, toToken) &&
+    !!fromToken &&
+    fromToken.address?.toLowerCase() !== ZERO_ADDRESS.toLowerCase()
+  // Barter shortfall feeds back into auto-slippage; held in state so the slippage
+  // hook re-renders when Barter validation settles.
+  const [observedBarterShortfallPct, setObservedBarterShortfallPct] = useState(0)
+  const settings = useSwapSlippage({
+    isPermitPath: isPermitPathForSlippage,
+    barterShortfallPct: observedBarterShortfallPct,
+  })
 
   // --- UI Synchronicity State ---
   const [isManualInversion, setIsManualInversion] = useState(false)
@@ -240,12 +256,24 @@ export function useSwapForm(allTokens: Token[]) {
   })
 
   // Keep lastValidQuotePairKeyRef in sync so the activeQuote memo can read it synchronously.
-  // Also bump quoteGeneration so Barter re-validates on every requote, even if amountOut is unchanged.
+  // Bump quoteGeneration only when the underlying routing output actually changes. A
+  // slippage-only update inside useQuote creates a new quote object with the same
+  // amountOut but a different slippageLimit — barter has no new info to validate against,
+  // and re-firing validation on every auto-bump creates a visible flicker between
+  // "calculating" and "Amount too small" that never settles.
   const [quoteGeneration, setQuoteGeneration] = useState(0)
+  const prevQuoteAmountOutRef = useRef<bigint | null>(null)
+  const prevQuoteAmountInRef = useRef<bigint | null>(null)
   useEffect(() => {
     if (quote && !isQuoteLoading) {
       lastValidQuotePairKeyRef.current = pairKey
-      setQuoteGeneration((g) => g + 1)
+      const amountOutChanged = prevQuoteAmountOutRef.current !== quote.amountOut
+      const amountInChanged = prevQuoteAmountInRef.current !== quote.amountIn
+      if (amountOutChanged || amountInChanged) {
+        prevQuoteAmountOutRef.current = quote.amountOut
+        prevQuoteAmountInRef.current = quote.amountIn
+        setQuoteGeneration((g) => g + 1)
+      }
     }
   }, [quote, isQuoteLoading, pairKey])
 
@@ -284,6 +312,7 @@ export function useSwapForm(allTokens: Token[]) {
     shortfallPct: barterShortfallPct,
     isValidating: isBarterValidating,
     barterAmountOut,
+    barterPreGasOutputAmount,
     barterUnavailable,
   } = useBarterValidation({
     fromToken,
@@ -291,8 +320,15 @@ export function useSwapForm(allTokens: Token[]) {
     amountOut: displayQuote?.amountOut,
     sellAmount: amount,
     quoteGeneration,
+    maxSlippagePct: parseFloat(effectiveSlippage) || 0,
     enabled: !isWrapUnwrap && !!displayQuote && hasSufficientBalance,
   })
+
+  // Feed observed shortfall back into the slippage hook so auto mode can bump to 2%
+  // when the base tier isn't enough to cover Barter's routing cost.
+  useEffect(() => {
+    setObservedBarterShortfallPct(barterShortfallPct)
+  }, [barterShortfallPct])
 
   // Guard trigger: Barter's routed output exceeds the Uniswap single-hop quote by more than
   // the configured threshold. Indicates the Uniswap quote is not representative of execution
@@ -308,8 +344,8 @@ export function useSwapForm(allTokens: Token[]) {
   }, [displayQuote, barterAmountOut, divergenceThresholdPct])
 
   // Compute minAmountOut inline from current slippage + observed barter shortfall.
-  // Uses the larger of user slippage and barter shortfall (+0.1% buffer), capped at 2%,
-  // so the minAmountOut is always achievable by barter on first click.
+  // Uses the larger of user slippage and barter shortfall (+0.1% buffer), capped at SLIPPAGE_MAX,
+  // so the minAmountOut honors the user's custom tolerance up to the UI cap.
   //
   // When quoteGuardTriggered, the floor is derived from Barter's routed output minus the
   // configured treasury margin instead of the Uniswap quote — the Uniswap number isn't a
@@ -329,7 +365,7 @@ export function useSwapForm(allTokens: Token[]) {
 
     const userSlippage = Number(parseFloat(effectiveSlippage || "0")) || 0
     const barterFloor = Number(barterShortfallPct) > 0 ? Number(barterShortfallPct) + 0.5 : 0
-    const appliedSlippage = Math.min(2.0, Math.max(userSlippage, barterFloor))
+    const appliedSlippage = Math.min(SLIPPAGE_MAX, Math.max(userSlippage, barterFloor))
     const bps = Math.floor(appliedSlippage * 100)
     const slippageBps = BigInt(Number.isFinite(bps) ? bps : 0)
     const limit = (displayQuote.amountOut * (10000n - slippageBps)) / 10000n
@@ -494,8 +530,7 @@ export function useSwapForm(allTokens: Token[]) {
   const wrapContext = useWethWrapUnwrap({ fromToken, toToken, amount })
 
   // --- Permit2 Approval (Permit path only) ---
-  const isPermitPath =
-    !isWrapUnwrap && !!fromToken && fromToken.address?.toLowerCase() !== ZERO_ADDRESS.toLowerCase()
+  const isPermitPath = isPermitPathForSlippage
   const permit2Amount =
     editingSide === "buy" ? displayQuote?.amountInFormatted?.replace(/,/g, "") || "" : amount
   const permit2Allowance = usePermit2Allowance({
@@ -599,6 +634,7 @@ export function useSwapForm(allTokens: Token[]) {
     setSwappedQuote,
     hasNoLiquidity,
     barterAmountTooSmall,
+    barterPreGasOutputAmount,
     barterUnavailable,
     isBarterValidating: debouncedValidating,
     gasEstimate: isWrapUnwrap ? wrapUnwrapGasEstimate : (displayQuote?.gasEstimate ?? null),

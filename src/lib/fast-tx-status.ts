@@ -1,9 +1,15 @@
 export type FastTxStatus = "preconfirmed" | "confirmed" | "failed" | null
 
+export type FastTxStatusResult = {
+  status: FastTxStatus
+  /** Raw `mctransactions.details` for the row (e.g. simulation revert reason). */
+  details: string | null
+}
+
 const REQUEST_TIMEOUT_MS = 5000
 
 /** Normalize DB status values (e.g. "pre-confirmed") to frontend values ("preconfirmed"). */
-function normalizeStatus(raw: string): FastTxStatus {
+function normalizeStatus(raw: string | null | undefined): FastTxStatus {
   if (raw === "pre-confirmed" || raw === "preconfirmed") return "preconfirmed"
   if (raw === "confirmed") return "confirmed"
   if (raw === "failed") return "failed"
@@ -11,21 +17,23 @@ function normalizeStatus(raw: string): FastTxStatus {
 }
 
 /**
- * Fetches the mctransactions status for a swap tx hash.
- * Returns "preconfirmed" | "confirmed" | "failed" | null (not found yet).
+ * Fetches the mctransactions status (and raw details) for a swap tx hash.
+ * `details` is forwarded to Vercel error logs so we can categorize the
+ * underlying simulation-failure reason instead of logging a generic message.
  */
 export async function fetchFastTxStatus(
   txHash: string,
   abortSignal?: AbortSignal
-): Promise<FastTxStatus> {
+): Promise<FastTxStatusResult> {
+  const empty: FastTxStatusResult = { status: null, details: null }
+
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
-  // Link parent abort signal so in-flight requests cancel immediately
   if (abortSignal) {
     if (abortSignal.aborted) {
       clearTimeout(timeoutId)
-      return null
+      return empty
     }
     abortSignal.addEventListener("abort", () => controller.abort(), { once: true })
   }
@@ -37,14 +45,20 @@ export async function fetchFastTxStatus(
 
     clearTimeout(timeoutId)
 
-    if (abortSignal?.aborted) return null
+    if (abortSignal?.aborted) return empty
+    if (!response.ok) return empty
 
-    if (!response.ok) return null
+    const data = (await response.json()) as {
+      status?: string | null
+      details?: string | null
+    }
 
-    const data = await response.json()
-    return data.status ? normalizeStatus(data.status) : null
+    return {
+      status: normalizeStatus(data.status),
+      details: typeof data.details === "string" && data.details.length > 0 ? data.details : null,
+    }
   } catch {
     clearTimeout(timeoutId)
-    return null
+    return empty
   }
 }
