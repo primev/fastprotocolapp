@@ -109,6 +109,7 @@ interface SwapInterfaceProps {
   proEligible: boolean
   proJustActivated: boolean
   onTogglePro: () => void
+  proMinUsd: number
 }
 
 export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
@@ -203,6 +204,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         proEligible={props.proEligible}
         proJustActivated={props.proJustActivated}
         onTogglePro={props.onTogglePro}
+        proMinUsd={props.proMinUsd}
         mode={slippageMode}
         setMode={setSlippageMode}
         customMin={slippageCustomMin}

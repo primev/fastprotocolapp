@@ -278,6 +278,7 @@ export function SwapForm() {
         proEligible={proEligible}
         proJustActivated={proJustActivated}
         onTogglePro={handleTogglePro}
+        proMinUsd={proMinUsd}
       />
 
       {/* From Token Selector Modal */}

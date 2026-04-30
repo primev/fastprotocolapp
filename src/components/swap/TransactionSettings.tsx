@@ -21,6 +21,7 @@ interface TransactionSettingsProps {
   proEligible: boolean
   proJustActivated: boolean
   onTogglePro: () => void
+  proMinUsd: number
   mode: SlippageMode
   setMode: (mode: SlippageMode) => void
   customMin: number
@@ -44,6 +45,7 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
   proEligible,
   proJustActivated,
   onTogglePro,
+  proMinUsd,
   mode,
   setMode,
   customMin,
@@ -95,7 +97,8 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
                   slippage from MEV bots.
                 </p>
                 <p className="text-[11px] text-gray-400 mt-1.5">
-                  Available for swaps ≥ $250 USD. Smaller trades receive standard block placement.
+                  Available for swaps ≥ ${proMinUsd.toLocaleString()} USD. Smaller trades receive
+                  standard block placement.
                 </p>
                 <a
                   href="/learn/pro-swaps"
