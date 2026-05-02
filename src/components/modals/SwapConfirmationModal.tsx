@@ -99,6 +99,11 @@ interface SwapConfirmationModalProps {
   approveTokenSymbol?: string
   /** Estimated Fast Miles earned from this swap */
   estimatedMiles?: number | null
+  /** True when the miles calc lifted slippage above the auto baseline. The
+   *  headline receive amount switches to the slippage-adjusted min so the
+   *  primary number reflects the swap conditions the user actually agreed
+   *  to (matches the BuyCard behavior). */
+  milesApplied?: boolean
   /** Called with the recommended slippage when a barter slippage error is detected. */
   onRetryWithSlippage?: (slippage: string) => void
   /** When true, immediately execute the swap on open (skip review). Used by toast retry flow. */
@@ -213,6 +218,7 @@ function SwapConfirmationModal({
   onApprove,
   approveTokenSymbol,
   estimatedMiles: estimatedMilesLive,
+  milesApplied: milesAppliedLive = false,
   onRetryWithSlippage,
   autoExecute = false,
   onAutoExecuteConsumed,
@@ -240,6 +246,7 @@ function SwapConfirmationModal({
     fromTokenPrice: number | null | undefined
     toTokenPrice: number | null | undefined
     estimatedMiles: number | null | undefined
+    milesApplied: boolean
   } | null>(null)
   const wasOpenRef = useRef(open)
 
@@ -263,6 +270,7 @@ function SwapConfirmationModal({
       fromTokenPrice: fromTokenPriceLive,
       toTokenPrice: toTokenPriceLive,
       estimatedMiles: estimatedMilesLive,
+      milesApplied: milesAppliedLive,
     }
   } else if (!open && wasOpenRef.current) {
     // Modal just closed — clear snapshot
@@ -288,6 +296,7 @@ function SwapConfirmationModal({
   const fromTokenPrice = snapshotRef.current?.fromTokenPrice ?? fromTokenPriceLive
   const toTokenPrice = snapshotRef.current?.toTokenPrice ?? toTokenPriceLive
   const estimatedMiles = snapshotRef.current?.estimatedMiles ?? estimatedMilesLive
+  const milesApplied = snapshotRef.current?.milesApplied ?? milesAppliedLive
   // --- EXTERNAL HOOKS ---
   const { chain: signerChain, isConnected } = useAccount()
 
@@ -556,6 +565,50 @@ function SwapConfirmationModal({
     return num * toTokenPrice
   }, [amountOut, toTokenPrice])
 
+  // Miles-applied headline: when the calc lifted slippage, the slippage-
+  // adjusted min becomes the headline receive amount and the pre-calc expected
+  // amount drops to a supporting line below. Mirrors the BuyCard so the user
+  // sees a consistent number across the swap form and confirmation review.
+  const milesEstimateView = useMemo(() => {
+    if (!milesApplied) return null
+    const expected = parseFloat(amountOut?.replace(/,/g, "") ?? "")
+    const min = parseFloat(minAmountOut?.replace(/,/g, "") ?? "")
+    if (
+      !Number.isFinite(expected) ||
+      expected <= 0 ||
+      !Number.isFinite(min) ||
+      min <= 0 ||
+      min >= expected
+    ) {
+      return null
+    }
+    return { expected, min }
+  }, [milesApplied, amountOut, minAmountOut])
+
+  const headlineReceiveValue = milesEstimateView
+    ? slippageLimitFormatted || minAmountOut || amountOut
+    : amountOut
+
+  const headlineUsdValue = useMemo(() => {
+    if (!milesEstimateView) return toUsdValue
+    if (toTokenPrice == null || toTokenPrice <= 0) return null
+    return milesEstimateView.min * toTokenPrice
+  }, [milesEstimateView, toTokenPrice, toUsdValue])
+
+  const expectedUsdValue = useMemo(() => {
+    if (!milesEstimateView) return null
+    if (toTokenPrice == null || toTokenPrice <= 0) return null
+    return milesEstimateView.expected * toTokenPrice
+  }, [milesEstimateView, toTokenPrice])
+
+  const formatTokenAmount = (n: number): string => {
+    if (!Number.isFinite(n)) return "—"
+    if (n === 0) return "0"
+    if (n >= 1) return n.toLocaleString(undefined, { maximumFractionDigits: 4 })
+    if (n >= 0.0001) return n.toLocaleString(undefined, { maximumFractionDigits: 6 })
+    return n.toPrecision(2)
+  }
+
   const activeError = externalError
     ? new RPCError(
         externalError.message,
@@ -805,15 +858,15 @@ function SwapConfirmationModal({
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <p className="text-2xl sm:text-3xl font-bold text-white">
-                      <BuyReceiveValue value={amountOut} className="tabular-nums" />{" "}
+                      <BuyReceiveValue value={headlineReceiveValue} className="tabular-nums" />{" "}
                       {tokenOut?.symbol}
                     </p>
                     <p className="text-sm text-gray-500 tabular-nums">
-                      {toUsdValue != null ? (
+                      {headlineUsdValue != null ? (
                         <span className="inline-flex items-center gap-0.5">
                           ≈ $
                           <NumberFlow
-                            value={toUsdValue}
+                            value={headlineUsdValue}
                             format={{
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
@@ -826,6 +879,23 @@ function SwapConfirmationModal({
                         "—"
                       )}
                     </p>
+                    {milesEstimateView && (
+                      <p className="pt-0.5 text-xs tabular-nums text-gray-400">
+                        Est. without miles: {formatTokenAmount(milesEstimateView.expected)}{" "}
+                        {tokenOut?.symbol}
+                        {expectedUsdValue != null ? (
+                          <span className="text-gray-500">
+                            {" "}
+                            (≈ $
+                            {expectedUsdValue.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                            )
+                          </span>
+                        ) : null}
+                      </p>
+                    )}
                   </div>
                   <TokenIcon token={tokenOut} bare className="h-11 w-11 sm:h-12 sm:w-12" />
                 </div>

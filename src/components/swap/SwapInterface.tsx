@@ -108,6 +108,9 @@ interface SwapInterfaceProps {
   swapResetCount: number
   onApplyMilesCalc: (args: { slippage: string }) => void
   onCloseMilesCalc: () => void
+  /** Closes the miles calc, drops slippage back to auto, and clears the
+   *  miles-applied marker. Wired to the BuyCard's "Revert" link. */
+  onRevertMiles: () => void
   /** True when the miles calc has set the current slippage (cleared on token switch,
    *  manual slippage edit, or successful swap). Drives the buy card's "miles applied"
    *  label and min-out display. */
@@ -271,6 +274,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
           minAmountOut={props.computedMinAmountOut}
           slippagePct={parseFloat(slippage) || 0}
           standardSlippagePct={Math.max(slippageAutoBase ?? 0, 1)}
+          onRevertMiles={props.onRevertMiles}
         />
       </div>
 

@@ -171,6 +171,15 @@ export function SwapForm() {
     setMilesAppliedSlippage(null)
   }, [resetSlippage])
 
+  // One-click "Revert" from the BuyCard: collapse the calc badge, drop
+  // slippage back to auto, and clear the marker. Same reset the X-close
+  // path does — exposed as a callback so the buy card can offer it inline.
+  const handleRevertMiles = useCallback(() => {
+    setIsCalcOpen(false)
+    resetSlippage()
+    setMilesAppliedSlippage(null)
+  }, [resetSlippage])
+
   // Drop the miles-applied marker the moment slippage drifts away from
   // the calc-applied value (manual edit in settings, retry-with-slippage,
   // auto-bump kicking back in, etc.). Without this the buy card would lie.
@@ -179,6 +188,21 @@ export function SwapForm() {
       setMilesAppliedSlippage(null)
     }
   }, [form.slippage, milesAppliedSlippage])
+
+  // Flipping slippage mode FROM custom BACK to auto while the calculator is
+  // open means the calc-applied slippage is no longer in effect — close the
+  // calculator so the badge collapses to its baseline state. Tracked as a
+  // transition (not steady state) so the default auto mode doesn't slam the
+  // calc closed the moment the user opens it.
+  const prevSlippageModeRef = useRef(form.mode)
+  useEffect(() => {
+    const prev = prevSlippageModeRef.current
+    prevSlippageModeRef.current = form.mode
+    if (prev === "custom" && form.mode === "auto" && isCalcOpen) {
+      setIsCalcOpen(false)
+      setMilesAppliedSlippage(null)
+    }
+  }, [form.mode, isCalcOpen])
 
   // Token switch → calc resets, so the marker should too.
   useEffect(() => {
@@ -295,6 +319,7 @@ export function SwapForm() {
         swapResetCount={form.swapResetCount}
         onApplyMilesCalc={handleApplyMilesCalc}
         onCloseMilesCalc={handleCloseMilesCalc}
+        onRevertMiles={handleRevertMiles}
         milesApplied={milesApplied}
         computedMinAmountOut={form.computedMinAmountOut ?? null}
         isCalcOpen={isCalcOpen}
@@ -366,6 +391,7 @@ export function SwapForm() {
           onApprove={form.approvePermit2}
           approveTokenSymbol={form.approveTokenSymbol}
           estimatedMiles={estimatedMiles}
+          milesApplied={milesApplied}
           externalError={lastTxError}
           onRetryWithSlippage={(newSlippage) => {
             form.updateSlippage(newSlippage)

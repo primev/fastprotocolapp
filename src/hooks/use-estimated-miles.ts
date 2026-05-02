@@ -604,7 +604,13 @@ export function useEstimatedMiles({
       // drops the miles count below the target. Drift up: ≤1 mile.
       const SLIPPAGE_STEP = 0.01
       const requiredSlippagePct = Math.ceil(requiredSlippagePctRaw / SLIPPAGE_STEP) * SLIPPAGE_STEP
-      if (!Number.isFinite(requiredSlippagePct) || requiredSlippagePct > SLIPPAGE_MAX) {
+      // Tolerance above SLIPPAGE_MAX: when the target equals the displayed
+      // `maxAchievableMiles` (computed at exactly 50% slippage), the FLOOR_EPSILON
+      // bump above can push the required raw slippage 0.005–0.05% past 50%
+      // depending on outputInEth. Without this tolerance, typing the max would
+      // disable Apply (raw > 50% → null), forcing the user to subtract a mile
+      // to re-enable. Anything more than 0.5% over is a real over-target.
+      if (!Number.isFinite(requiredSlippagePct) || requiredSlippagePct > SLIPPAGE_MAX + 0.5) {
         return null
       }
 
