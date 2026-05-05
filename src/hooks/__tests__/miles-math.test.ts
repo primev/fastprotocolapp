@@ -19,7 +19,14 @@ import { computeSurplusEth } from "../use-estimated-miles"
 // ──────────────────────────────────────────────────────────────────────────
 const USER_MEV_SHARE = 0.9
 const MILES_PER_ETH = 100_000
-const SLIPPAGE_MAX = 50
+/** Default cap mirrors `DEFAULT_MILES_CALC_MAX_SLIPPAGE_PCT`. The hook
+ *  reads this from Edge Config (`miles_calc_max_slippage_pct`) at runtime
+ *  — these tests parameterize the helpers below so we can exercise the
+ *  default and any operator-set value with the same machinery. */
+const DEFAULT_SLIPPAGE_MAX = 50
+/** Tolerance the planner allows above the cap before declaring a target
+ *  unreachable. Mirrors `MILES_CALC_SLIPPAGE_TOLERANCE_PCT`. */
+const SLIPPAGE_TOLERANCE = 0.5
 const SLIPPAGE_STEP = 0.01 // planner step
 const ETH_DECIMALS = 18
 const USDC_DECIMALS = 6
@@ -50,7 +57,8 @@ function forwardMiles(surplusEth: number, c: CostInputs): number {
 /**
  * Inverse: given a target miles count + the forward calc's last observed
  * effective surplus rate, return the slippage that produces target.
- * Mirrors `milesToSlippage` in use-estimated-miles.ts.
+ * Mirrors `milesToSlippage` in use-estimated-miles.ts. The `slippageMax`
+ * parameter mirrors the Edge-Config-driven cap.
  */
 function milesToSlippage(
   target: number,
@@ -58,7 +66,8 @@ function milesToSlippage(
   currentSlippagePct: number,
   lastEffectiveRate: number,
   c: CostInputs,
-  autoBase: number
+  autoBase: number,
+  slippageMax: number = DEFAULT_SLIPPAGE_MAX
 ): number | null {
   if (target <= 0 || outputInEth <= 0) return null
   const totalBidCost = c.bidCostEth * c.sweepMultiplier
@@ -69,12 +78,12 @@ function milesToSlippage(
   const K = netMevEth + totalBidCost + totalGasCost + FLOOR_EPSILON
   const requiredRaw = currentSlippagePct + 100 * (K / outputInEth - lastEffectiveRate)
   const required = Math.ceil(requiredRaw / SLIPPAGE_STEP) * SLIPPAGE_STEP
-  if (required > SLIPPAGE_MAX) return null
-  return Math.min(SLIPPAGE_MAX, Math.max(autoBase, required))
+  if (required > slippageMax + SLIPPAGE_TOLERANCE) return null
+  return Math.min(slippageMax, Math.max(autoBase, required))
 }
 
-/** Inverse: max miles at given outputInEth and slippage = 50%. */
-function maxMilesAt50(
+/** Inverse: max miles at given outputInEth and slippage = `slippageMax`. */
+function maxMilesAtCap(
   parsedAmountOut: number,
   toTokenDecimals: number,
   isEthOutput: boolean,
@@ -82,13 +91,14 @@ function maxMilesAt50(
   ethPrice: number | null,
   barterPreGas: bigint | null,
   outputInEth: number,
-  c: CostInputs
+  c: CostInputs,
+  slippageMax: number = DEFAULT_SLIPPAGE_MAX
 ): number | null {
   let surplusEth: number | null = null
   if (barterPreGas != null && barterPreGas > 0n) {
     surplusEth = computeSurplusEth({
       parsedAmountOut,
-      slippagePct: SLIPPAGE_MAX,
+      slippagePct: slippageMax,
       barterPreGasOutputAmount: barterPreGas,
       toTokenDecimals,
       isEthOutput,
@@ -97,7 +107,7 @@ function maxMilesAt50(
     })
   }
   if (surplusEth == null) {
-    surplusEth = (SLIPPAGE_MAX / 100) * outputInEth
+    surplusEth = (slippageMax / 100) * outputInEth
   }
   return forwardMiles(surplusEth, c)
 }
@@ -195,7 +205,7 @@ describe("inverse-then-forward round trip", () => {
       const lastEffectiveRate = currentSlippage / 100 + (rng() - 0.5) * 0.005
       const autoBase = 0.5
       // Target small enough to be reachable within 50%.
-      const maxMiles = forwardMiles(outputInEth * (SLIPPAGE_MAX / 100), DEFAULT_COSTS)
+      const maxMiles = forwardMiles(outputInEth * (DEFAULT_SLIPPAGE_MAX / 100), DEFAULT_COSTS)
       if (maxMiles <= 1) continue
       const target = 1 + Math.floor(rng() * (maxMiles - 1))
 
@@ -208,6 +218,11 @@ describe("inverse-then-forward round trip", () => {
         autoBase
       )
       if (s == null) continue
+      // Skip targets where the tolerance window pinned the planner to the
+      // cap — the tolerance trades a small under-delivery for the property
+      // that "exactly maxAchievable" is always a clickable target. The
+      // dedicated tolerance test above covers that path.
+      if (s >= DEFAULT_SLIPPAGE_MAX - 1e-9) continue
 
       // Compute the forward result at this slippage (using the same
       // effective rate the planner assumed).
@@ -225,7 +240,7 @@ describe("inverse-then-forward round trip", () => {
     expect(asserts).toBeGreaterThan(100)
   })
 
-  it("ALL planner outputs sit within [autoBase, SLIPPAGE_MAX]", () => {
+  it("ALL planner outputs sit within [autoBase, DEFAULT_SLIPPAGE_MAX]", () => {
     const rng = mulberry32(22)
     for (let i = 0; i < 5_000; i++) {
       const outputInEth = 0.001 + rng() * 5
@@ -244,7 +259,7 @@ describe("inverse-then-forward round trip", () => {
       )
       if (s == null) continue
       expect(s).toBeGreaterThanOrEqual(autoBase - 1e-9)
-      expect(s).toBeLessThanOrEqual(SLIPPAGE_MAX + 1e-9)
+      expect(s).toBeLessThanOrEqual(DEFAULT_SLIPPAGE_MAX + 1e-9)
     }
   })
 })
@@ -260,7 +275,7 @@ describe("maxAchievableMiles is consistent with the forward formula", () => {
     const barterPreGas = wei(outputInEth * 0.999)
     const direct = computeSurplusEth({
       parsedAmountOut,
-      slippagePct: SLIPPAGE_MAX,
+      slippagePct: DEFAULT_SLIPPAGE_MAX,
       barterPreGasOutputAmount: barterPreGas,
       toTokenDecimals: ETH_DECIMALS,
       isEthOutput: true,
@@ -269,7 +284,7 @@ describe("maxAchievableMiles is consistent with the forward formula", () => {
     })!
     const expectedMiles = forwardMiles(direct, DEFAULT_COSTS)
 
-    const maxMiles = maxMilesAt50(
+    const maxMiles = maxMilesAtCap(
       parsedAmountOut,
       ETH_DECIMALS,
       true,
@@ -291,7 +306,7 @@ describe("maxAchievableMiles is consistent with the forward formula", () => {
       gasCostEth: 0,
       sweepMultiplier: 1,
     }
-    const max = maxMilesAt50(
+    const max = maxMilesAtCap(
       outputInEth,
       ETH_DECIMALS,
       true,
@@ -315,7 +330,7 @@ describe("maxAchievableMiles is consistent with the forward formula", () => {
     // → totals 0.74e-3 ETH, dwarfing the 0.5×0.000667 = 3.3e-4 ETH ceiling.
     const usdcOut = 1.95 // $1.95
     const outputInEth = (usdcOut * 1) / 3000
-    const max = maxMilesAt50(
+    const max = maxMilesAtCap(
       usdcOut,
       USDC_DECIMALS,
       false,
@@ -380,5 +395,175 @@ describe("drift sensitivity", () => {
     const mB = forwardMiles(b, DEFAULT_COSTS)
     // 1% relative drift in barter → ~1% delta in miles, not orders of magnitude.
     expect(Math.abs(mA - mB)).toBeLessThan(Math.max(mA, mB))
+  })
+})
+
+// ──────────────────────────────────────────────────────────────────────────
+// Operator-tunable cap (Edge Config: `miles_calc_max_slippage_pct`)
+//
+// The miles calculator's slippage ceiling is read from Edge Config by
+// `useEstimatedMiles` so operators can tune it without redeploying. These
+// tests exercise the math at non-default caps to confirm:
+//   • lowering the cap shrinks `maxAchievableMiles` proportionally
+//   • the inverse rejects targets that would have been reachable at 50%
+//   • the FLOOR_EPSILON tolerance still admits exactly-max targets at
+//     any cap value
+// ──────────────────────────────────────────────────────────────────────────
+describe("operator-tunable slippage cap", () => {
+  it("maxMilesAtCap shrinks roughly linearly when the cap drops 50% → 25%", () => {
+    // ETH-output, ETH-path. Routing premium fixed at 0.2% of output so the
+    // diff comes purely from the slippage term in
+    //   surplus = barterPreGas − parsedOut × (1 − cap/100)
+    const outputInEth = 0.5
+    const barterPreGas = wei(outputInEth * 0.998)
+    const at50 = maxMilesAtCap(
+      outputInEth,
+      ETH_DECIMALS,
+      true,
+      null,
+      null,
+      barterPreGas,
+      outputInEth,
+      DEFAULT_COSTS,
+      50
+    )!
+    const at25 = maxMilesAtCap(
+      outputInEth,
+      ETH_DECIMALS,
+      true,
+      null,
+      null,
+      barterPreGas,
+      outputInEth,
+      DEFAULT_COSTS,
+      25
+    )!
+    // surplus(50%) = 0.998·X − 0.5·X = 0.498·X
+    // surplus(25%) = 0.998·X − 0.75·X = 0.248·X
+    // ratio ≈ 0.498 → at25 ≈ 0.498 × at50 (within floor() rounding)
+    expect(at25).toBeGreaterThan(0)
+    expect(at25).toBeLessThan(at50)
+    expect(at25 / at50).toBeCloseTo(0.248 / 0.498, 1)
+  })
+
+  it("maxMilesAtCap=10 collapses to a small fraction of the 50% value", () => {
+    const outputInEth = 1
+    const barterPreGas = wei(outputInEth * 0.999)
+    const at50 = maxMilesAtCap(
+      outputInEth,
+      ETH_DECIMALS,
+      true,
+      null,
+      null,
+      barterPreGas,
+      outputInEth,
+      DEFAULT_COSTS,
+      50
+    )!
+    const at10 = maxMilesAtCap(
+      outputInEth,
+      ETH_DECIMALS,
+      true,
+      null,
+      null,
+      barterPreGas,
+      outputInEth,
+      DEFAULT_COSTS,
+      10
+    )!
+    // surplus(50%)/surplus(10%) ≈ (0.999−0.5)/(0.999−0.9) = 0.499/0.099 ≈ 5×
+    expect(at50 / at10).toBeCloseTo(0.499 / 0.099, 0)
+  })
+
+  it("milesToSlippage rejects a target that needs > cap + tolerance", () => {
+    // At cap=25, a target that requires ~30% slippage is rejected, even
+    // though it would have been reachable when the cap was 50.
+    const outputInEth = 1
+    const lastEffectiveRate = 0.005 // 0.5% routing premium baked in
+    // Target sized so requiredRaw lands ~30% — well past 25 + 0.5 tolerance.
+    const target = forwardMiles(outputInEth * 0.3, DEFAULT_COSTS)
+    expect(milesToSlippage(target, outputInEth, 1, lastEffectiveRate, DEFAULT_COSTS, 0.5, 25))
+      .toBeNull()
+    // Same target IS reachable when the cap is the default 50.
+    expect(
+      milesToSlippage(target, outputInEth, 1, lastEffectiveRate, DEFAULT_COSTS, 0.5, 50)
+    ).not.toBeNull()
+  })
+
+  it("milesToSlippage admits exactly-max target at a custom cap (FLOOR_EPSILON tolerance)", () => {
+    // The forward at cap = 25 gives some max M; the inverse called with M
+    // must succeed (clamped to 25), not return null. This is the bug the
+    // tolerance window was added to fix; needs to hold at any cap value.
+    for (const cap of [10, 25, 33, 50]) {
+      const outputInEth = 0.5
+      const barterPreGas = wei(outputInEth * 0.999)
+      const max = maxMilesAtCap(
+        outputInEth,
+        ETH_DECIMALS,
+        true,
+        null,
+        null,
+        barterPreGas,
+        outputInEth,
+        DEFAULT_COSTS,
+        cap
+      )!
+      // Use the routing-premium based effective rate the forward would have
+      // observed at the user's current slippage (1%).
+      const lastEffectiveRate =
+        computeSurplusEth({
+          parsedAmountOut: outputInEth,
+          slippagePct: 1,
+          barterPreGasOutputAmount: barterPreGas,
+          toTokenDecimals: ETH_DECIMALS,
+          isEthOutput: true,
+          toTokenPrice: null,
+          ethPrice: null,
+        })! / outputInEth
+      const slippage = milesToSlippage(
+        max,
+        outputInEth,
+        1,
+        lastEffectiveRate,
+        DEFAULT_COSTS,
+        0.5,
+        cap
+      )
+      expect(slippage).not.toBeNull()
+      expect(slippage!).toBeLessThanOrEqual(cap + 1e-9)
+    }
+  })
+
+  it("planner output never exceeds the operator-set cap (fuzzed)", () => {
+    function mulberry32(seed: number) {
+      let state = seed >>> 0
+      return () => {
+        state = (state + 0x6d2b79f5) >>> 0
+        let t = state
+        t = Math.imul(t ^ (t >>> 15), t | 1)
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+      }
+    }
+    const rng = mulberry32(42)
+    for (let i = 0; i < 500; i++) {
+      const cap = 5 + rng() * 45 // 5–50%
+      const outputInEth = 0.001 + rng() * 5
+      const lastEffectiveRate = rng() * 0.05
+      const target = Math.floor(rng() * 5000)
+      if (target <= 0) continue
+      const s = milesToSlippage(
+        target,
+        outputInEth,
+        1,
+        lastEffectiveRate,
+        DEFAULT_COSTS,
+        0.5,
+        cap
+      )
+      if (s == null) continue
+      // Final clamped slippage is always ≤ cap (Math.min in the helper).
+      expect(s).toBeLessThanOrEqual(cap + 1e-9)
+    }
   })
 })

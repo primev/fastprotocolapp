@@ -69,6 +69,7 @@ The console log on every recompute reports which path fired:
 | `avg_gas_limit` | Edge Config (`gasEstimate`) | `450_000` | Daily, by cron |
 | `avg_gas_used` | Edge Config (`gasUsedEstimate`) — used **only** on permit path for the gas-cost term | `180_000` | Daily, by cron |
 | `output_amount_in_eth` | If output is ETH/WETH: used directly. Otherwise: `amountOut × toTokenPriceUSD / ethPriceUSD` | — | Per quote |
+| `miles_calc_max_slippage_pct` | Edge Config — operator dial for the calculator's slippage ceiling. Read by `useEstimatedMiles`; clamped to [1%, 50%] in the route. Drives both `maxAchievableMiles` and the `milesToSlippage` planner cap. | `50` | On mount |
 | `0.9` (`USER_MEV_SHARE`) | Constant — user receives 90% of captured MEV | — | — |
 | `100_000` (`MILES_PER_ETH`) | Constant — 1 mile = 0.00001 ETH | — | — |
 

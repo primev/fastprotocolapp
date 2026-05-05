@@ -21,6 +21,16 @@ const USER_MEV_SHARE = 0.9
 const MILES_PER_ETH = 100_000
 /** How often to refresh bid estimate from FastRPC (ms) — roughly 1 block */
 const BID_ESTIMATE_POLL_MS = 12_000
+/**
+ * Default ceiling the calculator's slippage planner is allowed to propose, in
+ * percent. Used until Edge Config (`miles_calc_max_slippage_pct`) loads and
+ * as the offline fallback in tests. Mirrors the route default in
+ * `src/app/api/config/gas-estimate/route.ts`.
+ */
+export const DEFAULT_MILES_CALC_MAX_SLIPPAGE_PCT = 50
+/** Tolerance above the cap to forgive FLOOR_EPSILON drift when target equals
+ *  `maxAchievableMiles`. Anything beyond this is a real over-target. */
+export const MILES_CALC_SLIPPAGE_TOLERANCE_PCT = 0.5
 
 /**
  * Compute the on-chain surplus (in ETH) the FastSettlement contract would
@@ -189,6 +199,9 @@ export function useEstimatedMiles({
   const [avgGasLimit, setAvgGasLimit] = useState<bigint>(DEFAULT_AVG_GAS_LIMIT)
   const [avgGasUsed, setAvgGasUsed] = useState<bigint>(DEFAULT_AVG_GAS_USED)
   const [surplusRate, setSurplusRate] = useState(DEFAULT_SURPLUS_RATE)
+  const [milesCalcMaxSlippagePct, setMilesCalcMaxSlippagePct] = useState(
+    DEFAULT_MILES_CALC_MAX_SLIPPAGE_PCT
+  )
 
   // Fetch gas estimates and surplus rate from Edge Config (updated daily by cron).
   // Runs on mount — not gated on `enabled` so data is ready before the first quote arrives.
@@ -209,6 +222,12 @@ export function useEstimatedMiles({
           }
           if (typeof data.surplusRate === "number" && data.surplusRate > 0) {
             setSurplusRate(data.surplusRate)
+          }
+          if (
+            typeof data.milesCalcMaxSlippagePct === "number" &&
+            data.milesCalcMaxSlippagePct > 0
+          ) {
+            setMilesCalcMaxSlippagePct(data.milesCalcMaxSlippagePct)
           }
         }
       } catch (err) {
@@ -266,11 +285,13 @@ export function useEstimatedMiles({
   const avgGasLimitRef = useRef<bigint>(DEFAULT_AVG_GAS_LIMIT)
   const avgGasUsedRef = useRef<bigint>(DEFAULT_AVG_GAS_USED)
   const surplusRateRef = useRef(DEFAULT_SURPLUS_RATE)
+  const milesCalcMaxSlippagePctRef = useRef(DEFAULT_MILES_CALC_MAX_SLIPPAGE_PCT)
   priorityFeeRef.current = priorityFee
   baseFeeRef.current = baseFeePerGas
   avgGasLimitRef.current = avgGasLimit
   avgGasUsedRef.current = avgGasUsed
   surplusRateRef.current = surplusRate
+  milesCalcMaxSlippagePctRef.current = milesCalcMaxSlippagePct
 
   // Track last successful miles so transient states don't flash null.
   const lastMilesRef = useRef<number | null>(null)
@@ -595,7 +616,9 @@ export function useEstimatedMiles({
         requiredSlippagePctRaw = (100 * K) / outputInEth
       }
 
-      const SLIPPAGE_MAX = 50
+      // Edge-Config-driven cap on what slippage the calc will plan against.
+      // Read from a ref so daily refreshes don't invalidate this useCallback.
+      const SLIPPAGE_MAX = milesCalcMaxSlippagePctRef.current
       // Mirror useSwapSlippage's autoBase floors.
       const autoBase = isPermitPath ? 1 : 0.5
       // Round UP to 0.01% (small step). Ceiling ensures the applied slippage
@@ -605,12 +628,15 @@ export function useEstimatedMiles({
       const SLIPPAGE_STEP = 0.01
       const requiredSlippagePct = Math.ceil(requiredSlippagePctRaw / SLIPPAGE_STEP) * SLIPPAGE_STEP
       // Tolerance above SLIPPAGE_MAX: when the target equals the displayed
-      // `maxAchievableMiles` (computed at exactly 50% slippage), the FLOOR_EPSILON
-      // bump above can push the required raw slippage 0.005–0.05% past 50%
-      // depending on outputInEth. Without this tolerance, typing the max would
-      // disable Apply (raw > 50% → null), forcing the user to subtract a mile
-      // to re-enable. Anything more than 0.5% over is a real over-target.
-      if (!Number.isFinite(requiredSlippagePct) || requiredSlippagePct > SLIPPAGE_MAX + 0.5) {
+      // `maxAchievableMiles` (computed at exactly the cap), the FLOOR_EPSILON
+      // bump above can push the required raw slippage a few hundredths of a
+      // percent past the cap depending on outputInEth. Without this tolerance,
+      // typing the max would disable Apply, forcing the user to subtract a
+      // mile to re-enable. Anything more than the tolerance is a real over-target.
+      if (
+        !Number.isFinite(requiredSlippagePct) ||
+        requiredSlippagePct > SLIPPAGE_MAX + MILES_CALC_SLIPPAGE_TOLERANCE_PCT
+      ) {
         return null
       }
 
@@ -659,11 +685,14 @@ export function useEstimatedMiles({
     const totalBidCost = bidCostEth * sweepMultiplier
     const totalGasCost = gasCostEth * sweepMultiplier
 
-    const SLIPPAGE_MAX = 50
-    // Use the SAME surplus formula the forward uses, evaluated at s = 50%.
+    // Edge-Config-driven cap (default 50%). Mirrors what the inverse planner
+    // uses so the max miles displayed in the badge are exactly what Apply at
+    // the cap will produce.
+    const SLIPPAGE_MAX = milesCalcMaxSlippagePct
+    // Use the SAME surplus formula the forward uses, evaluated at s = SLIPPAGE_MAX.
     // Guarantees that when the calc proposes the max and the user applies
-    // it, the forward at slippage=50% produces matching miles in the bar.
-    // Falls back to the simple (50/100)·outputInEth approximation when
+    // it, the forward at the same slippage produces matching miles in the bar.
+    // Falls back to the simple (SLIPPAGE_MAX/100)·outputInEth approximation when
     // barter routing hasn't been observed yet (cold load).
     let surplusEth: number | null = null
     if (
@@ -701,6 +730,7 @@ export function useEstimatedMiles({
     barterPreGasOutputAmount,
     toTokenDecimals,
     isBarterValidating,
+    milesCalcMaxSlippagePct,
   ])
 
   // Hold the previous max while validation is in flight so the displayed
