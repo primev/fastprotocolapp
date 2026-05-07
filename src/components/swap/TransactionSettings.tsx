@@ -89,6 +89,13 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
                     )}
                   />
                   Pro
+                  <Info
+                    className={cn(
+                      "h-3 w-3 transition-colors duration-300",
+                      isProMode ? "text-primary/70" : "text-zinc-500/70"
+                    )}
+                    aria-hidden="true"
+                  />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-[280px] bg-[#161b22] border-white/10">

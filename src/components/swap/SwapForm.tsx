@@ -12,7 +12,6 @@ import { useSwapForm } from "@/hooks/use-swap-form"
 import { useBroadcastGasPrice } from "@/hooks/use-broadcast-gas-price"
 import { useEstimatedMiles } from "@/hooks/use-estimated-miles"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
-import { playPreconfirmSound } from "@/lib/preconfirm-sound"
 import { useProThreshold } from "@/hooks/use-pro-threshold"
 
 import { SwapInterface } from "./SwapInterface"
@@ -144,7 +143,6 @@ export function SwapForm() {
   useEffect(() => {
     if (isProMode && !prevIsProMode.current && proManualOverride === null) {
       setProJustActivated(true)
-      playPreconfirmSound()
       const t = setTimeout(() => setProJustActivated(false), 1500)
       return () => clearTimeout(t)
     }

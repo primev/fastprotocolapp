@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Copy,
   Check,
+  Zap,
 } from "lucide-react"
 import type { Token } from "@/types/swap"
 import { useWethWrapUnwrap } from "@/hooks/use-weth-wrap-unwrap"
@@ -915,7 +916,12 @@ function SwapConfirmationModal({
                   {isProMode && (
                     <InfoRow
                       label="Execution"
-                      value={<span className="text-primary font-semibold">Pro — Top 10%</span>}
+                      value={
+                        <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-primary/10 text-primary text-[13px] font-semibold">
+                          <Zap className="h-3.5 w-3.5 text-primary fill-primary" />
+                          Pro
+                        </span>
+                      }
                       tooltip={
                         <>
                           Guarantees your transaction lands in the top 10% of the block, reducing

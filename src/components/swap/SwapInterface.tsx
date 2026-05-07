@@ -246,7 +246,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         />
 
         <div className="relative h-4 flex items-center justify-center shrink-0 z-20">
-          <SwitchButton handleSwitch={handleSwitch} isProMode={props.isProMode} />
+          <SwitchButton handleSwitch={handleSwitch} />
         </div>
 
         <BuyCard
