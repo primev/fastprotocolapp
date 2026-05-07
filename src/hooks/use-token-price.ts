@@ -22,6 +22,13 @@ export function useTokenPrice(symbols: string | string[]): TokenPriceResult {
   const symbolArray = Array.isArray(symbols) ? symbols : [symbols]
   const isSingle = !Array.isArray(symbols)
 
+  // Clear stale price immediately when the symbol changes so downstream
+  // consumers (USD display, Pro mode trigger) never see the old token's price.
+  const symbolKey = symbolArray.join(",")
+  useEffect(() => {
+    setPrice(null)
+  }, [symbolKey])
+
   const fetchPrice = useCallback(async () => {
     if (symbolArray.length === 0 || symbolArray.some((s) => !s)) {
       setPrice(null)

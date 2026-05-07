@@ -42,7 +42,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
   const isGateRoute = pathname === "/"
   // Hide the app header on the gate route until the user clicks through to swap
-  const hideLayout = isGateRoute && FEATURE_FLAGS.swapPrivateMode && !passedGate
+  const hideLayout = isMounted && isGateRoute && FEATURE_FLAGS.swapPrivateMode && !passedGate
 
   // Wallet detection
   const isMetaMask = isMetaMaskWallet(connector)

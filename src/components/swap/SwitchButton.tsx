@@ -2,7 +2,11 @@
 
 import { ArrowDown } from "lucide-react"
 
-export const SwitchButton = ({ handleSwitch }: { handleSwitch: () => void }) => {
+interface SwitchButtonProps {
+  handleSwitch: () => void
+}
+
+export const SwitchButton = ({ handleSwitch }: SwitchButtonProps) => {
   return (
     <div className="flex justify-center -my-3 relative z-20">
       <button

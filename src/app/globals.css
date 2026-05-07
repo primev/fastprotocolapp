@@ -267,6 +267,94 @@ All colors MUST be HSL.
   }
 }
 
+/* Pro Mode — rotating border highlight on the Pro pill */
+@property --pro-border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes pro-border-spin {
+  to {
+    --pro-border-angle: 360deg;
+  }
+}
+
+.pro-border-glow {
+  position: relative;
+  overflow: visible;
+}
+
+.pro-border-glow::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--pro-border-angle),
+    transparent 0deg,
+    transparent 250deg,
+    rgba(56, 139, 253, 0.9) 300deg,
+    transparent 350deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: pro-border-spin 2s linear infinite;
+}
+
+/* Pro Mode — shake animation for the toggle pill on auto-engage */
+@keyframes pro-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10% {
+    transform: translateX(-3px);
+  }
+  20% {
+    transform: translateX(3px);
+  }
+  30% {
+    transform: translateX(-2px);
+  }
+  40% {
+    transform: translateX(2px);
+  }
+  50% {
+    transform: translateX(-1px);
+  }
+  60% {
+    transform: translateX(1px);
+  }
+  70% {
+    transform: translateX(0);
+  }
+}
+
+.animate-pro-shake {
+  animation: pro-shake 600ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+/* Pro Mode — auto-engage flash on the swap interface */
+@keyframes pro-flash {
+  0% {
+    opacity: 0.18;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-pro-flash {
+  animation: pro-flash 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 /* Blinking cursor animation for input fields */
 @keyframes blink-cursor {
   0%,
