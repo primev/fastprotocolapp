@@ -482,8 +482,9 @@ describe("operator-tunable slippage cap", () => {
     const lastEffectiveRate = 0.005 // 0.5% routing premium baked in
     // Target sized so requiredRaw lands ~30% — well past 25 + 0.5 tolerance.
     const target = forwardMiles(outputInEth * 0.3, DEFAULT_COSTS)
-    expect(milesToSlippage(target, outputInEth, 1, lastEffectiveRate, DEFAULT_COSTS, 0.5, 25))
-      .toBeNull()
+    expect(
+      milesToSlippage(target, outputInEth, 1, lastEffectiveRate, DEFAULT_COSTS, 0.5, 25)
+    ).toBeNull()
     // Same target IS reachable when the cap is the default 50.
     expect(
       milesToSlippage(target, outputInEth, 1, lastEffectiveRate, DEFAULT_COSTS, 0.5, 50)
@@ -552,15 +553,7 @@ describe("operator-tunable slippage cap", () => {
       const lastEffectiveRate = rng() * 0.05
       const target = Math.floor(rng() * 5000)
       if (target <= 0) continue
-      const s = milesToSlippage(
-        target,
-        outputInEth,
-        1,
-        lastEffectiveRate,
-        DEFAULT_COSTS,
-        0.5,
-        cap
-      )
+      const s = milesToSlippage(target, outputInEth, 1, lastEffectiveRate, DEFAULT_COSTS, 0.5, cap)
       if (s == null) continue
       // Final clamped slippage is always ≤ cap (Math.min in the helper).
       expect(s).toBeLessThanOrEqual(cap + 1e-9)
