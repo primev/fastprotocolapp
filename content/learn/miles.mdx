@@ -59,9 +59,11 @@ Your swap is sent through Fast RPC, where a **provider** (the block builder who 
 
 If a provider hasn't opened the commitment after an extended period, the protocol can step in to resolve it — but this requires manual intervention and doesn't happen instantly.
 
-### Swap too small to generate mev
+### Swap too small to generate mev at auto slippage
 
-Very small swaps may not generate enough mev to cover the preconfirmation bid cost (the amount paid to the provider for committing to include the transaction). When the bid cost equals or exceeds the mev generated, the net mev is zero — and zero miles are earned. This isn't a delay; it's the expected outcome for swaps below a certain threshold.
+Smaller swaps may not generate enough mev — at auto slippage — to cover the preconfirmation bid cost (the amount paid to the provider for committing to include the transaction). When the bid cost equals or exceeds the mev captured within the slippage tolerance, the default estimate is zero.
+
+This isn't always the final word. Opening the **Calculate Miles** pill below the buy card lets you raise your slippage tolerance to capture surplus that would otherwise be unreachable — see [About the miles estimate](#about-the-miles-estimate). If the calculator shows "Swap too small to earn miles." even at its maximum slippage, the swap genuinely can't generate enough mev — that's the expected outcome below a certain threshold.
 
 ### Token sweep profitability
 
@@ -77,27 +79,33 @@ This means your miles for small ERC-20 output swaps may appear later — potenti
 
 ## About the miles estimate
 
-Before you swap, Fast Protocol shows an estimated miles amount in the swap interface. This estimate is a **conservative lower bound**, not a guarantee or a ceiling.
+Before you swap, Fast Protocol shows an estimated miles amount next to the exchange rate. This estimate is a **conservative lower bound**, not a guarantee or a ceiling — actual miles are computed from real on-chain activity once the swap settles, and are often higher.
 
-### Why the estimate can show "TBD"
+### What the estimate can show
 
-The miles an individual swap earns depends on factors the UI can't know in advance — market conditions at execution time, the mev opportunity your swap creates, and gas costs. Because the estimate runs before any of that is known, the UI deliberately errs on the low side to avoid over-promising.
+- **`~N miles`** — the estimator has a confident lower bound at your current swap size and auto slippage. Treat this as a floor, not a forecast; the settled number is usually higher.
+- **`—`** (dash) — the swap itself is in an error state (the size is below what the protocol can route). Adjust the amount; this isn't a miles problem.
+- **`Apply Miles`** — at your current swap size, the auto-slippage tolerance doesn't leave room for mev surplus to be captured, so the default estimate is zero. Miles aren't disabled for this swap, they're just not reachable without a higher slippage. Open the calculator to apply manually (see below).
 
-For some swaps, the conservative calculation can't confidently predict a number, so the UI shows **TBD** (to be determined). **This does not mean the swap will earn zero miles.** In practice, many swaps that show TBD go on to earn miles once the swap settles on-chain.
+The estimate deliberately errs low. Over-predicting miles would be worse than under-predicting — if the displayed number consistently exceeded the settled number, trust would collapse. The conservative approach means users are sometimes pleasantly surprised, and never disappointed by inflated predictions.
 
-### What to trust instead
+### Applying miles manually with the calculator
 
-- The **estimate** is a directional signal. Treat it as a floor, not a forecast.
-- The **actual miles earned** are computed from real on-chain activity after the swap settles.
-- Your **dashboard swap history** shows the finalized miles for each transaction once processing completes. This is the authoritative number.
+Below the buy card you'll see a **Calculate Miles** pill. Opening it reveals:
 
-If you see TBD or a low estimate and still want to swap, go ahead — the real number is computed post-settlement and may be higher.
+1. **Earn up to *N* miles** — the upper bound on what's achievable at your current swap size with the maximum slippage the calculator allows. ("Swap too small to earn miles." appears here when even max slippage can't capture any surplus.)
+2. **Enable** — switches to an input where you type a target miles number (capped at the upper bound).
+3. **Apply** — confirms the trade-off: the calculator raises your slippage tolerance just enough to capture the target miles. **Your minimum received goes down by the same amount.** The swap itself isn't resized; only your slippage is.
 
-### Why not just show a bigger estimate?
+Once applied, the buy card's headline minimum received reflects the new slippage. The calculator resets when you switch tokens, edit the swap amount, or complete a swap — so applied slippage never silently carries over to a different trade.
 
-Over-predicting miles would be worse than under-predicting. If the estimate consistently showed more miles than users actually earned, trust would collapse. The conservative approach means users are sometimes pleasantly surprised, and never disappointed by inflated predictions.
+### What to trust as the final number
 
-As we gather more data from real swaps, the estimator becomes more accurate. The tradeoff is intentional: accuracy improves with volume, and the cost of being wrong is paid in caution rather than exaggeration.
+- The **estimate** (or the calculator's "Earn up to") is a pre-trade projection.
+- The **actual miles earned** are computed from on-chain activity after the swap settles.
+- Your **[dashboard swap history](/dashboard)** shows the finalized miles per transaction. This is the authoritative number.
+
+As more swaps settle, the estimator becomes more accurate. Accuracy improves with volume; the cost of being wrong is paid in caution rather than exaggeration.
 
 ## Miles and mev rewards
 
