@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useEffect, useMemo } from "react"
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { useAccount } from "wagmi"
 import { useSwapToastStore } from "@/stores/swapToastStore"
@@ -49,7 +49,11 @@ export function SwapForm() {
       ? form.displayedAmountOutFormatted
       : form.amount
 
-  const { estimatedMiles: rawEstimatedMiles } = useEstimatedMiles({
+  const {
+    estimatedMiles: rawEstimatedMiles,
+    milesToSlippage,
+    maxAchievableMiles,
+  } = useEstimatedMiles({
     amountOut: milesAmountOut,
     slippage: form.slippage,
     toTokenDecimals: form.toToken?.decimals ?? null,
@@ -65,6 +69,12 @@ export function SwapForm() {
       !!form.displayQuote &&
       !!form.fromToken &&
       !!form.toToken,
+    isBarterValidating: form.isBarterValidating,
+    // Synchronous identity of the user's swap inputs. Changes the instant
+    // the user clicks a percentage button or types a new amount — used by
+    // the estimator to clear cached miles/surplus-rate refs so prior-amount
+    // values don't leak into the new amount during the validation window.
+    swapIdentityKey: `${form.amount}|${form.fromToken?.address ?? ""}|${form.toToken?.address ?? ""}`,
   })
 
   // Keep estimation behind the feature flag for UI, but always log to console
@@ -124,6 +134,91 @@ export function SwapForm() {
     if (!isConnected || !form.fromToken || !form.toToken) return
     setIsConfirmationOpen(true)
   }
+
+  // Stable references for the calc callbacks so their identity doesn't
+  // churn each render (`form` is rebuilt every render but its inner
+  // setters / updateSlippage / resetSlippage are stable useCallbacks).
+  const { updateSlippage, resetSlippage } = form
+  const formSlippageRef = useRef(form.slippage)
+  formSlippageRef.current = form.slippage
+
+  // Tracks the slippage value the miles calc most recently applied. Used to
+  // flip the buy card into "miles applied" mode (different label + min-out
+  // display) so the user can see the cost of the miles they targeted.
+  // Cleared whenever the user moves slippage off the calc value, switches
+  // tokens, or completes a swap.
+  const [milesAppliedSlippage, setMilesAppliedSlippage] = useState<string | null>(null)
+  // Lifted so the no-miles message in ExchangeRate can open the calc directly.
+  const [isCalcOpen, setIsCalcOpen] = useState(false)
+
+  const handleApplyMilesCalc = useCallback(
+    ({ slippage }: { slippage: string }) => {
+      // Calculator only adjusts slippage — never changes the user's typed
+      // sell/buy amounts. The required slippage flips us into custom mode
+      // (which is what `updateSlippage` does); user can switch back to auto.
+      if (slippage && slippage !== formSlippageRef.current) {
+        updateSlippage(slippage)
+      }
+      setMilesAppliedSlippage(slippage)
+    },
+    [updateSlippage]
+  )
+
+  // Calc closed → drop calc-applied slippage and return to auto mode. The
+  // calc's bumped value was scoped to the calc session.
+  const handleCloseMilesCalc = useCallback(() => {
+    resetSlippage()
+    setMilesAppliedSlippage(null)
+  }, [resetSlippage])
+
+  // One-click "Revert" from the BuyCard: collapse the calc badge, drop
+  // slippage back to auto, and clear the marker. Same reset the X-close
+  // path does — exposed as a callback so the buy card can offer it inline.
+  const handleRevertMiles = useCallback(() => {
+    setIsCalcOpen(false)
+    resetSlippage()
+    setMilesAppliedSlippage(null)
+  }, [resetSlippage])
+
+  // Drop the miles-applied marker the moment slippage drifts away from
+  // the calc-applied value (manual edit in settings, retry-with-slippage,
+  // auto-bump kicking back in, etc.). Without this the buy card would lie.
+  useEffect(() => {
+    if (milesAppliedSlippage != null && form.slippage !== milesAppliedSlippage) {
+      setMilesAppliedSlippage(null)
+    }
+  }, [form.slippage, milesAppliedSlippage])
+
+  // Flipping slippage mode FROM custom BACK to auto while the calculator is
+  // open means the calc-applied slippage is no longer in effect — close the
+  // calculator so the badge collapses to its baseline state. Tracked as a
+  // transition (not steady state) so the default auto mode doesn't slam the
+  // calc closed the moment the user opens it.
+  const prevSlippageModeRef = useRef(form.mode)
+  useEffect(() => {
+    const prev = prevSlippageModeRef.current
+    prevSlippageModeRef.current = form.mode
+    if (prev === "custom" && form.mode === "auto" && isCalcOpen) {
+      setIsCalcOpen(false)
+      setMilesAppliedSlippage(null)
+    }
+  }, [form.mode, isCalcOpen])
+
+  // Token switch → calc resets, so the marker should too.
+  useEffect(() => {
+    setMilesAppliedSlippage(null)
+  }, [form.fromToken?.address, form.toToken?.address])
+
+  // Successful swap → marker resets along with the rest of the form.
+  const lastResetCountRef = useRef(form.swapResetCount)
+  useEffect(() => {
+    if (form.swapResetCount !== lastResetCountRef.current) {
+      lastResetCountRef.current = form.swapResetCount
+      setMilesAppliedSlippage(null)
+    }
+  }, [form.swapResetCount])
+
+  const milesApplied = milesAppliedSlippage != null
 
   return (
     <div className="relative flex flex-col items-center justify-start w-full min-h-[320px]">
@@ -219,6 +314,16 @@ export function SwapForm() {
         barterUnavailable={form.barterUnavailable}
         isBarterValidating={form.isBarterValidating}
         estimatedMiles={estimatedMiles}
+        milesToSlippage={milesToSlippage}
+        maxAchievableMiles={maxAchievableMiles}
+        swapResetCount={form.swapResetCount}
+        onApplyMilesCalc={handleApplyMilesCalc}
+        onCloseMilesCalc={handleCloseMilesCalc}
+        onRevertMiles={handleRevertMiles}
+        milesApplied={milesApplied}
+        computedMinAmountOut={form.computedMinAmountOut ?? null}
+        isCalcOpen={isCalcOpen}
+        setIsCalcOpen={setIsCalcOpen}
       />
 
       {/* From Token Selector Modal */}
@@ -286,6 +391,7 @@ export function SwapForm() {
           onApprove={form.approvePermit2}
           approveTokenSymbol={form.approveTokenSymbol}
           estimatedMiles={estimatedMiles}
+          milesApplied={milesApplied}
           externalError={lastTxError}
           onRetryWithSlippage={(newSlippage) => {
             form.updateSlippage(newSlippage)

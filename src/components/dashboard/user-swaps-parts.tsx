@@ -144,34 +144,51 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 const ESTIMATED_BID_COST_ETH = 0.00004
 
 /**
+ * Discriminates which input fed the displayed estimate so the UI can
+ * tell the user *why* the dashboard number may not match what they saw at
+ * swap time. `realized` means we recomputed from on-chain settlement data;
+ * `prior` means a population-average fallback; `null` for both means the
+ * caller should fall back to the swap-time stash or "TBD".
+ */
+type EstimateSource = "realized" | "prior" | null
+
+type MilesEstimate = {
+  miles: number | null
+  source: EstimateSource
+}
+
+/**
  * Miles estimate for a pending row.
  *
- * Preferred path: the indexer has already written realized `surplus` and
- * `gas_cost` to the row (it populates these the moment the tx is seen), so we
- * can compute the miles the finalizer will eventually award — not a population
- * prior, actual per-tx math. Only `bid_cost` is NULL until finalize, and we
- * proxy it with the post-fix p75 constant above.
+ * Preferred path (`realized`): the indexer writes `surplus` and `gas_cost`
+ * the moment the tx is seen, so we recompute miles using the same forward
+ * formula the finalizer will run — but with on-chain values instead of the
+ * pre-trade barter prediction the swap UI used. This is the value we want
+ * to show on the dashboard; it tracks reality, not the user's expectation.
+ * Only `bid_cost` is NULL until finalize, and we proxy it with the post-fix
+ * p75 constant above.
  *
- * Fallback: if `surplus` isn't populated yet (rare race window between tx
- * submission and the indexer catching up), or the output is a non-ETH token
- * we can't convert here without a price oracle, fall back to the old
- * `surplusRate × amountOut × 0.9 × 100k` population-prior estimate.
+ * Fallback (`prior`): if `surplus` isn't populated yet (rare race window
+ * between tx submission and the indexer catching up), or the output is a
+ * non-ETH token we can't convert here without a price oracle, return the
+ * old `surplusRate × amountOut × 0.9 × 100k` population-prior estimate.
  *
- * Returns null when even the fallback can't produce something meaningful;
- * the caller renders "TBD" in that case.
+ * Returns `{miles: null, source: null}` when neither path can produce
+ * anything; the caller then shows the swap-time stash if available, else
+ * "TBD".
  */
-function estimateMiles(row: UserSwapRow, surplusRate: number): number | null {
-  if (!row.amountOut) return null
+function estimateMiles(row: UserSwapRow, surplusRate: number): MilesEstimate {
+  if (!row.amountOut) return { miles: null, source: null }
 
   // Dashboard only handles ETH-output rows in the realized path because
   // surplus is in output-token units and we'd need a token price to convert
-  // it to ETH for the math below. ERC20-output pending rows stay as TBD.
+  // it to ETH for the math below.
   const outSymbol = row.tokenOut.symbol.toUpperCase()
   const isEthOut = outSymbol === "ETH" || outSymbol === "WETH"
-  if (!isEthOut) return null
 
-  // Preferred: realized on-chain values.
-  if (row.surplus != null && row.gasCost != null) {
+  // Preferred: realized on-chain values. Same formula the finalizer uses,
+  // matching the swap-time forward calc up to the bid_cost proxy.
+  if (isEthOut && row.surplus != null && row.gasCost != null) {
     const surplusNum = Number(row.surplus)
     const gasNum = Number(row.gasCost)
     if (Number.isFinite(surplusNum) && surplusNum > 0 && Number.isFinite(gasNum) && gasNum >= 0) {
@@ -185,30 +202,37 @@ function estimateMiles(row: UserSwapRow, surplusRate: number): number | null {
       const gasCostEth = isEthInput ? 0 : gasNum / 1e18
 
       const netMev = surplusEth - ESTIMATED_BID_COST_ETH - gasCostEth
-      if (netMev <= 0) return 0
+      if (netMev <= 0) return { miles: 0, source: "realized" }
       const userMev = netMev * USER_MEV_SHARE
-      return Math.floor(userMev * MILES_PER_ETH)
+      return { miles: Math.floor(userMev * MILES_PER_ETH), source: "realized" }
     }
   }
 
   // Fallback: population prior × displayed output. Same as the pre-change
   // formula — used only when realized surplus/gas aren't available yet.
   const parsed = parseFloat(row.amountOut)
-  if (!parsed || parsed <= 0) return null
+  if (!parsed || parsed <= 0) return { miles: null, source: null }
   const mevPot = surplusRate * parsed
   const userMev = mevPot * USER_MEV_SHARE
   const miles = Math.floor(userMev * MILES_PER_ETH)
-  return miles > 0 ? miles : null
+  return miles > 0 ? { miles, source: "prior" } : { miles: null, source: null }
 }
 
 /**
  * Miles column renderer. Shows estimated miles (with ~ prefix) while
  * pending, and the real finalized value once processed.
  *
- * Estimate priority:
- *   1. Stashed estimate from the swap UI (via sessionStorage, survives navigation)
- *   2. Local calculation from output amount (ETH/WETH only)
- *   3. "TBD" if neither is available
+ * Estimate priority for pending rows:
+ *   1. Re-run the forward calc against on-chain data (`surplus` + `gas_cost`).
+ *      This is the most accurate signal we have before the finalizer runs and
+ *      may differ from the swap-time number — when it does, we surface a
+ *      tooltip so the user understands why.
+ *   2. Stashed estimate from the swap UI (via sessionStorage, survives
+ *      navigation). Used only as a backstop when the indexer hasn't written
+ *      surplus/gas yet, or when the output token is a non-ETH ERC20 we can't
+ *      convert without a price oracle.
+ *   3. Population-prior calculation from output amount.
+ *   4. "TBD" if none of the above produce a value.
  */
 export function MilesCell({
   row,
@@ -218,20 +242,77 @@ export function MilesCell({
   surplusRate?: number
 }) {
   if (!row.processed) {
+    const recomputed = estimateMiles(row, surplusRate)
     const stashed = getEstimatedMilesForHash(row.txHash)
-    const est = stashed ?? estimateMiles(row, surplusRate)
-    if (est != null && est > 0) {
+
+    // Prefer the on-chain recompute over the swap-time stash. The recompute
+    // uses realized surplus/gas, which is closer to what the finalizer will
+    // award than the pre-trade barter prediction the swap UI displayed.
+    //
+    // Sanity gate: if a swap-time stash exists and the realized recompute is
+    // wildly off (>3× or <1/3×), the indexer is likely mid-write — surplus
+    // populated, gas_cost still 0, or vice versa. Trust the stash until the
+    // recompute settles into a plausible range. Without this gate we've seen
+    // ~12 miles → ~10k miles flicker as gas_cost arrives a beat after surplus.
+    const realizedMiles = recomputed.source === "realized" ? recomputed.miles : null
+    const realizedLooksSane =
+      realizedMiles != null &&
+      (stashed == null ||
+        stashed <= 0 ||
+        (realizedMiles > 0 && realizedMiles <= stashed * 3 && realizedMiles >= stashed / 3) ||
+        realizedMiles === 0)
+
+    let miles: number | null = null
+    let source: EstimateSource | "stashed" = null
+    if (realizedLooksSane && realizedMiles != null) {
+      miles = realizedMiles
+      source = "realized"
+    } else if (stashed != null && stashed > 0) {
+      miles = stashed
+      source = "stashed"
+    } else if (recomputed.source === "prior" && recomputed.miles != null) {
+      miles = recomputed.miles
+      source = "prior"
+    } else if (realizedMiles != null) {
+      // No stash to compare against — fall through and trust the recompute.
+      miles = realizedMiles
+      source = "realized"
+    }
+
+    if (miles == null) {
       return (
         <Badge variant="outline" className="text-muted-foreground font-normal">
-          ~{est.toLocaleString()} miles
+          TBD
         </Badge>
       )
     }
-    return (
-      <Badge variant="outline" className="text-muted-foreground font-normal">
-        TBD
+
+    const badge = (
+      <Badge variant="outline" className="text-muted-foreground font-normal cursor-help">
+        ~{miles.toLocaleString()} miles
       </Badge>
     )
+
+    // Only attach the "why does this differ?" tooltip on the realized path —
+    // that's the case where the user can see two different numbers (swap UI
+    // vs dashboard) and wonder which is right.
+    if (source === "realized") {
+      const differsFromSwapUi = stashed != null && stashed !== miles
+      return (
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>{badge}</TooltipTrigger>
+            <TooltipContent side="left" className="max-w-[280px] text-xs">
+              {differsFromSwapUi
+                ? `Refined estimate using on-chain settlement data. May differ from the ~${stashed!.toLocaleString()} miles shown at swap time. Final miles credited after settlement.`
+                : "Refined estimate using on-chain settlement data — more accurate than the swap-time prediction. Final miles credited after settlement."}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )
+    }
+
+    return badge
   }
   if (row.miles == null || row.miles === 0) {
     return (

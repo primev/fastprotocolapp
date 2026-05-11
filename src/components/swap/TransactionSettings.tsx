@@ -22,10 +22,17 @@ interface TransactionSettingsProps {
   autoBase: number
   autoBumpedForGas: boolean
   slippageWarning: SlippageWarning
+  /** True when the current slippage was set by the miles calculator. Switches
+   *  the high-slippage warning copy to name the cause so the user understands
+   *  why slippage is elevated. */
+  milesApplied?: boolean
 }
 
 const WARNING_MESSAGE =
   "Slippage above 5% is unusual. You will earn more miles, but will likely receive less tokens."
+const MILES_WARNING_MESSAGE =
+  "Slippage was increased to meet your miles target. You'll receive fewer tokens to earn more miles."
+const AUTO_BUMP_MESSAGE = "Auto-adjusted to cover execution costs."
 
 const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
   isSettingsOpen,
@@ -41,10 +48,22 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
   autoBase,
   autoBumpedForGas,
   slippageWarning,
+  milesApplied = false,
 }) => {
-  // Show the badge whenever the user has deviated from the base (custom mode) or
-  // the auto mode has bumped up to cover gas costs.
-  const showSlippageBadge = mode === "custom" || autoBumpedForGas
+  // Pill/gear visual: amber whenever slippage sits above the auto-mode
+  // BASELINE (= max(autoBase, buffer)) — covers auto-bumped, custom-set-high,
+  // and calc-applied bumps. At or below the baseline (e.g. the 1% default
+  // for ETH input) the gear has no badge — that's just "auto-default."
+  // Mirrors AUTO_BUMP_BUFFER_PCT from use-swap-slippage.
+  const AUTO_BUMP_BUFFER_PCT = 1.0
+  const autoBaseline = Math.max(autoBase, AUTO_BUMP_BUFFER_PCT)
+  const slippagePct = parseFloat(slippage)
+  const isElevatedSlippage = Number.isFinite(slippagePct) && slippagePct > autoBaseline
+  const showSlippageBadge = isElevatedSlippage
+
+  // The popup notice copy specifically references the AUTO mode bump and
+  // should only appear when auto mode actually bumped (per product spec).
+  const isAutoBumpNoticeOpen = mode === "auto" && autoBumpedForGas
 
   const isWarningOpen = slippageWarning !== "none"
 
@@ -65,25 +84,24 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
           <button
             type="button"
             className={cn(
-              "group relative flex items-center justify-end rounded-xl transition-all duration-300 active:scale-95 outline-none border-none h-9 overflow-hidden",
-              showSlippageBadge ? "bg-primary/10 text-primary w-[108px] px-3" : "bg-transparent w-9"
+              "group relative flex items-center justify-end rounded-xl transition-colors duration-300 active:scale-95 outline-none border-none h-9 overflow-hidden",
+              !showSlippageBadge && "bg-transparent w-9",
+              showSlippageBadge && !isElevatedSlippage && "bg-primary/10 text-primary pl-4 pr-3",
+              showSlippageBadge && isElevatedSlippage && "bg-amber-500/10 text-amber-300 pl-4 pr-3"
             )}
             aria-label="Transaction settings"
           >
             <div className="flex items-center gap-2">
-              <div
-                className={cn(
-                  "overflow-hidden transition-all duration-300 flex items-center justify-end",
-                  showSlippageBadge ? "w-[60px] opacity-100" : "w-0 opacity-0"
-                )}
-              >
+              {showSlippageBadge && (
                 <span className="text-[13px] font-bold whitespace-nowrap">{slippage}%</span>
-              </div>
+              )}
 
               <Settings
                 className={cn(
-                  "h-5 w-5 transition-all duration-300 ease-in-out group-hover:rotate-90 shrink-0",
-                  showSlippageBadge ? "text-primary" : "text-zinc-400 group-hover:text-white"
+                  "h-5 w-5 transition-transform duration-300 ease-in-out group-hover:rotate-90 shrink-0",
+                  !showSlippageBadge && "text-zinc-400 group-hover:text-white",
+                  showSlippageBadge && !isElevatedSlippage && "text-primary",
+                  showSlippageBadge && isElevatedSlippage && "text-amber-300"
                 )}
               />
             </div>
@@ -105,7 +123,27 @@ const TransactionSettingsComponent: React.FC<TransactionSettingsProps> = ({
             <div className="overflow-hidden">
               <div className="pb-3">
                 <div className="rounded-xl px-3 py-2 border border-amber-500/30 bg-amber-500/10">
-                  <span className="text-[12px] leading-snug text-amber-200">{WARNING_MESSAGE}</span>
+                  <span className="text-[12px] leading-snug text-amber-200">
+                    {milesApplied ? MILES_WARNING_MESSAGE : WARNING_MESSAGE}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            aria-live="polite"
+            className={cn(
+              "grid transition-[grid-template-rows] duration-300 ease-out",
+              isAutoBumpNoticeOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+            )}
+          >
+            <div className="overflow-hidden">
+              <div className="pb-3">
+                <div className="rounded-xl px-3 py-2 border border-amber-500/30 bg-amber-500/10">
+                  <span className="text-[12px] leading-snug text-amber-200">
+                    {AUTO_BUMP_MESSAGE}
+                  </span>
                 </div>
               </div>
             </div>

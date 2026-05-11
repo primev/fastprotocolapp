@@ -62,6 +62,14 @@ interface ExchangeRateProps {
 
   // Estimated miles from this swap
   estimatedMiles?: number | null
+  /** True when Barter validated the swap as too small to clear at the current
+   *  slippage. Drives the no-miles slot to a plain dash since the swap itself
+   *  is in an error state and a "why" tooltip would compete with the error. */
+  barterAmountTooSmall?: boolean
+  /** Opens the miles calculator. Used by the "apply manually" affordance
+   *  shown when miles aren't available at the current swap size by default
+   *  but could be reachable via custom slippage. */
+  onOpenCalculator?: () => void
 }
 
 const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
@@ -76,6 +84,8 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
   isManualInversion,
   timeLeft,
   estimatedMiles,
+  barterAmountTooSmall = false,
+  onOpenCalculator,
 }) => {
   /**
    * 1. DERIVED LOCAL STATE
@@ -175,31 +185,49 @@ const ExchangeRateComponent: React.FC<ExchangeRateProps> = ({
                       ~{estimatedMiles.toLocaleString("en-US")} miles
                     </span>
                   </>
+                ) : barterAmountTooSmall ? (
+                  // Swap itself is in an error state — barter rejected the size.
+                  // The action button surfaces that; here a single dash keeps the
+                  // slot occupied without competing for attention.
+                  <span className="text-gray-500" aria-label="No miles estimate">
+                    —
+                  </span>
                 ) : (
-                  // Estimator is a conservative lower bound. "0" misleads
-                  // users into thinking no miles are available, so we show
-                  // "TBD" + tooltip pointing to the learn article. Kept in
-                  // the same slot so no height is added to the swap card.
+                  // Estimator returned 0 — gas/bid costs at this swap size
+                  // consume the entire default surplus, so miles aren't
+                  // available at auto slippage. Render the inline label as
+                  // a button: clicking opens the calc so the user can apply
+                  // a higher slippage manually and target some miles.
+                  // Hover surfaces the why + Learn link.
                   <TooltipProvider delayDuration={150}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="inline-flex items-center gap-1 text-gray-500 cursor-help">
-                          TBD miles
+                        <button
+                          type="button"
+                          onClick={() => onOpenCalculator?.()}
+                          className="inline-flex items-center gap-1 text-[#3898FF]/80 hover:text-[#3898FF] transition cursor-pointer"
+                        >
+                          Apply Miles
                           <Info className="h-3 w-3" />
-                        </span>
+                        </button>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[260px] text-xs">
-                        We are unable to show a miles estimate at this time. You may continue to
-                        earn miles as your swap executes. See{" "}
-                        <a
-                          href="/learn/miles#about-the-miles-estimate"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline underline-offset-2 text-[#3898FF] hover:text-[#5aa9ff]"
-                        >
-                          Learn
-                        </a>{" "}
-                        for more info.
+                        <div className="flex flex-col gap-2">
+                          <span>
+                            Miles are not available by default at this swap size — open the
+                            calculator to apply manually.
+                          </span>
+                          <div className="flex justify-end">
+                            <a
+                              href="/learn/miles#about-the-miles-estimate"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-md border border-[#3898FF]/40 px-2 py-0.5 text-[11px] font-medium text-[#3898FF] transition hover:border-[#3898FF] hover:bg-[#3898FF]/10"
+                            >
+                              Learn
+                            </a>
+                          </div>
+                        </div>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>

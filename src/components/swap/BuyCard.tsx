@@ -51,6 +51,24 @@ interface BuyCardProps {
 
   // Input Control
   buyInputRef: React.RefObject<HTMLInputElement>
+
+  // Miles Calc Surface — when the miles calculator was used to apply slippage,
+  // the headline buy amount becomes the slippage-adjusted minimum (the new
+  // "estimate") so the primary number reflects the swap conditions the user
+  // actually agreed to. The pre-calc expected amount is preserved underneath
+  // as supporting context so the diff stays visible.
+  milesApplied: boolean
+  /** Slippage-adjusted minimum receive amount (decimal string). */
+  minAmountOut: string | null
+  /** Currently effective slippage percent (e.g. 5.4). */
+  slippagePct: number
+  /** Slippage percent that auto-mode would land at without the miles calc.
+   *  Used to compute the "vs standard" delta the user is paying for miles. */
+  standardSlippagePct: number
+  /** Closes the miles calc, returns slippage to auto, and clears the
+   *  miles-applied marker. Surfaced as a "Revert" link next to the
+   *  pre-calc estimate so the user has a one-click way back. */
+  onRevertMiles: () => void
 }
 
 const BuyCardComponent: React.FC<BuyCardProps> = ({
@@ -71,6 +89,11 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
   setAmount,
   setIsToTokenSelectorOpen,
   buyInputRef,
+  milesApplied,
+  minAmountOut,
+  slippagePct,
+  standardSlippagePct,
+  onRevertMiles,
 }) => {
   /**
    * 1. LOCAL UI STATE
@@ -96,11 +119,48 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
     setAmount(toBalanceValue.toString())
   }
 
+  // Cost-of-miles math: when the calc lifted slippage above the auto baseline,
+  // we promote the slippage-adjusted minimum to the headline buy amount and
+  // preserve the pre-calc expected amount underneath. Numeric computation only
+  // — display strings live in the render block.
+  const cleanOutput = outputAmount ? outputAmount.replace(/,/g, "") : ""
+  const expectedNum = parseFloat(cleanOutput)
+  const cleanMin = minAmountOut ? minAmountOut.replace(/,/g, "") : ""
+  const minNum = parseFloat(cleanMin)
+  // Only flip the headline when the user is NOT actively typing into the buy
+  // input — otherwise we'd overwrite their in-flight value mid-keystroke.
+  const showMilesEstimate =
+    milesApplied &&
+    editingSide !== "buy" &&
+    Number.isFinite(expectedNum) &&
+    expectedNum > 0 &&
+    Number.isFinite(minNum) &&
+    minNum > 0 &&
+    slippagePct > standardSlippagePct &&
+    minNum < expectedNum
+
+  // Compact decimal formatting that mirrors the existing buy-amount precision.
+  const formatTokenNum = (n: number): string => {
+    if (!Number.isFinite(n)) return "—"
+    if (n === 0) return "0"
+    if (n >= 1) return n.toLocaleString(undefined, { maximumFractionDigits: 4 })
+    if (n >= 0.0001) return n.toLocaleString(undefined, { maximumFractionDigits: 6 })
+    return n.toPrecision(2)
+  }
+
+  // Headline value the AmountInput renders. When miles are applied, it's the
+  // slippage-adjusted min — same formatting precision as the typed amount.
+  const headlineValue = showMilesEstimate ? formatTokenNum(minNum) : buyDisplayValue
+  const expectedUsd =
+    showMilesEstimate && activeToTokenPrice > 0 ? expectedNum * activeToTokenPrice : null
+
   return (
     <div className="rounded-[14px] sm:rounded-[16px] bg-[#161b22] border border-white/5 px-3 py-2.5 sm:px-5 sm:py-4">
       {/* Header Section */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Buy</span>
+        <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+          {milesApplied ? "Buy · miles applied" : "Buy"}
+        </span>
         {toToken && (
           <button
             type="button"
@@ -119,11 +179,15 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <AmountInput
-            value={toToken ? buyDisplayValue : ""}
+            value={toToken ? headlineValue : ""}
             onChange={handleAmountChange}
             onFocus={() => {
               if (editingSide !== "buy") {
-                const cleanValue = buyDisplayValue?.replace(/,/g, "") || ""
+                // When swapping into the buy input, seed it with whatever the
+                // user is currently looking at — the calc-applied min if it's
+                // promoted, otherwise the standard buy display value.
+                const seed = (showMilesEstimate ? headlineValue : buyDisplayValue) ?? ""
+                const cleanValue = seed.replace(/,/g, "")
                 if (cleanValue && !isNaN(parseFloat(cleanValue))) {
                   setAmount(cleanValue)
                 }
@@ -139,13 +203,34 @@ const BuyCardComponent: React.FC<BuyCardProps> = ({
           />
 
           {toToken && !!outputAmount && outputAmount !== "0" && (
-            <TokenInfoRow
-              displayAmount={outputAmount}
-              tokenPrice={activeToTokenPrice}
-              isLoadingPrice={isLoadingToPrice}
-              isQuoteLoading={effectiveQuoteLoading}
-              side="buy"
-            />
+            <>
+              {showMilesEstimate ? (
+                // Miles applied → headline above is the slippage-adjusted min.
+                // The pre-calc estimate stays as a one-line diff with an
+                // inline Revert link so the user can back out without hunting
+                // for the calc or settings gear.
+                <div className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm tracking-tight">
+                  <span className="whitespace-nowrap tabular-nums text-gray-400">
+                    {formatTokenNum(expectedNum)} {toToken.symbol}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onRevertMiles}
+                    className="text-xs font-medium text-primary hover:text-primary/80 transition-colors underline-offset-2 hover:underline"
+                  >
+                    Revert
+                  </button>
+                </div>
+              ) : (
+                <TokenInfoRow
+                  displayAmount={outputAmount}
+                  tokenPrice={activeToTokenPrice}
+                  isLoadingPrice={isLoadingToPrice}
+                  isQuoteLoading={effectiveQuoteLoading}
+                  side="buy"
+                />
+              )}
+            </>
           )}
         </div>
 

@@ -98,6 +98,11 @@ export function useSwapForm(allTokens: Token[]) {
     ])
   }, [address, chainId, queryClient])
 
+  // Monotonic counter incremented on every successful swap reset. Consumers
+  // (e.g. the miles calculator) watch this so they can clear their own
+  // session state when the swap inputs are wiped after a preconfirmation.
+  const [swapResetCount, setSwapResetCount] = useState(0)
+
   const resetFormAfterSuccess = useCallback(() => {
     setAmount("")
     setSwappedQuote(null)
@@ -111,6 +116,7 @@ export function useSwapForm(allTokens: Token[]) {
       delete next[pairKey]
       return next
     })
+    setSwapResetCount((n) => n + 1)
   }, [fromToken, toToken])
 
   // Watch for new blocks and refetch connected wallet balances so the UI updates automatically
@@ -322,13 +328,27 @@ export function useSwapForm(allTokens: Token[]) {
     quoteGeneration,
     maxSlippagePct: parseFloat(effectiveSlippage) || 0,
     enabled: !isWrapUnwrap && !!displayQuote && hasSufficientBalance,
+    isQuoteLoading,
   })
 
-  // Feed observed shortfall back into the slippage hook so auto mode can bump to 2%
+  // Feed observed shortfall back into the slippage hook so auto mode can bump
   // when the base tier isn't enough to cover Barter's routing cost.
+  //
+  // Ratchet: only INCREASES propagate during a session. `barterShortfallPct`
+  // resets to 0 every time validation re-runs (quote refresh, transient
+  // network blip, etc.) — without the ratchet, the auto-bumped slippage drops
+  // back to the base whenever validation is in-flight, and a Swap click in
+  // that window snapshots the un-bumped value into the confirmation modal.
   useEffect(() => {
-    setObservedBarterShortfallPct(barterShortfallPct)
+    setObservedBarterShortfallPct((prev) => (barterShortfallPct > prev ? barterShortfallPct : prev))
   }, [barterShortfallPct])
+
+  // Reset the high-water mark when the swap inputs (amount / pair) change —
+  // shortfall is amount-and-pair specific, so prior observations no longer
+  // apply. The next validation result will set a fresh floor.
+  useEffect(() => {
+    setObservedBarterShortfallPct(0)
+  }, [amount, fromToken?.address, toToken?.address])
 
   // Guard trigger: Barter's routed output exceeds the Uniswap single-hop quote by more than
   // the configured threshold. Indicates the Uniswap quote is not representative of execution
@@ -452,6 +472,13 @@ export function useSwapForm(allTokens: Token[]) {
   const handleSwitch = useCallback(() => {
     if (!fromToken || !toToken) return
     setLastValidRate(exchangeRateContent)
+
+    // Reset the slippage state up front so that even rapid switches that
+    // would be caught by the 500ms debounce below still clear the previous
+    // pair's auto-bumped slippage. Otherwise the ratchet locks in the prior
+    // shortfall and the new pair displays an unwarranted 50%.
+    settings.resetSlippage()
+    setObservedBarterShortfallPct(0)
 
     const now = Date.now()
     if (now - lastSwitchTime < 500) return
@@ -601,6 +628,7 @@ export function useSwapForm(allTokens: Token[]) {
     handleSwitch,
     refreshBalances,
     resetFormAfterSuccess,
+    swapResetCount,
     ...settings,
     slippage: effectiveSlippage,
     fromPrice: priceCache[fromToken?.symbol || ""] ?? fromPrice ?? 0,

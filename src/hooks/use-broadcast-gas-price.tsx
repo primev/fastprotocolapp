@@ -6,8 +6,22 @@ import { formatUnits } from "viem"
 
 export const GAS_LIMIT_MULTIPLIER = 100n
 export const ETH_PATH_GAS_LIMIT_MULTIPLIER = 140n // 40% buffer for tx
-/** Display multiplier so our estimate aligns with wallet (wallet adds gas price buffer) */
-export const ETH_PATH_DISPLAY_MULTIPLIER = 195n // ~90% extra for display
+/**
+ * Wallets pad the displayed "estimated cost" by ~20% above the raw simulated
+ * `gasUsed` as a safety margin (independent of our submitted gasLimit). We
+ * apply the same padding to our display so the cost line matches the wallet
+ * popup. Tx submission still uses ETH_PATH_GAS_LIMIT_MULTIPLIER (40%).
+ */
+export const ETH_PATH_DISPLAY_GAS_PADDING = 120n
+
+/**
+ * Priority fee on ETH-input swaps. Zero — FastSwap inclusion is bought by the
+ * bidder via mev-commit preconfirmation, so the user's L1 tx doesn't need to
+ * tip a builder for inclusion. We populate `maxPriorityFeePerGas: 0n` on the
+ * tx in `use-swap-confirmation` so the wallet displays a 0 tip too, keeping
+ * our cost line and the wallet popup aligned.
+ */
+const ETH_PATH_PRIORITY_FEE_WEI = 0n
 
 const PRIORITY_FEE_WEI = 0n
 
@@ -43,7 +57,14 @@ export function useBroadcastGasPrice() {
   const effectivePrice = baseFeePerGas != null ? baseFeePerGas + PRIORITY_FEE_WEI : null
   const rawPrice = effectivePrice
   const gasPriceGwei = effectivePrice != null ? parseFloat(formatUnits(effectivePrice, 9)) : null
-  const bufferedPrice = effectivePrice
+
+  // ETH-path display: match the wallet's "estimated cost" panel, which uses
+  // the EFFECTIVE per-gas price (baseFee + priorityFee) — i.e. what the user
+  // typically pays. `maxFeePerGas` (baseFee × 2 + tip) only sets the ceiling
+  // for unusual base-fee spikes; the wallet doesn't put that in the cost
+  // line, so neither do we.
+  const ethPathDisplayFeePerGas =
+    baseFeePerGas != null ? baseFeePerGas + ETH_PATH_PRIORITY_FEE_WEI : null
 
   return {
     gasFees,
@@ -51,7 +72,7 @@ export function useBroadcastGasPrice() {
     rawMaxFeePerGas: effectivePrice,
     rawLegacyPrice: effectivePrice,
     rawPrice,
-    bufferedPrice,
+    ethPathDisplayFeePerGas,
     gasPriceGwei,
   }
 }

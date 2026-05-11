@@ -230,4 +230,200 @@ describe("computeSurplusEth", () => {
       expect(loose / tight).toBeGreaterThan(40)
     })
   })
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Stale-data sanity gate
+  // ──────────────────────────────────────────────────────────────────────────
+  describe("stale-data sanity guard", () => {
+    it("returns null when barter is < 0.5× the uniswap quote (decimals mismatch)", () => {
+      // Simulates a token-switch race: amountOut is the new pair's value but
+      // barterPreGas is the old pair's bigint with the wrong decimals scale,
+      // making barterHuman a tiny fraction of parsedAmountOut.
+      const result = computeSurplusEth({
+        parsedAmountOut: 1,
+        slippagePct: 0.5,
+        barterPreGasOutputAmount: wei(0.0001), // way below 0.5 of 1 ETH
+        toTokenDecimals: ETH_DECIMALS,
+        isEthOutput: true,
+        toTokenPrice: null,
+        ethPrice: null,
+      })
+      expect(result).toBeNull()
+    })
+
+    it("returns null when barter is > 2× the uniswap quote (decimals mismatch)", () => {
+      // Same race, opposite direction: barter bigint is too LARGE for the
+      // current decimals scale (e.g. ETH wei interpreted as USDC raw).
+      const result = computeSurplusEth({
+        parsedAmountOut: 1,
+        slippagePct: 0.5,
+        barterPreGasOutputAmount: wei(50), // 50× larger than 1 ETH
+        toTokenDecimals: ETH_DECIMALS,
+        isEthOutput: true,
+        toTokenPrice: null,
+        ethPrice: null,
+      })
+      expect(result).toBeNull()
+    })
+
+    it("accepts barter just inside the 0.5× lower bound", () => {
+      const result = computeSurplusEth({
+        parsedAmountOut: 1,
+        slippagePct: 50,
+        barterPreGasOutputAmount: wei(0.51), // barely above 0.5×
+        toTokenDecimals: ETH_DECIMALS,
+        isEthOutput: true,
+        toTokenPrice: null,
+        ethPrice: null,
+      })
+      expect(result).not.toBeNull()
+      // surplus = 0.51 − 1×(1 − 0.5) = 0.51 − 0.5 = 0.01
+      expect(result!).toBeCloseTo(0.01, 9)
+    })
+
+    it("accepts barter just inside the 2× upper bound", () => {
+      const result = computeSurplusEth({
+        parsedAmountOut: 1,
+        slippagePct: 0.5,
+        barterPreGasOutputAmount: wei(1.99), // barely under 2×
+        toTokenDecimals: ETH_DECIMALS,
+        isEthOutput: true,
+        toTokenPrice: null,
+        ethPrice: null,
+      })
+      expect(result).not.toBeNull()
+      // surplus = 1.99 − 1×(1 − 0.005) = 1.99 − 0.995 = 0.995
+      expect(result!).toBeCloseTo(0.995, 9)
+    })
+  })
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Decimals coverage — common tokens
+  // ──────────────────────────────────────────────────────────────────────────
+  describe("token decimals coverage", () => {
+    const wbtc = (whole: number) => BigInt(Math.round(whole * 1e8))
+    const dai = (whole: number) => BigInt(Math.round(whole * 1e18))
+
+    it("WBTC (8 decimals) — converts surplus to ETH with token prices", () => {
+      // 0.5 WBTC out, barter 0.499, slippage 0.5% → minOut 0.4975, surplus 0.0015 WBTC.
+      // At $60k/WBTC and $3k/ETH → 0.0015 × 60000 / 3000 = 0.03 ETH.
+      const result = computeSurplusEth({
+        parsedAmountOut: 0.5,
+        slippagePct: 0.5,
+        barterPreGasOutputAmount: wbtc(0.499),
+        toTokenDecimals: 8,
+        isEthOutput: false,
+        toTokenPrice: 60000,
+        ethPrice: 3000,
+      })
+      expect(result).not.toBeNull()
+      expect(result!).toBeCloseTo(0.03, 6)
+    })
+
+    it("DAI (18 decimals) — same scale as ETH, no surprises", () => {
+      // 1000 DAI out, barter 999, slippage 0.5% → minOut 995, surplus 4 DAI.
+      // At $1/DAI and $3k/ETH → 4 / 3000 ≈ 0.001333 ETH.
+      const result = computeSurplusEth({
+        parsedAmountOut: 1000,
+        slippagePct: 0.5,
+        barterPreGasOutputAmount: dai(999),
+        toTokenDecimals: 18,
+        isEthOutput: false,
+        toTokenPrice: 1,
+        ethPrice: 3000,
+      })
+      expect(result).not.toBeNull()
+      expect(result!).toBeCloseTo(4 / 3000, 9)
+    })
+  })
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Fuzz tests — randomized inputs verifying invariants
+  // ──────────────────────────────────────────────────────────────────────────
+  describe("fuzz invariants", () => {
+    function mulberry32(seed: number) {
+      let state = seed >>> 0
+      return () => {
+        state = (state + 0x6d2b79f5) >>> 0
+        let t = state
+        t = Math.imul(t ^ (t >>> 15), t | 1)
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+      }
+    }
+
+    it("surplus is non-negative when within sanity bounds", () => {
+      const rng = mulberry32(1)
+      for (let i = 0; i < 5_000; i++) {
+        const amount = rng() * 100 + 0.0001
+        const slippage = rng() * 50
+        // Keep barter in [0.5×, 2×] amount → passes sanity gate.
+        const barterRatio = 0.5 + rng() * 1.5
+        const result = computeSurplusEth({
+          parsedAmountOut: amount,
+          slippagePct: slippage,
+          barterPreGasOutputAmount: wei(amount * barterRatio),
+          toTokenDecimals: ETH_DECIMALS,
+          isEthOutput: true,
+          toTokenPrice: null,
+          ethPrice: null,
+        })
+        if (result == null) continue
+        expect(result).toBeGreaterThanOrEqual(0)
+      }
+    })
+
+    it("surplus is monotonic non-decreasing in slippage (same swap)", () => {
+      const rng = mulberry32(2)
+      for (let i = 0; i < 1_000; i++) {
+        const amount = rng() * 100 + 0.001
+        const barterRatio = 0.5 + rng() * 1.5
+        const s1 = rng() * 25
+        const s2 = s1 + rng() * 25
+        const r1 = computeSurplusEth({
+          parsedAmountOut: amount,
+          slippagePct: s1,
+          barterPreGasOutputAmount: wei(amount * barterRatio),
+          toTokenDecimals: ETH_DECIMALS,
+          isEthOutput: true,
+          toTokenPrice: null,
+          ethPrice: null,
+        })
+        const r2 = computeSurplusEth({
+          parsedAmountOut: amount,
+          slippagePct: s2,
+          barterPreGasOutputAmount: wei(amount * barterRatio),
+          toTokenDecimals: ETH_DECIMALS,
+          isEthOutput: true,
+          toTokenPrice: null,
+          ethPrice: null,
+        })
+        if (r1 == null || r2 == null) continue
+        expect(r2).toBeGreaterThanOrEqual(r1 - 1e-9)
+      }
+    })
+
+    it("sanity gate triggers ~always when barter is wildly out of scale", () => {
+      const rng = mulberry32(3)
+      let triggered = 0
+      let total = 0
+      for (let i = 0; i < 1_000; i++) {
+        const amount = rng() * 10 + 0.01
+        // 1e6× off — emulates ETH wei vs USDC raw decimals mismatch.
+        const factor = rng() < 0.5 ? 1e-6 : 1e6
+        const result = computeSurplusEth({
+          parsedAmountOut: amount,
+          slippagePct: rng() * 5 + 0.1,
+          barterPreGasOutputAmount: wei(amount * factor),
+          toTokenDecimals: ETH_DECIMALS,
+          isEthOutput: true,
+          toTokenPrice: null,
+          ethPrice: null,
+        })
+        total++
+        if (result == null) triggered++
+      }
+      expect(triggered / total).toBeGreaterThan(0.99)
+    })
+  })
 })

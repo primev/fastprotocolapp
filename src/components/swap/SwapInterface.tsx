@@ -103,6 +103,26 @@ interface SwapInterfaceProps {
   barterUnavailable: boolean
   isBarterValidating: boolean
   estimatedMiles?: number | null
+  milesToSlippage: (targetMiles: number) => { slippage: string; requiresChange: boolean } | null
+  maxAchievableMiles: number | null
+  swapResetCount: number
+  onApplyMilesCalc: (args: { slippage: string }) => void
+  onCloseMilesCalc: () => void
+  /** Closes the miles calc, drops slippage back to auto, and clears the
+   *  miles-applied marker. Wired to the BuyCard's "Revert" link. */
+  onRevertMiles: () => void
+  /** True when the miles calc has set the current slippage (cleared on token switch,
+   *  manual slippage edit, or successful swap). Drives the buy card's "miles applied"
+   *  label and min-out display. */
+  milesApplied: boolean
+  /** Slippage-adjusted minimum output as a decimal string. Surfaced on the buy card
+   *  alongside the expected output when miles are applied so the user can see the
+   *  guaranteed amount and the cost of the miles they targeted. */
+  computedMinAmountOut: string | null
+  /** Lifted calc-open state. Lets the no-miles message in ExchangeRate open
+   *  the calc as an "apply manually" affordance. */
+  isCalcOpen: boolean
+  setIsCalcOpen: (open: boolean) => void
 }
 
 export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
@@ -194,6 +214,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         autoBase={slippageAutoBase}
         autoBumpedForGas={slippageAutoBumpedForGas}
         slippageWarning={slippageWarning}
+        milesApplied={props.milesApplied}
       />
 
       {/* 2. CORE SWAP CARDS
@@ -249,6 +270,11 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
           setAmount={setAmount}
           setIsToTokenSelectorOpen={setIsToTokenSelectorOpen}
           buyInputRef={buyInputRef}
+          milesApplied={props.milesApplied}
+          minAmountOut={props.computedMinAmountOut}
+          slippagePct={parseFloat(slippage) || 0}
+          standardSlippagePct={Math.max(slippageAutoBase ?? 0, 1)}
+          onRevertMiles={props.onRevertMiles}
         />
       </div>
 
@@ -276,6 +302,8 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
             isManualInversion={isManualInversion}
             timeLeft={timeLeft}
             estimatedMiles={props.estimatedMiles}
+            barterAmountTooSmall={barterAmountTooSmall}
+            onOpenCalculator={() => props.setIsCalcOpen(true)}
           />
         </div>
       </div>
@@ -295,7 +323,16 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = (props) => {
         isNonceLoading={isNonceLoading}
       />
 
-      <RewardsBadge />
+      <RewardsBadge
+        milesToSlippage={props.milesToSlippage}
+        maxAchievableMiles={props.maxAchievableMiles}
+        swapInputsKey={`${fromToken?.address ?? ""}-${toToken?.address ?? ""}-${amount}`}
+        swapResetCount={props.swapResetCount}
+        onApply={props.onApplyMilesCalc}
+        onClose={props.onCloseMilesCalc}
+        isOpen={props.isCalcOpen}
+        setIsOpen={props.setIsCalcOpen}
+      />
     </div>
   )
 }

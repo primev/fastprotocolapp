@@ -41,7 +41,7 @@ import { useAccount } from "wagmi"
 import { mainnet } from "wagmi/chains"
 import { useTokenPrice } from "@/hooks/use-token-price"
 import { DEFAULT_ETH_PRICE_USD } from "@/lib/constants"
-import { GAS_LIMIT_MULTIPLIER, ETH_PATH_DISPLAY_MULTIPLIER } from "@/hooks/use-broadcast-gas-price"
+import { GAS_LIMIT_MULTIPLIER, ETH_PATH_DISPLAY_GAS_PADDING } from "@/hooks/use-broadcast-gas-price"
 import { useEthPathGasEstimate } from "@/hooks/use-eth-path-gas-estimate"
 import { ZERO_ADDRESS } from "@/lib/swap-constants"
 import { useSwapToastStore } from "@/stores/swapToastStore"
@@ -99,6 +99,11 @@ interface SwapConfirmationModalProps {
   approveTokenSymbol?: string
   /** Estimated Fast Miles earned from this swap */
   estimatedMiles?: number | null
+  /** True when the miles calc lifted slippage above the auto baseline. The
+   *  headline receive amount switches to the slippage-adjusted min so the
+   *  primary number reflects the swap conditions the user actually agreed
+   *  to (matches the BuyCard behavior). */
+  milesApplied?: boolean
   /** Called with the recommended slippage when a barter slippage error is detected. */
   onRetryWithSlippage?: (slippage: string) => void
   /** When true, immediately execute the swap on open (skip review). Used by toast retry flow. */
@@ -213,6 +218,7 @@ function SwapConfirmationModal({
   onApprove,
   approveTokenSymbol,
   estimatedMiles: estimatedMilesLive,
+  milesApplied: milesAppliedLive = false,
   onRetryWithSlippage,
   autoExecute = false,
   onAutoExecuteConsumed,
@@ -240,6 +246,7 @@ function SwapConfirmationModal({
     fromTokenPrice: number | null | undefined
     toTokenPrice: number | null | undefined
     estimatedMiles: number | null | undefined
+    milesApplied: boolean
   } | null>(null)
   const wasOpenRef = useRef(open)
 
@@ -263,6 +270,7 @@ function SwapConfirmationModal({
       fromTokenPrice: fromTokenPriceLive,
       toTokenPrice: toTokenPriceLive,
       estimatedMiles: estimatedMilesLive,
+      milesApplied: milesAppliedLive,
     }
   } else if (!open && wasOpenRef.current) {
     // Modal just closed — clear snapshot
@@ -288,6 +296,7 @@ function SwapConfirmationModal({
   const fromTokenPrice = snapshotRef.current?.fromTokenPrice ?? fromTokenPriceLive
   const toTokenPrice = snapshotRef.current?.toTokenPrice ?? toTokenPriceLive
   const estimatedMiles = snapshotRef.current?.estimatedMiles ?? estimatedMilesLive
+  const milesApplied = snapshotRef.current?.milesApplied ?? milesAppliedLive
   // --- EXTERNAL HOOKS ---
   const { chain: signerChain, isConnected } = useAccount()
 
@@ -337,7 +346,7 @@ function SwapConfirmationModal({
     },
   })
 
-  const { bufferedPrice: gasPrice } = useBroadcastGasPrice()
+  const { ethPathDisplayFeePerGas, rawPrice } = useBroadcastGasPrice()
   const { price: ethPriceFromApi } = useTokenPrice("ETH")
   const effectiveEthPrice = ethPrice ?? ethPriceFromApi ?? DEFAULT_ETH_PRICE_USD
 
@@ -401,9 +410,13 @@ function SwapConfirmationModal({
     if (isWrap || isUnwrap) return wethGasEstimate
     const base = ethPathGasEstimate ?? gasEstimate
     if (!base) return null
-    // ETH path: use display multiplier so estimate aligns with wallet (wallet adds buffers)
+    // ETH path: pad raw simulation by ~20% to match wallet's "estimated cost"
+    // panel (wallets add their own safety margin above eth_estimateGas before
+    // displaying). The 1.4× tx buffer is applied separately at submission in
+    // use-swap-confirmation; it caps actual gas use but doesn't surface in
+    // the wallet's cost line.
     if (ethPathGasEstimate) {
-      return (base * ETH_PATH_DISPLAY_MULTIPLIER) / 100n
+      return (base * ETH_PATH_DISPLAY_GAS_PADDING) / 100n
     }
     return (base * GAS_LIMIT_MULTIPLIER) / 100n
   }, [isWrap, isUnwrap, wethGasEstimate, ethPathGasEstimate, gasEstimate])
@@ -524,15 +537,21 @@ function SwapConfirmationModal({
   }, [needsPermit2Approval, intentPath, isApprovalInProgress, executeSwap])
 
   const gasCostUsd = useMemo(() => {
-    if (!activeGasEstimate || !gasPrice) return null
+    if (!activeGasEstimate) return null
+    // ETH-path swaps land in the user's wallet — display USD must match the
+    // wallet popup, so we use the same maxFeePerGas the wallet populates.
+    // Wrap/unwrap and the permit2 path don't surface in the wallet that way;
+    // fall back to base fee for the rough on-chain cost.
+    const feePerGas = ethPathGasEstimate ? ethPathDisplayFeePerGas : rawPrice
+    if (!feePerGas) return null
     try {
-      const totalWei = BigInt(activeGasEstimate) * BigInt(gasPrice)
+      const totalWei = BigInt(activeGasEstimate) * BigInt(feePerGas)
       const totalEth = Number(totalWei) / 1e18
       return totalEth * effectiveEthPrice
     } catch {
       return null
     }
-  }, [activeGasEstimate, gasPrice, effectiveEthPrice])
+  }, [activeGasEstimate, ethPathGasEstimate, ethPathDisplayFeePerGas, rawPrice, effectiveEthPrice])
 
   // USD value under each token amount (match main swap form, NumberFlow + commas)
   const fromUsdValue = useMemo(() => {
@@ -545,6 +564,50 @@ function SwapConfirmationModal({
     if (isNaN(num) || num <= 0 || toTokenPrice == null || toTokenPrice <= 0) return null
     return num * toTokenPrice
   }, [amountOut, toTokenPrice])
+
+  // Miles-applied headline: when the calc lifted slippage, the slippage-
+  // adjusted min becomes the headline receive amount and the pre-calc expected
+  // amount drops to a supporting line below. Mirrors the BuyCard so the user
+  // sees a consistent number across the swap form and confirmation review.
+  const milesEstimateView = useMemo(() => {
+    if (!milesApplied) return null
+    const expected = parseFloat(amountOut?.replace(/,/g, "") ?? "")
+    const min = parseFloat(minAmountOut?.replace(/,/g, "") ?? "")
+    if (
+      !Number.isFinite(expected) ||
+      expected <= 0 ||
+      !Number.isFinite(min) ||
+      min <= 0 ||
+      min >= expected
+    ) {
+      return null
+    }
+    return { expected, min }
+  }, [milesApplied, amountOut, minAmountOut])
+
+  const headlineReceiveValue = milesEstimateView
+    ? slippageLimitFormatted || minAmountOut || amountOut
+    : amountOut
+
+  const headlineUsdValue = useMemo(() => {
+    if (!milesEstimateView) return toUsdValue
+    if (toTokenPrice == null || toTokenPrice <= 0) return null
+    return milesEstimateView.min * toTokenPrice
+  }, [milesEstimateView, toTokenPrice, toUsdValue])
+
+  const expectedUsdValue = useMemo(() => {
+    if (!milesEstimateView) return null
+    if (toTokenPrice == null || toTokenPrice <= 0) return null
+    return milesEstimateView.expected * toTokenPrice
+  }, [milesEstimateView, toTokenPrice])
+
+  const formatTokenAmount = (n: number): string => {
+    if (!Number.isFinite(n)) return "—"
+    if (n === 0) return "0"
+    if (n >= 1) return n.toLocaleString(undefined, { maximumFractionDigits: 4 })
+    if (n >= 0.0001) return n.toLocaleString(undefined, { maximumFractionDigits: 6 })
+    return n.toPrecision(2)
+  }
 
   const activeError = externalError
     ? new RPCError(
@@ -795,15 +858,15 @@ function SwapConfirmationModal({
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <p className="text-2xl sm:text-3xl font-bold text-white">
-                      <BuyReceiveValue value={amountOut} className="tabular-nums" />{" "}
+                      <BuyReceiveValue value={headlineReceiveValue} className="tabular-nums" />{" "}
                       {tokenOut?.symbol}
                     </p>
                     <p className="text-sm text-gray-500 tabular-nums">
-                      {toUsdValue != null ? (
+                      {headlineUsdValue != null ? (
                         <span className="inline-flex items-center gap-0.5">
                           ≈ $
                           <NumberFlow
-                            value={toUsdValue}
+                            value={headlineUsdValue}
                             format={{
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
@@ -816,6 +879,23 @@ function SwapConfirmationModal({
                         "—"
                       )}
                     </p>
+                    {milesEstimateView && (
+                      <p className="pt-0.5 text-xs tabular-nums text-gray-400">
+                        Est. without miles: {formatTokenAmount(milesEstimateView.expected)}{" "}
+                        {tokenOut?.symbol}
+                        {expectedUsdValue != null ? (
+                          <span className="text-gray-500">
+                            {" "}
+                            (≈ $
+                            {expectedUsdValue.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                            )
+                          </span>
+                        ) : null}
+                      </p>
+                    )}
                   </div>
                   <TokenIcon token={tokenOut} bare className="h-11 w-11 sm:h-12 sm:w-12" />
                 </div>
@@ -919,7 +999,7 @@ function SwapConfirmationModal({
                             />
                           </span>
                         ) : (
-                          <span className="text-gray-500">TBD</span>
+                          <span className="text-gray-500">Too small for miles</span>
                         )
                       }
                       tooltip={
@@ -927,8 +1007,8 @@ function SwapConfirmationModal({
                           "Estimated Fast Miles earned from MEV redistribution on this swap"
                         ) : (
                           <>
-                            We are unable to show a miles estimate at this time. You may continue to
-                            earn miles as your swap executes. See{" "}
+                            At this swap size, gas and execution costs exceed the surplus miles are
+                            paid from. Try a larger amount, or see{" "}
                             <a
                               href="/learn/miles#about-the-miles-estimate"
                               target="_blank"
@@ -1028,7 +1108,7 @@ function SwapConfirmationModal({
                     />
                     {autoAdjustedForGas && (
                       <div className="-mt-2 mb-1 pl-0.5 text-xs text-amber-400/80">
-                        Your slippage has been auto-adjusted to cover gas costs
+                        Auto-adjusted to cover execution costs
                       </div>
                     )}
 
