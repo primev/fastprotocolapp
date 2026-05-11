@@ -156,24 +156,26 @@ export default async function LearnArticlePage({ params }: { params: Promise<{ s
           dangerouslySetInnerHTML={{ __html: html }}
         />
 
-        {/* CTA */}
-        <div className="my-12 flex justify-center">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
-          >
-            Try Fast Protocol
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="ml-1">
-              <path
-                d="M6 12l4-4-4-4"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </Link>
-        </div>
+        {/* CTA — hidden when the article supplies its own in-body CTA */}
+        {slug !== "where-your-swap-value-goes" && (
+          <div className="my-12 flex justify-center">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
+            >
+              Try Fast Protocol
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="ml-1">
+                <path
+                  d="M6 12l4-4-4-4"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </Link>
+          </div>
+        )}
 
         {/* FAQ section — rendered from frontmatter */}
         {frontmatter.faq && frontmatter.faq.length > 0 && (
