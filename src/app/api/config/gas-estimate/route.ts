@@ -6,6 +6,9 @@ export const runtime = "edge"
 const DEFAULT_GAS_LIMIT = 450_000
 const DEFAULT_GAS_USED = 180_000
 const DEFAULT_SURPLUS_RATE = 0.0056
+/** Matches the mev-commit fastswap gasLimit floor. Prevents the bid-cost calc
+ *  from understating when Edge Config has stale pre-floor data. */
+const MIN_GAS_LIMIT = 400_000
 /** Default upper bound the miles calculator will plan against, in percent. */
 const DEFAULT_MILES_CALC_MAX_SLIPPAGE = 50
 /** Hard floors and ceilings for the calc cap so a bad Edge Config value can't
@@ -30,7 +33,10 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        gasEstimate: typeof gasLimit === "number" && gasLimit > 0 ? gasLimit : DEFAULT_GAS_LIMIT,
+        gasEstimate: Math.max(
+          typeof gasLimit === "number" && gasLimit > 0 ? gasLimit : DEFAULT_GAS_LIMIT,
+          MIN_GAS_LIMIT
+        ),
         gasUsedEstimate: typeof gasUsed === "number" && gasUsed > 0 ? gasUsed : DEFAULT_GAS_USED,
         surplusRate:
           typeof surplusRate === "number" && surplusRate > 0 ? surplusRate : DEFAULT_SURPLUS_RATE,
