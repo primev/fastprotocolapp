@@ -16,6 +16,11 @@ const DEFAULT_GAS_LIMIT = 450_000
 const DEFAULT_GAS_USED = 180_000
 const DEFAULT_SURPLUS_RATE = 0.0056
 const DEFAULT_MILES_CALC_MAX_SLIPPAGE = 50
+/** Mirrors `DEFAULT_SWEEP_OVERHEAD_FALLBACK` in route.ts and the backend's
+ *  `costEstimateLastResort` (cost_estimator.go). */
+const DEFAULT_SWEEP_OVERHEAD: Record<string, number> = { default: 0.001 }
+/** Mirrors `DEFAULT_BID_COST_ETH` in route.ts — p75 of post-Apr-8 realized. */
+const DEFAULT_BID_COST_ETH = 0.00004
 
 /**
  * Build a `mockGet` implementation that returns the values we want for each
@@ -40,15 +45,24 @@ describe("GET /api/config/gas-estimate", () => {
       gasEstimate: DEFAULT_GAS_LIMIT,
       gasUsedEstimate: DEFAULT_GAS_USED,
       surplusRate: DEFAULT_SURPLUS_RATE,
+      sweepOverheadByToken: DEFAULT_SWEEP_OVERHEAD,
+      bidCostEth: DEFAULT_BID_COST_ETH,
       milesCalcMaxSlippagePct: DEFAULT_MILES_CALC_MAX_SLIPPAGE,
     })
   })
 
   it("passes through valid operator-set values", async () => {
+    const sweepMap = {
+      "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": 0.00004,
+      "0xdac17f958d2ee523a2206206994597c13d831ec7": 0.00005,
+      default: 0.00008,
+    }
     mockKeys({
       miles_estimate_gas_limit_average: 500_000,
       miles_estimate_gas_used_average: 200_000,
       miles_estimate_surplus_rate: 0.012,
+      miles_estimate_sweep_overhead_eth_by_token: sweepMap,
+      miles_estimate_bid_cost_eth: 0.000038,
       miles_calc_max_slippage_pct: 25,
     })
     const res = await GET()
@@ -58,8 +72,27 @@ describe("GET /api/config/gas-estimate", () => {
       gasEstimate: 500_000,
       gasUsedEstimate: 200_000,
       surplusRate: 0.012,
+      sweepOverheadByToken: sweepMap,
+      bidCostEth: 0.000038,
       milesCalcMaxSlippagePct: 25,
     })
+  })
+
+  it("falls back to default sweep overhead when the map has a bad value", async () => {
+    mockKeys({
+      // negative overhead is nonsensical — the route should reject and fall back
+      miles_estimate_sweep_overhead_eth_by_token: { "0xfoo": -1 },
+    })
+    const res = await GET()
+    const json = await res.json()
+    expect(json.sweepOverheadByToken).toEqual(DEFAULT_SWEEP_OVERHEAD)
+  })
+
+  it("falls back to default sweep overhead when the map is non-object", async () => {
+    mockKeys({ miles_estimate_sweep_overhead_eth_by_token: "not a map" })
+    const res = await GET()
+    const json = await res.json()
+    expect(json.sweepOverheadByToken).toEqual(DEFAULT_SWEEP_OVERHEAD)
   })
 
   it("clamps milesCalcMaxSlippagePct above the 50% ceiling", async () => {
@@ -116,6 +149,8 @@ describe("GET /api/config/gas-estimate", () => {
       gasEstimate: DEFAULT_GAS_LIMIT,
       gasUsedEstimate: DEFAULT_GAS_USED,
       surplusRate: DEFAULT_SURPLUS_RATE,
+      sweepOverheadByToken: DEFAULT_SWEEP_OVERHEAD,
+      bidCostEth: DEFAULT_BID_COST_ETH,
       milesCalcMaxSlippagePct: DEFAULT_MILES_CALC_MAX_SLIPPAGE,
     })
   })
@@ -127,9 +162,11 @@ describe("GET /api/config/gas-estimate", () => {
     expect(fetchedKeys).toEqual(
       [
         "miles_calc_max_slippage_pct",
+        "miles_estimate_bid_cost_eth",
         "miles_estimate_gas_limit_average",
         "miles_estimate_gas_used_average",
         "miles_estimate_surplus_rate",
+        "miles_estimate_sweep_overhead_eth_by_token",
       ].sort()
     )
   })

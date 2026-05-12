@@ -7,7 +7,7 @@
   "crons": [
     {
       "path": "/api/cron/update-edge-config/miles-estimate-gas",
-      "schedule": "0 0 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }

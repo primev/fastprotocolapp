@@ -129,17 +129,11 @@ const MILES_PER_ETH = 100_000
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
 /**
- * Proxy for bid_cost on pending rows. The indexer writes surplus and gas_cost
- * immediately but leaves bid_cost NULL until the sweep finalizer runs, so the
- * dashboard can't read the realized value.
- *
- * Set to p75 of realized bid_cost across processed rows since 2026-04-08 (the
- * day the bid-cost reduction landed). That picks a slightly-conservative
- * constant: it over-estimates cost vs. the median, which under-promises miles,
- * matching the same under-promise philosophy the cron uses for surplus rate.
- *
- * Post-fix distribution (n=745): p25=3.01e-5, p50=3.38e-5, p75=3.95e-5,
- * p95=5.38e-5. Tight enough that a single constant is fine.
+ * Cold-load fallback for the bid-cost proxy. The Edge-Config-driven value
+ * (`miles_estimate_bid_cost_eth`, daily cron) is preferred when present —
+ * this constant only kicks in until the first `/api/config/gas-estimate`
+ * fetch returns. p75 of post-2026-04-08 realized distribution, matching
+ * the cron's `FALLBACK_BID_COST_ETH`.
  */
 const ESTIMATED_BID_COST_ETH = 0.00004
 
@@ -177,7 +171,11 @@ type MilesEstimate = {
  * anything; the caller then shows the swap-time stash if available, else
  * "TBD".
  */
-function estimateMiles(row: UserSwapRow, surplusRate: number): MilesEstimate {
+function estimateMiles(
+  row: UserSwapRow,
+  surplusRate: number,
+  bidCostEth: number
+): MilesEstimate {
   if (!row.amountOut) return { miles: null, source: null }
 
   // Dashboard only handles ETH-output rows in the realized path because
@@ -201,7 +199,7 @@ function estimateMiles(row: UserSwapRow, surplusRate: number): MilesEstimate {
       const isEthInput = row.tokenIn.address.toLowerCase() === ZERO_ADDRESS
       const gasCostEth = isEthInput ? 0 : gasNum / 1e18
 
-      const netMev = surplusEth - ESTIMATED_BID_COST_ETH - gasCostEth
+      const netMev = surplusEth - bidCostEth - gasCostEth
       if (netMev <= 0) return { miles: 0, source: "realized" }
       const userMev = netMev * USER_MEV_SHARE
       return { miles: Math.floor(userMev * MILES_PER_ETH), source: "realized" }
@@ -237,12 +235,14 @@ function estimateMiles(row: UserSwapRow, surplusRate: number): MilesEstimate {
 export function MilesCell({
   row,
   surplusRate = DEFAULT_SURPLUS_RATE,
+  bidCostEth = ESTIMATED_BID_COST_ETH,
 }: {
   row: UserSwapRow
   surplusRate?: number
+  bidCostEth?: number
 }) {
   if (!row.processed) {
-    const recomputed = estimateMiles(row, surplusRate)
+    const recomputed = estimateMiles(row, surplusRate, bidCostEth)
     const stashed = getEstimatedMilesForHash(row.txHash)
 
     // Prefer the on-chain recompute over the swap-time stash. The recompute
@@ -359,9 +359,11 @@ export function StatusCell({ row }: { row: UserSwapRow }) {
 export function SwapsTableBody({
   swaps,
   surplusRate,
+  bidCostEth,
 }: {
   swaps: UserSwapRow[]
   surplusRate?: number
+  bidCostEth?: number
 }) {
   return (
     <Table>
@@ -425,7 +427,7 @@ export function SwapsTableBody({
               </span>
             </TableCell>
             <TableCell className="text-right px-2 md:px-4">
-              <MilesCell row={row} surplusRate={surplusRate} />
+              <MilesCell row={row} surplusRate={surplusRate} bidCostEth={bidCostEth} />
             </TableCell>
             <TableCell className="text-right hidden md:table-cell px-4">
               <a

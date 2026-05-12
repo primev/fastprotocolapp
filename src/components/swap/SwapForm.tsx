@@ -63,6 +63,7 @@ export function SwapForm() {
     isEthOutput,
     baseFeePerGas,
     isPermitPath: !!isPermitPath && !form.isWrapUnwrap,
+    outputTokenAddress: form.toToken?.address ?? null,
     enabled:
       !form.isWrapUnwrap &&
       !!form.amount &&
