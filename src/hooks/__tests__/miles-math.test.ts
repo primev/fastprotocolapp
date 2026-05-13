@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from "vitest"
-import { computeSurplusEth } from "../use-estimated-miles"
+import { computeSurplusEth, predictGasLimit } from "../use-estimated-miles"
 
 // ──────────────────────────────────────────────────────────────────────────
 // Constants — must match use-estimated-miles.ts
@@ -560,5 +560,91 @@ describe("operator-tunable slippage cap", () => {
       // Final clamped slippage is always ≤ cap (Math.min in the helper).
       expect(s).toBeLessThanOrEqual(cap + 1e-9)
     }
+  })
+})
+
+// ──────────────────────────────────────────────────────────────────────────
+// predictGasLimit — per-swap gasLimit prediction, mirrors the backend's
+// `mev-commit/tools/preconf-rpc/fastswap/fastswap.go` formula. Frontend uses
+// the same numbers so the bid the user sees and the bid the executor submits
+// match. Floor at 400_000 was added in backend commit b2d13572 to avoid
+// EIP-150 OOG on simple routes; the frontend mirrors it.
+// ──────────────────────────────────────────────────────────────────────────
+describe("predictGasLimit", () => {
+  const FALLBACK_AVG = 450_000n
+  const WRAPPER_PERMIT = 135_000n
+  const WRAPPER_ETH = 152_000n
+  const FLOOR = 400_000n
+
+  it("permit path with barter present, scaled above floor", () => {
+    // 200k × 2.5 = 500k + 135k = 635k > 400k → 635k
+    expect(predictGasLimit(200_000, true, FALLBACK_AVG)).toBe(500_000n + WRAPPER_PERMIT)
+  })
+
+  it("ETH path with barter present, scaled above floor", () => {
+    // 200k × 2.5 = 500k + 152k = 652k > 400k → 652k
+    expect(predictGasLimit(200_000, false, FALLBACK_AVG)).toBe(500_000n + WRAPPER_ETH)
+  })
+
+  it("permit path scaled below floor → returns floor", () => {
+    // 50k × 2.5 = 125k + 135k = 260k < 400k → 400k
+    expect(predictGasLimit(50_000, true, FALLBACK_AVG)).toBe(FLOOR)
+  })
+
+  it("ETH path scaled below floor → returns floor", () => {
+    // 50k × 2.5 = 125k + 152k = 277k < 400k → 400k
+    expect(predictGasLimit(50_000, false, FALLBACK_AVG)).toBe(FLOOR)
+  })
+
+  it("permit path right at the floor boundary (260k → 395k → floor)", () => {
+    // 104k × 2.5 = 260k + 135k = 395k < 400k → 400k
+    expect(predictGasLimit(104_000, true, FALLBACK_AVG)).toBe(FLOOR)
+    // 106k × 2.5 = 265k + 135k = 400k = floor → still 400k (>, not >=, so floor)
+    expect(predictGasLimit(106_000, true, FALLBACK_AVG)).toBe(FLOOR)
+    // 107k × 2.5 = 267.5k → floor(267500) + 135k = 402_500 > 400_000 → 402_500
+    expect(predictGasLimit(107_000, true, FALLBACK_AVG)).toBe(267_500n + WRAPPER_PERMIT)
+  })
+
+  it("missing barter (undefined) falls back to avg gas limit", () => {
+    expect(predictGasLimit(undefined, true, FALLBACK_AVG)).toBe(FALLBACK_AVG)
+    expect(predictGasLimit(undefined, false, FALLBACK_AVG)).toBe(FALLBACK_AVG)
+  })
+
+  it("invalid barter values (NaN, Infinity, 0, negative) fall back to avg", () => {
+    expect(predictGasLimit(Number.NaN, true, FALLBACK_AVG)).toBe(FALLBACK_AVG)
+    expect(predictGasLimit(Number.POSITIVE_INFINITY, true, FALLBACK_AVG)).toBe(FALLBACK_AVG)
+    expect(predictGasLimit(0, true, FALLBACK_AVG)).toBe(FALLBACK_AVG)
+    expect(predictGasLimit(-100, true, FALLBACK_AVG)).toBe(FALLBACK_AVG)
+  })
+
+  it("Math.floor in barter × 2.5 (no rounding up)", () => {
+    // 100_001 × 2.5 = 250_002.5 → floor = 250_002. + 135k = 385_002 < 400k → 400k
+    expect(predictGasLimit(100_001, true, FALLBACK_AVG)).toBe(FLOOR)
+    // 110_001 × 2.5 = 275_002.5 → floor = 275_002. + 135k = 410_002 > 400k → 410_002
+    expect(predictGasLimit(110_001, true, FALLBACK_AVG)).toBe(275_002n + WRAPPER_PERMIT)
+  })
+
+  it("realistic permit-path swap (barter ~120k → 435k limit)", () => {
+    // 120_000 × 2.5 = 300_000 + 135_000 = 435_000
+    expect(predictGasLimit(120_000, true, FALLBACK_AVG)).toBe(435_000n)
+  })
+
+  it("multi-hop swap (barter ~350k → 1.01M limit)", () => {
+    // 350_000 × 2.5 = 875_000 + 135_000 = 1_010_000
+    expect(predictGasLimit(350_000, true, FALLBACK_AVG)).toBe(1_010_000n)
+  })
+
+  it("p75 gas-used envelope: predictedGasLimit × 0.77 stays above realized p50", () => {
+    // p75 of `gas_used / gas_limit` across 46 post-floor permit-path swaps
+    // (2026-05-11 → 2026-05-13). Picked over mean/p50 so gas cost is rarely
+    // under-predicted — realized miles meet or exceed the badge estimate.
+    // Spot-check: applied to a representative predicted limit (~435k for a
+    // 120k-gas barter route), p75 lands at the upper realized envelope
+    // (~330k–340k), comfortably above the p50 realized gasUsed of ~295k.
+    const P75_RATIO = 0.77
+    const predictedLimit = predictGasLimit(120_000, true, FALLBACK_AVG) // 435k
+    const predictedUsed = Math.floor(Number(predictedLimit) * P75_RATIO)
+    expect(predictedUsed).toBeGreaterThan(295_000) // > realized p50
+    expect(predictedUsed).toBeLessThan(360_000) // ≈ realized p75-p80 envelope
   })
 })

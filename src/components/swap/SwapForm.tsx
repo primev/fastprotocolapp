@@ -58,6 +58,7 @@ export function SwapForm() {
     slippage: form.slippage,
     toTokenDecimals: form.toToken?.decimals ?? null,
     barterPreGasOutputAmount: form.barterPreGasOutputAmount,
+    barterGasEstimation: form.barterGasEstimation,
     toTokenPrice: form.toPrice,
     ethPrice: form.ethPrice,
     isEthOutput,
