@@ -8,6 +8,25 @@ interface TokenPriceResult {
   error: Error | null
 }
 
+// Per-symbol plausibility bounds. The API has been observed returning ~$1
+// for ETH during transient backend issues, which cascades into miles
+// surplus blow-ups (one user saw 30,927 miles instead of ~17). When an
+// out-of-range price comes back, skip the update and keep the previous
+// good value rather than poisoning every downstream consumer.
+const SANE_PRICE_BOUNDS: Record<string, { min: number; max: number }> = {
+  ETH: { min: 100, max: 100_000 },
+  WETH: { min: 100, max: 100_000 },
+  USDC: { min: 0.5, max: 2 },
+  USDT: { min: 0.5, max: 2 },
+  DAI: { min: 0.5, max: 2 },
+}
+
+function isPriceSane(symbol: string, price: number): boolean {
+  const bounds = SANE_PRICE_BOUNDS[symbol.toUpperCase()]
+  if (!bounds) return true
+  return price >= bounds.min && price <= bounds.max
+}
+
 /**
  * Hook to fetch token price(s) from the API
  * Supports single token or batched fetching for multiple tokens
@@ -41,7 +60,13 @@ export function useTokenPrice(symbols: string | string[]): TokenPriceResult {
         const data = await response.json()
 
         if (data.success && data.price) {
-          setPrice(data.price)
+          if (isPriceSane(symbolArray[0], data.price)) {
+            setPrice(data.price)
+          } else {
+            console.warn(
+              `[useTokenPrice] rejected implausible ${symbolArray[0]} price: ${data.price} — keeping previous value`
+            )
+          }
         } else {
           setPrice(null)
           setError(new Error(`Failed to fetch ${symbolArray[0]} price`))
@@ -56,7 +81,13 @@ export function useTokenPrice(symbols: string | string[]): TokenPriceResult {
         // For now, return the first price (can be extended to return map)
         const firstResult = results[0]
         if (firstResult.success && firstResult.price) {
-          setPrice(firstResult.price)
+          if (isPriceSane(symbolArray[0], firstResult.price)) {
+            setPrice(firstResult.price)
+          } else {
+            console.warn(
+              `[useTokenPrice] rejected implausible ${symbolArray[0]} price: ${firstResult.price} — keeping previous value`
+            )
+          }
         } else {
           setPrice(null)
           setError(new Error(`Failed to fetch token prices`))
