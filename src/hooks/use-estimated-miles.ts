@@ -8,6 +8,47 @@ const DEFAULT_AVG_GAS_LIMIT = 450_000n
 /** Fallback average gas used for gas cost calculation on permit path (baseFee × gasUsed) */
 const DEFAULT_AVG_GAS_USED = 180_000n
 /**
+ * Wrapper overhead constants mirroring the backend's per-path additive in
+ * `mev-commit/tools/preconf-rpc/fastswap/fastswap.go`:
+ *   permit path: gasLimit = barterGasEstimation × 2.5 + 135_000
+ *   ETH path:    gasLimit = barterGasEstimation × 2.5 + 152_000
+ * Kept in lockstep with the backend so the bid the frontend estimates and
+ * the bid the executor actually submits match line-for-line.
+ */
+const WRAPPER_OVERHEAD_PERMIT = 135_000n
+const WRAPPER_OVERHEAD_ETH = 152_000n
+/** Floor enforced by the backend (commit b2d13572) to avoid EIP-150 OOG on
+ *  simple routes. Per-swap `predictedGasLimit` is clamped to at least this. */
+const MIN_GAS_LIMIT = 400_000n
+/** Multiplier applied to Barter's `gasEstimation` to mirror the backend's
+ *  safety headroom on the raw routing estimate. */
+const BARTER_GAS_MULTIPLIER = 2.5
+
+/**
+ * Mirrors the backend's gasLimit formula. When `barterGasEstimation` is
+ * available, scales it the same way the executor will and clamps to the
+ * 400k floor. When absent (cold load, in-flight validation, ETH path
+ * before barter settled), falls back to the rolling Edge Config average.
+ *
+ * Exported for testing.
+ */
+export function predictGasLimit(
+  barterGasEstimation: number | undefined,
+  isPermitPath: boolean,
+  fallbackAvgGasLimit: bigint
+): bigint {
+  if (
+    barterGasEstimation == null ||
+    !Number.isFinite(barterGasEstimation) ||
+    barterGasEstimation <= 0
+  ) {
+    return fallbackAvgGasLimit
+  }
+  const wrapper = isPermitPath ? WRAPPER_OVERHEAD_PERMIT : WRAPPER_OVERHEAD_ETH
+  const scaled = BigInt(Math.floor(barterGasEstimation * BARTER_GAS_MULTIPLIER)) + wrapper
+  return scaled > MIN_GAS_LIMIT ? scaled : MIN_GAS_LIMIT
+}
+/**
  * Fallback priority fee in wei (≈ 0.06 gwei). Matches the rough median value
  * `mevcommit_estimateBidPricePerGas` returns under normal conditions. Used as
  * the initial state so the forward calc can produce miles immediately on the
@@ -164,6 +205,14 @@ interface UseEstimatedMilesParams {
    * so the badge has a value to show.
    */
   barterPreGasOutputAmount: bigint | undefined
+  /**
+   * Barter's raw `gasEstimation` for the current route. Drives the per-swap
+   * predicted gasLimit used for both the bid cost (`priorityFee × gasLimit`)
+   * and the user L1 gas cost on the permit path (`baseFee × predictedGasLimit
+   * × gasUsedRatio`). When undefined the hook falls back to the Edge Config
+   * rolling averages, matching the prior behavior.
+   */
+  barterGasEstimation: number | undefined
   toTokenPrice: number | null
   ethPrice: number | null
   isEthOutput: boolean
@@ -238,6 +287,7 @@ export function useEstimatedMiles({
   slippage,
   toTokenDecimals,
   barterPreGasOutputAmount,
+  barterGasEstimation,
   toTokenPrice,
   ethPrice,
   isEthOutput,
@@ -455,15 +505,28 @@ export function useEstimatedMiles({
       formulaSource = "edge-config-fallback"
     }
 
-    // Bid cost: priority fee × avg gas limit (bid = priorityFee × txn.Gas()).
-    // This is the user's single tx bid — additive, not scaled.
-    const bidCostEth = Number(curPriorityFee * curAvgGasLimit) / 1e18
+    // Bid cost: priority fee × per-swap predicted gasLimit. Mirrors the
+    // backend's submit formula exactly (`mev-commit/tools/preconf-rpc/
+    // fastswap/fastswap.go`): `max(400_000, floor(gasEstimation × 2.5) +
+    // wrapper)`. Falls back to the Edge Config rolling average when barter
+    // hasn't returned a quote yet, preserving the prior behavior on cold
+    // load. Bid is additive (single user tx), not scaled.
+    const predictedGasLimit = predictGasLimit(barterGasEstimation, isPermitPath, curAvgGasLimit)
+    const bidCostEth = Number(curPriorityFee * predictedGasLimit) / 1e18
 
     // User L1 gas: only deducted when the relayer paid (permit / ERC20 input).
     // ETH-input swaps go through `executeWithETH` and the user pays out of
     // their own wallet, so the miles formula does not subtract it. Mirrors
     // `userPaysGas` in `fastswap-miles/miles.go` exactly.
-    const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGasUsed) / 1e18 : 0
+    //
+    // Per-swap predicted gas used = predictedGasLimit × (avgGasUsed /
+    // avgGasLimit). The realized ratio is tight (stddev/p50 ≈ 13% across
+    // recent permit-path swaps), so a single ratio scaled to the per-swap
+    // predicted limit tracks actual consumption better than the rolling
+    // gasUsed average alone. The ratio refreshes hourly with the cron.
+    const gasUsedRatio = curAvgGasLimit > 0n ? Number(curAvgGasUsed) / Number(curAvgGasLimit) : 0
+    const predictedGasUsed = BigInt(Math.floor(Number(predictedGasLimit) * gasUsedRatio))
+    const gasCostEth = isPermitPath ? Number(curBaseFee * predictedGasUsed) / 1e18 : 0
 
     // Sweep overhead: per-token p25 of realized sweep gas, in ETH, from
     // Edge Config. The backend's `costEstimator` writes the same value and
@@ -501,11 +564,13 @@ export function useEstimatedMiles({
           : `  Step 2: MEV pot (Edge Config fallback: surplusRate × output)\n` +
             `    slippageAmountEth = ${outputInEth.toFixed(6)} × ${curSurplusRate} = ${slippageAmountEth.toFixed(8)} ETH\n`) +
         `\n` +
-        `  Step 3: Bid cost (FastRPC bid estimate × avgGasLimit from Edge Config)\n` +
-        `    bidCostEth = ${curPriorityFee.toString()} wei × ${curAvgGasLimit.toString()} gasLimit / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
+        `  Step 3: Bid cost (FastRPC bid estimate × predictedGasLimit)\n` +
+        `    predictedGasLimit = ${predictedGasLimit.toString()} ` +
+        `(${barterGasEstimation != null && barterGasEstimation > 0 ? `barter ${barterGasEstimation} × ${BARTER_GAS_MULTIPLIER} + ${isPermitPath ? WRAPPER_OVERHEAD_PERMIT.toString() : WRAPPER_OVERHEAD_ETH.toString()}, floor ${MIN_GAS_LIMIT.toString()}` : `Edge Config avg fallback`})\n` +
+        `    bidCostEth = ${curPriorityFee.toString()} wei × ${predictedGasLimit.toString()} / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
         `\n` +
         `  Step 4: Gas cost${isPermitPath ? " (relayer pays actual gasUsed on permit path)" : " (user pays on ETH path = 0)"}\n` +
-        `    gasCostEth = ${isPermitPath ? `${curBaseFee.toString()} wei × ${curAvgGasUsed.toString()} gasUsed / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
+        `    gasCostEth = ${isPermitPath ? `${curBaseFee.toString()} wei × ${predictedGasUsed.toString()} predictedGasUsed (ratio ${gasUsedRatio.toFixed(3)}) / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
         (!isEthOutput
           ? `\n  Step 4b: Sweep overhead (non-ETH output, per-token p25 from Edge Config)\n` +
             `    sweepOverheadEth = ${sweepOverheadEth.toFixed(8)} ETH (token=${outputTokenAddress ?? "unknown"})\n`
@@ -530,6 +595,7 @@ export function useEstimatedMiles({
     amountOut,
     slippage,
     barterPreGasOutputAmount,
+    barterGasEstimation,
     toTokenDecimals,
     enabled,
     isBarterValidating,
@@ -587,8 +653,11 @@ export function useEstimatedMiles({
           : formulaicRate
       if (!Number.isFinite(effectiveSurplusRate) || effectiveSurplusRate <= 0) return null
 
-      const bidCostEth = Number(curPriorityFee * curAvgGasLimit) / 1e18
-      const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGasUsed) / 1e18 : 0
+      const predictedGasLimit = predictGasLimit(barterGasEstimation, isPermitPath, curAvgGasLimit)
+      const gasUsedRatio = curAvgGasLimit > 0n ? Number(curAvgGasUsed) / Number(curAvgGasLimit) : 0
+      const predictedGasUsed = BigInt(Math.floor(Number(predictedGasLimit) * gasUsedRatio))
+      const bidCostEth = Number(curPriorityFee * predictedGasLimit) / 1e18
+      const gasCostEth = isPermitPath ? Number(curBaseFee * predictedGasUsed) / 1e18 : 0
       const sweepOverheadEth = isEthOutput
         ? 0
         : sweepOverheadForToken(sweepOverheadByTokenRef.current, outputTokenAddress)
@@ -611,6 +680,7 @@ export function useEstimatedMiles({
       ethPrice,
       slippage,
       barterPreGasOutputAmount,
+      barterGasEstimation,
       outputTokenAddress,
     ]
   )
@@ -645,8 +715,11 @@ export function useEstimatedMiles({
       const curAvgGasLimit = avgGasLimitRef.current
       const curAvgGasUsed = avgGasUsedRef.current
 
-      const bidCostEth = Number(curPriorityFee * curAvgGasLimit) / 1e18
-      const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGasUsed) / 1e18 : 0
+      const predictedGasLimit = predictGasLimit(barterGasEstimation, isPermitPath, curAvgGasLimit)
+      const gasUsedRatio = curAvgGasLimit > 0n ? Number(curAvgGasUsed) / Number(curAvgGasLimit) : 0
+      const predictedGasUsed = BigInt(Math.floor(Number(predictedGasLimit) * gasUsedRatio))
+      const bidCostEth = Number(curPriorityFee * predictedGasLimit) / 1e18
+      const gasCostEth = isPermitPath ? Number(curBaseFee * predictedGasUsed) / 1e18 : 0
       const sweepOverheadEth = isEthOutput
         ? 0
         : sweepOverheadForToken(sweepOverheadByTokenRef.current, outputTokenAddress)
@@ -721,7 +794,16 @@ export function useEstimatedMiles({
         requiresChange,
       }
     },
-    [amountOut, slippage, isEthOutput, isPermitPath, toTokenPrice, ethPrice, outputTokenAddress]
+    [
+      amountOut,
+      slippage,
+      isEthOutput,
+      isPermitPath,
+      toTokenPrice,
+      ethPrice,
+      outputTokenAddress,
+      barterGasEstimation,
+    ]
   )
 
   // Upper bound: forward-compute miles at the user's CURRENT swap size
@@ -747,8 +829,11 @@ export function useEstimatedMiles({
       : (parsedAmountOut * (toTokenPrice as number)) / (ethPrice as number)
     if (!Number.isFinite(outputInEth) || outputInEth <= 0) return null
 
-    const bidCostEth = Number(priorityFee * avgGasLimit) / 1e18
-    const gasCostEth = isPermitPath ? Number(baseFeePerGas * avgGasUsed) / 1e18 : 0
+    const predictedGasLimit = predictGasLimit(barterGasEstimation, isPermitPath, avgGasLimit)
+    const gasUsedRatio = avgGasLimit > 0n ? Number(avgGasUsed) / Number(avgGasLimit) : 0
+    const predictedGasUsed = BigInt(Math.floor(Number(predictedGasLimit) * gasUsedRatio))
+    const bidCostEth = Number(priorityFee * predictedGasLimit) / 1e18
+    const gasCostEth = isPermitPath ? Number(baseFeePerGas * predictedGasUsed) / 1e18 : 0
     const sweepOverheadEth = isEthOutput
       ? 0
       : sweepOverheadForToken(sweepOverheadByToken, outputTokenAddress)
@@ -796,6 +881,7 @@ export function useEstimatedMiles({
     avgGasLimit,
     avgGasUsed,
     barterPreGasOutputAmount,
+    barterGasEstimation,
     toTokenDecimals,
     isBarterValidating,
     milesCalcMaxSlippagePct,

@@ -89,6 +89,14 @@ interface UseBarterValidationReturn {
    */
   barterPreGasOutputAmount: bigint | undefined
   /**
+   * Barter's raw `gasEstimation` for the current route. Drives the miles
+   * estimator's per-swap predicted gasLimit (mirrors the backend formula in
+   * `mev-commit/tools/preconf-rpc/fastswap/fastswap.go`: `max(400_000,
+   * floor(gasEstimation × 2.5) + wrapper)`). When undefined the estimator
+   * falls back to the Edge Config rolling average.
+   */
+  barterGasEstimation: number | undefined
+  /**
    * True when Barter's /route endpoint has failed for the current inputs at least
    * UNAVAILABLE_ERROR_THRESHOLD times in a row. Callers should block swap submission
    * while this is true — without Barter data the quote-guard can't fire, which on
@@ -125,6 +133,7 @@ export function useBarterValidation({
   const [barterPreGasOutputAmount, setBarterPreGasOutputAmount] = useState<bigint | undefined>(
     undefined
   )
+  const [barterGasEstimation, setBarterGasEstimation] = useState<number | undefined>(undefined)
   const [barterUnavailable, setBarterUnavailable] = useState(false)
   /**
    * True when the most recent barter response produced an out-of-band shortfall
@@ -157,6 +166,7 @@ export function useBarterValidation({
       setSanityGated(false)
       setBarterAmountOut(undefined)
       setBarterPreGasOutputAmount(undefined)
+      setBarterGasEstimation(undefined)
       setBarterUnavailable(false)
       setSettled(true)
       lastSettledKeyRef.current = ""
@@ -182,6 +192,7 @@ export function useBarterValidation({
       setSanityGated(false)
       setBarterAmountOut(undefined)
       setBarterPreGasOutputAmount(undefined)
+      setBarterGasEstimation(undefined)
       setBarterUnavailable(false)
       setSettled(true)
       lastSettledKeyRef.current = ""
@@ -196,6 +207,7 @@ export function useBarterValidation({
     setSanityGated(false)
     setBarterAmountOut(undefined)
     setBarterPreGasOutputAmount(undefined)
+    setBarterGasEstimation(undefined)
     // Do NOT reset barterUnavailable here — if we're in an outage, leaving it true
     // across input changes avoids "swap button enables for 300ms then blocks again"
     // flicker. Successful validation below clears it.
@@ -238,6 +250,7 @@ export function useBarterValidation({
         if (Math.abs(shortfallRaw) > SANITY_GATE_PCT) {
           setBarterAmountOut(undefined)
           setBarterPreGasOutputAmount(undefined)
+          setBarterGasEstimation(undefined)
           setShortfallPct(0)
           setSanityGated(true)
           setBarterUnavailable(false)
@@ -248,6 +261,11 @@ export function useBarterValidation({
 
         setBarterAmountOut(barterOut)
         setBarterPreGasOutputAmount(barterPreGas)
+        setBarterGasEstimation(
+          Number.isFinite(route.gasEstimation) && route.gasEstimation > 0
+            ? route.gasEstimation
+            : undefined
+        )
         setShortfallPct(Math.max(0, shortfallRaw))
         setSanityGated(false)
         setBarterUnavailable(false)
@@ -273,6 +291,7 @@ export function useBarterValidation({
           // and mark settled so the UI stops spinning.
           setBarterAmountOut(undefined)
           setBarterPreGasOutputAmount(undefined)
+          setBarterGasEstimation(undefined)
           setShortfallPct(0)
           setBarterUnavailable(true)
           setSettled(true)
@@ -336,6 +355,7 @@ export function useBarterValidation({
     isValidating: !isCurrent || !settled,
     barterAmountOut: isCurrent ? barterAmountOut : undefined,
     barterPreGasOutputAmount: isCurrent ? barterPreGasOutputAmount : undefined,
+    barterGasEstimation: isCurrent ? barterGasEstimation : undefined,
     barterUnavailable: isCurrent && barterUnavailable,
   }
 }
