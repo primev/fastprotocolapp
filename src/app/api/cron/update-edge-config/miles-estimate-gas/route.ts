@@ -354,9 +354,7 @@ async function computeBidCostEstimate(): Promise<number> {
     .sort((a, b) => a - b)
 
   if (values.length === 0) {
-    console.warn(
-      "[cron/miles-estimate-gas] No bid cost samples returned — using fallback"
-    )
+    console.warn("[cron/miles-estimate-gas] No bid cost samples returned — using fallback")
     return FALLBACK_BID_COST_ETH
   }
 

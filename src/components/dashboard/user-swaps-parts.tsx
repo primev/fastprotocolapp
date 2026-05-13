@@ -171,11 +171,7 @@ type MilesEstimate = {
  * anything; the caller then shows the swap-time stash if available, else
  * "TBD".
  */
-function estimateMiles(
-  row: UserSwapRow,
-  surplusRate: number,
-  bidCostEth: number
-): MilesEstimate {
+function estimateMiles(row: UserSwapRow, surplusRate: number, bidCostEth: number): MilesEstimate {
   if (!row.amountOut) return { miles: null, source: null }
 
   // Dashboard only handles ETH-output rows in the realized path because

@@ -279,10 +279,7 @@ export function useEstimatedMiles({
           if (typeof data.surplusRate === "number" && data.surplusRate > 0) {
             setSurplusRate(data.surplusRate)
           }
-          if (
-            data.sweepOverheadByToken != null &&
-            typeof data.sweepOverheadByToken === "object"
-          ) {
+          if (data.sweepOverheadByToken != null && typeof data.sweepOverheadByToken === "object") {
             setSweepOverheadByToken(data.sweepOverheadByToken as SweepOverheadByToken)
           }
           if (
