@@ -23,6 +23,19 @@ const MIN_GAS_LIMIT = 400_000n
 /** Multiplier applied to Barter's `gasEstimation` to mirror the backend's
  *  safety headroom on the raw routing estimate. */
 const BARTER_GAS_MULTIPLIER = 2.5
+/**
+ * p75 of realized `gas_used / gas_limit` across 46 post-floor permit-path
+ * swaps (sampled 2026-05-11 → 2026-05-13). Used to scale the per-swap
+ * predicted gasLimit into a predicted gasUsed for the user L1 gas term.
+ *
+ * Why p75 and not the mean: gas deduction is a one-sided cost — if we
+ * under-predict gas, miles get over-promised and realized < estimate
+ * (bad UX). p75 envelopes the upper end of the realized distribution so
+ * predicted gasCost rarely undershoots actual, keeping miles estimates
+ * conservative. The realized ratio distribution is tight (stddev/p50 ≈
+ * 13%) so the gap between mean and p75 is small (~0.07).
+ */
+const PREDICTED_GAS_USED_RATIO_P75 = 0.77
 
 /**
  * Mirrors the backend's gasLimit formula. When `barterGasEstimation` is
@@ -209,8 +222,8 @@ interface UseEstimatedMilesParams {
    * Barter's raw `gasEstimation` for the current route. Drives the per-swap
    * predicted gasLimit used for both the bid cost (`priorityFee × gasLimit`)
    * and the user L1 gas cost on the permit path (`baseFee × predictedGasLimit
-   * × gasUsedRatio`). When undefined the hook falls back to the Edge Config
-   * rolling averages, matching the prior behavior.
+   * × p75GasUsedRatio`). When undefined the hook falls back to the Edge Config
+   * rolling gas-limit average, matching the prior behavior.
    */
   barterGasEstimation: number | undefined
   toTokenPrice: number | null
@@ -519,13 +532,14 @@ export function useEstimatedMiles({
     // their own wallet, so the miles formula does not subtract it. Mirrors
     // `userPaysGas` in `fastswap-miles/miles.go` exactly.
     //
-    // Per-swap predicted gas used = predictedGasLimit × (avgGasUsed /
-    // avgGasLimit). The realized ratio is tight (stddev/p50 ≈ 13% across
-    // recent permit-path swaps), so a single ratio scaled to the per-swap
-    // predicted limit tracks actual consumption better than the rolling
-    // gasUsed average alone. The ratio refreshes hourly with the cron.
-    const gasUsedRatio = curAvgGasLimit > 0n ? Number(curAvgGasUsed) / Number(curAvgGasLimit) : 0
-    const predictedGasUsed = BigInt(Math.floor(Number(predictedGasLimit) * gasUsedRatio))
+    // Per-swap predicted gas used = predictedGasLimit × p75 of the realized
+    // `gas_used / gas_limit` distribution. p75 (under-promise) so gasCost
+    // is rarely under-predicted — realized miles meet or exceed the badge
+    // estimate. The realized ratio is tight (stddev/p50 ≈ 13% across recent
+    // permit-path swaps).
+    const predictedGasUsed = BigInt(
+      Math.floor(Number(predictedGasLimit) * PREDICTED_GAS_USED_RATIO_P75)
+    )
     const gasCostEth = isPermitPath ? Number(curBaseFee * predictedGasUsed) / 1e18 : 0
 
     // Sweep overhead: per-token p25 of realized sweep gas, in ETH, from
@@ -570,7 +584,7 @@ export function useEstimatedMiles({
         `    bidCostEth = ${curPriorityFee.toString()} wei × ${predictedGasLimit.toString()} / 1e18 = ${bidCostEth.toFixed(8)} ETH\n` +
         `\n` +
         `  Step 4: Gas cost${isPermitPath ? " (relayer pays actual gasUsed on permit path)" : " (user pays on ETH path = 0)"}\n` +
-        `    gasCostEth = ${isPermitPath ? `${curBaseFee.toString()} wei × ${predictedGasUsed.toString()} predictedGasUsed (ratio ${gasUsedRatio.toFixed(3)}) / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
+        `    gasCostEth = ${isPermitPath ? `${curBaseFee.toString()} wei × ${predictedGasUsed.toString()} predictedGasUsed (p75 ratio ${PREDICTED_GAS_USED_RATIO_P75}) / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
         (!isEthOutput
           ? `\n  Step 4b: Sweep overhead (non-ETH output, per-token p25 from Edge Config)\n` +
             `    sweepOverheadEth = ${sweepOverheadEth.toFixed(8)} ETH (token=${outputTokenAddress ?? "unknown"})\n`
@@ -654,8 +668,9 @@ export function useEstimatedMiles({
       if (!Number.isFinite(effectiveSurplusRate) || effectiveSurplusRate <= 0) return null
 
       const predictedGasLimit = predictGasLimit(barterGasEstimation, isPermitPath, curAvgGasLimit)
-      const gasUsedRatio = curAvgGasLimit > 0n ? Number(curAvgGasUsed) / Number(curAvgGasLimit) : 0
-      const predictedGasUsed = BigInt(Math.floor(Number(predictedGasLimit) * gasUsedRatio))
+      const predictedGasUsed = BigInt(
+        Math.floor(Number(predictedGasLimit) * PREDICTED_GAS_USED_RATIO_P75)
+      )
       const bidCostEth = Number(curPriorityFee * predictedGasLimit) / 1e18
       const gasCostEth = isPermitPath ? Number(curBaseFee * predictedGasUsed) / 1e18 : 0
       const sweepOverheadEth = isEthOutput
@@ -716,8 +731,9 @@ export function useEstimatedMiles({
       const curAvgGasUsed = avgGasUsedRef.current
 
       const predictedGasLimit = predictGasLimit(barterGasEstimation, isPermitPath, curAvgGasLimit)
-      const gasUsedRatio = curAvgGasLimit > 0n ? Number(curAvgGasUsed) / Number(curAvgGasLimit) : 0
-      const predictedGasUsed = BigInt(Math.floor(Number(predictedGasLimit) * gasUsedRatio))
+      const predictedGasUsed = BigInt(
+        Math.floor(Number(predictedGasLimit) * PREDICTED_GAS_USED_RATIO_P75)
+      )
       const bidCostEth = Number(curPriorityFee * predictedGasLimit) / 1e18
       const gasCostEth = isPermitPath ? Number(curBaseFee * predictedGasUsed) / 1e18 : 0
       const sweepOverheadEth = isEthOutput
@@ -830,8 +846,9 @@ export function useEstimatedMiles({
     if (!Number.isFinite(outputInEth) || outputInEth <= 0) return null
 
     const predictedGasLimit = predictGasLimit(barterGasEstimation, isPermitPath, avgGasLimit)
-    const gasUsedRatio = avgGasLimit > 0n ? Number(avgGasUsed) / Number(avgGasLimit) : 0
-    const predictedGasUsed = BigInt(Math.floor(Number(predictedGasLimit) * gasUsedRatio))
+    const predictedGasUsed = BigInt(
+      Math.floor(Number(predictedGasLimit) * PREDICTED_GAS_USED_RATIO_P75)
+    )
     const bidCostEth = Number(priorityFee * predictedGasLimit) / 1e18
     const gasCostEth = isPermitPath ? Number(baseFeePerGas * predictedGasUsed) / 1e18 : 0
     const sweepOverheadEth = isEthOutput

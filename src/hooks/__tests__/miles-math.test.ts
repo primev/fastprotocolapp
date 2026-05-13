@@ -634,16 +634,17 @@ describe("predictGasLimit", () => {
     expect(predictGasLimit(350_000, true, FALLBACK_AVG)).toBe(1_010_000n)
   })
 
-  it("derived gas-used: predictedGasLimit × ratio matches realized envelope", () => {
-    // Empirical ratio from 59 permit-path swaps (2026-04-13 → 2026-05-13):
-    //   p50 = 0.739, stddev/p50 = 12.6%.
-    // Using ratio of Edge Config averages: 340k/482k ≈ 0.706.
-    // Spot-check that ratio applied to predicted limit lands in the realized
-    // gasUsed envelope (~p25-p75 ≈ 288k-342k for typical swaps).
-    const ratio = 340_000 / 482_000
+  it("p75 gas-used envelope: predictedGasLimit × 0.77 stays above realized p50", () => {
+    // p75 of `gas_used / gas_limit` across 46 post-floor permit-path swaps
+    // (2026-05-11 → 2026-05-13). Picked over mean/p50 so gas cost is rarely
+    // under-predicted — realized miles meet or exceed the badge estimate.
+    // Spot-check: applied to a representative predicted limit (~435k for a
+    // 120k-gas barter route), p75 lands at the upper realized envelope
+    // (~330k–340k), comfortably above the p50 realized gasUsed of ~295k.
+    const P75_RATIO = 0.77
     const predictedLimit = predictGasLimit(120_000, true, FALLBACK_AVG) // 435k
-    const predictedUsed = Math.floor(Number(predictedLimit) * ratio)
-    expect(predictedUsed).toBeGreaterThan(280_000)
-    expect(predictedUsed).toBeLessThan(350_000)
+    const predictedUsed = Math.floor(Number(predictedLimit) * P75_RATIO)
+    expect(predictedUsed).toBeGreaterThan(295_000) // > realized p50
+    expect(predictedUsed).toBeLessThan(360_000) // ≈ realized p75-p80 envelope
   })
 })
