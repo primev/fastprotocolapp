@@ -102,12 +102,48 @@ export function computeSurplusEth(args: {
 }
 /**
  * Fallback surplus rate — used until Edge Config value is fetched.
- * Updated daily by the miles-estimate-gas cron job: p25 of
+ * Updated hourly by the miles-estimate-gas cron job: p25 of
  * `surplus / user_amt_out` across all processed swaps (both eth_weth and
  * erc20→erc20) over the last 30 days. p25 rather than p50 because the
  * realized distribution is bimodal — see the cron for rationale.
  */
 const DEFAULT_SURPLUS_RATE = 0.0056
+
+/**
+ * Cold-load + unknown-token fallback for the per-token sweep overhead.
+ * Mirrors the backend's `costEstimateLastResort` constant in
+ * `mev-commit/tools/fastswap-miles/cost_estimator.go` so frontend and
+ * backend produce identical estimates on tokens with no historical sweep
+ * data. Conservative — ~$3.50 in ETH at recent prices — which intentionally
+ * under-promises miles for tiny swaps on novel tokens.
+ */
+const DEFAULT_SWEEP_OVERHEAD_ETH = 0.001
+
+/**
+ * Per-token sweep overhead map, keyed by lowercased L1 token address.
+ * The `default` entry is used for any output token not present in the map.
+ * Populated from Edge Config (`miles_estimate_sweep_overhead_eth_by_token`)
+ * by the daily cron. Same SQL the backend's `costEstimator.Refresh` runs.
+ */
+export type SweepOverheadByToken = Record<string, number>
+
+/**
+ * Look up the per-token sweep overhead estimate, in ETH, for a given output
+ * token address. Case insensitive (backend stores lowercased keys).
+ * Falls back to the map's `default` entry, then to `DEFAULT_SWEEP_OVERHEAD_ETH`.
+ */
+function sweepOverheadForToken(
+  byToken: SweepOverheadByToken | null,
+  tokenAddress: string | null
+): number {
+  if (byToken != null && tokenAddress != null) {
+    const direct = byToken[tokenAddress.toLowerCase()]
+    if (typeof direct === "number" && direct >= 0) return direct
+    const fallback = byToken.default
+    if (typeof fallback === "number" && fallback >= 0) return fallback
+  }
+  return DEFAULT_SWEEP_OVERHEAD_ETH
+}
 
 interface UseEstimatedMilesParams {
   amountOut: string
@@ -132,7 +168,23 @@ interface UseEstimatedMilesParams {
   ethPrice: number | null
   isEthOutput: boolean
   baseFeePerGas: bigint | null
+  /**
+   * True when user gas should be deducted from the miles formula —
+   * equivalent to "not the ETH-input direct path." Maps to the backend's
+   * `userPaysGas := input_token == 0x0` check inversely: when
+   * `isPermitPath = true`, the relayer paid L1 gas and miles math
+   * subtracts it; when `false`, the user paid out of their own wallet and
+   * miles math does not deduct it (matches `awardUpfrontERC20Miles` and
+   * `processMiles` in `fastswap-miles/miles.go`).
+   */
   isPermitPath: boolean
+  /**
+   * Lowercased L1 address of the output token. Used to look up the
+   * per-token sweep overhead estimate from Edge Config. Pass `null` for
+   * unknown / not-yet-selected outputs; the lookup falls through to the
+   * map's `default` entry and ultimately to `DEFAULT_SWEEP_OVERHEAD_ETH`.
+   */
+  outputTokenAddress: string | null
   enabled: boolean
   /** True while Barter validation is in flight for the current swap inputs.
    *  Used to freeze `estimatedMiles` and `maxAchievableMiles` at their last
@@ -191,6 +243,7 @@ export function useEstimatedMiles({
   isEthOutput,
   baseFeePerGas,
   isPermitPath,
+  outputTokenAddress,
   enabled,
   isBarterValidating,
   swapIdentityKey,
@@ -199,11 +252,14 @@ export function useEstimatedMiles({
   const [avgGasLimit, setAvgGasLimit] = useState<bigint>(DEFAULT_AVG_GAS_LIMIT)
   const [avgGasUsed, setAvgGasUsed] = useState<bigint>(DEFAULT_AVG_GAS_USED)
   const [surplusRate, setSurplusRate] = useState(DEFAULT_SURPLUS_RATE)
+  const [sweepOverheadByToken, setSweepOverheadByToken] = useState<SweepOverheadByToken | null>(
+    null
+  )
   const [milesCalcMaxSlippagePct, setMilesCalcMaxSlippagePct] = useState(
     DEFAULT_MILES_CALC_MAX_SLIPPAGE_PCT
   )
 
-  // Fetch gas estimates and surplus rate from Edge Config (updated daily by cron).
+  // Fetch gas estimates and surplus rate from Edge Config (updated hourly by cron).
   // Runs on mount — not gated on `enabled` so data is ready before the first quote arrives.
   useEffect(() => {
     let cancelled = false
@@ -222,6 +278,9 @@ export function useEstimatedMiles({
           }
           if (typeof data.surplusRate === "number" && data.surplusRate > 0) {
             setSurplusRate(data.surplusRate)
+          }
+          if (data.sweepOverheadByToken != null && typeof data.sweepOverheadByToken === "object") {
+            setSweepOverheadByToken(data.sweepOverheadByToken as SweepOverheadByToken)
           }
           if (
             typeof data.milesCalcMaxSlippagePct === "number" &&
@@ -285,12 +344,14 @@ export function useEstimatedMiles({
   const avgGasLimitRef = useRef<bigint>(DEFAULT_AVG_GAS_LIMIT)
   const avgGasUsedRef = useRef<bigint>(DEFAULT_AVG_GAS_USED)
   const surplusRateRef = useRef(DEFAULT_SURPLUS_RATE)
+  const sweepOverheadByTokenRef = useRef<SweepOverheadByToken | null>(null)
   const milesCalcMaxSlippagePctRef = useRef(DEFAULT_MILES_CALC_MAX_SLIPPAGE_PCT)
   priorityFeeRef.current = priorityFee
   baseFeeRef.current = baseFeePerGas
   avgGasLimitRef.current = avgGasLimit
   avgGasUsedRef.current = avgGasUsed
   surplusRateRef.current = surplusRate
+  sweepOverheadByTokenRef.current = sweepOverheadByToken
   milesCalcMaxSlippagePctRef.current = milesCalcMaxSlippagePct
 
   // Track last successful miles so transient states don't flash null.
@@ -394,24 +455,23 @@ export function useEstimatedMiles({
       formulaSource = "edge-config-fallback"
     }
 
-    // Bid cost: priority fee × avg gas limit (bid = priorityFee × txn.Gas())
+    // Bid cost: priority fee × avg gas limit (bid = priorityFee × txn.Gas()).
+    // This is the user's single tx bid — additive, not scaled.
     const bidCostEth = Number(curPriorityFee * curAvgGasLimit) / 1e18
 
-    // Gas cost: only deducted on permit path (relayer pays actual gas used, not limit)
+    // User L1 gas: only deducted when the relayer paid (permit / ERC20 input).
+    // ETH-input swaps go through `executeWithETH` and the user pays out of
+    // their own wallet, so the miles formula does not subtract it. Mirrors
+    // `userPaysGas` in `fastswap-miles/miles.go` exactly.
     const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGasUsed) / 1e18 : 0
 
-    // Sweep overhead: non-ETH output requires a sweep tx (batched fastswap).
-    // 2.5x is a conservative proxy — batches are effectively size-1 at current
-    // volume, so each user eats the whole sweep gas share. Daily p50 of
-    // realized (bid + overhead) / bid varies widely (0.9–2.9 over the last
-    // 10 days), so any fixed multiplier is a bandaid. 2.5 covers the median
-    // of "bad" days (p50 ≈ 1.9) while staying tolerable on cheap days.
-    // TODO: replace with an Edge Config-driven sweep overhead term computed
-    // from `surplus_eth - net_profit_eth - bid_cost` on recent finalized rows
-    // — same pattern as `miles_estimate_surplus_rate`.
-    const sweepMultiplier = isEthOutput ? 1 : 2.5
-    const totalBidCost = bidCostEth * sweepMultiplier
-    const totalGasCost = gasCostEth * sweepMultiplier
+    // Sweep overhead: per-token p25 of realized sweep gas, in ETH, from
+    // Edge Config. The backend's `costEstimator` writes the same value and
+    // subtracts it inside `awardUpfrontERC20Miles`. ETH/WETH output bypasses
+    // sweeping entirely (the `eth_weth` path), so the term is zero there.
+    const sweepOverheadEth = isEthOutput
+      ? 0
+      : sweepOverheadForToken(sweepOverheadByTokenRef.current, outputTokenAddress)
 
     // Snapshot the effective surplus rate so the inverse calculator can use
     // the SAME rate the forward just produced (especially when barter's
@@ -420,7 +480,7 @@ export function useEstimatedMiles({
       lastEffectiveSurplusRateRef.current = slippageAmountEth / outputInEth
     }
 
-    const netMevEth = slippageAmountEth - totalBidCost - totalGasCost
+    const netMevEth = slippageAmountEth - bidCostEth - gasCostEth - sweepOverheadEth
 
     const userMevEth = netMevEth > 0 ? netMevEth * USER_MEV_SHARE : 0
     const miles = netMevEth > 0 ? Math.floor(userMevEth * MILES_PER_ETH) : 0
@@ -447,13 +507,12 @@ export function useEstimatedMiles({
         `  Step 4: Gas cost${isPermitPath ? " (relayer pays actual gasUsed on permit path)" : " (user pays on ETH path = 0)"}\n` +
         `    gasCostEth = ${isPermitPath ? `${curBaseFee.toString()} wei × ${curAvgGasUsed.toString()} gasUsed / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
         (!isEthOutput
-          ? `\n  Step 4b: Sweep overhead (non-ETH output, ${sweepMultiplier}x multiplier)\n` +
-            `    totalBidCost = ${bidCostEth.toFixed(8)} × ${sweepMultiplier} = ${totalBidCost.toFixed(8)} ETH\n` +
-            `    totalGasCost = ${gasCostEth.toFixed(8)} × ${sweepMultiplier} = ${totalGasCost.toFixed(8)} ETH\n`
+          ? `\n  Step 4b: Sweep overhead (non-ETH output, per-token p25 from Edge Config)\n` +
+            `    sweepOverheadEth = ${sweepOverheadEth.toFixed(8)} ETH (token=${outputTokenAddress ?? "unknown"})\n`
           : "") +
         `\n` +
         `  Step 5: Net MEV\n` +
-        `    netMevEth = ${slippageAmountEth.toFixed(8)} - ${totalBidCost.toFixed(8)} - ${totalGasCost.toFixed(8)} = ${netMevEth.toFixed(8)} ETH\n` +
+        `    netMevEth = ${slippageAmountEth.toFixed(8)} - ${bidCostEth.toFixed(8)} - ${gasCostEth.toFixed(8)} - ${sweepOverheadEth.toFixed(8)} = ${netMevEth.toFixed(8)} ETH\n` +
         `\n` +
         `  Step 6: User share & miles\n` +
         `    userMevEth = ${netMevEth.toFixed(8)} × ${USER_MEV_SHARE} (${USER_MEV_SHARE * 100}% share) = ${userMevEth.toFixed(8)} ETH\n` +
@@ -479,6 +538,7 @@ export function useEstimatedMiles({
     ethPrice,
     isEthOutput,
     isPermitPath,
+    outputTokenAddress,
   ])
 
   // Update ref outside useMemo to avoid React error #300 (state mutation during render)
@@ -529,13 +589,13 @@ export function useEstimatedMiles({
 
       const bidCostEth = Number(curPriorityFee * curAvgGasLimit) / 1e18
       const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGasUsed) / 1e18 : 0
-      const sweepMultiplier = isEthOutput ? 1 : 2.5
-      const totalBidCost = bidCostEth * sweepMultiplier
-      const totalGasCost = gasCostEth * sweepMultiplier
+      const sweepOverheadEth = isEthOutput
+        ? 0
+        : sweepOverheadForToken(sweepOverheadByTokenRef.current, outputTokenAddress)
 
       const userMevEth = targetMiles / MILES_PER_ETH
       const netMevEth = userMevEth / USER_MEV_SHARE
-      const slippageAmountEth = netMevEth + totalBidCost + totalGasCost
+      const slippageAmountEth = netMevEth + bidCostEth + gasCostEth + sweepOverheadEth
       const outputInEth = slippageAmountEth / effectiveSurplusRate
       if (!Number.isFinite(outputInEth) || outputInEth <= 0) return null
 
@@ -544,7 +604,15 @@ export function useEstimatedMiles({
         : (outputInEth * (ethPrice as number)) / (toTokenPrice as number)
       return Number.isFinite(result) && result > 0 ? result : null
     },
-    [isEthOutput, isPermitPath, toTokenPrice, ethPrice, slippage, barterPreGasOutputAmount]
+    [
+      isEthOutput,
+      isPermitPath,
+      toTokenPrice,
+      ethPrice,
+      slippage,
+      barterPreGasOutputAmount,
+      outputTokenAddress,
+    ]
   )
 
   // Slippage-only planner. Holds the user's swap size constant (their typed
@@ -579,9 +647,9 @@ export function useEstimatedMiles({
 
       const bidCostEth = Number(curPriorityFee * curAvgGasLimit) / 1e18
       const gasCostEth = isPermitPath ? Number(curBaseFee * curAvgGasUsed) / 1e18 : 0
-      const sweepMultiplier = isEthOutput ? 1 : 2.5
-      const totalBidCost = bidCostEth * sweepMultiplier
-      const totalGasCost = gasCostEth * sweepMultiplier
+      const sweepOverheadEth = isEthOutput
+        ? 0
+        : sweepOverheadForToken(sweepOverheadByTokenRef.current, outputTokenAddress)
 
       const userMevEth = targetMiles / MILES_PER_ETH
       const netMevEth = userMevEth / USER_MEV_SHARE
@@ -589,7 +657,7 @@ export function useEstimatedMiles({
       // doesn't kick the miles count down by 1 due to float precision when
       // the exact slippage produces userMev × 100_000 = target − ε.
       const FLOOR_EPSILON = 5e-7
-      const K = netMevEth + totalBidCost + totalGasCost + FLOOR_EPSILON
+      const K = netMevEth + bidCostEth + gasCostEth + sweepOverheadEth + FLOOR_EPSILON
 
       // The forward calc (when barter is available) computes:
       //   surplus = barterPreGas − uniswap × (1 − s/100)
@@ -617,7 +685,7 @@ export function useEstimatedMiles({
       }
 
       // Edge-Config-driven cap on what slippage the calc will plan against.
-      // Read from a ref so daily refreshes don't invalidate this useCallback.
+      // Read from a ref so hourly refreshes don't invalidate this useCallback.
       const SLIPPAGE_MAX = milesCalcMaxSlippagePctRef.current
       // Mirror useSwapSlippage's autoBase floors.
       const autoBase = isPermitPath ? 1 : 0.5
@@ -653,7 +721,7 @@ export function useEstimatedMiles({
         requiresChange,
       }
     },
-    [amountOut, slippage, isEthOutput, isPermitPath, toTokenPrice, ethPrice]
+    [amountOut, slippage, isEthOutput, isPermitPath, toTokenPrice, ethPrice, outputTokenAddress]
   )
 
   // Upper bound: forward-compute miles at the user's CURRENT swap size
@@ -681,9 +749,9 @@ export function useEstimatedMiles({
 
     const bidCostEth = Number(priorityFee * avgGasLimit) / 1e18
     const gasCostEth = isPermitPath ? Number(baseFeePerGas * avgGasUsed) / 1e18 : 0
-    const sweepMultiplier = isEthOutput ? 1 : 2.5
-    const totalBidCost = bidCostEth * sweepMultiplier
-    const totalGasCost = gasCostEth * sweepMultiplier
+    const sweepOverheadEth = isEthOutput
+      ? 0
+      : sweepOverheadForToken(sweepOverheadByToken, outputTokenAddress)
 
     // Edge-Config-driven cap (default 50%). Mirrors what the inverse planner
     // uses so the max miles displayed in the badge are exactly what Apply at
@@ -713,7 +781,7 @@ export function useEstimatedMiles({
     if (surplusEth == null) {
       surplusEth = (SLIPPAGE_MAX / 100) * outputInEth
     }
-    const netMev = surplusEth - totalBidCost - totalGasCost
+    const netMev = surplusEth - bidCostEth - gasCostEth - sweepOverheadEth
     if (netMev <= 0) return 0
     const userMev = netMev * USER_MEV_SHARE
     return Math.floor(userMev * MILES_PER_ETH)
@@ -731,6 +799,8 @@ export function useEstimatedMiles({
     toTokenDecimals,
     isBarterValidating,
     milesCalcMaxSlippagePct,
+    sweepOverheadByToken,
+    outputTokenAddress,
   ])
 
   // Hold the previous max while validation is in flight so the displayed

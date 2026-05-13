@@ -31,6 +31,31 @@ const FALLBACK_GAS_USED = 180_000
 /** Fallback p25 surplus rate (0.56% from 2026-04-14 all-swap sample). */
 const FALLBACK_SURPLUS_RATE = 0.0056
 
+/**
+ * Mirrors the backend's `costEstimateLastResort` constant in
+ * `mev-commit/tools/fastswap-miles/cost_estimator.go`. Used as the JSON
+ * map's hardcoded `"default"` fallback when the cron can't compute a
+ * network-wide percentile (e.g. zero rows in the 14d window). The
+ * frontend hook reads this exact key out of the Edge Config map.
+ */
+const LAST_RESORT_SWEEP_OVERHEAD_ETH = 0.001
+
+/**
+ * Minimum sample size before we trust per-token p25. Below this we fall
+ * back to that token's p75, exactly mirroring the backend's
+ * `costEstimateMinSweeps` constant. Keeps both estimators in lockstep
+ * even on low-volume tokens.
+ */
+const SWEEP_OVERHEAD_MIN_SAMPLES = 10
+
+/**
+ * Fallback proxy for `bid_cost` on pending rows. Mirrors the hardcoded
+ * constant in `user-swaps-parts.tsx` and the post-2026-04-08 realized
+ * distribution's p75 — used when the analytics query can't produce a
+ * value (zero rows in window).
+ */
+const FALLBACK_BID_COST_ETH = 0.00004
+
 // ---------------------------------------------------------------------------
 // Auth helper
 // ---------------------------------------------------------------------------
@@ -309,6 +334,109 @@ async function computeSurplusRateEstimate(): Promise<number> {
 }
 
 // ---------------------------------------------------------------------------
+// Bid cost p75
+// ---------------------------------------------------------------------------
+
+/**
+ * Computes the p75 of realized bid_cost (in ETH) across processed rows
+ * since the 2026-04-08 regime change, 30-day window. Used by the
+ * dashboard's MilesCell proxy in lieu of the historically hardcoded
+ * `ESTIMATED_BID_COST_ETH` constant. p75 to mirror the surplus-rate
+ * cron's under-promise philosophy.
+ */
+async function computeBidCostEstimate(): Promise<number> {
+  const client = getAnalyticsClient()
+
+  const rows = await client.execute("fastswap/get-bid-costs", {})
+  const values = rows
+    .map((row) => Number(row[0]))
+    .filter((v) => Number.isFinite(v) && v > 0)
+    .sort((a, b) => a - b)
+
+  if (values.length === 0) {
+    console.warn("[cron/miles-estimate-gas] No bid cost samples returned — using fallback")
+    return FALLBACK_BID_COST_ETH
+  }
+
+  const p75Index = Math.floor(values.length * 0.75)
+  const p75 = values[p75Index]
+  // Round to 8 decimal places (0.01 µETH) — same precision as sweep overhead.
+  const rounded = Math.round(p75 * 1e8) / 1e8
+
+  console.log(
+    `[cron/miles-estimate-gas] bidCost — count: ${values.length}  ` +
+      `p25: ${(values[Math.floor(values.length * 0.25)] * 1e6).toFixed(2)} µETH  ` +
+      `p50: ${(values[Math.floor(values.length * 0.5)] * 1e6).toFixed(2)} µETH  ` +
+      `p75: ${(rounded * 1e6).toFixed(2)} µETH (chosen)  ` +
+      `p95: ${(values[Math.floor(values.length * 0.95)] * 1e6).toFixed(2)} µETH`
+  )
+
+  return rounded
+}
+
+// ---------------------------------------------------------------------------
+// Sweep overhead by token
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-token sweep overhead map: lowercased L1 token address → ETH overhead.
+ *
+ * Mirrors the backend's `costEstimator.Get` semantics in
+ * `mev-commit/tools/fastswap-miles/cost_estimator.go`:
+ *   - per-token p25 over the last 14 days when sample size ≥ 10
+ *   - per-token p75 when sample size < 10 (low-data fallback)
+ *   - `default` is a network-wide p25 across all tokens — used when the
+ *     frontend's selected output token isn't in the map at all
+ *   - falls back to `LAST_RESORT_SWEEP_OVERHEAD_ETH` if the network query
+ *     itself returns nothing usable
+ *
+ * Returned values are ETH (float) so the route handler can ship the map
+ * straight to Edge Config without extra encoding.
+ */
+async function computeSweepOverheadByToken(): Promise<Record<string, number>> {
+  const client = getAnalyticsClient()
+
+  const rows = await client.execute("fastswap/get-sweep-overhead-by-token", {})
+
+  // `default` mirrors the backend's `costEstimateLastResort` exactly — for
+  // tokens the backend has no historical data on, both estimators must
+  // agree on the same fallback or the frontend will over-promise miles
+  // (frontend uses a small `default`, backend deducts 0.001 ETH) and the
+  // user gets fewer miles than the badge said.
+  const map: Record<string, number> = { default: LAST_RESORT_SWEEP_OVERHEAD_ETH }
+
+  for (const row of rows) {
+    const token = String(row[0] ?? "").toLowerCase()
+    const n = Number(row[1])
+    const p25 = Number(row[2])
+    const p75 = Number(row[3])
+
+    if (!token || token === "null") continue
+    if (!Number.isFinite(n) || n <= 0) continue
+    if (!Number.isFinite(p25) || !Number.isFinite(p75)) continue
+
+    const overhead = n >= SWEEP_OVERHEAD_MIN_SAMPLES ? p25 : p75
+    if (!Number.isFinite(overhead) || overhead < 0) continue
+
+    // Round to 8 decimal places (0.01 µETH) to keep Edge Config JSON tight.
+    map[token] = Math.round(overhead * 1e8) / 1e8
+  }
+
+  console.log(
+    `[cron/miles-estimate-gas] sweepOverhead — ${Object.keys(map).length - 1} tokens, default=${(map.default * 1e6).toFixed(0)} µETH (last-resort), sample=${JSON.stringify(
+      Object.fromEntries(
+        Object.entries(map)
+          .filter(([k]) => k !== "default")
+          .slice(0, 3)
+          .map(([k, v]) => [k.slice(0, 8) + "…", `${(v * 1e6).toFixed(1)}µETH`])
+      )
+    )}`
+  )
+
+  return map
+}
+
+// ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
 
@@ -327,7 +455,7 @@ async function computeSurplusRateEstimate(): Promise<number> {
  * 4. Returns a JSON summary of the result.
  *
  * ### Schedule
- * Configured in `vercel.json` to run daily at 00:00 UTC.
+ * Configured in `vercel.json` to run hourly at minute 0.
  * Can also be triggered manually from the Vercel Dashboard → Cron Jobs tab.
  */
 export async function GET(request: Request) {
@@ -339,14 +467,16 @@ export async function GET(request: Request) {
 
   try {
     // --- Step 2: Fetch the new values ----------------------------------------
-    const [gasAverages, surplusRate] = await Promise.all([
+    const [gasAverages, surplusRate, sweepOverheadByToken, bidCostEth] = await Promise.all([
       computeGasAverages(),
       computeSurplusRateEstimate(),
+      computeSweepOverheadByToken(),
+      computeBidCostEstimate(),
     ])
     const { gasLimitAvg, gasUsedAvg } = gasAverages
 
     console.log(
-      `[cron/miles-estimate-gas] Computed: gasLimit=${gasLimitAvg}, gasUsed=${gasUsedAvg}, surplusRate=${(surplusRate * 100).toFixed(2)}%`
+      `[cron/miles-estimate-gas] Computed: gasLimit=${gasLimitAvg}, gasUsed=${gasUsedAvg}, surplusRate=${(surplusRate * 100).toFixed(2)}%, bidCostEth=${bidCostEth}, sweepOverheadTokens=${Object.keys(sweepOverheadByToken).length - 1} (default=${sweepOverheadByToken.default})`
     )
 
     // --- Step 3: Write to Edge Config ---------------------------------------
@@ -370,6 +500,16 @@ export async function GET(request: Request) {
         key: "miles_estimate_surplus_rate",
         value: surplusRate,
       },
+      {
+        operation: "upsert",
+        key: "miles_estimate_sweep_overhead_eth_by_token",
+        value: sweepOverheadByToken,
+      },
+      {
+        operation: "upsert",
+        key: "miles_estimate_bid_cost_eth",
+        value: bidCostEth,
+      },
     ])
 
     console.log(
@@ -384,6 +524,8 @@ export async function GET(request: Request) {
         gasLimitAverage: gasLimitAvg,
         gasUsedAverage: gasUsedAvg,
         surplusRate,
+        sweepOverheadByToken,
+        bidCostEth,
       },
       vercelResponse: result,
     })

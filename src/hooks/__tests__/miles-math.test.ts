@@ -41,14 +41,17 @@ const usdc = (whole: number) => BigInt(Math.round(whole * 1e6))
 interface CostInputs {
   bidCostEth: number
   gasCostEth: number
-  sweepMultiplier: number // 1 for ETH output, 2.5 for non-ETH
+  /**
+   * Additive sweep overhead in ETH for non-ETH output. Mirrors the backend's
+   * per-token p25 cost estimate (`cost_estimator.go`) — zero for ETH/WETH
+   * output, otherwise drawn from the Edge Config map.
+   */
+  sweepOverheadEth: number
 }
 
 /** Forward: given the surplus (ETH) the contract retains, compute miles. */
 function forwardMiles(surplusEth: number, c: CostInputs): number {
-  const totalBidCost = c.bidCostEth * c.sweepMultiplier
-  const totalGasCost = c.gasCostEth * c.sweepMultiplier
-  const netMev = surplusEth - totalBidCost - totalGasCost
+  const netMev = surplusEth - c.bidCostEth - c.gasCostEth - c.sweepOverheadEth
   if (netMev <= 0) return 0
   const userMev = netMev * USER_MEV_SHARE
   return Math.floor(userMev * MILES_PER_ETH)
@@ -70,12 +73,10 @@ function milesToSlippage(
   slippageMax: number = DEFAULT_SLIPPAGE_MAX
 ): number | null {
   if (target <= 0 || outputInEth <= 0) return null
-  const totalBidCost = c.bidCostEth * c.sweepMultiplier
-  const totalGasCost = c.gasCostEth * c.sweepMultiplier
   const userMevEth = target / MILES_PER_ETH
   const netMevEth = userMevEth / USER_MEV_SHARE
   const FLOOR_EPSILON = 5e-7
-  const K = netMevEth + totalBidCost + totalGasCost + FLOOR_EPSILON
+  const K = netMevEth + c.bidCostEth + c.gasCostEth + c.sweepOverheadEth + FLOOR_EPSILON
   const requiredRaw = currentSlippagePct + 100 * (K / outputInEth - lastEffectiveRate)
   const required = Math.ceil(requiredRaw / SLIPPAGE_STEP) * SLIPPAGE_STEP
   if (required > slippageMax + SLIPPAGE_TOLERANCE) return null
@@ -115,22 +116,23 @@ function maxMilesAtCap(
 // Realistic cost values for tests:
 //   priorityFee ≈ 0.06 gwei × gasLimit 450k = 27_000 gwei = 2.7e-5 ETH
 //   baseFee     ≈ 1.5 gwei × gasUsed 180k = 270_000 gwei = 2.7e-4 ETH
+//   sweepOverheadEth ≈ backend `costEstimateLastResort` = 0.001 ETH
 const DEFAULT_COSTS: CostInputs = {
   bidCostEth: 2.7e-5,
   gasCostEth: 0, // ETH path doesn't deduct gasCost
-  sweepMultiplier: 1, // ETH output (no sweep)
+  sweepOverheadEth: 0, // ETH output skips the sweep step
 }
 
 const PERMIT_COSTS: CostInputs = {
   bidCostEth: 2.7e-5,
   gasCostEth: 2.7e-4,
-  sweepMultiplier: 2.5, // non-ETH output requires sweep
+  sweepOverheadEth: 0.001, // non-ETH output: backend last-resort default
 }
 
 const ZERO_COSTS: CostInputs = {
   bidCostEth: 0,
   gasCostEth: 0,
-  sweepMultiplier: 1,
+  sweepOverheadEth: 0,
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -139,7 +141,7 @@ const ZERO_COSTS: CostInputs = {
 describe("forward miles — known cases", () => {
   it("gives zero miles when net MEV is negative", () => {
     const surplus = 0.000001 // tiny
-    const c: CostInputs = { bidCostEth: 0.001, gasCostEth: 0, sweepMultiplier: 1 }
+    const c: CostInputs = { bidCostEth: 0.001, gasCostEth: 0, sweepOverheadEth: 0 }
     expect(forwardMiles(surplus, c)).toBe(0)
   })
 
@@ -304,7 +306,7 @@ describe("maxAchievableMiles is consistent with the forward formula", () => {
     const expensive: CostInputs = {
       bidCostEth: 0.001,
       gasCostEth: 0,
-      sweepMultiplier: 1,
+      sweepOverheadEth: 0,
     }
     const max = maxMilesAtCap(
       outputInEth,
@@ -321,13 +323,13 @@ describe("maxAchievableMiles is consistent with the forward formula", () => {
 
   it("returns 0 for a small permit-path swap (~$2 trade replicating real screenshot)", () => {
     // Replicates the case where a tiny ERC20→USDC swap can't earn miles
-    // even at 50% slippage because the 2.5× sweep multiplier on bid+gas
-    // costs exceeds 0.5×outputInEth. Surfaces the "Swap too small to earn
-    // miles at current gas" message in the calc.
+    // even at 50% slippage because the additive sweep overhead exceeds
+    // 0.5×outputInEth. Surfaces the "Swap too small to earn miles at
+    // current gas" message in the calc.
     //
     // ~$2 trade @ $3000 ETH → outputInEth ≈ 0.000667 ETH.
-    // Permit path costs: bidCost=2.7e-5, gasCost=2.7e-4, sweep 2.5x
-    // → totals 0.74e-3 ETH, dwarfing the 0.5×0.000667 = 3.3e-4 ETH ceiling.
+    // Permit-path costs: bid 2.7e-5 + gas 2.7e-4 + sweep overhead 1e-3
+    // ≈ 1.3e-3 ETH, dwarfing the 0.5×0.000667 = 3.3e-4 ETH ceiling.
     const usdcOut = 1.95 // $1.95
     const outputInEth = (usdcOut * 1) / 3000
     const max = maxMilesAtCap(

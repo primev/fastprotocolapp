@@ -555,6 +555,71 @@ ORDER BY block_timestamp DESC
 LIMIT :limit
 `.trim()
 
+// Realized bid cost samples for the dashboard MilesCell proxy.
+//
+// The indexer writes `surplus` and `gas_cost` immediately but leaves
+// `bid_cost` NULL until the sweep finalizer runs, so the dashboard has to
+// estimate it on pending rows. Returns realized `bid_cost / 1e18` values
+// since 2026-04-08 (the day the bid-cost regime change landed — earlier
+// data has 2× higher values and would bias the percentile up).
+//
+// 7-day window for reactivity: the backend reads real bid costs from chain
+// events with zero lag, so a tight window minimizes the frontend lag during
+// gas regime shifts. ~30+ swaps/day yields 200+ samples — plenty for p75.
+//
+// The caller picks p75 — same under-promise philosophy as
+// `GET_FASTSWAP_SURPLUS_RATES`. Tight distribution post-fix means a single
+// scalar estimate is a reasonable proxy.
+export const GET_FASTSWAP_BID_COSTS = `
+SELECT CAST(bid_cost AS DOUBLE) / 1e18 AS bid_cost_eth
+FROM mevcommit_57173.fastswap_miles
+WHERE processed = 1
+  AND bid_cost IS NOT NULL
+  AND CAST(bid_cost AS DOUBLE) > 0
+  AND block_timestamp >= '2026-04-08'
+  AND block_timestamp >= NOW() - INTERVAL 7 DAY
+`.trim()
+
+// Per-token sweep overhead samples for the upfront miles estimator.
+//
+// Mirrors the backend's `costEstimator.Refresh` query in
+// `mev-commit/tools/fastswap-miles/cost_estimator.go` line-for-line — same
+// WHERE clauses, same 14-day lookback, same percentile selection. Keeping
+// the SQL identical is what locks the frontend estimate in step with what
+// `awardUpfrontERC20Miles` will subtract on the backend; any backend filter
+// change must be mirrored here.
+//
+// Per-row overhead = `surplus_eth − net_profit_eth − bid_cost/1e18`.
+// Restricted to ETH-input rows because ERC20-input rows have user_gas baked
+// into (surplus_eth − net_profit_eth), and the miles formula deducts
+// user_gas separately — including ERC20-input samples here would inflate
+// the estimate and double-deduct downstream.
+//
+// Returns `(output_token, n, p25, p75)` so the cron caller can pick the
+// percentile (p25 when `n ≥ 10`, p75 otherwise) per token.
+export const GET_FASTSWAP_SWEEP_OVERHEAD_BY_TOKEN = `
+SELECT
+  output_token,
+  COUNT(*) AS n,
+  percentile_approx(per_row_oh, 0.25) AS p25,
+  percentile_approx(per_row_oh, 0.75) AS p75
+FROM (
+  SELECT
+    output_token,
+    surplus_eth - net_profit_eth - CAST(bid_cost AS DOUBLE) / 1e18 AS per_row_oh
+  FROM mevcommit_57173.fastswap_miles
+  WHERE processed = 1
+    AND swap_type = 'erc20'
+    AND miles > 0
+    AND surplus_eth > 0
+    AND surplus_eth IS NOT NULL
+    AND surplus_eth < 1.0
+    AND input_token = '0x0000000000000000000000000000000000000000'
+    AND block_timestamp >= NOW() - INTERVAL 14 DAY
+) t
+GROUP BY output_token
+`.trim()
+
 // Surplus rate samples for miles estimation.
 // Computes `surplus / user_amt_out` — both columns are in the SAME output-token
 // units (smallest denomination), so decimals cancel and the ratio is dimensionless.
@@ -649,6 +714,8 @@ export const QUERIES = {
   "l1/get-recent-swap-tx-hashes": GET_RECENT_L1_SWAP_TX_HASHES,
   "fastswap/get-recent-tx-hashes": GET_RECENT_FASTSWAP_TX_HASHES,
   "fastswap/get-surplus-rates": GET_FASTSWAP_SURPLUS_RATES,
+  "fastswap/get-sweep-overhead-by-token": GET_FASTSWAP_SWEEP_OVERHEAD_BY_TOKEN,
+  "fastswap/get-bid-costs": GET_FASTSWAP_BID_COSTS,
 
   // FastSwap miles domain
   "fastswap/get-user-recent-swaps": GET_USER_RECENT_SWAPS,
