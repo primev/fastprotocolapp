@@ -542,10 +542,11 @@ export function useEstimatedMiles({
     )
     const gasCostEth = isPermitPath ? Number(curBaseFee * predictedGasUsed) / 1e18 : 0
 
-    // Sweep overhead: per-token p25 of realized sweep gas, in ETH, from
-    // Edge Config. The backend's `costEstimator` writes the same value and
-    // subtracts it inside `awardUpfrontERC20Miles`. ETH/WETH output bypasses
-    // sweeping entirely (the `eth_weth` path), so the term is zero there.
+    // Sweep overhead: per-token estimate of pro-rata sweep gas + pro-rata
+    // sweep bid, in ETH, from Edge Config. The backend's `costEstimator`
+    // computes the same combined value and subtracts it inside
+    // `awardUpfrontERC20Miles`. ETH/WETH output bypasses sweeping entirely
+    // (the `eth_weth` path), so the term is zero there.
     const sweepOverheadEth = isEthOutput
       ? 0
       : sweepOverheadForToken(sweepOverheadByTokenRef.current, outputTokenAddress)
@@ -586,7 +587,7 @@ export function useEstimatedMiles({
         `  Step 4: Gas cost${isPermitPath ? " (relayer pays actual gasUsed on permit path)" : " (user pays on ETH path = 0)"}\n` +
         `    gasCostEth = ${isPermitPath ? `${curBaseFee.toString()} wei × ${predictedGasUsed.toString()} predictedGasUsed (p75 ratio ${PREDICTED_GAS_USED_RATIO_P75}) / 1e18 = ` : ""}${gasCostEth.toFixed(8)} ETH\n` +
         (!isEthOutput
-          ? `\n  Step 4b: Sweep overhead (non-ETH output, per-token p25 from Edge Config)\n` +
+          ? `\n  Step 4b: Sweep overhead (non-ETH output, per-token sweep gas + sweep bid from Edge Config)\n` +
             `    sweepOverheadEth = ${sweepOverheadEth.toFixed(8)} ETH (token=${outputTokenAddress ?? "unknown"})\n`
           : "") +
         `\n` +
