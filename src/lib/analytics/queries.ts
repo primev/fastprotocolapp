@@ -582,14 +582,14 @@ WHERE processed = 1
 
 // Per-token sweep overhead samples for the upfront miles estimator.
 //
-// Mirrors the backend's `costEstimator.Refresh` query in
-// `mev-commit/tools/fastswap-miles/cost_estimator.go` line-for-line — same
-// WHERE clauses, same 14-day lookback, same percentile selection. Keeping
-// the SQL identical is what locks the frontend estimate in step with what
-// `awardUpfrontERC20Miles` will subtract on the backend; any backend filter
+// Mirrors the gas-overhead portion of the backend's `costEstimator.Refresh`
+// query in `mev-commit/tools/fastswap-miles/cost_estimator.go` line-for-line.
+// The cron pairs this with GET_FASTSWAP_SWEEP_BID_BY_TOKEN below and folds
+// the sweep-bid contribution into the chosen percentile so the Edge Config
+// value matches the backend's combined `PerRowOverhead`. Any backend filter
 // change must be mirrored here.
 //
-// Per-row overhead = `surplus_eth − net_profit_eth − bid_cost/1e18`.
+// Per-row gas overhead = `surplus_eth − net_profit_eth − bid_cost/1e18`.
 // Restricted to ETH-input rows because ERC20-input rows have user_gas baked
 // into (surplus_eth − net_profit_eth), and the miles formula deducts
 // user_gas separately — including ERC20-input samples here would inflate
@@ -618,6 +618,49 @@ FROM (
     AND block_timestamp >= NOW() - INTERVAL 14 DAY
 ) t
 GROUP BY output_token
+`.trim()
+
+// Per-token sweep bid contribution (ETH) for the upfront miles estimator.
+//
+// Mirrors `computePerTokenSweepBidEth` in
+// `mev-commit/tools/fastswap-miles/cost_estimator.go`. For each output_token T:
+//
+//   per_row_sweep_bid_eth(T) = (n_sweeps(T) × global_bid_p75_eth) / n_user_rows(T)
+//
+// The sweep tx is itself a fastswap so global p75 of `bid_cost/1e18` is
+// the right reference population (tight distribution, many samples). p75 =
+// under-promise. Cron caller adds this per-row value to the chosen gas
+// percentile per token, writes the combined value to Edge Config.
+//
+// Params: `:executor` (lowercased), `:weth` (lowercased), `:fallback_bid_eth`
+// — used by COALESCE when the global percentile subquery returns NULL.
+export const GET_FASTSWAP_SWEEP_BID_BY_TOKEN = `
+SELECT s.token, s.n_sweeps, u.n_users, COALESCE(b.p, :fallback_bid_eth) AS bid_p75
+FROM (
+  SELECT LOWER(input_token) AS token, COUNT(*) AS n_sweeps
+  FROM mevcommit_57173.fastswap_miles
+  WHERE LOWER(user_address) = :executor
+    AND swap_type = 'eth_weth'
+    AND LOWER(output_token) = :weth
+    AND block_timestamp >= NOW() - INTERVAL 14 DAY
+  GROUP BY input_token
+) s
+JOIN (
+  SELECT LOWER(output_token) AS token, COUNT(*) AS n_users
+  FROM mevcommit_57173.fastswap_miles
+  WHERE swap_type = 'erc20'
+    AND LOWER(user_address) != :executor
+    AND block_timestamp >= NOW() - INTERVAL 14 DAY
+  GROUP BY output_token
+) u ON u.token = s.token
+CROSS JOIN (
+  SELECT percentile_approx(CAST(bid_cost AS DOUBLE)/1e18, 0.75) AS p
+  FROM mevcommit_57173.fastswap_miles
+  WHERE processed = 1
+    AND bid_cost IS NOT NULL
+    AND CAST(bid_cost AS DOUBLE) > 0
+    AND block_timestamp >= NOW() - INTERVAL 14 DAY
+) b
 `.trim()
 
 // Surplus rate samples for miles estimation.
@@ -715,6 +758,7 @@ export const QUERIES = {
   "fastswap/get-recent-tx-hashes": GET_RECENT_FASTSWAP_TX_HASHES,
   "fastswap/get-surplus-rates": GET_FASTSWAP_SURPLUS_RATES,
   "fastswap/get-sweep-overhead-by-token": GET_FASTSWAP_SWEEP_OVERHEAD_BY_TOKEN,
+  "fastswap/get-sweep-bid-by-token": GET_FASTSWAP_SWEEP_BID_BY_TOKEN,
   "fastswap/get-bid-costs": GET_FASTSWAP_BID_COSTS,
 
   // FastSwap miles domain

@@ -440,24 +440,27 @@ function SwapConfirmationModal({
         if (refreshBalances) setTimeout(() => refreshBalances(), 1000)
         setTimeout(() => refetchMiles(), 5000)
       }
+      // NOTE: don't call onCloseAfterSuccess here. The toast already receives it
+      // as `onPreConfirm` (7th addToast arg) and will fire it on preconfirmation.
+      // Wiping the form on submit (the prior behavior) made retries impossible
+      // — both the barter-slippage retry and the modal's "Try Again" button
+      // reopen with empty amounts because the form is the source of truth that
+      // feeds the modal's snapshot.
       if (isWrap) {
         const hash = await wrap()
         notifySwapSubmitted(hash, estimatedMiles)
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
-        onCloseAfterSuccess()
         onOpenChange(false)
       } else if (isUnwrap) {
         const hash = await unwrap()
         notifySwapSubmitted(hash, estimatedMiles)
         addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
-        onCloseAfterSuccess()
         onOpenChange(false)
       } else {
         const hash = await confirmSwap({
           onPendingHash: (ph) => {
             pendingPlaceholder = ph
             addToast(ph, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
-            onCloseAfterSuccess()
             onOpenChange(false) // Close modal immediately; toast takes over
           },
         })
@@ -469,7 +472,6 @@ function SwapConfirmationModal({
           updateToastHash(pendingPlaceholder, hash)
         } else {
           addToast(hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onCloseAfterSuccess)
-          onCloseAfterSuccess()
         }
         onOpenChange(false)
       }

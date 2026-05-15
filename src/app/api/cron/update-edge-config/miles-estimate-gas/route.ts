@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { patchEdgeConfigItems } from "@/lib/vercel-edge-config"
 import { getAnalyticsClient } from "@/lib/analytics/client"
+import { FAST_SETTLEMENT_EXECUTOR_ADDRESS, WETH_ADDRESS } from "@/lib/swap-constants"
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -381,14 +382,19 @@ async function computeBidCostEstimate(): Promise<number> {
 /**
  * Per-token sweep overhead map: lowercased L1 token address → ETH overhead.
  *
- * Mirrors the backend's `costEstimator.Get` semantics in
+ * Mirrors the backend's combined `PerRowOverhead` in
  * `mev-commit/tools/fastswap-miles/cost_estimator.go`:
- *   - per-token p25 over the last 14 days when sample size ≥ 10
- *   - per-token p75 when sample size < 10 (low-data fallback)
- *   - `default` is a network-wide p25 across all tokens — used when the
- *     frontend's selected output token isn't in the map at all
- *   - falls back to `LAST_RESORT_SWEEP_OVERHEAD_ETH` if the network query
- *     itself returns nothing usable
+ *   1. Per-token p25/p75 of pro-rata sweep gas (`get-sweep-overhead-by-token`).
+ *   2. Plus per-token sweep bid contribution (`get-sweep-bid-by-token`):
+ *      `(n_sweeps × global_bid_p75) / n_user_rows`. The sweep tx is itself a
+ *      fastswap so a global percentile of recent bid_cost is the right proxy.
+ *
+ * Both terms scale with batch size — low-volume tokens have a small number
+ * of user rows per sweep so the per-row contribution is high, and high-
+ * volume tokens dilute both.
+ *
+ * The `default` key falls back to `LAST_RESORT_SWEEP_OVERHEAD_ETH` so the
+ * frontend's selected output token has a value even when not in the map.
  *
  * Returned values are ETH (float) so the route handler can ship the map
  * straight to Edge Config without extra encoding.
@@ -396,7 +402,28 @@ async function computeBidCostEstimate(): Promise<number> {
 async function computeSweepOverheadByToken(): Promise<Record<string, number>> {
   const client = getAnalyticsClient()
 
-  const rows = await client.execute("fastswap/get-sweep-overhead-by-token", {})
+  const [gasRows, bidRows] = await Promise.all([
+    client.execute("fastswap/get-sweep-overhead-by-token", {}),
+    client.execute("fastswap/get-sweep-bid-by-token", {
+      executor: FAST_SETTLEMENT_EXECUTOR_ADDRESS.toLowerCase(),
+      weth: WETH_ADDRESS.toLowerCase(),
+      fallback_bid_eth: FALLBACK_BID_COST_ETH,
+    }),
+  ])
+
+  // Per-row sweep bid contribution, keyed by lowercased output_token.
+  const bidByToken = new Map<string, number>()
+  for (const row of bidRows) {
+    const token = String(row[0] ?? "").toLowerCase()
+    const nSweeps = Number(row[1])
+    const nUsers = Number(row[2])
+    const bidP75 = Number(row[3])
+    if (!token || token === "null") continue
+    if (!Number.isFinite(nSweeps) || nSweeps <= 0) continue
+    if (!Number.isFinite(nUsers) || nUsers <= 0) continue
+    if (!Number.isFinite(bidP75) || bidP75 <= 0) continue
+    bidByToken.set(token, (nSweeps * bidP75) / nUsers)
+  }
 
   // `default` mirrors the backend's `costEstimateLastResort` exactly — for
   // tokens the backend has no historical data on, both estimators must
@@ -405,7 +432,7 @@ async function computeSweepOverheadByToken(): Promise<Record<string, number>> {
   // user gets fewer miles than the badge said.
   const map: Record<string, number> = { default: LAST_RESORT_SWEEP_OVERHEAD_ETH }
 
-  for (const row of rows) {
+  for (const row of gasRows) {
     const token = String(row[0] ?? "").toLowerCase()
     const n = Number(row[1])
     const p25 = Number(row[2])
@@ -415,15 +442,18 @@ async function computeSweepOverheadByToken(): Promise<Record<string, number>> {
     if (!Number.isFinite(n) || n <= 0) continue
     if (!Number.isFinite(p25) || !Number.isFinite(p75)) continue
 
-    const overhead = n >= SWEEP_OVERHEAD_MIN_SAMPLES ? p25 : p75
-    if (!Number.isFinite(overhead) || overhead < 0) continue
+    const gasOverhead = n >= SWEEP_OVERHEAD_MIN_SAMPLES ? p25 : p75
+    if (!Number.isFinite(gasOverhead) || gasOverhead < 0) continue
+
+    const sweepBid = bidByToken.get(token) ?? 0
+    const combined = gasOverhead + sweepBid
 
     // Round to 8 decimal places (0.01 µETH) to keep Edge Config JSON tight.
-    map[token] = Math.round(overhead * 1e8) / 1e8
+    map[token] = Math.round(combined * 1e8) / 1e8
   }
 
   console.log(
-    `[cron/miles-estimate-gas] sweepOverhead — ${Object.keys(map).length - 1} tokens, default=${(map.default * 1e6).toFixed(0)} µETH (last-resort), sample=${JSON.stringify(
+    `[cron/miles-estimate-gas] sweepOverhead — ${Object.keys(map).length - 1} tokens, ${bidByToken.size} with sweep bid, default=${(map.default * 1e6).toFixed(0)} µETH (last-resort), sample=${JSON.stringify(
       Object.fromEntries(
         Object.entries(map)
           .filter(([k]) => k !== "default")
