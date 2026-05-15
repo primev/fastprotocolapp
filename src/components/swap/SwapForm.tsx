@@ -85,26 +85,32 @@ export function SwapForm() {
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
   const [autoExecuteSwap, setAutoExecuteSwap] = useState(false)
   const lastTxError = useSwapToastStore((s) => s.lastTxError)
-  const retrySlippage = useSwapToastStore((s) => s.retrySlippage)
-  const clearRetrySlippage = useSwapToastStore((s) => s.clearRetrySlippage)
+  const retryRequest = useSwapToastStore((s) => s.retryRequest)
+  const clearRetryRequest = useSwapToastStore((s) => s.clearRetryRequest)
 
   // Reopen confirmation modal when a tx fails after submit (e.g. status 0x0)
   useEffect(() => {
     if (lastTxError) setIsConfirmationOpen(true)
   }, [lastTxError])
 
-  // Barter slippage retry: update slippage, fetch fresh quote, then auto-execute
+  // Barter slippage retry: restore the form's sell-side amount (the submit path
+  // wipes it via `onCloseAfterSuccess` before the retry toast even appears),
+  // update slippage, refetch the quote, then auto-execute when fresh data arrives.
   const [pendingRetry, setPendingRetry] = useState(false)
 
   useEffect(() => {
-    if (retrySlippage) {
-      form.updateSlippage(retrySlippage)
-      clearRetrySlippage()
+    if (retryRequest) {
+      if (retryRequest.amount) {
+        form.setEditingSide("sell")
+        form.setAmount(retryRequest.amount)
+      }
+      form.updateSlippage(retryRequest.slippage)
+      clearRetryRequest()
       setIsConfirmationOpen(false)
       setPendingRetry(true)
       form.refetchQuote()
     }
-  }, [retrySlippage, clearRetrySlippage, form])
+  }, [retryRequest, clearRetryRequest, form])
 
   // Wait for fresh quote to arrive before opening modal with auto-execute
   useEffect(() => {

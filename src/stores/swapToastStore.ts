@@ -38,12 +38,22 @@ export type SwapTxError = {
   occurredAfterPreConfirm?: boolean
 }
 
+/** Captures everything SwapForm needs to reopen the modal with the same swap intent
+ *  the user just tried. We carry the amount alongside the slippage because the form's
+ *  `amount` state is cleared the moment the tx is submitted (see
+ *  `onCloseAfterSuccess` in `executeSwap`) — by the time the user clicks Retry the
+ *  failed toast is still showing the amounts but the form is empty. */
+export type SwapRetryRequest = {
+  slippage: string
+  amount: string
+}
+
 type Store = {
   toasts: SwapToast[]
   /** Set when a tx fails after submit; SwapConfirmationModal shows error modal. Cleared when modal closes. */
   lastTxError: SwapTxError | null
   /** Set when user clicks "Retry with X%" on a barter slippage toast. SwapForm subscribes and reopens modal. */
-  retrySlippage: string | null
+  retryRequest: SwapRetryRequest | null
   addToast: (
     hash: string,
     tokenIn?: Token,
@@ -64,9 +74,10 @@ type Store = {
   /** Opens the error modal by setting lastTxError from the toast's stored error data. */
   showErrorForToast: (hash: string) => void
   clearLastTxError: () => void
-  /** Removes the failed toast and sets retrySlippage so SwapForm can reopen the modal with updated slippage. */
+  /** Removes the failed toast and sets retryRequest so SwapForm can restore the form's
+   *  amount, update the slippage, and reopen the modal. */
   requestRetryWithSlippage: (hash: string, slippage: string) => void
-  clearRetrySlippage: () => void
+  clearRetryRequest: () => void
   collapse: (hash: string) => void
   expand: (hash: string) => void
   removeToast: (hash: string) => void
@@ -77,7 +88,7 @@ type Store = {
 export const useSwapToastStore = create<Store>((set, get) => ({
   toasts: [],
   lastTxError: null,
-  retrySlippage: null,
+  retryRequest: null,
 
   addToast: (hash, tokenIn, tokenOut, amountIn, amountOut, onConfirm, onPreConfirm) =>
     set((s) => ({
@@ -151,12 +162,18 @@ export const useSwapToastStore = create<Store>((set, get) => ({
   clearLastTxError: () => set({ lastTxError: null }),
 
   requestRetryWithSlippage: (hash, slippage) =>
-    set((s) => ({
-      toasts: s.toasts.filter((t) => t.hash !== hash),
-      retrySlippage: slippage,
-    })),
+    set((s) => {
+      const toast = s.toasts.find((t) => t.hash === hash)
+      return {
+        toasts: s.toasts.filter((t) => t.hash !== hash),
+        // Preserve the sell-side amount so SwapForm can refill the input. Buy-side
+        // edits collapse to a sell-side restore on retry: the refetched quote
+        // reproduces the buy amount within a few wei of the original.
+        retryRequest: { slippage, amount: toast?.amountIn ?? "" },
+      }
+    }),
 
-  clearRetrySlippage: () => set({ retrySlippage: null }),
+  clearRetryRequest: () => set({ retryRequest: null }),
 
   collapse: (hash) =>
     set((s) => ({
